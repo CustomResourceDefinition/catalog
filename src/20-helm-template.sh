@@ -13,8 +13,10 @@ for repository in ${repositories}; do
         versions=$(helm search repo "$name/$entry" --versions -o json | jq -rc 'reverse | .[].version')
         for version in ${versions}; do
             file=$(printf $outputfile $name $entry $version)
-            helm template --include-crds "$name" "$name/$entry" | yq 'select(.kind == "CustomResourceDefinition")' > $file
+            helm template --include-crds "$name" "$name/$entry" --version ${version}| yq 'select(.kind == "CustomResourceDefinition")' > $file
             # FIXME: check for empty file
         done
     done
 done
+
+fdupes -rdN "$(printf $output $name)"
