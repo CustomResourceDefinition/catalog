@@ -5,6 +5,7 @@ list:
 
 clean:
 	@docker rmi -f runner:latest
+	@find helm/templates -type d -mindepth 1 -exec rm -r {} \; || true
 
 build: clean
 	@docker build -qt runner --build-arg CONFIGURATION=helm-charts.yaml . 2>/dev/null

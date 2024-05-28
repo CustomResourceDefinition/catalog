@@ -10,6 +10,8 @@ def split_file(input_file, output_prefix):
                     output_file.close()
                 file_count += 1
                 output_file = open(f"{output_prefix}_{file_count}.yaml", 'w')
+            elif line.strip().startswith("#"):
+                continue
             else:
                 if output_file:
                     output_file.write(line)
