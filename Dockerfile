@@ -2,7 +2,7 @@ FROM alpine
 
 ARG CONFIGURATION
 
-RUN apk add python3 py3-yaml yq-go helm jq fdupes
+RUN apk add python3 py3-yaml yq-go helm jq
 
 COPY /src /app
 COPY /${CONFIGURATION} /app/configuration.yaml

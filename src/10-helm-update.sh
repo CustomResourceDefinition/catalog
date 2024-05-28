@@ -5,3 +5,4 @@ for repository in ${repositories}; do
     helm repo list 2>/dev/null | grep -q "^$name" || helm repo add "$name" "$repository"
 done
 helm repo update
+echo
