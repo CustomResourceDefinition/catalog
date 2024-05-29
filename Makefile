@@ -1,97 +1,59 @@
 .DEFAULT_GOAL := run
-.PHONY: list
-list:
-	@grep '^[a-zA-Z0-9]' Makefile | cut -d\: -f1
+.PHONY: test
+
+export DOCKER_CLI_HINTS=false
 
 clean:
-	@(docker inspect --type=image crd-runner:latest >/dev/null 2>/dev/null && (docker rm $$(docker container ls -aqf "ancestor=crd-runner:latest") >/dev/null && docker rmi -f crd-runner:latest >/dev/null)) || true
-	@find helm/cache helm/templates helm/config helm/local test/schema -type d -mindepth 1 -maxdepth 1 -print0 | xargs -0 -I{} sh -c 'rm -r "{}"' || true
+	@(docker inspect --type=image crd-runner:latest &>/dev/null && (docker rm -f $$(docker container ls -aqf "ancestor=crd-runner:latest") &>/dev/null && docker rmi -f crd-runner:latest &>/dev/null)) || true
+	@find helm/ -type d -mindepth 2 -maxdepth 2 -print0 | xargs -0 -I{} sh -c 'rm -r "{}"' || true
+	@find test/schema -type d -mindepth 1 -maxdepth 1 -print0 | xargs -0 -I{} sh -c 'rm -r "{}"' || true
 	@find helm/config test/repository -type f ! -name .gitkeep ! -name .gitignore -delete
 
-build: clean
-	@docker build -qt crd-runner --build-arg CONFIGURATION=helm-charts.yaml . 2>/dev/null
+build-image: clean
+	@docker build -qt crd-runner . >/dev/null
 
-build-test: clean
-	@docker build -qt crd-runner --build-arg CONFIGURATION=test/helm-charts.yaml . 2>/dev/null
-	@docker run \
+build: build-image
+	@docker container create --name crd-runner \
 	-v ./helm/cache:/root/.cache/helm \
 	-v ./helm/config:/root/.config/helm \
 	-v ./helm/local:/root/.local/share/helm \
+	-v ./helm/templates:/templates \
+	-v ./helm-charts.yaml:/app/configuration.yaml \
+	crd-runner >/dev/null
+	@docker start crd-runner >/dev/null
+
+build-test: build-image
+	@docker container create --name crd-runner \
+	-v ./helm/cache:/root/.cache/helm \
+	-v ./helm/config:/root/.config/helm \
+	-v ./helm/local:/root/.local/share/helm \
+	-v ./helm/templates:/templates \
 	-v ./test/repository/:/repository \
+	-v ./test/schema/:/schema \
+	-v ./test/verified-schemas/happy-path/:/verified-schema \
 	-v ./test/chart/:/chart \
-	crd-runner \
-	/bin/sh test/prepare-chart.sh
+	-v ./test/helm-charts.yaml:/app/configuration.yaml \
+	crd-runner >/dev/null
+	@docker start crd-runner >/dev/null
 
---update:
-	@docker run \
-	-v ./helm/cache:/root/.cache/helm \
-	-v ./helm/config:/root/.config/helm \
-	-v ./helm/local:/root/.local/share/helm \
-	-v ./test/repository/:/repository \
-	crd-runner \
-	/bin/sh app/10-helm-update.sh
+shell: clean build
+	@docker exec -it crd-runner /bin/sh
 
---template:
-	@docker run \
-	-v ./helm/cache:/root/.cache/helm \
-	-v ./helm/config:/root/.config/helm \
-	-v ./helm/local:/root/.local/share/helm \
-	-v ./helm/templates:/templates \
-	-v ./test/repository/:/repository \
-	crd-runner \
-	/bin/sh app/20-helm-template.sh
+run: build
+	@docker exec -it crd-runner /bin/sh app/main.sh
 
---deduplicate:
-	@docker run \
-	-v ./helm/templates:/templates \
-	crd-runner \
-	/bin/sh app/25-manifests-deduplicate.sh
+test:
+	@$(MAKE) test-happy-path
+	@$(MAKE) test-only-latest
 
---split:
-	@docker run \
-	-v ./helm/templates:/templates \
-	crd-runner \
-	/bin/sh app/30-manifests-split.sh
+test-happy-path: build-test
+	@docker exec -it crd-runner /bin/sh /test/prepare-chart.sh
+	@docker exec -it crd-runner /bin/sh app/main.sh
+	@docker exec -it crd-runner /bin/sh /test/verify-test.sh "Happy path works"
 
---arrange:
-	@docker run \
-	-v ./helm/templates:/templates \
-	-v ./schema/:/schema \
-	crd-runner \
-	/bin/sh app/40-manifest-arrange.sh
-
---arrange-test:
-	@docker run \
-	-v ./helm/templates:/templates \
-	-v ./test/schema/:/schema \
-	crd-runner \
-	/bin/sh app/40-manifest-arrange.sh
-
---convert:
-	@docker run \
-	-v ./schema/:/schema \
-	crd-runner \
-	/bin/sh app/50-manifest-convert.sh
-
---convert-test:
-	@docker run \
-	-v ./test/schema/:/schema \
-	crd-runner \
-	/bin/sh app/50-manifest-convert.sh
-
-run: build --update --template --deduplicate --split --arrange --convert
-
-test: build-test --update --template --deduplicate --split --arrange-test --convert-test
-	@docker run \
-	-v ./test/schema/:/schema \
-	-v ./test/verified-schema/:/verified-schema \
-	crd-runner \
-	/bin/sh /test/verify-test.sh
-
-shell: build
-	@docker run -it \
-	-v ./helm/cache:/root/.cache/helm \
-	-v ./helm/config:/root/.config/helm \
-	-v ./helm/local:/root/.local/share/helm \
-	crd-runner \
-	/bin/sh
+test-only-latest: build-test
+	@docker exec -it crd-runner /bin/sh /test/prepare-chart.sh
+	@mkdir -p test/schema/chart.local/
+	@touch test/schema/chart.local/ingressroutetcp_v1alpha1.json
+	@docker exec -it crd-runner /bin/sh app/main.sh
+	@docker exec -it crd-runner /bin/sh /test/verify-test.sh "Only lastest version used"

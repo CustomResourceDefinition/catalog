@@ -1,5 +1,3 @@
-cd /repository; python3 -m http.server 2>&1 | grep -v '" 200 -' &
-
 input=/app/configuration.yaml
 repositories=$(yq '.[].repository' $input)
 for repository in ${repositories}; do
