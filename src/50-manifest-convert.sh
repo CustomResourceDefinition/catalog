@@ -7,5 +7,7 @@ for directory in /schema/*/; do
     cd - >/dev/null
 done
 
-echo "Cleaning up problematic files ..."
+echo "Cleaning up problematic files:"
 find /schema -name "*.yaml" -print -delete || true
+echo done
+echo

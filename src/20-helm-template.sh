@@ -7,28 +7,35 @@ echo "Templating ..."
 for repository in ${repositories}; do
     name=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .name')
     entries=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .entries[]')
-    printf '  - %s from %s' "$name" "$repository"
+    printf '  - %s\n' "$repository"
     mkdir -p "$(printf $output $name)" || true
+    # FIXME: create test for values file?
+    yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .valuesFile // ""' > /tmp/values
     for entry in ${entries}; do
-        file=$(printf $outputfile $name $entry 'latest')
-        helm template --include-crds "$name" "$name/$entry" | yq 'select(.kind == "CustomResourceDefinition")' | yq eval 'del(.. | .description?)' > "$file"
-        groups=$(yq .spec.group < $file | grep -v '\---' | uniq)
+        printf '    - %s\n' "$entry"
+        version=$(helm show chart "$name/$entry" | yq .version)
+        file=$(printf $outputfile $name $entry $version)
+        helm template --include-crds "$name" "$name/$entry" -f /tmp/values | yq 'select(.kind == "CustomResourceDefinition")' | yq eval 'del(.. | .description?)' > "$file"
+        groups=$(yq .spec.group < $file | grep -v '\---' | grep -v null | uniq)
 
         known=1
         for group in ${groups}; do
-            test -d /schema/$group || known=0
+            if [ ! -d /schema/$group ]; then
+                known=0
+                echo "      - $group is unknown -> render all versions"
+            fi
         done
         if [ $known -eq 1 ]; then
-            printf ' - using latest version only\n'
+            printf '      - version %s\n' "$version"
             break
         fi
 
         rm "$file"
-        printf ' - using all versions\n'
         versions=$(helm search repo "$name" --versions -o json | jq -rc  --arg name "$name/$entry" '[.[] | select(.name == $name)] | reverse | .[].version')
         for version in ${versions}; do
+            printf '      - version %s\n' "$version"
             file=$(printf $outputfile $name $entry $version)
-            helm template --include-crds "$name" "$name/$entry" --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' | yq eval 'del(.. | .description?)' > "$file"
+            helm template --include-crds "$name" "$name/$entry" -f /tmp/values --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' | yq eval 'del(.. | .description?)' > "$file"
         done
     done
 done
