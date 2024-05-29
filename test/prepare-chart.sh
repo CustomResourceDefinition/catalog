@@ -1,4 +1,6 @@
-echo "Setup chart ..."
+set -e
+
+echo "Setup test chart ... "
 
 cd /repository
 helm package /chart
