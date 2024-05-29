@@ -5,19 +5,29 @@ list:
 
 clean:
 	@(docker inspect --type=image crd-runner:latest >/dev/null 2>/dev/null && (docker rm $$(docker container ls -aqf "ancestor=crd-runner:latest") >/dev/null && docker rmi -f crd-runner:latest >/dev/null)) || true
-	@find helm/templates test/schema -type d -mindepth 1 -maxdepth 1 -print0 | xargs -0 -I{} sh -c 'rm -r "{}"' || true
+	@find helm/cache helm/templates helm/config helm/local test/schema -type d -mindepth 1 -maxdepth 1 -print0 | xargs -0 -I{} sh -c 'rm -r "{}"' || true
+	@find helm/config test/repository -type f ! -name .gitkeep ! -name .gitignore -delete
 
 build: clean
 	@docker build -qt crd-runner --build-arg CONFIGURATION=helm-charts.yaml . 2>/dev/null
 
 build-test: clean
 	@docker build -qt crd-runner --build-arg CONFIGURATION=test/helm-charts.yaml . 2>/dev/null
+	@docker run \
+	-v ./helm/cache:/root/.cache/helm \
+	-v ./helm/config:/root/.config/helm \
+	-v ./helm/local:/root/.local/share/helm \
+	-v ./test/repository/:/repository \
+	-v ./test/chart/:/chart \
+	crd-runner \
+	/bin/sh test/prepare-chart.sh
 
 --update:
 	@docker run \
 	-v ./helm/cache:/root/.cache/helm \
 	-v ./helm/config:/root/.config/helm \
 	-v ./helm/local:/root/.local/share/helm \
+	-v ./test/repository/:/repository \
 	crd-runner \
 	/bin/sh app/10-helm-update.sh
 
@@ -27,6 +37,7 @@ build-test: clean
 	-v ./helm/config:/root/.config/helm \
 	-v ./helm/local:/root/.local/share/helm \
 	-v ./helm/templates:/templates \
+	-v ./test/repository/:/repository \
 	crd-runner \
 	/bin/sh app/20-helm-template.sh
 

@@ -6,3 +6,6 @@ for directory in /schema/*/; do
     find . -name "*.yaml" -type f -print0 | sort -z | xargs -0 -I{} sh -c 'python /app/helpers/convert.py "{}" >/dev/null; rm "{}"'
     cd - >/dev/null
 done
+
+echo "Cleaning up problematic files ..."
+find /schema -name "*.yaml" -print -delete || true

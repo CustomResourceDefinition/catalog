@@ -1,8 +1,11 @@
+cd /repository; python3 -m http.server 2>&1 | grep -v '" 200 -' &
+
 input=/app/configuration.yaml
 repositories=$(yq '.[].repository' $input)
 for repository in ${repositories}; do
     name=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .name')
-    helm repo list 2>/dev/null | grep -q "^$name" || helm repo add "$name" "$repository"
+    helm repo list 2>/dev/null | grep -q "^$name" && continue
+    helm repo add "$name" "$repository"
 done
 helm repo update
 echo

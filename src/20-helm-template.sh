@@ -1,3 +1,5 @@
+cd /repository; python3 -m http.server 2>&1 | grep -v '" 200 -' &
+
 input=/app/configuration.yaml
 output=/templates/%s/
 outputfile=/templates/%s/%s-%s.yaml
@@ -16,7 +18,6 @@ for repository in ${repositories}; do
         for version in ${versions}; do
             file=$(printf $outputfile $name $entry $version)
             helm template --include-crds "$name" "$name/$entry" --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' | yq eval 'del(.. | .description?)' > "$file"
-            # FIXME: check for empty file
         done
     done
 done
