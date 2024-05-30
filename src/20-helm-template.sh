@@ -10,10 +10,10 @@ for repository in ${repositories}; do
 
     yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .valuesFile // ""' > /tmp/values
     for entry in ${entries}; do
-        mkdir -p "$(printf $output $name $entry)" || true
+        mkdir -p "$(printf "$output" "$name" "$entry")" || true
         printf '    - %s\n' "$entry"
         version=$(helm show chart "$name/$entry" | yq .version)
-        file=$(printf $outputfile $name $entry $version)
+        file=$(printf "$outputfile" "$name" "$entry" "$version")
         helm template --include-crds "$name" "$name/$entry" -f /tmp/values --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' | yq eval 'del(.. | .description?)' > "$file"
         groups=$(yq .spec.group < $file | grep -v '\---' | grep -v null | uniq)
 
@@ -33,7 +33,7 @@ for repository in ${repositories}; do
         versions=$(helm search repo "$name" --versions -o json | jq -rc  --arg name "$name/$entry" '[.[] | select(.name == $name)] | reverse | .[].version')
         for version in ${versions}; do
             printf '      - version %s\n' "$version"
-            file=$(printf $outputfile $name $entry $version)
+            file=$(printf "$outputfile" "$name" "$entry" "$version")
             helm template --include-crds "$name" "$name/$entry" -f /tmp/values --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' | yq eval 'del(.. | .description?)' > "$file"
         done
     done

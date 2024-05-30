@@ -6,7 +6,9 @@ echo "Sanitizing manifests ..."
 
 echo "  - removing no content manifests:"
 for directory in */*/; do
+    #shellcheck disable=SC2038
     find $directory -type f -exec sh -c 'grep -q "[^[:space:]]" "$0" || echo "$0"' {} \; | xargs -I{} sh -c 'rm "{}"; echo "    - {}"'
+    #shellcheck enable=SC2038
 done
 echo "    - done"
 

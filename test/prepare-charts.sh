@@ -2,7 +2,7 @@ set -e
 
 echo "Setup test charts ... "
 cd /repository
-rm -rf * &>/dev/null || true
+rm -rf -- * &>/dev/null || true
 
 helm package /chart
 
