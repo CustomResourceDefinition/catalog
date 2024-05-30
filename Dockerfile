@@ -1,8 +1,6 @@
 FROM alpine
 
-ARG CONFIGURATION
-
-RUN apk add python3 py3-yaml yq-go helm jq
+RUN apk add python3 py3-yaml yq-go helm jq wget
 
 COPY /src /app
 RUN cat /app/*.sh > /app/main.tmp

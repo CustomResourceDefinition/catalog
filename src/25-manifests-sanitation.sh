@@ -11,6 +11,15 @@ for directory in */*/; do
 done
 echo "    - done"
 
+echo "  - removing descriptions from manifests:"
+for directory in */*/; do
+    echo "    - $directory"
+    find $directory -name "*.yaml" -type f -print0 | sort -z | while IFS= read -r -d '' file; do
+        yq eval 'del(.. | .description?)' < "$file" > "$file.tmp"; mv "$file.tmp" "$file"
+    done
+done
+echo "    - done"
+
 echo "  - deduplicating:"
 for directory in */*/; do
     find $directory -type f -exec md5sum {} + > $tmp/file_hashes.txt
