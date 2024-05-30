@@ -10,8 +10,10 @@ yq eval '.[]' $input -o json | jq -rc |while IFS= read -r item; do
 
     echo "  - $name version $version"
 
+    #shellcheck disable=SC2059
     mkdir -p "$(printf "$output" "uri" "$name")" || true
     for path in ${paths}; do
+        #shellcheck disable=SC2059
         file=$(printf "$outputfile" "uri" "$name" "$version")
         wget -q "$baseUri/$path" -O "$file" || true
     done
