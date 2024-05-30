@@ -49,17 +49,11 @@ test: clean ci-test
 ci-test: test-happy-path test-only-latest
 
 test-happy-path: build-test
-	@docker exec crd-runner /bin/sh /app/test/prepare-helm.sh
-	@docker exec crd-runner /bin/sh /app/test/prepare-charts.sh
-	@docker exec crd-runner /bin/sh /app/test/prepare-schema.sh happy-path
+	@docker exec crd-runner /bin/sh /app/test/prepare.sh happy-path
 	@docker exec crd-runner /bin/sh /app/main.sh
-	@docker exec crd-runner /bin/sh /app/test/verify-test.sh "Happy path works"
+	@docker exec crd-runner /bin/sh /app/test/verify.sh "Happy path works"
 
 test-only-latest: build-test
-	@docker exec crd-runner /bin/sh /app/test/prepare-helm.sh
-	@docker exec crd-runner /bin/sh /app/test/prepare-charts.sh
-	@docker exec crd-runner /bin/sh /app/test/prepare-schema.sh only-latest
-	@mkdir -p mounts/ephemeral/schema/chart.local/ &>/dev/null || true
-	@mkdir -p mounts/ephemeral/schema/chart.new/ &>/dev/null || true
+	@docker exec crd-runner /bin/sh /app/test/prepare.sh only-latest
 	@docker exec crd-runner /bin/sh /app/main.sh
-	@docker exec crd-runner /bin/sh /app/test/verify-test.sh "Only lastest version used"
+	@docker exec crd-runner /bin/sh /app/test/verify.sh "Only lastest version used"
