@@ -1,4 +1,4 @@
-# FIXME: break on errors?
+set -e
 echo "Arranging manifests ..."
 cd /templates
 for directory in */*/; do

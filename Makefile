@@ -35,7 +35,7 @@ build-test: build-image
 	crd-runner >/dev/null
 	@docker start crd-runner >/dev/null
 
-shell: clean build
+shell: build
 	@docker exec -it crd-runner /bin/sh
 
 run: build

@@ -1,4 +1,4 @@
-# FIXME: break on errors?
+set -e
 echo "Converting files to schema validation ..."
 for directory in /schema/*/; do
     echo "  - $(basename $directory)"
@@ -8,6 +8,6 @@ for directory in /schema/*/; do
 done
 
 echo "Cleaning up problematic files:"
-find /schema -name "*.yaml" -print -delete || true
-echo done
+find /schema -name "*.yaml" -print0 | xargs -0 -I{} sh -c 'rm "{}"; echo "  - {}"'
+echo "  - done"
 echo

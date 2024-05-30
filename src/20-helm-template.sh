@@ -1,7 +1,6 @@
 input=/app/configuration.yaml
 output=/templates/%s/%s/
 outputfile=/templates/%s/%s/%s.yaml
-# FIXME: break on errors?
 repositories=$(yq '.[].repository' $input)
 echo "Templating ..."
 for repository in ${repositories}; do
@@ -16,7 +15,7 @@ for repository in ${repositories}; do
         printf '    - %s\n' "$entry"
         version=$(helm show chart "$name/$entry" | yq .version)
         file=$(printf $outputfile $name $entry $version)
-        helm template --include-crds "$name" "$name/$entry" -f /tmp/values | yq 'select(.kind == "CustomResourceDefinition")' | yq eval 'del(.. | .description?)' > "$file"
+        helm template --include-crds "$name" "$name/$entry" -f /tmp/values --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' | yq eval 'del(.. | .description?)' > "$file"
         groups=$(yq .spec.group < $file | grep -v '\---' | grep -v null | uniq)
 
         known=1
@@ -40,3 +39,4 @@ for repository in ${repositories}; do
         done
     done
 done
+echo
