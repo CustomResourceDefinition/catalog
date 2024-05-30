@@ -1,7 +1,8 @@
 # FIXME: break on errors?
 echo "Arranging manifests ..."
-for directory in /templates/*/; do
-    echo "  - $(basename $directory)"
+cd /templates
+for directory in */*/; do
+    echo "  - $directory"
     find $directory -name "*.yaml" -type f -print0 | sort -z | while IFS= read -r -d '' file; do
         group=$(yq .spec.group < $file)
         if [ $group = "null" ]; then
@@ -12,3 +13,5 @@ for directory in /templates/*/; do
         mv $file "/schema/$group/"
     done
 done
+cd - >/dev/null
+echo

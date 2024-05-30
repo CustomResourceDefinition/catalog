@@ -1,6 +1,6 @@
 input=/app/configuration.yaml
-output=/templates/%s/
-outputfile=/templates/%s/%s-%s.yaml
+output=/templates/%s/%s/
+outputfile=/templates/%s/%s/%s.yaml
 # FIXME: break on errors?
 repositories=$(yq '.[].repository' $input)
 echo "Templating ..."
@@ -8,10 +8,11 @@ for repository in ${repositories}; do
     name=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .name')
     entries=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .entries[]')
     printf '  - %s\n' "$repository"
-    mkdir -p "$(printf $output $name)" || true
+
     # FIXME: create test for values file?
     yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .valuesFile // ""' > /tmp/values
     for entry in ${entries}; do
+        mkdir -p "$(printf $output $name $entry)" || true
         printf '    - %s\n' "$entry"
         version=$(helm show chart "$name/$entry" | yq .version)
         file=$(printf $outputfile $name $entry $version)
@@ -27,7 +28,7 @@ for repository in ${repositories}; do
         done
         if [ $known -eq 1 ]; then
             printf '      - version %s\n' "$version"
-            break
+            continue
         fi
 
         rm "$file"
