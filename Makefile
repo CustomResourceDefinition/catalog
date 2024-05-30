@@ -31,6 +31,7 @@ build-test: build-image
 	-v ./mounts/ephemeral/schema/:/schema \
 	-v ./mounts/verified-schemas/:/verified-schemas:ro \
 	-v ./mounts/chart/:/chart:ro \
+	-v ./mounts/chart-value-based/:/chart-value-based:ro \
 	-v ./test/helm-charts.yaml:/app/configuration.yaml:ro \
 	crd-runner >/dev/null
 	@docker start crd-runner >/dev/null

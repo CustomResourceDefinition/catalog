@@ -22,5 +22,7 @@ yq -i '.spec.group = "chart.new"' /chart2/crds/crd-1.yaml
 yq -i '.version = "2.0.0"' /chart2/Chart.yaml
 helm package /chart2
 
+helm package /chart-value-based
+
 helm repo index .
 echo

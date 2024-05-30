@@ -8,7 +8,6 @@ for repository in ${repositories}; do
     entries=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .entries[]')
     printf '  - %s\n' "$repository"
 
-    # FIXME: create test for values file?
     yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .valuesFile // ""' > /tmp/values
     for entry in ${entries}; do
         mkdir -p "$(printf $output $name $entry)" || true
