@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := run
-.PHONY: test
+.PHONY: test ci-test run
 
 export DOCKER_CLI_HINTS=false
 
@@ -7,7 +7,7 @@ clean:
 	@(docker inspect --type=image crd-runner:latest &>/dev/null && (docker rm -f $$(docker container ls -aqf "ancestor=crd-runner:latest") &>/dev/null && docker rmi -f crd-runner:latest &>/dev/null)) || true
 	@rm -rf mounts/ephemeral &>/dev/null || true
 
-build-image: clean
+build-image:
 	@docker build -qt crd-runner . >/dev/null
 
 build: build-image
@@ -36,13 +36,17 @@ build-test: build-image
 	crd-runner >/dev/null
 	@docker start crd-runner >/dev/null
 
-shell: build
+shell: clean build
 	@docker exec -it crd-runner /bin/sh
 
-run: build
+run: clean ci-run
+
+ci-run: build
 	@docker exec crd-runner /bin/sh /app/main.sh
 
-test: test-happy-path test-only-latest
+test: clean ci-test
+
+ci-test: test-happy-path test-only-latest
 
 test-happy-path: build-test
 	@docker exec crd-runner /bin/sh /app/test/prepare-helm.sh
