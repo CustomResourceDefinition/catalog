@@ -17,7 +17,8 @@ build: build-image
 	-v ./mounts/ephemeral/helm/local:/root/.local/share/helm \
 	-v ./mounts/ephemeral/templates:/templates \
 	-v ./schema/:/schema \
-	-v ./helm-charts.yaml:/app/configuration.yaml:ro \
+	-v ./manifest-uris.yaml:/app/manifest-uris.yaml:ro \
+	-v ./helm-charts.yaml:/app/helm-charts.yaml:ro \
 	crd-runner >/dev/null
 	@docker start crd-runner >/dev/null
 
@@ -32,7 +33,8 @@ build-test: build-image
 	-v ./mounts/verified-schemas/:/verified-schemas:ro \
 	-v ./mounts/chart/:/chart:ro \
 	-v ./mounts/chart-value-based/:/chart-value-based:ro \
-	-v ./test/helm-charts.yaml:/app/configuration.yaml:ro \
+	-v ./test/manifest-uris.yaml:/app/manifest-uris.yaml:ro \
+	-v ./test/helm-charts.yaml:/app/helm-charts.yaml:ro \
 	crd-runner >/dev/null
 	@docker start crd-runner >/dev/null
 

@@ -1,4 +1,4 @@
-input=/app/configuration.yaml
+input=/app/helm-charts.yaml
 repositories=$(yq '.[].repository' $input)
 for repository in ${repositories}; do
     name=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .name')
