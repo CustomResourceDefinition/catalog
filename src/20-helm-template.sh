@@ -9,7 +9,7 @@ yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
     entries=$(echo "$item" | jq -r '.entries[]' -)
     printf '  - %s\n' "$repository"
 
-    yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .valuesFile // ""' > /tmp/values
+    yq -o json $input | jq -rc --arg repository $repository  --arg name $name '.[] | select(.repository == $repository and .name == $name) | .valuesFile // ""' > /tmp/values
     for entry in ${entries}; do
         #shellcheck disable=SC2059
         mkdir -p "$(printf "$output" "$name" "$entry")" || true
