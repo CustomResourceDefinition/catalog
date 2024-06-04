@@ -37,8 +37,8 @@ To add CRDs for [ArgoCD](https://github.com/argoproj/argo-cd) you should apply t
 ```
 
 > [!NOTE]  
-> Each `repository` should only be listed once in the file.  
-> The `name` of a repository should be the name given by the developers (if possible).  
+> Each `repository` should only be listed once in the file, if possible.  
+> The `name` of a repository should be the name given by the developers, if possible.  
 
 > [!IMPORTANT]  
 > Always add the repository that the developers publish to directly and avoid aggregated helm chart repositories like Truechart etc.  

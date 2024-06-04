@@ -3,9 +3,10 @@ output=/templates/%s/%s/
 outputfile=/templates/%s/%s/%s.yaml
 repositories=$(yq '.[].repository' $input)
 echo "Templating (https) ..."
-for repository in ${repositories}; do
-    name=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .name')
-    entries=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .entries[]')
+yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
+    repository=$(echo "$item" | jq -r '.repository' -)
+    name=$(echo "$item" | jq -r '.name' -)
+    entries=$(echo "$item" | jq -r '.entries[]' -)
     printf '  - %s\n' "$repository"
 
     yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .valuesFile // ""' > /tmp/values
