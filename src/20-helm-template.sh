@@ -16,7 +16,7 @@ for repository in ${repositories}; do
         version=$(helm show chart "$name/$entry" | yq .version)
         #shellcheck disable=SC2059
         file=$(printf "$outputfile" "$name" "$entry" "$version")
-        helm template --include-crds "$name" "$name/$entry" -f /tmp/values --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
+        helm template --include-crds "$name" "$name/$entry" -f /tmp/values -n not-default --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
         groups=$(yq .spec.group < $file | grep -v '\---' | grep -v null | uniq)
 
         known=1
@@ -37,7 +37,7 @@ for repository in ${repositories}; do
             printf '      - version %s\n' "$version"
             #shellcheck disable=SC2059
             file=$(printf "$outputfile" "$name" "$entry" "$version")
-            helm template --include-crds "$name" "$name/$entry" -f /tmp/values --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
+            helm template --include-crds "$name" "$name/$entry" -f /tmp/values -n not-default --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
         done
     done
 done
