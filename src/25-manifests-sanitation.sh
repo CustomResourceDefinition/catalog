@@ -15,7 +15,7 @@ echo "  - removing descriptions from manifests:"
 for directory in */*/; do
     echo "    - $directory"
     find $directory -name "*.yaml" -type f -print0 | sort -z | while IFS= read -r -d '' file; do
-        yq eval 'del(.. | .description?)' < "$file" > "$file.tmp"; mv "$file.tmp" "$file"
+        yq eval 'del(.. | select(.description? | type == "!!str") | .description)' < "$file" > "$file.tmp"; mv "$file.tmp" "$file"
     done
 done
 echo "    - done"
