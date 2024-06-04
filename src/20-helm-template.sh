@@ -2,7 +2,7 @@ input=/app/helm-charts.yaml
 output=/templates/%s/%s/
 outputfile=/templates/%s/%s/%s.yaml
 repositories=$(yq '.[].repository' $input)
-echo "Templating ..."
+echo "Templating (https) ..."
 for repository in ${repositories}; do
     name=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .name')
     entries=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .entries[]')
