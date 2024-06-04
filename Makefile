@@ -19,6 +19,7 @@ build: build-image
 	-v ./schema/:/schema \
 	-v ./manifest-uris.yaml:/app/manifest-uris.yaml:ro \
 	-v ./helm-charts.yaml:/app/helm-charts.yaml:ro \
+	-v ./oci-charts.yaml:/app/oci-charts.yaml:ro \
 	crd-runner >/dev/null
 	@docker start crd-runner >/dev/null
 
@@ -35,6 +36,7 @@ build-test: build-image
 	-v ./mounts/chart-value-based/:/chart-value-based:ro \
 	-v ./test/manifest-uris.yaml:/app/manifest-uris.yaml:ro \
 	-v ./test/helm-charts.yaml:/app/helm-charts.yaml:ro \
+	-v ./test/oci-charts.yaml:/app/oci-charts.yaml:ro \
 	crd-runner >/dev/null
 	@docker start crd-runner >/dev/null
 

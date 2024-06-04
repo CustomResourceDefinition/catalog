@@ -20,6 +20,7 @@ kubeconform -schema-location default -schema-location 'https://raw.githubusercon
 You need to create a pull request with changes to the sources list(s) using the methods below:
 
 * [Helm charts](#helm-charts) - the preferred method
+* [OCI charts](#oci-charts)
 * [Uris](#uris)
 
 We prefer using the [Helm charts](#helm-charts) method to avoid needing to specify each release version with CRD changes which is required by the [Uris](#uris) method.
@@ -51,6 +52,21 @@ If the above example already exists when you are trying to add [Argo Rollouts](h
     - argo-cd
     - argo-rollouts
 ```
+
+## OCI charts
+
+> [!IMPORTANT]  
+> Always use a https helm repository, if one is available.  
+
+To add CRDs for [CrunchyData/postgres-operator](https://github.com/CrunchyData/postgres-operator) you should apply the following changes to `oci-charts.yaml`.
+
+```yaml
+- repository: oci://registry.developers.crunchydata.com/crunchydata/pgo
+  additionalVersions:
+    - 5.5.2
+```
+
+The `additionalVersions` entry should be a list of previous versions that have old CRDs that should still be available. You should always need the current version to this list when initially adding a new chart.
 
 ## Uris
 
