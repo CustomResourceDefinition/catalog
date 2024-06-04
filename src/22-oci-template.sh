@@ -11,12 +11,14 @@ for repository in ${repositories}; do
 
     printf '  - %s\n' "$repository"
 
+    yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .valuesFile // ""' > /tmp/values
+
     #shellcheck disable=SC2059
     mkdir -p "$(printf "$output" "$name" "$entry")" || true
-    version=$(helm template "$repository" 2>&1 | head -n1 | cut -d\: -f3)
+    version=$(helm template "$repository" -f /tmp/values 2>&1 | head -n1 | cut -d\: -f3)
     #shellcheck disable=SC2059
     file=$(printf "$outputfile" "$name" "$entry" "$version")
-    helm template --include-crds "$repository" --version "$version" 2>/dev/null | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
+    helm template --include-crds "$repository" --version "$version" -f /tmp/values 2>/dev/null | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
     groups=$(yq .spec.group < $file | grep -v '\---' | grep -v null | uniq)
 
     known=1
@@ -35,7 +37,7 @@ for repository in ${repositories}; do
         printf '      - version %s\n' "$version"
         #shellcheck disable=SC2059
         file=$(printf "$outputfile" "$name" "$entry" "$version")
-        helm template --include-crds "$repository" --version "$version" 2>/dev/null | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
+        helm template --include-crds "$repository" --version "$version" -f /tmp/values 2>/dev/null | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
     done
 done
 echo
