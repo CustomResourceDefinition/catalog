@@ -18,7 +18,7 @@ function generate {
             echo '---'
             test -d "/tmp/git/$path/" && kustomize build "/tmp/git/$path/"
         done
-    } | tee -a /tmp/snoop | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
+    } | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
 }
 
 yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
