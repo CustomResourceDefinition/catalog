@@ -1,7 +1,7 @@
 set -e
 
-echo "Setup test uris ... "
-cd /repository
+echo "Setup test http uris ... "
+cd /repository/http
 
 cp /chart/crds/crd-1.yaml ./chart-1.0.0.yaml
 yq -i '.version = "1.0.0"' ./chart-1.0.0.yaml
