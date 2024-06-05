@@ -9,7 +9,7 @@ git config --global user.name "Test Runner"
 git init --initial-branch=main
 
 mkdir crds
-cp /chart/crds/crd-1.yaml crds/crd.yaml
+cp /app/test/fixtures/test-crd.yaml crds/crd.yaml
 yq -i '.spec.group = "chart.git"' crds/crd.yaml
 yq -i '.version = "1.0.0"' crds/crd.yaml
 

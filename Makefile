@@ -5,17 +5,21 @@ export DOCKER_CLI_HINTS=false
 
 clean:
 	@(docker inspect --type=image crd-runner:latest &>/dev/null && (docker rm -f $$(docker container ls -aqf "ancestor=crd-runner:latest") &>/dev/null && docker rmi -f crd-runner:latest &>/dev/null)) || true
-	@rm -rf mounts/ephemeral &>/dev/null || true
+	@rm -r test/ephemeral &>/dev/null || true
+	@rm src/helpers/convert.py &>/dev/null || true
 
-build-image:
+fetch-converter:
+	@wget -q -O src/helpers/convert.py https://raw.githubusercontent.com/yannh/kubeconform/master/scripts/openapi2jsonschema.py
+
+build-image: fetch-converter
 	@docker build -qt crd-runner . >/dev/null
 
 build: build-image
 	@docker container create --name crd-runner \
-	-v ./mounts/ephemeral/helm/cache:/root/.cache/helm \
-	-v ./mounts/ephemeral/helm/config:/root/.config/helm \
-	-v ./mounts/ephemeral/helm/local:/root/.local/share/helm \
-	-v ./mounts/ephemeral/templates:/templates \
+	-v ./test/ephemeral/helm/cache:/root/.cache/helm \
+	-v ./test/ephemeral/helm/config:/root/.config/helm \
+	-v ./test/ephemeral/helm/local:/root/.local/share/helm \
+	-v ./test/ephemeral/templates:/templates \
 	-v ./schema/:/schema \
 	-v ./manifest-uris.yaml:/app/manifest-uris.yaml:ro \
 	-v ./helm-charts.yaml:/app/helm-charts.yaml:ro \
@@ -26,15 +30,11 @@ build: build-image
 
 build-test: build-image
 	@docker container create --name crd-runner \
-	-v ./mounts/ephemeral/helm/cache:/root/.cache/helm \
-	-v ./mounts/ephemeral/helm/config:/root/.config/helm \
-	-v ./mounts/ephemeral/helm/local:/root/.local/share/helm \
-	-v ./mounts/ephemeral/helm/templates:/templates \
-	-v ./mounts/ephemeral/repository/:/repository \
-	-v ./mounts/ephemeral/schema/:/schema \
-	-v ./mounts/verified-schemas/:/verified-schemas:ro \
-	-v ./mounts/chart/:/chart:ro \
-	-v ./mounts/chart-value-based/:/chart-value-based:ro \
+	-v ./test/ephemeral/helm/cache:/root/.cache/helm \
+	-v ./test/ephemeral/helm/config:/root/.config/helm \
+	-v ./test/ephemeral/helm/local:/root/.local/share/helm \
+	-v ./test/ephemeral/templates:/templates \
+	-v ./test/ephemeral/schema/:/schema \
 	-v ./test/manifest-uris.yaml:/app/manifest-uris.yaml:ro \
 	-v ./test/helm-charts.yaml:/app/helm-charts.yaml:ro \
 	-v ./test/oci-charts.yaml:/app/oci-charts.yaml:ro \
@@ -52,10 +52,10 @@ ci-run: build
 
 test: clean ci-test
 
-ci-test: test-happy-path test-only-latest
+ci-test: test-all-versions test-only-latest
 
-test-happy-path: build-test
-	@docker exec crd-runner /bin/sh /app/test/prepare.sh happy-path
+test-all-versions: build-test
+	@docker exec crd-runner /bin/sh /app/test/prepare.sh all-versions
 	@docker exec crd-runner /bin/sh /app/main.sh
 	@docker exec crd-runner /bin/sh /app/test/verify.sh "Happy path works"
 
