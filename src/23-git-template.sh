@@ -1,7 +1,6 @@
 input=/app/git-charts.yaml
 output=/templates/%s/%s/
 outputfile=/templates/%s/%s/%s.yaml
-repositories=$(yq '.[].repository' $input)
 echo "Templating (git) ..."
 
 function generate {
@@ -9,7 +8,8 @@ function generate {
     version=$2
     paths=$3
     kustomizations=$4
-    $(cd /tmp/git; git checkout "$version" &>/dev/null)
+    cd /tmp/git || return
+    git checkout "$version" &>/dev/null
     {
         for path in ${paths}; do
             test -d "/tmp/git/$path/" && find "/tmp/git/$path/" -type f \( -iname '*.yaml' -o -iname '*.yml' \) -exec sh -c "echo '---'; cat \$0" {} \;
@@ -32,25 +32,28 @@ yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
     entry=$(echo "$item" | jq -r '.name' -)
 
     printf '  - %s\n' "$repository"
+    printf '    - %s\n' "$name"
 
     rm -rf /tmp/git &>/dev/null
     mkdir -p /tmp/git
+    cd /tmp/git || continue
     git clone --quiet --recursive "$repository" /tmp/git
 
     mkdir -p "$(printf "$output" "$name" "$entry" | tr '[:upper:]' '[:lower:]')" || true
 
-    printf '    - %s\n' "$name"
-
-    cd /tmp/git
     git tag | grep -E "^${versionPrefix}[0-9]{1,}.[0-9]{1,}.[0-9]{1,}$" | sort -V > /tmp/versions
-    version=$([ "$includeHead" = "true" ] && git branch --show-current || tail -n1 /tmp/versions)
-    [ "$includeHead" = "true" ] && git branch --show-current >> /tmp/versions
+    if [ "$includeHead" = "true" ]; then
+        version=$(git branch --show-current)
+        git branch --show-current >> /tmp/versions
+    else
+        version=$(tail -n1 /tmp/versions)
+    fi
 
     versions=$(cat /tmp/versions)
     file=$(printf "$outputfile" "$name" "$entry" "$version" | tr '[:upper:]' '[:lower:]')
 
-    cd - >/dev/null
-    (test -s /tmp/versions && [ ! "$version" = "" ]) || continue
+    cd - >/dev/null || exit 1
+    { test -s /tmp/versions && [ ! "$version" = "" ]; } || continue
 
     generate "$file" "$version" "$paths" "$kustomizations"
 
@@ -69,9 +72,7 @@ yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
 
     for version in ${versions}; do
         printf '      - version %s\n' "$version"
-        #shellcheck disable=SC2059
         file=$(printf "$outputfile" "$name" "$entry" "$version" | tr '[:upper:]' '[:lower:]')
-        #shellcheck enable=SC2059
         generate "$file" "$version" "$paths" "$kustomizations"
     done
 done

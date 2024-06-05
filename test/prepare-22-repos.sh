@@ -16,10 +16,12 @@ yq -i '.version = "1.0.0"' crds/crd.yaml
 
 mkdir kustomizations
 cp crds/crd.yaml kustomizations/crd.yaml
-echo 'apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - crd.yaml' > kustomizations/kustomization.yaml
+{
+echo 'apiVersion: kustomize.config.k8s.io/v1beta1'
+echo 'kind: Kustomization'
+echo 'resources:'
+echo '  - crd.yaml'
+} > kustomizations/kustomization.yaml
 
 git add crds/crd.yaml
 git add kustomizations
