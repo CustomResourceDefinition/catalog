@@ -6,7 +6,7 @@ Running Kubernetes schema validation checks helps apply the **"shift-left approa
 
 ## Origins
 
-This catalog is inspired by [Datrees CRDs-catalog](https://github.com/datreeio/CRDs-catalog), but uses sources list to pull updates automatically and enables re-creation from these source provided the source helm charts, uris, etc are still available.
+This catalog is inspired by [Datrees CRDs-catalog](https://github.com/datreeio/CRDs-catalog), but uses a sources list to pull updates automatically and enables re-creation from these sources provided the source helm charts, uris, etc are still available.
 
 ## How to use the schemas in the catalog
 
@@ -17,23 +17,28 @@ kubeconform -schema-location default -schema-location 'https://raw.githubusercon
 
 # How to contribute CRDs
 
-You need to create a pull request with changes to the sources list(s) using the methods below:
+You need to create a pull request with changes to the sources list using the methods below:
 
 * [Helm charts](#helm-charts) - the preferred method
+* [Git](#git)
 * [OCI charts](#oci-charts)
-* [Uris](#uris)
+* [Uris](#uris) - when everything else fails
 
-We prefer using the [Helm charts](#helm-charts) method to avoid needing to specify each release version with CRD changes which is required by the [Uris](#uris) method.
+We prefer using the [Helm charts](#helm-charts) method to avoid issues like needing to specify each release version with CRD changes or version history being unavailable.
+
+> [!IMPORTANT]  
+> Please keep the `configuration.yaml` sorted by name.  
 
 ## Helm charts
 
-To add CRDs for [ArgoCD](https://github.com/argoproj/argo-cd) you should apply the following changes to `helm-charts.yaml`.
+To add CRDs for [ArgoCD](https://github.com/argoproj/argo-cd) you should apply the following changes to `configuration.yaml`.
 
 ```yaml
-- repository: https://argoproj.github.io/argo-helm
-  name: argo
-  entries:
+- entries:
     - argo-cd
+  kind: helm
+  name: argo
+  repository: https://argoproj.github.io/argo-helm
 ```
 
 > [!NOTE]  
@@ -46,11 +51,28 @@ To add CRDs for [ArgoCD](https://github.com/argoproj/argo-cd) you should apply t
 If the above example already exists when you are trying to add [Argo Rollouts](https://github.com/argoproj/argo-rollouts). You should only add another chart entry to the existing repository entry, so the repository entry looks like the following.
 
 ```yaml
-- repository: https://argoproj.github.io/argo-helm
-  name: argo
-  entries:
+- entries:
     - argo-cd
     - argo-rollouts
+  kind: helm
+  name: argo
+  repository: https://argoproj.github.io/argo-helm
+```
+
+## Git
+
+To add CRDs for [eks-anywhere](https://github.com/aws/eks-anywhere) you should apply the following changes to `configuration.yaml`.
+
+```yaml
+- kind: git
+  kustomizationPaths: # paths to build kustomizations from (non-CRDs are discarded)
+    - config/crd
+  name: eks-anywhere
+  repository: https://github.com/aws/eks-anywhere
+  versionPrefix: v # by default only major.minor.patch tags are used, but a prefix can be set
+  # includeHead: true # by default the head branch is ignored and only published tags are used
+  # searchPaths: # paths to recursively find yaml files in (non-CRDs are discarded)
+  #   - crds
 ```
 
 ## OCI charts
@@ -58,29 +80,32 @@ If the above example already exists when you are trying to add [Argo Rollouts](h
 > [!IMPORTANT]  
 > Always use a https helm repository, if one is available.  
 
-To add CRDs for [CrunchyData/postgres-operator](https://github.com/CrunchyData/postgres-operator) you should apply the following changes to `oci-charts.yaml`.
+To add CRDs for [CrunchyData/postgres-operator](https://github.com/CrunchyData/postgres-operator) you should apply the following changes to `configuration.yaml`.
 
 ```yaml
-- repository: oci://registry.developers.crunchydata.com/crunchydata/pgo
-  additionalVersions:
+- additionalVersions:
     - 5.5.2
+  kind: helm-oci
+  name: crunchydata-pgo
+  repository: oci://registry.developers.crunchydata.com/crunchydata/pgo
 ```
 
 The `additionalVersions` entry should be a list of previous versions that have old CRDs that should still be available. You should always need the current version to this list when initially adding a new chart.
 
 ## Uris
 
-To add CRDs for version 1.0.0 of the fictional Custom tool you should apply the following changes to `manifest-uris.yaml`.
+To add CRDs for version 1.0.0 of the fictional Custom tool you should apply the following changes to `configuration.yaml`.
 
 ```yaml
-- name: custom
-  apiGroups:
+- apiGroups:
     - custom.io
   crds:
-    - version: 1.0.0
-      baseUri: https://raw.githubusercontent.com/crds-r-us/custom/v1.0.0/chart/template/crds
+    - baseUri: https://raw.githubusercontent.com/crds-r-us/custom/v1.0.0/chart/template/crds
       paths:
         - custom-crd.yaml
+      version: 1.0.0
+  kind: http
+  name: custom
 ```
 
 > [!NOTE]  

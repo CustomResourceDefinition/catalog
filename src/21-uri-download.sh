@@ -1,8 +1,8 @@
-input=/app/manifest-uris.yaml
+input=/app/configuration.yaml
 output=/templates/%s/%s/
 outputfile=/templates/%s/%s/%s.yaml
 echo "Downloading ..."
-yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
+yq eval '.[] | select(.kind == "http")' $input -o json | jq -rc | while IFS= read -r item; do
     name=$(echo "$item" | jq -r '.name' -)
     groups=$(echo "$item" | jq -r '.apiGroups[]' -)
 
