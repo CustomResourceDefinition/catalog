@@ -1,4 +1,4 @@
-input=/app/git-charts.yaml
+input=/app/configuration.yaml
 output=/templates/%s/%s/
 outputfile=/templates/%s/%s/%s.yaml
 echo "Templating (git) ..."
@@ -17,7 +17,7 @@ function generate {
     } | yq 'select(.kind == "CustomResourceDefinition")' > "$1"
 }
 
-yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
+yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read -r item; do
     repository=$(echo "$item" | jq -r '.repository' -)
     includeHead=$(echo "$item" | jq -r '.includeHead?' -)
     versionPrefix=$(echo "$item" | jq -r '.versionPrefix? // ""' -)

@@ -1,8 +1,8 @@
-input=/app/helm-charts.yaml
+input=/app/configuration.yaml
 output=/templates/%s/%s/
 outputfile=/templates/%s/%s/%s.yaml
 echo "Templating (https) ..."
-yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
+yq eval '.[] | select(.kind == "helm")' $input -o json | jq -rc | while IFS= read -r item; do
     repository=$(echo "$item" | jq -r '.repository' -)
     name=$(echo "$item" | jq -r '.name' -)
     entries=$(echo "$item" | jq -r '.entries[]' -)
