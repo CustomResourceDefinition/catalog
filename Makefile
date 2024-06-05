@@ -21,10 +21,7 @@ build: build-image
 	-v ./test/ephemeral/helm/local:/root/.local/share/helm \
 	-v ./test/ephemeral/templates:/templates \
 	-v ./schema/:/schema \
-	-v ./manifest-uris.yaml:/app/manifest-uris.yaml:ro \
-	-v ./helm-charts.yaml:/app/helm-charts.yaml:ro \
-	-v ./oci-charts.yaml:/app/oci-charts.yaml:ro \
-	-v ./git-charts.yaml:/app/git-charts.yaml:ro \
+	-v ./configuration.yaml:/app/configuration.yaml:ro \
 	crd-runner >/dev/null
 	@docker start crd-runner >/dev/null
 
@@ -35,10 +32,7 @@ build-test: build-image
 	-v ./test/ephemeral/helm/local:/root/.local/share/helm \
 	-v ./test/ephemeral/templates:/templates \
 	-v ./test/ephemeral/schema/:/schema \
-	-v ./test/manifest-uris.yaml:/app/manifest-uris.yaml:ro \
-	-v ./test/helm-charts.yaml:/app/helm-charts.yaml:ro \
-	-v ./test/oci-charts.yaml:/app/oci-charts.yaml:ro \
-	-v ./test/git-charts.yaml:/app/git-charts.yaml:ro \
+	-v ./test/configuration.yaml:/app/configuration.yaml:ro \
 	crd-runner >/dev/null
 	@docker start crd-runner >/dev/null
 

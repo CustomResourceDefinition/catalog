@@ -1,7 +1,7 @@
-input=/app/oci-charts.yaml
+input=/app/configuration.yaml
 output=/templates/%s/%s/
 outputfile=/templates/%s/%s/%s.yaml
-repositories=$(yq '.[].repository' $input)
+repositories=$(yq '.[] | select(.kind == "helm-oci") | .repository' $input)
 echo "Templating (oci) ..."
 for repository in ${repositories}; do
     versions=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .additionalVersions[]')
