@@ -4,21 +4,17 @@ outputfile=/templates/%s/%s/%s.yaml
 echo "Templating (git) ..."
 
 function generate {
-    file=$1
-    version=$2
-    paths=$3
-    kustomizations=$4
     cd /tmp/git || return
-    git checkout "$version" &>/dev/null
+    git checkout "$2" &>/dev/null
     {
-        for path in ${paths}; do
+        for path in ${3}; do
             test -d "/tmp/git/$path/" && find "/tmp/git/$path/" -type f \( -iname '*.yaml' -o -iname '*.yml' \) -exec sh -c "echo '---'; cat \$0" {} \;
         done
-        for path in ${kustomizations}; do
+        for path in ${4}; do
             echo '---'
             test -d "/tmp/git/$path/" && kustomize build "/tmp/git/$path/"
         done
-    } | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
+    } | yq 'select(.kind == "CustomResourceDefinition")' > "$1"
 }
 
 yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
