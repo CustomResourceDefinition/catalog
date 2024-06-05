@@ -1,4 +1,4 @@
-printf "Setup known schemas ... "
+printf "Setup known schemas ... \n"
 
 if [ "$1" = "only-latest" ]; then
     mkdir -p /schema/chart.local/ &>/dev/null || true

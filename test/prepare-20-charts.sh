@@ -1,7 +1,8 @@
 set -e
 
-echo "Setup test charts ... "
-cd /repository
+echo "Setup test http charts ... "
+mkdir -p /repository/http &>/dev/null || true
+cd /repository/http
 rm -rf -- * &>/dev/null || true
 
 helm package /chart

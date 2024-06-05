@@ -30,10 +30,10 @@ yq eval '.[]' $input -o json | jq -rc | while IFS= read -r item; do
         echo "    - version $version"
 
         #shellcheck disable=SC2059
-        mkdir -p "$(printf "$output" "$name" "$version")" || true
+        mkdir -p "$(printf "$output" "$name" "$version" | tr '[:upper:]' '[:lower:]')" || true
         for path in ${paths}; do
             #shellcheck disable=SC2059
-            file=$(printf "$outputfile" "$name" "$version" "$(echo "$path" | md5sum | cut -d' ' -f1)")
+            file=$(printf "$outputfile" "$name" "$version" "$(echo "$path" | md5sum | cut -d' ' -f1)" | tr '[:upper:]' '[:lower:]')
             wget -q "$baseUri/$path" -O "$file" || true
         done
     done
