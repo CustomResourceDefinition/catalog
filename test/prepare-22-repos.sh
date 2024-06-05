@@ -3,7 +3,6 @@ set -e
 echo "Setup test git charts ... "
 mkdir -p /repository/git &>/dev/null || true
 cd /repository/git
-rm -rf -- * &>/dev/null || true
 
 git config --global user.email "test@runner.local"
 git config --global user.name "Test Runner"
