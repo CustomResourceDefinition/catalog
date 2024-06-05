@@ -13,7 +13,7 @@ cp /app/test/fixtures/test-crd.yaml regular/crds/crd.yaml
 helm create templated
 {
     echo '{{- if .Values.output }}'
-    cat /app/test/fixtures/test-crd.yaml | yq '.spec.group = "chart.conditional"'
+    yq '.spec.group = "chart.conditional"' < /app/test/fixtures/test-crd.yaml
     echo '{{- end }}'
 } > templated/templates/crd.yaml
 cd - &>/dev/null || true
