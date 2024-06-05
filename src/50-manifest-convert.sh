@@ -1,6 +1,6 @@
 set -e
 echo "Converting files to schema validation ..."
-for directory in /schema/*/; do
+for directory in "$2"/*/; do
     echo "  - $(basename $directory)"
     cd $directory
     find . -name "*.yaml" -type f -print0 | sort -z | xargs -0 -I{} sh -c 'python /app/helpers/convert.py "{}" >/dev/null; rm "{}"'
@@ -8,6 +8,6 @@ for directory in /schema/*/; do
 done
 
 echo "Cleaning up problematic files:"
-find /schema -name "*.yaml" -print0 | xargs -0 -I{} sh -c 'rm "{}"; echo "  - {}"'
+find "$2" -name "*.yaml" -print0 | xargs -0 -I{} sh -c 'rm "{}"; echo "  - {}"'
 echo "  - done"
 echo

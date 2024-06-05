@@ -1,6 +1,6 @@
-input=/app/configuration.yaml
-output=/templates/%s/%s/
-outputfile=/templates/%s/%s/%s.yaml
+input="$1"
+output="$3/templates/%s/%s/"
+outputfile="$3/templates/%s/%s/%s.yaml"
 echo "Templating (https) ..."
 yq eval '.[] | select(.kind == "helm")' $input -o json | jq -rc | while IFS= read -r item; do
     repository=$(echo "$item" | jq -r '.repository' -)

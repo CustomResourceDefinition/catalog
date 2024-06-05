@@ -1,4 +1,4 @@
-input=/app/configuration.yaml
+input="$1"
 yq eval '.[] | select(.kind == "helm")' $input -o json | jq -rc | while IFS= read -r item; do
     repository=$(echo "$item" | jq -r '.repository' -)
     name=$(echo "$item" | jq -r '.name' -)

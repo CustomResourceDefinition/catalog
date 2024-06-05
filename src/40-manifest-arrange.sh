@@ -1,6 +1,6 @@
 set -e
 echo "Arranging manifests ..."
-cd /templates
+cd "$3/templates"
 for directory in */*/; do
     echo "  - $directory"
     find $directory -name "*.yaml" -type f -print0 | sort -z | while IFS= read -r -d '' file; do
@@ -9,8 +9,8 @@ for directory in */*/; do
             rm $file
             continue
         fi
-        mkdir -p "/schema/$group" || true
-        mv $file "/schema/$group/"
+        mkdir -p "$2/$group" || true
+        mv $file "$2/$group/"
     done
 done
 cd - >/dev/null

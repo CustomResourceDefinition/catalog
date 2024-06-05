@@ -4,7 +4,7 @@ echo "Setup verified schemas ... "
 
 rm -rf -- /tmp/verified &>/dev/null || true
 mkdir -p /tmp/verified/base
-cp /app/test/fixtures/*.json /tmp/verified/base/
+cp test/fixtures/*.json /tmp/verified/base/
 
 if [ "$1" = "all-versions" ]; then
     cp -r /tmp/verified/base /verified-schema/chart.conditional

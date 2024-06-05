@@ -1,6 +1,6 @@
 tmp=$(mktemp -d)
 set -e
-cd /templates
+cd "$3/templates"
 
 echo "Sanitizing manifests ..."
 

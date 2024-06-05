@@ -1,25 +1,25 @@
 set -e
-
-echo "Setup test http charts ... "
+base=$(pwd)
+echo "Setup test helm charts ... "
 
 rm -rf -- /tmp/charts &>/dev/null || true
 mkdir -p /tmp/charts/regular || true
 mkdir -p /tmp/charts/templated || true
 mkdir -p /tmp/charts/base || true
-cd /tmp/charts/base || true
+cd /tmp/charts/base
 helm create regular
 mkdir -p regular/crds
-cp /app/test/fixtures/test-crd.yaml regular/crds/crd.yaml
+cp "$base/test/fixtures/test-crd.yaml" regular/crds/crd.yaml
 helm create templated
 {
     echo '{{- if .Values.output }}'
-    yq '.spec.group = "chart.conditional"' < /app/test/fixtures/test-crd.yaml
+    yq '.spec.group = "chart.conditional"' < "$base/test/fixtures/test-crd.yaml"
     echo '{{- end }}'
 } > templated/templates/crd.yaml
-cd - &>/dev/null || true
+cd - &>/dev/null
 
 cp -r /tmp/charts/base/regular /tmp/charts/regular/1.0
-cp /app/test/fixtures/test-crd.yaml /tmp/charts/regular/1.0/crds/old-crd.yaml
+cp test/fixtures/test-crd.yaml /tmp/charts/regular/1.0/crds/old-crd.yaml
 yq -i '.version = "1.0.0"' /tmp/charts/regular/1.0/Chart.yaml
 yq -i '.spec.group = "chart.local"' /tmp/charts/regular/1.0/crds/crd.yaml
 yq -i '.spec.group = "chart.old"' /tmp/charts/regular/1.0/crds/old-crd.yaml
@@ -44,5 +44,7 @@ helm package /tmp/charts/regular/2.0
 helm package /tmp/charts/templated/1.0
 
 helm repo index .
+
+cd - &>/dev/null
 
 echo

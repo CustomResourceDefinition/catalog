@@ -1,6 +1,6 @@
-input=/app/configuration.yaml
-output=/templates/%s/%s/
-outputfile=/templates/%s/%s/%s.yaml
+input="$1"
+output="$3/templates/%s/%s/"
+outputfile="$3/templates/%s/%s/%s.yaml"
 repositories=$(yq '.[] | select(.kind == "helm-oci") | .repository' $input)
 echo "Templating (oci) ..."
 for repository in ${repositories}; do

@@ -1,6 +1,6 @@
-input=/app/configuration.yaml
-output=/templates/%s/%s/
-outputfile=/templates/%s/%s/%s.yaml
+input="$1"
+output="$3/templates/%s/%s/"
+outputfile="$3/templates/%s/%s/%s.yaml"
 echo "Downloading ..."
 yq eval '.[] | select(.kind == "http")' $input -o json | jq -rc | while IFS= read -r item; do
     name=$(echo "$item" | jq -r '.name' -)
