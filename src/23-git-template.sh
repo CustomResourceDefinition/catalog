@@ -21,6 +21,7 @@ yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read
     repository=$(echo "$item" | jq -r '.repository' -)
     includeHead=$(echo "$item" | jq -r '.includeHead?' -)
     versionPrefix=$(echo "$item" | jq -r '.versionPrefix? // ""' -)
+    versionSuffix=$(echo "$item" | jq -r '.versionSuffix? // "$"' -)
     paths=$(echo "$item" | jq -r '.searchPaths[]? // ""' -)
     kustomizations=$(echo "$item" | jq -r '.kustomizationPaths[]? // ""' -)
     combinedname=$(echo "$repository" | rev | cut -d/ -f1-2 | rev)
@@ -37,7 +38,7 @@ yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read
 
     mkdir -p "$(printf "$output" "$name" "$entry" | tr '[:upper:]' '[:lower:]')" || true
 
-    git tag | grep -E "^${versionPrefix}[0-9]{1,}.[0-9]{1,}.[0-9]{1,}$" | sort -V > /tmp/versions
+    git tag | grep -E "^${versionPrefix}[0-9]{1,}.[0-9]{1,}.[0-9]{1,}${versionSuffix}" | sort -V > /tmp/versions
     if [ "$includeHead" = "true" ]; then
         version=$(git branch --show-current)
         git branch --show-current >> /tmp/versions
