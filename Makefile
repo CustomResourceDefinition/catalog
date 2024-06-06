@@ -7,6 +7,7 @@ CONFIGURATION=
 TEMPLATES=./build/ephemeral/templates
 SCHEMA=
 CI_COMMAND=
+ANCESTOR := $(shell docker container ls -aqf "ancestor=crd-runner:latest" 2>/dev/null)
 
 clean:
 	@rm -r build/ephemeral/schema/* &>/dev/null || true
@@ -63,7 +64,10 @@ ci-test: configure-test shell-command
 ci-run: configure shell-command
 
 build-shell:
-	@(docker inspect --type=image crd-runner:latest &>/dev/null && (docker rm -f $$(docker container ls -aqf "ancestor=crd-runner:latest") &>/dev/null && docker rmi -f crd-runner:latest &>/dev/null)) || true
+ifneq ($(ANCESTOR),)
+	@docker rm -f $(ANCESTOR) &>/dev/null
+	@docker rmi -f crd-runner:latest &>/dev/null
+endif
 	@docker build -qt crd-runner . >/dev/null
 
 shell: configure-test build-shell
