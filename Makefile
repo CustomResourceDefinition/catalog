@@ -1,59 +1,89 @@
-.DEFAULT_GOAL := run
-.PHONY: test ci-test run
+.DEFAULT_GOAL := clean
+.PHONY: test ci-test ci-run
 
 export DOCKER_CLI_HINTS=false
 
+CONFIGURATION=
+TEMPLATES=./build/ephemeral/templates
+SCHEMA=
+CI_COMMAND=
+
 clean:
-	@(docker inspect --type=image crd-runner:latest &>/dev/null && (docker rm -f $$(docker container ls -aqf "ancestor=crd-runner:latest") &>/dev/null && docker rmi -f crd-runner:latest &>/dev/null)) || true
-	@rm -r test/ephemeral &>/dev/null || true
+	@rm -r build/ephemeral/schema/* &>/dev/null || true
+	@rm -r build/ephemeral/templates/* &>/dev/null || true
+	@rm -r build/bin &>/dev/null || true
 	@rm src/helpers/convert.py &>/dev/null || true
 
-fetch-converter:
-	@wget -q -O src/helpers/convert.py https://raw.githubusercontent.com/yannh/kubeconform/master/scripts/openapi2jsonschema.py
+configure:
+	@$(eval CONFIGURATION=./configuration.yaml)
+	@$(eval SCHEMA=./schema/)
+	@$(eval CI_COMMAND=run)
 
-build-image: fetch-converter
-	@docker build -qt crd-runner . >/dev/null
+configure-test:
+	@$(eval CONFIGURATION=./test/configuration.yaml)
+	@$(eval SCHEMA=./build/ephemeral/schema/)
+	@$(eval CI_COMMAND=test)
 
-build: build-image
-	@docker container create --name crd-runner \
-	-v ./test/ephemeral/helm/cache:/root/.cache/helm \
-	-v ./test/ephemeral/helm/config:/root/.config/helm \
-	-v ./test/ephemeral/helm/local:/root/.local/share/helm \
-	-v ./test/ephemeral/templates:/templates \
-	-v ./schema/:/schema \
-	-v ./configuration.yaml:/app/configuration.yaml:ro \
-	crd-runner >/dev/null
-	@docker start crd-runner >/dev/null
+build: clean configure
+	@wget -qO src/helpers/convert.py https://raw.githubusercontent.com/yannh/kubeconform/master/scripts/openapi2jsonschema.py
+	@mkdir build/bin
+	@mkdir build/ephemeral &>/dev/null || true
+	@cp -r src/helpers build/bin/
+	@cat src/*.sh > build/bin/main
+	@chmod +x build/bin/main
 
-build-test: build-image
-	@docker container create --name crd-runner \
-	-v ./test/ephemeral/helm/cache:/root/.cache/helm \
-	-v ./test/ephemeral/helm/config:/root/.config/helm \
-	-v ./test/ephemeral/helm/local:/root/.local/share/helm \
-	-v ./test/ephemeral/templates:/templates \
-	-v ./test/ephemeral/schema/:/schema \
-	-v ./test/configuration.yaml:/app/configuration.yaml:ro \
-	crd-runner >/dev/null
-	@docker start crd-runner >/dev/null
+build-test: configure-test build
+	@cat test/prepare-*.sh > build/bin/test-prepare
+	@cat test/verify-*.sh > build/bin/test-verify
+	@chmod +x build/bin/test-prepare build/bin/test-verify
+	@yq -o json test/configuration.yaml | \
+	jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
+	yq -p json -o yaml > build/configuration.yaml
 
-shell: clean build
-	@docker exec -it crd-runner /bin/sh
+run: build
+	@build/bin/main
 
-run: clean ci-run
-
-ci-run: build
-	@docker exec crd-runner /bin/sh /app/main.sh
-
-test: clean ci-test
-
-ci-test: test-all-versions test-only-latest
+test: test-all-versions test-only-latest
 
 test-all-versions: build-test
-	@docker exec crd-runner /bin/sh /app/test/prepare.sh all-versions
-	@docker exec crd-runner /bin/sh /app/main.sh
-	@docker exec crd-runner /bin/sh /app/test/verify.sh "Happy path works"
+	@build/bin/test-prepare all-versions
+	@build/bin/main
+	@build/bin/test-verify "Happy path works"
 
 test-only-latest: build-test
-	@docker exec crd-runner /bin/sh /app/test/prepare.sh only-latest
-	@docker exec crd-runner /bin/sh /app/main.sh
-	@docker exec crd-runner /bin/sh /app/test/verify.sh "Only lastest version used"
+	@build/bin/test-prepare only-latest
+	@build/bin/main
+	@build/bin/test-verify "Only lastest version used"
+
+test-shellcheck:
+	@find src test -type f -name "*.sh" -print0 | sort -z | xargs -0 -I {} shellcheck {}
+
+ci-test: configure-test shell-command
+
+ci-run: configure shell-command
+
+build-shell:
+	@(docker inspect --type=image crd-runner:latest &>/dev/null && (docker rm -f $$(docker container ls -aqf "ancestor=crd-runner:latest") &>/dev/null && docker rmi -f crd-runner:latest &>/dev/null)) || true
+	@docker build -qt crd-runner . >/dev/null
+
+shell: configure-test build-shell
+	@docker run -it \
+	-v $(TEMPLATES):/templates \
+	-v $(SCHEMA):/schema \
+	-v $(CONFIGURATION):/app/configuration.yaml:ro \
+	-v $$(pwd)/src/helpers:/app/helpers:ro \
+	-v $$(pwd)/test/fixtures:/app/test/fixtures:ro \
+	-v $$(pwd):/workspace \
+	-w /workspace \
+	crd-runner /bin/sh
+
+shell-command: build-shell
+	@docker run -it \
+	-v $(TEMPLATES):/templates \
+	-v $(SCHEMA):/schema \
+	-v $(CONFIGURATION):/app/configuration.yaml:ro \
+	-v $$(pwd)/src/helpers:/app/helpers:ro \
+	-v $$(pwd)/test/fixtures:/app/test/fixtures:ro \
+	-v $$(pwd):/workspace \
+	-w /workspace \
+	crd-runner /bin/sh -c 'make $(CI_COMMAND)'
