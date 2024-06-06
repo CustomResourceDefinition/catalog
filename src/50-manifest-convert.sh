@@ -2,9 +2,13 @@ set -e
 base=$(pwd)
 echo "Converting files to schema validation ..."
 for directory in "$2"/*/; do
-    echo "  - $(basename $directory)"
+    group=$(basename $directory)
+    if [ "*" = "$group" ]; then
+        continue
+    fi
+    echo "  - $group"
     cd "$directory"
-    find . -name "*.yaml" -type f -print0 | sort -z | xargs -0 -I{} sh -c "python $base/build/bin/helpers/convert.py '{}' >/dev/null; rm '{}'"
+    find . -name "*.yaml" -type f -print0 | sort -z | xargs -0 -I{} sh -c "python3 $base/build/bin/helpers/convert.py '{}' >/dev/null; rm '{}'"
     cd - >/dev/null
 done
 echo

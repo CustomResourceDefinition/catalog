@@ -3,8 +3,8 @@ output="$(pwd)/$3/templates/%s/%s/"
 outputfile="$(pwd)/$3/templates/%s/%s/%s.yaml"
 echo "Downloading ..."
 yq eval '.[] | select(.kind == "http")' $input -o json | jq -rc | while IFS= read -r item; do
-    name=$(echo "$item" | jq -r '.name' -)
-    groups=$(echo "$item" | jq -r '.apiGroups[]' -)
+    name=$(printf %s "$item" | jq -r '.name' -)
+    groups=$(printf %s "$item" | jq -r '.apiGroups[]' -)
 
     echo "  - $name"
 
@@ -17,9 +17,9 @@ yq eval '.[] | select(.kind == "http")' $input -o json | jq -rc | while IFS= rea
     done
 
     if [ $known -eq 1 ]; then
-        crds=$(echo "$item" | jq -rc '.crds | sort_by(.version | split(".") | map(tonumber)) | reverse | .[0]' -)
+        crds=$(printf %s "$item" | jq -rc '.crds | sort_by(.version | split(".") | map(tonumber)) | reverse | .[0]' -)
     else
-        crds=$(echo "$item" | jq -rc '.crds[]' -)
+        crds=$(printf %s "$item" | jq -rc '.crds[]' -)
     fi
 
     echo "$crds" | while IFS= read -r crd; do

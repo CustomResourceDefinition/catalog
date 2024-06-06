@@ -18,14 +18,14 @@ generate() {
 }
 
 yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read -r item; do
-    repository=$(echo "$item" | jq -r '.repository' -)
-    includeHead=$(echo "$item" | jq -r '.includeHead?' -)
-    versionPrefix=$(echo "$item" | jq -r '.versionPrefix? // ""' -)
-    paths=$(echo "$item" | jq -r '.searchPaths[]? // ""' -)
-    kustomizations=$(echo "$item" | jq -r '.kustomizationPaths[]? // ""' -)
+    repository=$(printf %s "$item" | jq -r '.repository' -)
+    includeHead=$(printf %s "$item" | jq -r '.includeHead?' -)
+    versionPrefix=$(printf %s "$item" | jq -r '.versionPrefix? // ""' -)
+    paths=$(printf %s "$item" | jq -r '.searchPaths[]? // ""' -)
+    kustomizations=$(printf %s "$item" | jq -r '.kustomizationPaths[]? // ""' -)
     combinedname=$(echo "$repository" | rev | cut -d/ -f1-2 | rev)
     name=$(echo "$combinedname" | cut -d/ -f1)
-    entry=$(echo "$item" | jq -r '.name' -)
+    entry=$(printf %s "$item" | jq -r '.name' -)
 
     printf '  - %s\n' "$repository"
     printf '    - %s\n' "$name"

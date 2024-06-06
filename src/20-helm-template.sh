@@ -3,9 +3,9 @@ output="$(pwd)/$3/templates/%s/%s/"
 outputfile="$(pwd)/$3/templates/%s/%s/%s.yaml"
 echo "Templating (https) ..."
 yq eval '.[] | select(.kind == "helm")' $input -o json | jq -rc | while IFS= read -r item; do
-    repository=$(echo "$item" | jq -r '.repository' -)
-    name=$(echo "$item" | jq -r '.name' -)
-    entries=$(echo "$item" | jq -r '.entries[]' -)
+    repository=$(printf %s "$item" | jq -r '.repository' -)
+    name=$(printf %s "$item" | jq -r '.name' -)
+    entries=$(printf %s "$item" | jq -r '.entries[]' -)
     printf '  - %s\n' "$repository"
 
     yq -o json $input | jq -rc --arg repository $repository  --arg name $name '.[] | select(.repository == $repository and .name == $name) | .valuesFile // ""' > /tmp/values

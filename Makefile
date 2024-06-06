@@ -44,8 +44,12 @@ shellcheck:
 	@find src test -type f -name "*.sh" -print0 | sort -z | xargs -0 -I{} shellcheck {}
 
 shell: clean-shell
-	@docker build -qt crd-runner . >/dev/null
+	@docker build -qt crd-runner -f Dockerfile.alpine . >/dev/null
 	@docker run -it -v $$(pwd):/workspace -w /workspace crd-runner /bin/sh
+
+shell-ubuntu: clean-shell
+	@docker build -qt crd-runner -f Dockerfile.ubuntu . >/dev/null
+	@docker run -it -v $$(pwd):/workspace -w /workspace crd-runner /bin/bash
 
 clean-shell: clean
 	@(docker inspect --type=image crd-runner:latest > /dev/null 2>&1 && (docker rm -f $$(docker container ls -aqf "ancestor=crd-runner:latest") > /dev/null 2>&1 && docker rmi -f crd-runner:latest > /dev/null 2>&1)) || true

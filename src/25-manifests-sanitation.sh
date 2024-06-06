@@ -1,22 +1,18 @@
 tmp=$(mktemp -d)
+base=$(pwd)
 set -e
 cd "$3/templates"
 
 echo "Sanitizing manifests ..."
 
 echo "  - removing no content manifests:"
-for directory in */*/; do
-    #shellcheck disable=SC2038
-    find $directory -type f -exec sh -c 'grep -q "[^[:space:]]" "$0" || echo "$0"' {} \; | xargs -I{} sh -c 'rm "{}"; echo "    - {}"'
-done
+find . -type f -exec sh "$base/build/bin/helpers/delete-whitespace-file.sh" {} \;
 echo "    - done"
 
 echo "  - removing descriptions from manifests:"
 for directory in */*/; do
     echo "    - $directory"
-    find $directory -name "*.yaml" -type f -print0 | sort -z | while IFS= read -r -d '' file; do
-        yq eval 'del(.. | select(.description? | type == "!!str") | .description)' < "$file" > "$file.tmp"; mv "$file.tmp" "$file"
-    done
+    find $directory -name "*.yaml" -type f -print0 | sort -z | xargs -0 -I{} sh "$base/build/bin/helpers/remove-description.sh" "{}"
 done
 echo "    - done"
 
