@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := run
-.PHONY: test run
+.PHONY: test
 
 export DOCKER_CLI_HINTS=false
 
