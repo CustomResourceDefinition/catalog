@@ -40,6 +40,9 @@ test-only-latest: clean build-test
 	@build/bin/main build/configuration.yaml build/ephemeral/schema build/ephemeral
 	@build/bin/test-verify only-latest build/ephemeral/schema build/ephemeral
 
+shellcheck:
+	@find src test -type f -name "*.sh" -print0 | sort -z | xargs -0 -I{} shellcheck {}
+
 shell: clean-shell
 	@docker build -qt crd-runner . >/dev/null
 	@docker run -it -v $$(pwd):/workspace -w /workspace crd-runner /bin/sh

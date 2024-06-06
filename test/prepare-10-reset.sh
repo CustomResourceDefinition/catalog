@@ -4,7 +4,7 @@ echo "Reset for a fresh test ... "
 
 helm repo ls -o json | jq -r '.[].name' | xargs -I{} helm repo rm {}
 
-rm -rf "$3"/* &>/dev/null || true
+rm -rf "${3:?}"/* &>/dev/null || true
 
 mkdir "$3/schema"
 mkdir "$3/verified-schema"
