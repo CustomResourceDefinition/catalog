@@ -3,7 +3,7 @@ output="$(pwd)/$3/templates/%s/%s/"
 outputfile="$(pwd)/$3/templates/%s/%s/%s.yaml"
 echo "Templating (git) ..."
 
-function generate {
+generate() {
     cd /tmp/git || return
     git checkout "$2" > /dev/null 2>&1
     {
