@@ -82,7 +82,7 @@ shell: configure-test build-shell
 	crd-runner /bin/sh
 
 shell-command: build-shell
-	@docker run -it \
+	@docker run \
 	-v $(TEMPLATES):/templates \
 	-v $(SCHEMA):/schema \
 	-v $(CONFIGURATION):/app/configuration.yaml:ro \
