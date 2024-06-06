@@ -70,6 +70,7 @@ To add CRDs for [eks-anywhere](https://github.com/aws/eks-anywhere) you should a
   name: eks-anywhere
   repository: https://github.com/aws/eks-anywhere
   versionPrefix: v # by default only major.minor.patch tags are used, but a prefix can be set
+  # versionSuffix: # regex matching end of versions, by default matching $
   # includeHead: true # by default the head branch is ignored and only published tags are used
   # searchPaths: # paths to recursively find yaml files in (non-CRDs are discarded)
   #   - crds
