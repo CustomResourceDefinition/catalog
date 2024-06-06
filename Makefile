@@ -4,8 +4,8 @@
 export DOCKER_CLI_HINTS=false
 
 clean:
-	@rm src/helpers/convert.py &>/dev/null || true
-	@rm -r build/* &>/dev/null || true
+	@rm src/helpers/convert.py > /dev/null 2>&1 || true
+	@rm -r build/* > /dev/null 2>&1 || true
 
 fetch-converter:
 	@wget -q -O src/helpers/convert.py https://raw.githubusercontent.com/yannh/kubeconform/master/scripts/openapi2jsonschema.py
@@ -48,4 +48,4 @@ shell: clean-shell
 	@docker run -it -v $$(pwd):/workspace -w /workspace crd-runner /bin/sh
 
 clean-shell: clean
-	@(docker inspect --type=image crd-runner:latest &>/dev/null && (docker rm -f $$(docker container ls -aqf "ancestor=crd-runner:latest") &>/dev/null && docker rmi -f crd-runner:latest &>/dev/null)) || true
+	@(docker inspect --type=image crd-runner:latest > /dev/null 2>&1 && (docker rm -f $$(docker container ls -aqf "ancestor=crd-runner:latest") > /dev/null 2>&1 && docker rmi -f crd-runner:latest > /dev/null 2>&1)) || true

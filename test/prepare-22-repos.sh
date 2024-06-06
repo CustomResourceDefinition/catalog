@@ -2,7 +2,7 @@ set -e
 base=$(pwd)
 echo "Setup test git charts ... "
 
-mkdir -p "$3/repository/git" &>/dev/null || true
+mkdir -p "$3/repository/git" > /dev/null 2>&1 || true
 cd "$3/repository/git"
 
 git config --global user.email "test@runner.local"
@@ -30,6 +30,6 @@ git tag v1.0.0
 git tag v2.0.0
 git tag v10.0.0
 
-cd - &>/dev/null
+cd - > /dev/null 2>&1
 
 echo

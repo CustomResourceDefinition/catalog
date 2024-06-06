@@ -5,7 +5,7 @@ echo "Templating (git) ..."
 
 function generate {
     cd /tmp/git || return
-    git checkout "$2" &>/dev/null
+    git checkout "$2" > /dev/null 2>&1
     {
         for path in ${3}; do
             test -d "/tmp/git/$path/" && find "/tmp/git/$path/" -type f \( -iname '*.yaml' -o -iname '*.yml' \) -exec sh -c "echo '---'; cat \$0" {} \;
@@ -30,7 +30,7 @@ yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read
     printf '  - %s\n' "$repository"
     printf '    - %s\n' "$name"
 
-    rm -rf /tmp/git &>/dev/null
+    rm -rf /tmp/git > /dev/null 2>&1
     mkdir -p /tmp/git
     git clone --quiet --recursive "$repository" /tmp/git
     cd /tmp/git || continue

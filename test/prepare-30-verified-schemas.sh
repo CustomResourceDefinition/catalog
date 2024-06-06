@@ -2,7 +2,7 @@ set -e
 
 echo "Setup verified schemas ... "
 
-rm -rf -- /tmp/verified &>/dev/null || true
+rm -rf -- /tmp/verified > /dev/null 2>&1 || true
 mkdir -p /tmp/verified/base
 cp test/fixtures/*.json /tmp/verified/base/
 

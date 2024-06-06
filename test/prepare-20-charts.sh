@@ -2,7 +2,7 @@ set -e
 base=$(pwd)
 echo "Setup test helm charts ... "
 
-rm -rf -- /tmp/charts &>/dev/null || true
+rm -rf -- /tmp/charts > /dev/null 2>&1 || true
 mkdir -p /tmp/charts/regular || true
 mkdir -p /tmp/charts/templated || true
 mkdir -p /tmp/charts/base || true
@@ -16,7 +16,7 @@ helm create templated
     yq '.spec.group = "chart.conditional"' < "$base/test/fixtures/test-crd.yaml"
     echo '{{- end }}'
 } > templated/templates/crd.yaml
-cd - &>/dev/null
+cd - > /dev/null 2>&1
 
 cp -r /tmp/charts/base/regular /tmp/charts/regular/1.0
 cp test/fixtures/test-crd.yaml /tmp/charts/regular/1.0/crds/old-crd.yaml
@@ -45,6 +45,6 @@ helm package /tmp/charts/templated/1.0
 
 helm repo index .
 
-cd - &>/dev/null
+cd - > /dev/null 2>&1
 
 echo

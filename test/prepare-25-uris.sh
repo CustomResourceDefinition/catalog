@@ -12,6 +12,6 @@ cp "$base/test/fixtures/test-crd.yaml" ./chart-2.0.0.yaml
 yq -i '.version = "2.0.0"' ./chart-2.0.0.yaml
 yq -i '.spec.group = "chart.uri"' ./chart-2.0.0.yaml
 
-cd - &>/dev/null
+cd - > /dev/null 2>&1
 
 echo
