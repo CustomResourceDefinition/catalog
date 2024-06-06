@@ -35,7 +35,7 @@ yq -i '.spec.group = "chart.local"' /tmp/charts/regular/2.0/crds/crd.yaml
 cp -r /tmp/charts/base/templated /tmp/charts/templated/1.0
 yq -i '.version = "1.0.0"' /tmp/charts/templated/1.0/Chart.yaml
 
-cd /repository/http/
+cd "$3/repository/http/"
 
 helm package /tmp/charts/regular/1.0
 helm package /tmp/charts/regular/1.5

@@ -1,6 +1,7 @@
 set -e
-
+base=$(pwd)
 echo "Setup test git charts ... "
+
 mkdir -p "$3/repository/git" &>/dev/null || true
 cd "$3/repository/git"
 
@@ -9,7 +10,7 @@ git config --global user.name "Test Runner"
 git init --initial-branch=main
 
 mkdir crds
-cp test/fixtures/test-crd.yaml crds/crd.yaml
+cp "$base/test/fixtures/test-crd.yaml" crds/crd.yaml
 yq -i '.spec.group = "chart.git"' crds/crd.yaml
 yq -i '.version = "1.0.0"' crds/crd.yaml
 
@@ -28,5 +29,7 @@ git commit -m commit >/dev/null
 git tag v1.0.0
 git tag v2.0.0
 git tag v10.0.0
+
+cd - &>/dev/null
 
 echo
