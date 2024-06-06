@@ -44,7 +44,7 @@ build-test: configure-test build
 run: build
 	@build/bin/main
 
-test: test-all-versions test-only-latest
+test: test-configuration test-all-versions test-only-latest
 
 test-all-versions: build-test
 	@build/bin/test-prepare all-versions
@@ -55,6 +55,10 @@ test-only-latest: build-test
 	@build/bin/test-prepare only-latest
 	@build/bin/main
 	@build/bin/test-verify "Only lastest version used"
+
+test-configuration: clean
+	@yq 'sort_by(.name)' configuration.yaml > build/configuration.sorted
+	@diff configuration.yaml build/configuration.sorted
 
 test-shellcheck:
 	@find src test -type f -name "*.sh" -print0 | sort -z | xargs -0 -I {} shellcheck {}

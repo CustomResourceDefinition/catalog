@@ -6,7 +6,7 @@ Running Kubernetes schema validation checks helps apply the **"shift-left approa
 
 ## Origins
 
-This catalog is inspired by [Datrees CRDs-catalog](https://github.com/datreeio/CRDs-catalog), but uses a sources list to pull updates automatically and enables re-creation from these sources provided the source helm charts, uris, etc are still available.
+This catalog is inspired by the [CRDs-catalog](https://github.com/datreeio/CRDs-catalog) from [Datree](https://www.datree.io), but instead uses a sources list to pull updates automatically and enables re-creation from these sources provided the source helm charts, uris, etc are still available.
 
 ## How to use the schemas in the catalog
 
