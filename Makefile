@@ -21,19 +21,21 @@ build-test: build
 	@cat test/prepare-*.sh > build/bin/test-prepare
 	@cat test/verify-*.sh > build/bin/test-verify
 	@chmod +x build/bin/test-prepare build/bin/test-verify
-	yq '[.[] | select(.kind == "git" and (.repository | test("^/repository/")))]' test/configuration.yaml > build/configuration.yaml
+	@yq -o json test/configuration.yaml | \
+	jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
+	yq -p json -o yaml > build/configuration.yaml
 
 run: clean build
 	@build/bin/main configuration.yaml schema build/ephemeral
 
-test: clean build-test test-all-versions test-only-latest
+test: test-all-versions test-only-latest
 
-test-all-versions: build-test
+test-all-versions: clean build-test
 	@build/bin/test-prepare all-versions build/ephemeral/schema build/ephemeral
 	@build/bin/main build/configuration.yaml build/ephemeral/schema build/ephemeral
 	@build/bin/test-verify all-versions build/ephemeral/schema build/ephemeral
 
-test-only-latest: build-test
+test-only-latest: clean build-test
 	@build/bin/test-prepare only-latest build/ephemeral/schema build/ephemeral
 	@build/bin/main build/configuration.yaml build/ephemeral/schema build/ephemeral
 	@build/bin/test-verify only-latest build/ephemeral/schema build/ephemeral

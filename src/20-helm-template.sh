@@ -1,6 +1,6 @@
-input="$1"
-output="$3/templates/%s/%s/"
-outputfile="$3/templates/%s/%s/%s.yaml"
+input="$(pwd)/$1"
+output="$(pwd)/$3/templates/%s/%s/"
+outputfile="$(pwd)/$3/templates/%s/%s/%s.yaml"
 echo "Templating (https) ..."
 yq eval '.[] | select(.kind == "helm")' $input -o json | jq -rc | while IFS= read -r item; do
     repository=$(echo "$item" | jq -r '.repository' -)
@@ -20,7 +20,7 @@ yq eval '.[] | select(.kind == "helm")' $input -o json | jq -rc | while IFS= rea
 
         known=1
         for group in ${groups}; do
-            if [ ! -d /schema/$group ]; then
+            if [ ! -d "$2/$group" ]; then
                 known=0
                 echo "      - $group is unknown -> render all versions"
             fi

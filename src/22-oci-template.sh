@@ -1,6 +1,6 @@
-input="$1"
-output="$3/templates/%s/%s/"
-outputfile="$3/templates/%s/%s/%s.yaml"
+input="$(pwd)/$1"
+output="$(pwd)/$3/templates/%s/%s/"
+outputfile="$(pwd)/$3/templates/%s/%s/%s.yaml"
 repositories=$(yq '.[] | select(.kind == "helm-oci") | .repository' $input)
 echo "Templating (oci) ..."
 for repository in ${repositories}; do
@@ -21,7 +21,7 @@ for repository in ${repositories}; do
 
     known=1
     for group in ${groups}; do
-        if [ ! -d /schema/$group ]; then
+        if [ ! -d "$2/$group" ]; then
             known=0
             echo "      - $group is unknown -> render all versions"
         fi

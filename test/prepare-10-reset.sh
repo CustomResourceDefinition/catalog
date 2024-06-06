@@ -1,6 +1,6 @@
 set -e
 
-printf "Reset for a fresh test ... "
+echo "Reset for a fresh test ... "
 
 helm repo ls -o json | jq -r '.[].name' | xargs -I{} helm repo rm {}
 

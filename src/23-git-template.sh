@@ -1,6 +1,6 @@
-input="$1"
-output="$3/templates/%s/%s/"
-outputfile="$3/templates/%s/%s/%s.yaml"
+input="$(pwd)/$1"
+output="$(pwd)/$3/templates/%s/%s/"
+outputfile="$(pwd)/$3/templates/%s/%s/%s.yaml"
 echo "Templating (git) ..."
 
 function generate {
@@ -32,8 +32,8 @@ yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read
 
     rm -rf /tmp/git &>/dev/null
     mkdir -p /tmp/git
-    cd /tmp/git || continue
     git clone --quiet --recursive "$repository" /tmp/git
+    cd /tmp/git || continue
 
     mkdir -p "$(printf "$output" "$name" "$entry" | tr '[:upper:]' '[:lower:]')" || true
 
@@ -56,7 +56,7 @@ yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read
     groups=$(yq .spec.group < $file | grep -v '\---' | grep -v null | uniq)
     known=1
     for group in ${groups}; do
-        if [ ! -d /schema/$group ]; then
+        if [ ! -d "$2/$group" ]; then
             known=0
             echo "      - $group is unknown -> render all versions"
         fi
