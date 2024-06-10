@@ -12,7 +12,7 @@ This catalog is inspired by the [CRDs-catalog](https://github.com/datreeio/CRDs-
 
 ### Kubeconform
 ```sh
-kubeconform -schema-location default -schema-location 'https://raw.githubusercontent.com/CodeReaper/CRD-catalog/main/schema/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' [MANIFEST]
+kubeconform -schema-location default -schema-location 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/main/schema/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' [MANIFEST]
 ```
 
 # How to contribute CRDs
