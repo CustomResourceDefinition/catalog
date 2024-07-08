@@ -34,6 +34,14 @@ yq -i '.spec.group = "chart.local"' /tmp/charts/regular/2.0/crds/crd.yaml
 
 cp -r /tmp/charts/base/templated /tmp/charts/templated/1.0
 yq -i '.version = "1.0.0"' /tmp/charts/templated/1.0/Chart.yaml
+cp -r /tmp/charts/base/templated /tmp/charts/templated/2.0
+yq -i '.version = "2.0.0"' /tmp/charts/templated/2.0/Chart.yaml
+{
+    echo '{{- if .Values.output }}'
+    echo '{{- fail "value for .Values.output is not allowed in this version" }}'
+    echo '{{- end }}'
+    yq '.spec.group = "chart.unconditional"' < /app/test/fixtures/test-crd.yaml
+} > /tmp/charts/templated/2.0/templates/crd.yaml
 
 cd /repository/http/
 
@@ -42,6 +50,7 @@ helm package /tmp/charts/regular/1.5
 helm package /tmp/charts/regular/2.0
 
 helm package /tmp/charts/templated/1.0
+helm package /tmp/charts/templated/2.0
 
 helm repo index .
 
