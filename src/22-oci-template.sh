@@ -11,7 +11,7 @@ for repository in ${repositories}; do
 
     printf '  - %s\n' "$repository"
 
-    yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .valuesFile // ""' > /tmp/values
+    values_file_of "$input" "$repository" "$name" > /tmp/values
 
     mkdir -p "$(printf "$output" "$name" "$entry" | tr '[:upper:]' '[:lower:]')" || true
     version=$(helm template "$repository" -f /tmp/values 2>&1 | head -n1 | cut -d: -f3)
@@ -33,6 +33,7 @@ for repository in ${repositories}; do
 
     for version in ${versions}; do
         printf '      - version %s\n' "$version"
+        values_file_of "$input" "$repository" "$name" "$version" > /tmp/values
         file=$(printf "$outputfile" "$name" "$entry" "$version" | tr '[:upper:]' '[:lower:]')
         helm template --include-crds "$repository" --version "$version" -f /tmp/values 2>/dev/null | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
     done

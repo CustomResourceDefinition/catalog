@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := clean
-.PHONY: test ci-test ci-run
+.PHONY: test
 
 export DOCKER_CLI_HINTS=false
 
@@ -36,7 +36,8 @@ build: clean configure
 build-test: configure-test build
 	@cat test/prepare-*.sh > build/bin/test-prepare
 	@cat test/verify-*.sh > build/bin/test-verify
-	@chmod +x build/bin/test-prepare build/bin/test-verify
+	@cat src/0?-*.sh test/unit-test-*.sh > build/bin/unit-tests
+	@chmod +x build/bin/test-prepare build/bin/test-verify build/bin/unit-tests
 	@yq -o json test/configuration.yaml | \
 	jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
 	yq -p json -o yaml > build/configuration.yaml
@@ -44,7 +45,7 @@ build-test: configure-test build
 run: build
 	@build/bin/main
 
-test: test-configuration test-all-versions test-only-latest
+test: unit-tests test-configuration test-all-versions test-only-latest test-shellcheck
 
 test-all-versions: build-test
 	@build/bin/test-prepare all-versions
@@ -62,6 +63,9 @@ test-configuration: clean
 
 test-shellcheck:
 	@find src test -type f -name "*.sh" -print0 | sort -z | xargs -0 -I {} shellcheck {}
+
+unit-tests: build-test
+	@build/bin/unit-tests
 
 ci-test: configure-test shell-command
 
