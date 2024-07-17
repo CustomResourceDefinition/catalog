@@ -60,6 +60,9 @@ test-only-latest: build-test
 test-configuration: clean
 	@yq 'sort_by(.name)' configuration.yaml > build/configuration.sorted
 	@diff configuration.yaml build/configuration.sorted
+	@check-jsonschema --schemafile .schema.json configuration.yaml
+	@check-jsonschema --schemafile .schema.json test/configuration.yaml
+	@grep -q 'file://' configuration.yaml && exit 1 || true
 
 test-shellcheck:
 	@find src test -type f -name "*.sh" -print0 | sort -z | xargs -0 -I {} shellcheck {}
