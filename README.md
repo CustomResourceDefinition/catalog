@@ -91,7 +91,7 @@ To add CRDs for [CrunchyData/postgres-operator](https://github.com/CrunchyData/p
   repository: oci://registry.developers.crunchydata.com/crunchydata/pgo
 ```
 
-The `additionalVersions` entry should be a list of previous versions that have old CRDs that should still be available. You should always need the current version to this list when initially adding a new chart.
+The `additionalVersions` entry should be a list of previous versions that have old CRDs that should still be available. You should always add the current version to this list when initially adding a new chart.
 
 ## Uris
 
