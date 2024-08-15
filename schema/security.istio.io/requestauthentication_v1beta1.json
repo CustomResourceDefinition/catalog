@@ -9,6 +9,7 @@
             "properties": {
               "audiences": {
                 "items": {
+                  "minLength": 1,
                   "type": "string"
                 },
                 "type": "array"
@@ -18,6 +19,7 @@
               },
               "fromCookies": {
                 "items": {
+                  "minLength": 1,
                   "type": "string"
                 },
                 "type": "array"
@@ -27,6 +29,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
+                      "minLength": 1,
                       "type": "string"
                     },
                     "prefix": {
@@ -42,33 +45,58 @@
               },
               "fromParams": {
                 "items": {
+                  "minLength": 1,
                   "type": "string"
                 },
                 "type": "array"
               },
               "issuer": {
+                "minLength": 1,
                 "type": "string"
               },
               "jwks": {
                 "type": "string"
               },
               "jwksUri": {
-                "type": "string"
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "url must have scheme http:// or https://",
+                    "rule": "url(self).getScheme() in ['http', 'https']"
+                  }
+                ]
               },
               "jwks_uri": {
-                "type": "string"
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "url must have scheme http:// or https://",
+                    "rule": "url(self).getScheme() in ['http', 'https']"
+                  }
+                ]
               },
               "outputClaimToHeaders": {
                 "items": {
                   "additionalProperties": false,
                   "properties": {
                     "claim": {
+                      "minLength": 1,
                       "type": "string"
                     },
                     "header": {
+                      "minLength": 1,
+                      "pattern": "^[-_A-Za-z0-9]+$",
                       "type": "string"
                     }
                   },
+                  "required": [
+                    "header",
+                    "claim"
+                  ],
                   "type": "object"
                 },
                 "type": "array"
@@ -77,14 +105,27 @@
                 "type": "string"
               },
               "timeout": {
-                "type": "string"
+                "type": "string",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "must be a valid duration greater than 1ms",
+                    "rule": "duration(self) >= duration('1ms')"
+                  }
+                ]
               }
             },
             "required": [
               "issuer"
             ],
-            "type": "object"
+            "type": "object",
+            "x-kubernetes-validations": [
+              {
+                "message": "only one of jwks or jwksUri can be set",
+                "rule": "(has(self.jwksUri)?1:0)+(has(self.jwks_uri)?1:0)+(has(self.jwks)?1:0)<=1"
+              }
+            ]
           },
+          "maxItems": 4096,
           "type": "array"
         },
         "selector": {
@@ -92,9 +133,27 @@
           "properties": {
             "matchLabels": {
               "additionalProperties": {
-                "type": "string"
+                "maxLength": 63,
+                "type": "string",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "wildcard not allowed in label value match",
+                    "rule": "!self.contains('*')"
+                  }
+                ]
               },
-              "type": "object"
+              "maxProperties": 4096,
+              "type": "object",
+              "x-kubernetes-validations": [
+                {
+                  "message": "wildcard not allowed in label key match",
+                  "rule": "self.all(key, !key.contains('*'))"
+                },
+                {
+                  "message": "key must not be empty",
+                  "rule": "self.all(key, key.size() != 0)"
+                }
+              ]
             }
           },
           "type": "object"
@@ -103,43 +162,95 @@
           "additionalProperties": false,
           "properties": {
             "group": {
+              "maxLength": 253,
+              "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$",
               "type": "string"
             },
             "kind": {
+              "maxLength": 63,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$",
               "type": "string"
             },
             "name": {
+              "maxLength": 253,
+              "minLength": 1,
               "type": "string"
             },
             "namespace": {
-              "type": "string"
+              "type": "string",
+              "x-kubernetes-validations": [
+                {
+                  "message": "cross namespace referencing is not currently supported",
+                  "rule": "self.size() == 0"
+                }
+              ]
             }
           },
-          "type": "object"
+          "required": [
+            "kind",
+            "name"
+          ],
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "Support kinds are core/Service and gateway.networking.k8s.io/Gateway",
+              "rule": "[self.group, self.kind] in [['core','Service'], ['','Service'], ['gateway.networking.k8s.io','Gateway']]"
+            }
+          ]
         },
         "targetRefs": {
           "items": {
             "additionalProperties": false,
             "properties": {
               "group": {
+                "maxLength": 253,
+                "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$",
                 "type": "string"
               },
               "kind": {
+                "maxLength": 63,
+                "minLength": 1,
+                "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$",
                 "type": "string"
               },
               "name": {
+                "maxLength": 253,
+                "minLength": 1,
                 "type": "string"
               },
               "namespace": {
-                "type": "string"
+                "type": "string",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "cross namespace referencing is not currently supported",
+                    "rule": "self.size() == 0"
+                  }
+                ]
               }
             },
-            "type": "object"
+            "required": [
+              "kind",
+              "name"
+            ],
+            "type": "object",
+            "x-kubernetes-validations": [
+              {
+                "message": "Support kinds are core/Service and gateway.networking.k8s.io/Gateway",
+                "rule": "[self.group, self.kind] in [['core','Service'], ['','Service'], ['gateway.networking.k8s.io','Gateway']]"
+              }
+            ]
           },
           "type": "array"
         }
       },
-      "type": "object"
+      "type": "object",
+      "x-kubernetes-validations": [
+        {
+          "message": "only one of targetRefs or workloadSelector can be set",
+          "rule": "(has(self.selector)?1:0)+(has(self.targetRef)?1:0)+(has(self.targetRefs)?1:0)<=1"
+        }
+      ]
     },
     "status": {
       "type": "object",
