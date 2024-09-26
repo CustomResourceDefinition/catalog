@@ -12,32 +12,20 @@
     "spec": {
       "additionalProperties": false,
       "properties": {
-        "accessFrom": {
+        "bucketName": {
+          "type": "string"
+        },
+        "certSecretRef": {
           "additionalProperties": false,
           "properties": {
-            "namespaceSelectors": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "matchLabels": {
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "type": "object"
-                  }
-                },
-                "type": "object"
-              },
-              "type": "array"
+            "name": {
+              "type": "string"
             }
           },
           "required": [
-            "namespaceSelectors"
+            "name"
           ],
           "type": "object"
-        },
-        "bucketName": {
-          "type": "string"
         },
         "endpoint": {
           "type": "string"
@@ -49,6 +37,10 @@
           "type": "boolean"
         },
         "interval": {
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$",
+          "type": "string"
+        },
+        "prefix": {
           "type": "string"
         },
         "provider": {
@@ -56,9 +48,22 @@
           "enum": [
             "generic",
             "aws",
-            "gcp"
+            "gcp",
+            "azure"
           ],
           "type": "string"
+        },
+        "proxySecretRef": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
         },
         "region": {
           "type": "string"
@@ -75,11 +80,57 @@
           ],
           "type": "object"
         },
+        "sts": {
+          "additionalProperties": false,
+          "properties": {
+            "certSecretRef": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "type": "object"
+            },
+            "endpoint": {
+              "pattern": "^(http|https)://.*$",
+              "type": "string"
+            },
+            "provider": {
+              "enum": [
+                "aws",
+                "ldap"
+              ],
+              "type": "string"
+            },
+            "secretRef": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "endpoint",
+            "provider"
+          ],
+          "type": "object"
+        },
         "suspend": {
           "type": "boolean"
         },
         "timeout": {
           "default": "60s",
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m))+$",
           "type": "string"
         }
       },
@@ -88,7 +139,29 @@
         "endpoint",
         "interval"
       ],
-      "type": "object"
+      "type": "object",
+      "x-kubernetes-validations": [
+        {
+          "message": "STS configuration is only supported for the 'aws' and 'generic' Bucket providers",
+          "rule": "self.provider == 'aws' || self.provider == 'generic' || !has(self.sts)"
+        },
+        {
+          "message": "'aws' is the only supported STS provider for the 'aws' Bucket provider",
+          "rule": "self.provider != 'aws' || !has(self.sts) || self.sts.provider == 'aws'"
+        },
+        {
+          "message": "'ldap' is the only supported STS provider for the 'generic' Bucket provider",
+          "rule": "self.provider != 'generic' || !has(self.sts) || self.sts.provider == 'ldap'"
+        },
+        {
+          "message": "spec.sts.secretRef is not required for the 'aws' STS provider",
+          "rule": "!has(self.sts) || self.sts.provider != 'aws' || !has(self.sts.secretRef)"
+        },
+        {
+          "message": "spec.sts.certSecretRef is not required for the 'aws' STS provider",
+          "rule": "!has(self.sts) || self.sts.provider != 'aws' || !has(self.sts.certSecretRef)"
+        }
+      ]
     },
     "status": {
       "additionalProperties": false,
@@ -99,18 +172,29 @@
         "artifact": {
           "additionalProperties": false,
           "properties": {
-            "checksum": {
+            "digest": {
+              "pattern": "^[a-z0-9]+(?:[.+_-][a-z0-9]+)*:[a-zA-Z0-9=_-]+$",
               "type": "string"
             },
             "lastUpdateTime": {
               "format": "date-time",
               "type": "string"
             },
+            "metadata": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
             "path": {
               "type": "string"
             },
             "revision": {
               "type": "string"
+            },
+            "size": {
+              "format": "int64",
+              "type": "integer"
             },
             "url": {
               "type": "string"
@@ -119,6 +203,7 @@
           "required": [
             "lastUpdateTime",
             "path",
+            "revision",
             "url"
           ],
           "type": "object"
@@ -177,6 +262,9 @@
         "observedGeneration": {
           "format": "int64",
           "type": "integer"
+        },
+        "observedIgnore": {
+          "type": "string"
         },
         "url": {
           "type": "string"
