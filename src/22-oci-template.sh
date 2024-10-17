@@ -6,8 +6,8 @@ echo "Templating (oci) ..."
 for repository in ${repositories}; do
     versions=$(yq -o json $input | jq -rc --arg repository $repository '.[] | select(.repository == $repository) | .additionalVersions[]')
     combinedname=$(echo "$repository" | rev | cut -d/ -f1-2 | rev)
-    name=$(echo "$combinedname" | cut -d/ -f1)
-    entry=$(echo "$combinedname" | cut -d/ -f2)
+    name=$(echo "$combinedname" | cut -d/ -f2)
+    entry=$(echo "$combinedname" | cut -d/ -f1)
 
     printf '  - %s\n' "$repository"
 
