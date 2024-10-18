@@ -51,8 +51,8 @@ _build-test: _build
 	cat src/0?-*.sh test/unit-test-*.sh > build/bin/unit-tests
 	@chmod +x build/bin/test-prepare build/bin/test-verify build/bin/unit-tests
 	@yq -o json test/configuration.yaml | \
-		jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
-		yq -p json -o yaml > build/configuration.yaml
+	jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
+	yq -p json -o yaml > build/configuration.yaml
 
 _update: _build
 	build/bin/main
