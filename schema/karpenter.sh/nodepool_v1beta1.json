@@ -1,0 +1,575 @@
+{
+  "properties": {
+    "apiVersion": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "additionalProperties": false,
+      "properties": {
+        "disruption": {
+          "additionalProperties": false,
+          "default": {
+            "consolidationPolicy": "WhenUnderutilized",
+            "expireAfter": "720h"
+          },
+          "properties": {
+            "budgets": {
+              "default": [
+                {
+                  "nodes": "10%"
+                }
+              ],
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "duration": {
+                    "pattern": "^((([0-9]+(h|m))|([0-9]+h[0-9]+m))(0s)?)$",
+                    "type": "string"
+                  },
+                  "nodes": {
+                    "default": "10%",
+                    "pattern": "^((100|[0-9]{1,2})%|[0-9]+)$",
+                    "type": "string"
+                  },
+                  "schedule": {
+                    "pattern": "^(@(annually|yearly|monthly|weekly|daily|midnight|hourly))|((.+)\\s(.+)\\s(.+)\\s(.+)\\s(.+))$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "nodes"
+                ],
+                "type": "object"
+              },
+              "maxItems": 50,
+              "type": "array",
+              "x-kubernetes-validations": [
+                {
+                  "message": "'schedule' must be set with 'duration'",
+                  "rule": "self.all(x, has(x.schedule) == has(x.duration))"
+                }
+              ]
+            },
+            "consolidateAfter": {
+              "pattern": "^(([0-9]+(s|m|h))+)|(Never)$",
+              "type": "string"
+            },
+            "consolidationPolicy": {
+              "default": "WhenUnderutilized",
+              "enum": [
+                "WhenEmpty",
+                "WhenUnderutilized"
+              ],
+              "type": "string"
+            },
+            "expireAfter": {
+              "default": "720h",
+              "pattern": "^(([0-9]+(s|m|h))+)|(Never)$",
+              "type": "string"
+            }
+          },
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "consolidateAfter cannot be combined with consolidationPolicy=WhenUnderutilized",
+              "rule": "has(self.consolidateAfter) ? self.consolidationPolicy != 'WhenUnderutilized' || self.consolidateAfter == 'Never' : true"
+            },
+            {
+              "message": "consolidateAfter must be specified with consolidationPolicy=WhenEmpty",
+              "rule": "self.consolidationPolicy == 'WhenEmpty' ? has(self.consolidateAfter) : true"
+            }
+          ]
+        },
+        "limits": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+            "x-kubernetes-int-or-string": true
+          },
+          "type": "object"
+        },
+        "template": {
+          "additionalProperties": false,
+          "properties": {
+            "metadata": {
+              "additionalProperties": false,
+              "properties": {
+                "annotations": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "labels": {
+                  "additionalProperties": {
+                    "maxLength": 63,
+                    "pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$",
+                    "type": "string"
+                  },
+                  "maxProperties": 100,
+                  "type": "object",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "label domain \"kubernetes.io\" is restricted",
+                      "rule": "self.all(x, x in [\"beta.kubernetes.io/instance-type\", \"failure-domain.beta.kubernetes.io/region\",  \"beta.kubernetes.io/os\", \"beta.kubernetes.io/arch\", \"failure-domain.beta.kubernetes.io/zone\", \"topology.kubernetes.io/zone\", \"topology.kubernetes.io/region\", \"kubernetes.io/arch\", \"kubernetes.io/os\", \"node.kubernetes.io/windows-build\"] || x.find(\"^([^/]+)\").endsWith(\"node.kubernetes.io\") || x.find(\"^([^/]+)\").endsWith(\"node-restriction.kubernetes.io\") || !x.find(\"^([^/]+)\").endsWith(\"kubernetes.io\"))"
+                    },
+                    {
+                      "message": "label domain \"k8s.io\" is restricted",
+                      "rule": "self.all(x, x.find(\"^([^/]+)\").endsWith(\"kops.k8s.io\") || !x.find(\"^([^/]+)\").endsWith(\"k8s.io\"))"
+                    },
+                    {
+                      "message": "label domain \"karpenter.sh\" is restricted",
+                      "rule": "self.all(x, x in [\"karpenter.sh/capacity-type\", \"karpenter.sh/nodepool\"] || !x.find(\"^([^/]+)\").endsWith(\"karpenter.sh\"))"
+                    },
+                    {
+                      "message": "label \"karpenter.sh/nodepool\" is restricted",
+                      "rule": "self.all(x, x != \"karpenter.sh/nodepool\")"
+                    },
+                    {
+                      "message": "label \"kubernetes.io/hostname\" is restricted",
+                      "rule": "self.all(x, x != \"kubernetes.io/hostname\")"
+                    },
+                    {
+                      "message": "label domain \"karpenter.k8s.aws\" is restricted",
+                      "rule": "self.all(x, x in [\"karpenter.k8s.aws/instance-encryption-in-transit-supported\", \"karpenter.k8s.aws/instance-category\", \"karpenter.k8s.aws/instance-hypervisor\", \"karpenter.k8s.aws/instance-family\", \"karpenter.k8s.aws/instance-generation\", \"karpenter.k8s.aws/instance-local-nvme\", \"karpenter.k8s.aws/instance-size\", \"karpenter.k8s.aws/instance-cpu\",\"karpenter.k8s.aws/instance-cpu-manufacturer\",\"karpenter.k8s.aws/instance-memory\", \"karpenter.k8s.aws/instance-ebs-bandwidth\", \"karpenter.k8s.aws/instance-network-bandwidth\", \"karpenter.k8s.aws/instance-gpu-name\", \"karpenter.k8s.aws/instance-gpu-manufacturer\", \"karpenter.k8s.aws/instance-gpu-count\", \"karpenter.k8s.aws/instance-gpu-memory\", \"karpenter.k8s.aws/instance-accelerator-name\", \"karpenter.k8s.aws/instance-accelerator-manufacturer\", \"karpenter.k8s.aws/instance-accelerator-count\"] || !x.find(\"^([^/]+)\").endsWith(\"karpenter.k8s.aws\"))"
+                    }
+                  ]
+                }
+              },
+              "type": "object"
+            },
+            "spec": {
+              "additionalProperties": false,
+              "properties": {
+                "kubelet": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "clusterDNS": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "cpuCFSQuota": {
+                      "type": "boolean"
+                    },
+                    "evictionHard": {
+                      "additionalProperties": {
+                        "pattern": "^((\\d{1,2}(\\.\\d{1,2})?|100(\\.0{1,2})?)%||(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?)$",
+                        "type": "string"
+                      },
+                      "type": "object",
+                      "x-kubernetes-validations": [
+                        {
+                          "message": "valid keys for evictionHard are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']",
+                          "rule": "self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])"
+                        }
+                      ]
+                    },
+                    "evictionMaxPodGracePeriod": {
+                      "format": "int32",
+                      "type": "integer"
+                    },
+                    "evictionSoft": {
+                      "additionalProperties": {
+                        "pattern": "^((\\d{1,2}(\\.\\d{1,2})?|100(\\.0{1,2})?)%||(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?)$",
+                        "type": "string"
+                      },
+                      "type": "object",
+                      "x-kubernetes-validations": [
+                        {
+                          "message": "valid keys for evictionSoft are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']",
+                          "rule": "self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])"
+                        }
+                      ]
+                    },
+                    "evictionSoftGracePeriod": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object",
+                      "x-kubernetes-validations": [
+                        {
+                          "message": "valid keys for evictionSoftGracePeriod are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']",
+                          "rule": "self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])"
+                        }
+                      ]
+                    },
+                    "imageGCHighThresholdPercent": {
+                      "format": "int32",
+                      "maximum": 100,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "imageGCLowThresholdPercent": {
+                      "format": "int32",
+                      "maximum": 100,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "kubeReserved": {
+                      "additionalProperties": {
+                        "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                        "type": "string"
+                      },
+                      "type": "object",
+                      "x-kubernetes-validations": [
+                        {
+                          "message": "valid keys for kubeReserved are ['cpu','memory','ephemeral-storage','pid']",
+                          "rule": "self.all(x, x=='cpu' || x=='memory' || x=='ephemeral-storage' || x=='pid')"
+                        },
+                        {
+                          "message": "kubeReserved value cannot be a negative resource quantity",
+                          "rule": "self.all(x, !self[x].startsWith('-'))"
+                        }
+                      ]
+                    },
+                    "maxPods": {
+                      "format": "int32",
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "podsPerCore": {
+                      "format": "int32",
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "systemReserved": {
+                      "additionalProperties": {
+                        "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                        "type": "string"
+                      },
+                      "type": "object",
+                      "x-kubernetes-validations": [
+                        {
+                          "message": "valid keys for systemReserved are ['cpu','memory','ephemeral-storage','pid']",
+                          "rule": "self.all(x, x=='cpu' || x=='memory' || x=='ephemeral-storage' || x=='pid')"
+                        },
+                        {
+                          "message": "systemReserved value cannot be a negative resource quantity",
+                          "rule": "self.all(x, !self[x].startsWith('-'))"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "imageGCHighThresholdPercent must be greater than imageGCLowThresholdPercent",
+                      "rule": "has(self.imageGCHighThresholdPercent) && has(self.imageGCLowThresholdPercent) ?  self.imageGCHighThresholdPercent > self.imageGCLowThresholdPercent  : true"
+                    },
+                    {
+                      "message": "evictionSoft OwnerKey does not have a matching evictionSoftGracePeriod",
+                      "rule": "has(self.evictionSoft) ? self.evictionSoft.all(e, (e in self.evictionSoftGracePeriod)):true"
+                    },
+                    {
+                      "message": "evictionSoftGracePeriod OwnerKey does not have a matching evictionSoft",
+                      "rule": "has(self.evictionSoftGracePeriod) ? self.evictionSoftGracePeriod.all(e, (e in self.evictionSoft)):true"
+                    }
+                  ]
+                },
+                "nodeClassRef": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                "requirements": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "key": {
+                        "maxLength": 316,
+                        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(\\/))?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$",
+                        "type": "string",
+                        "x-kubernetes-validations": [
+                          {
+                            "message": "label domain \"kubernetes.io\" is restricted",
+                            "rule": "self in [\"beta.kubernetes.io/instance-type\", \"failure-domain.beta.kubernetes.io/region\", \"beta.kubernetes.io/os\", \"beta.kubernetes.io/arch\", \"failure-domain.beta.kubernetes.io/zone\", \"topology.kubernetes.io/zone\", \"topology.kubernetes.io/region\", \"node.kubernetes.io/instance-type\", \"kubernetes.io/arch\", \"kubernetes.io/os\", \"node.kubernetes.io/windows-build\"] || self.find(\"^([^/]+)\").endsWith(\"node.kubernetes.io\") || self.find(\"^([^/]+)\").endsWith(\"node-restriction.kubernetes.io\") || !self.find(\"^([^/]+)\").endsWith(\"kubernetes.io\")"
+                          },
+                          {
+                            "message": "label domain \"k8s.io\" is restricted",
+                            "rule": "self.find(\"^([^/]+)\").endsWith(\"kops.k8s.io\") || !self.find(\"^([^/]+)\").endsWith(\"k8s.io\")"
+                          },
+                          {
+                            "message": "label domain \"karpenter.sh\" is restricted",
+                            "rule": "self in [\"karpenter.sh/capacity-type\", \"karpenter.sh/nodepool\"] || !self.find(\"^([^/]+)\").endsWith(\"karpenter.sh\")"
+                          },
+                          {
+                            "message": "label \"karpenter.sh/nodepool\" is restricted",
+                            "rule": "self != \"karpenter.sh/nodepool\""
+                          },
+                          {
+                            "message": "label \"kubernetes.io/hostname\" is restricted",
+                            "rule": "self != \"kubernetes.io/hostname\""
+                          },
+                          {
+                            "message": "label domain \"karpenter.k8s.aws\" is restricted",
+                            "rule": "self in [\"karpenter.k8s.aws/instance-encryption-in-transit-supported\", \"karpenter.k8s.aws/instance-category\", \"karpenter.k8s.aws/instance-hypervisor\", \"karpenter.k8s.aws/instance-family\", \"karpenter.k8s.aws/instance-generation\", \"karpenter.k8s.aws/instance-local-nvme\", \"karpenter.k8s.aws/instance-size\", \"karpenter.k8s.aws/instance-cpu\",\"karpenter.k8s.aws/instance-cpu-manufacturer\",\"karpenter.k8s.aws/instance-memory\", \"karpenter.k8s.aws/instance-ebs-bandwidth\", \"karpenter.k8s.aws/instance-network-bandwidth\", \"karpenter.k8s.aws/instance-gpu-name\", \"karpenter.k8s.aws/instance-gpu-manufacturer\", \"karpenter.k8s.aws/instance-gpu-count\", \"karpenter.k8s.aws/instance-gpu-memory\", \"karpenter.k8s.aws/instance-accelerator-name\", \"karpenter.k8s.aws/instance-accelerator-manufacturer\", \"karpenter.k8s.aws/instance-accelerator-count\"] || !self.find(\"^([^/]+)\").endsWith(\"karpenter.k8s.aws\")"
+                          }
+                        ]
+                      },
+                      "minValues": {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "operator": {
+                        "enum": [
+                          "In",
+                          "NotIn",
+                          "Exists",
+                          "DoesNotExist",
+                          "Gt",
+                          "Lt"
+                        ],
+                        "type": "string"
+                      },
+                      "values": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "maxLength": 63,
+                        "pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$",
+                        "type": "array",
+                        "x-kubernetes-list-type": "atomic"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "operator"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 100,
+                  "type": "array",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "requirements with operator 'In' must have a value defined",
+                      "rule": "self.all(x, x.operator == 'In' ? x.values.size() != 0 : true)"
+                    },
+                    {
+                      "message": "requirements operator 'Gt' or 'Lt' must have a single positive integer value",
+                      "rule": "self.all(x, (x.operator == 'Gt' || x.operator == 'Lt') ? (x.values.size() == 1 && int(x.values[0]) >= 0) : true)"
+                    },
+                    {
+                      "message": "requirements with 'minValues' must have at least that many values specified in the 'values' field",
+                      "rule": "self.all(x, (x.operator == 'In' && has(x.minValues)) ? x.values.size() >= x.minValues : true)"
+                    }
+                  ]
+                },
+                "resources": {
+                  "additionalProperties": false,
+                  "maxProperties": 0,
+                  "properties": {
+                    "requests": {
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ],
+                        "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                        "x-kubernetes-int-or-string": true
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                },
+                "startupTaints": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "effect": {
+                        "enum": [
+                          "NoSchedule",
+                          "PreferNoSchedule",
+                          "NoExecute"
+                        ],
+                        "type": "string"
+                      },
+                      "key": {
+                        "minLength": 1,
+                        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(\\/))?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$",
+                        "type": "string"
+                      },
+                      "timeAdded": {
+                        "format": "date-time",
+                        "type": "string"
+                      },
+                      "value": {
+                        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(\\/))?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "effect",
+                      "key"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "taints": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "effect": {
+                        "enum": [
+                          "NoSchedule",
+                          "PreferNoSchedule",
+                          "NoExecute"
+                        ],
+                        "type": "string"
+                      },
+                      "key": {
+                        "minLength": 1,
+                        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(\\/))?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$",
+                        "type": "string"
+                      },
+                      "timeAdded": {
+                        "format": "date-time",
+                        "type": "string"
+                      },
+                      "value": {
+                        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(\\/))?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "effect",
+                      "key"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "nodeClassRef",
+                "requirements"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "spec"
+          ],
+          "type": "object"
+        },
+        "weight": {
+          "format": "int32",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "template"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "additionalProperties": false,
+      "properties": {
+        "conditions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "lastTransitionTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "resources": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+            "x-kubernetes-int-or-string": true
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "spec"
+  ],
+  "type": "object"
+}
