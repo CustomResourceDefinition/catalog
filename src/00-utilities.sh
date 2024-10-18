@@ -1,3 +1,7 @@
+set -o allexport
+test -f /app/.env && source /app/.env
+set +o allexport
+
 values_file_of() {
     local input=$1
     local repository=$2
@@ -17,5 +21,5 @@ values_file_of() {
         relevant_version=$({ echo $version; echo $keys; } | tr ' ' "\n" | sort -t "." -k1,1n -k2,2n -k3,3n | grep -B1 $version | grep -v $version)
     fi
 
-    yq -o json $input | jq -rcj --arg repository $repository --arg name $name --arg version $relevant_version '.[] | select(.repository == $repository and .name == $name) | .valuesFiles // [] | .[] | select(.version == $version) | .valuesFile // ""'
+    yq -o json $input | jq -rcj --arg repository $repository --arg name $name --arg version "$relevant_version" '.[] | select(.repository == $repository and .name == $name) | .valuesFiles // [] | .[] | select(.version == $version) | .valuesFile // ""'
 }
