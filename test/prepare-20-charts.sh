@@ -46,11 +46,16 @@ yq -i '.version = "2.0.0"' /tmp/charts/templated/2.0/Chart.yaml
 cd /repository/http/
 
 helm package /tmp/charts/regular/1.0
+helm push regular-1.0.0.tgz oci://localhost:5000/myorg/myrepo
 helm package /tmp/charts/regular/1.5
+helm push regular-1.5.0.tgz oci://localhost:5000/myorg/myrepo
 helm package /tmp/charts/regular/2.0
+helm push regular-2.0.0.tgz oci://localhost:5000/myorg/myrepo
 
 helm package /tmp/charts/templated/1.0
+helm push templated-1.0.0.tgz oci://localhost:5000/myorg/myrepo
 helm package /tmp/charts/templated/2.0
+helm push templated-2.0.0.tgz oci://localhost:5000/myorg/myrepo
 
 helm repo index .
 

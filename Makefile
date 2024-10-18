@@ -101,4 +101,5 @@ shell-command: build-shell
 	-v $$(pwd)/test/fixtures:/app/test/fixtures:ro \
 	-v $$(pwd):/workspace \
 	-w /workspace \
+	--network host \
 	crd-runner /bin/sh -c 'make $(CI_COMMAND)'
