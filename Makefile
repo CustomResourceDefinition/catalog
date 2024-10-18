@@ -53,6 +53,7 @@ _build-test: _build
 	@yq -o json test/configuration.yaml | \
 		jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
 		yq -p json -o yaml > build/configuration.yaml
+	find /app /workspace/build -type f -exec ls -lsh {} \;
 
 _update: _build
 	build/bin/main

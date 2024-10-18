@@ -11,7 +11,7 @@ for repository in ${repositories}; do
 
     printf '  - %s\n' "$repository"
 
-    values_file_of "$input" "$repository" "$name" > /tmp/values
+    oci_values_file_of "$input" "$repository" > /tmp/values
 
     mkdir -p "$(printf "$output" "$name" "$entry" | tr '[:upper:]' '[:lower:]')" || true
     version=$(helm template $HELMFLAGS "$repository" -f /tmp/values 2>&1 | head -n1 | cut -d/ -f2- | cut -d: -f2)
@@ -35,7 +35,7 @@ for repository in ${repositories}; do
 
     for version in ${versions}; do
         printf '      - version %s\n' "$version"
-        values_file_of "$input" "$repository" "$name" "$version" > /tmp/values
+        oci_values_file_of "$input" "$repository" "$version" > /tmp/values
         file=$(printf "$outputfile" "$name" "$entry" "$version" | tr '[:upper:]' '[:lower:]')
         helm template $HELMFLAGS --include-crds "$repository" --version "$version" -f /tmp/values 2>/dev/null | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
     done
