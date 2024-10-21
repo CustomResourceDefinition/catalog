@@ -13,7 +13,7 @@ yq eval '.[] | select(.kind == "helm")' $input -o json | jq -rc | while IFS= rea
         printf '    - %s\n' "$entry"
         version=$(helm show chart "$name/$entry" | yq .version)
 
-        values_file_of "$input" "$repository" "$name" "$version" > /tmp/values
+        helm_values_file_of "$input" "$repository" "$name" "$version" > /tmp/values
         file=$(printf "$outputfile" "$name" "$entry" "$version" | tr '[:upper:]' '[:lower:]')
         helm template --include-crds "$name" "$name/$entry" -f /tmp/values -n not-default --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
         groups=$(yq .spec.group < $file | grep -v '\---' | grep -v null | uniq)
@@ -34,7 +34,7 @@ yq eval '.[] | select(.kind == "helm")' $input -o json | jq -rc | while IFS= rea
         versions=$(helm search repo "$name" --versions -o json | jq -rc  --arg name "$name/$entry" '[.[] | select(.name == $name)] | reverse | .[].version')
         for version in ${versions}; do
             printf '      - version %s\n' "$version"
-            values_file_of "$input" "$repository" "$name" "$version" > /tmp/values
+            helm_values_file_of "$input" "$repository" "$name" "$version" > /tmp/values
             file=$(printf "$outputfile" "$name" "$entry" "$version" | tr '[:upper:]' '[:lower:]')
             helm template --include-crds "$name" "$name/$entry" -f /tmp/values -n not-default --version "$version" | yq 'select(.kind == "CustomResourceDefinition")' > "$file"
         done

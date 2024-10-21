@@ -1,104 +1,106 @@
-.DEFAULT_GOAL := clean
-.PHONY: test
+.PHONY: all clean test
+
+COMPOSE_RUN = docker compose run --rm --quiet-pull
+
+GREEN='\e[1;32m%-6s\e[m\n'
 
 export DOCKER_CLI_HINTS=false
 
-CONFIGURATION=
-TEMPLATES=./build/ephemeral/templates
-SCHEMA=
-CI_COMMAND=
-ANCESTOR := $(shell docker container ls -aqf "ancestor=crd-runner:latest" 2>/dev/null)
-
 clean:
+	$(COMPOSE_RUN) \
+	-v $$(pwd)/build/ephemeral/schema:/schema \
+	-v $$(pwd)/test/configuration.yaml:/app/configuration.yaml:ro \
+	runner make _clean
+	docker compose down --remove-orphans --volumes --rmi local
+
+update:
+	$(COMPOSE_RUN) \
+	-v $$(pwd)/schema:/schema \
+	-v $$(pwd)/configuration.yaml:/app/configuration.yaml:ro \
+	runner make _update
+
+test: test-docker test-makefile
+	$(COMPOSE_RUN) \
+	-v $$(pwd)/build/ephemeral/schema:/schema \
+	-v $$(pwd)/test/configuration.yaml:/app/configuration.yaml:ro \
+	-v $$(pwd)/test/.env:/app/.env:ro \
+	runner make _test
+
+shell:
+	$(COMPOSE_RUN) \
+	-v $$(pwd)/build/ephemeral/schema:/schema \
+	-v $$(pwd)/test/configuration.yaml:/app/configuration.yaml:ro \
+	-v $$(pwd)/test/.env:/app/.env:ro \
+	runner /bin/sh
+
+_clean:
 	@rm -r build/ephemeral/schema/* &>/dev/null || true
 	@rm -r build/ephemeral/templates/* &>/dev/null || true
 	@rm -r build/bin &>/dev/null || true
-	@rm src/helpers/convert.py &>/dev/null || true
 
-configure:
-	@$(eval CONFIGURATION=./configuration.yaml)
-	@$(eval SCHEMA=./schema/)
-	@$(eval CI_COMMAND=run)
-
-configure-test:
-	@$(eval CONFIGURATION=./test/configuration.yaml)
-	@$(eval SCHEMA=./build/ephemeral/schema/)
-	@$(eval CI_COMMAND=test)
-
-build: clean configure
-	@wget -qO src/helpers/convert.py https://raw.githubusercontent.com/yannh/kubeconform/master/scripts/openapi2jsonschema.py
+_build: _clean
 	@mkdir build/bin
 	@mkdir build/ephemeral &>/dev/null || true
-	@cp -r src/helpers build/bin/
-	@cat src/*.sh > build/bin/main
+	cp -r src/helpers build/bin/
+	cat src/*.sh > build/bin/main
 	@chmod +x build/bin/main
 
-build-test: configure-test build
-	@cat test/prepare-*.sh > build/bin/test-prepare
-	@cat test/verify-*.sh > build/bin/test-verify
-	@cat src/0?-*.sh test/unit-test-*.sh > build/bin/unit-tests
+_build-test: _build
+	cat test/prepare-*.sh > build/bin/test-prepare
+	cat test/verify-*.sh > build/bin/test-verify
+	cat src/0?-*.sh test/unit-test-*.sh > build/bin/unit-tests
 	@chmod +x build/bin/test-prepare build/bin/test-verify build/bin/unit-tests
 	@yq -o json test/configuration.yaml | \
 	jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
 	yq -p json -o yaml > build/configuration.yaml
 
-run: build
-	@build/bin/main
+_update: _build
+	build/bin/main
 
-test: unit-tests test-configuration test-all-versions test-only-latest test-shellcheck
+_test: _unit-tests _test-configuration _test-all-versions _test-only-latest _test-shellcheck _test-schemas _test-editorcheck
 
-test-all-versions: build-test
-	@build/bin/test-prepare all-versions
-	@build/bin/main
-	@build/bin/test-verify "Happy path works"
+_test-all-versions: _build-test
+	build/bin/test-prepare all-versions
+	build/bin/main
+	build/bin/test-verify "Happy path works"
+	@printf $(GREEN) "OK"
 
-test-only-latest: build-test
-	@build/bin/test-prepare only-latest
-	@build/bin/main
-	@build/bin/test-verify "Only lastest version used"
+_test-only-latest: _build-test
+	build/bin/test-prepare only-latest
+	build/bin/main
+	build/bin/test-verify "Only lastest version used"
+	@printf $(GREEN) "OK"
 
-test-configuration: clean
+_test-configuration: _clean
 	@yq 'sort_by(.name)' configuration.yaml > build/configuration.sorted
 	@diff configuration.yaml build/configuration.sorted
-	@check-jsonschema --schemafile .schema.json configuration.yaml
-	@check-jsonschema --schemafile .schema.json test/configuration.yaml
+	check-jsonschema --schemafile .schema.json configuration.yaml
+	check-jsonschema --schemafile .schema.json test/configuration.yaml
 	@grep -q 'file://' configuration.yaml && exit 1 || true
 
-test-shellcheck:
-	@find src test -type f -name "*.sh" -print0 | sort -z | xargs -0 -I {} shellcheck {}
+_unit-tests: _build-test
+	build/bin/unit-tests
+	@printf $(GREEN) "OK"
 
-unit-tests: build-test
-	@build/bin/unit-tests
+_test-shellcheck:
+	find src test -type f -name "*.sh" -print0 | sort -z | xargs -0 -I {} shellcheck -x {}
+	@printf $(GREEN) "OK"
 
-ci-test: configure-test shell-command
+_test-schemas:
+	check-jsonschema --schemafile .schema.json configuration.yaml
+	check-jsonschema --schemafile .schema.json test/configuration.yaml
+	check-jsonschema --builtin-schema dependabot .github/dependabot.yml
 
-ci-run: configure shell-command
+_test-editorcheck:
+	ec -exclude '^schema/|^\.git/'
+	@printf $(GREEN) "OK"
 
-build-shell:
-ifneq ($(ANCESTOR),)
-	@docker rm -f $(ANCESTOR) &>/dev/null
-	@docker rmi -f crd-runner:latest &>/dev/null
-endif
-	@docker build -qt crd-runner . >/dev/null
+test-docker:
+	$(COMPOSE_RUN) dockerlint --ignore DL3018 Dockerfile
+	@printf $(GREEN) "OK"
+	docker compose config -q
+	@printf $(GREEN) "OK"
 
-shell: configure-test build-shell
-	@docker run -it \
-	-v $(TEMPLATES):/templates \
-	-v $(SCHEMA):/schema \
-	-v $(CONFIGURATION):/app/configuration.yaml:ro \
-	-v $$(pwd)/src/helpers:/app/helpers:ro \
-	-v $$(pwd)/test/fixtures:/app/test/fixtures:ro \
-	-v $$(pwd):/workspace \
-	-w /workspace \
-	crd-runner /bin/sh
-
-shell-command: build-shell
-	@docker run \
-	-v $(TEMPLATES):/templates \
-	-v $(SCHEMA):/schema \
-	-v $(CONFIGURATION):/app/configuration.yaml:ro \
-	-v $$(pwd)/src/helpers:/app/helpers:ro \
-	-v $$(pwd)/test/fixtures:/app/test/fixtures:ro \
-	-v $$(pwd):/workspace \
-	-w /workspace \
-	crd-runner /bin/sh -c 'make $(CI_COMMAND)'
+test-makefile:
+	$(COMPOSE_RUN) makelint
+	@printf $(GREEN) "OK"
