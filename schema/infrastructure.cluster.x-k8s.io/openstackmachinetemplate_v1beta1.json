@@ -93,6 +93,11 @@
                   "type": "boolean"
                 },
                 "flavor": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "flavorID": {
+                  "minLength": 1,
                   "type": "string"
                 },
                 "floatingIPPoolRef": {
@@ -123,13 +128,22 @@
                     },
                     "name": {
                       "type": "string"
+                    },
+                    "region": {
+                      "type": "string"
                     }
                   },
                   "required": [
                     "cloudName",
                     "name"
                   ],
-                  "type": "object"
+                  "type": "object",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "region is immutable",
+                      "rule": "(!has(self.region) && !has(oldSelf.region)) || self.region == oldSelf.region"
+                    }
+                  ]
                 },
                 "image": {
                   "additionalProperties": false,
@@ -156,6 +170,18 @@
                     "id": {
                       "format": "uuid",
                       "type": "string"
+                    },
+                    "imageRef": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "type": "object"
                     }
                   },
                   "type": "object"
@@ -528,6 +554,69 @@
                   ],
                   "type": "object"
                 },
+                "schedulerHintAdditionalProperties": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "value": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "bool": {
+                            "type": "boolean"
+                          },
+                          "number": {
+                            "type": "integer"
+                          },
+                          "string": {
+                            "maxLength": 255,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "type": {
+                            "enum": [
+                              "Bool",
+                              "String",
+                              "Number"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ],
+                        "type": "object",
+                        "x-kubernetes-validations": [
+                          {
+                            "message": "bool is required when type is Bool, and forbidden otherwise",
+                            "rule": "has(self.type) && self.type == 'Bool' ? has(self.bool) : !has(self.bool)"
+                          },
+                          {
+                            "message": "number is required when type is Number, and forbidden otherwise",
+                            "rule": "has(self.type) && self.type == 'Number' ? has(self.number) : !has(self.number)"
+                          },
+                          {
+                            "message": "string is required when type is String, and forbidden otherwise",
+                            "rule": "has(self.type) && self.type == 'String' ? has(self.string) : !has(self.string)"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "x-kubernetes-list-map-keys": [
+                    "name"
+                  ],
+                  "x-kubernetes-list-type": "map"
+                },
                 "securityGroups": {
                   "items": {
                     "additionalProperties": false,
@@ -657,10 +746,15 @@
                 }
               },
               "required": [
-                "flavor",
                 "image"
               ],
-              "type": "object"
+              "type": "object",
+              "x-kubernetes-validations": [
+                {
+                  "message": "at least one of flavor or flavorID must be set",
+                  "rule": "(has(self.flavor) || has(self.flavorID))"
+                }
+              ]
             }
           },
           "required": [
