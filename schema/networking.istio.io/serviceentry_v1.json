@@ -5,8 +5,10 @@
       "properties": {
         "addresses": {
           "items": {
+            "maxLength": 64,
             "type": "string"
           },
+          "maxItems": 256,
           "type": "array"
         },
         "endpoints": {
@@ -96,8 +98,16 @@
         },
         "hosts": {
           "items": {
-            "type": "string"
+            "type": "string",
+            "x-kubernetes-validations": [
+              {
+                "message": "hostname cannot be wildcard",
+                "rule": "self != '*'"
+              }
+            ]
           },
+          "maxItems": 256,
+          "minItems": 1,
           "type": "array"
         },
         "location": {
@@ -112,20 +122,34 @@
             "additionalProperties": false,
             "properties": {
               "name": {
+                "maxLength": 256,
                 "type": "string"
               },
               "number": {
                 "maximum": 4294967295,
                 "minimum": 0,
-                "type": "integer"
+                "type": "integer",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "port must be between 1-65535",
+                    "rule": "0 < self && self <= 65535"
+                  }
+                ]
               },
               "protocol": {
+                "maxLength": 256,
                 "type": "string"
               },
               "targetPort": {
                 "maximum": 4294967295,
                 "minimum": 0,
-                "type": "integer"
+                "type": "integer",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "port must be between 1-65535",
+                    "rule": "0 < self && self <= 65535"
+                  }
+                ]
               }
             },
             "required": [
@@ -134,7 +158,18 @@
             ],
             "type": "object"
           },
-          "type": "array"
+          "maxItems": 256,
+          "type": "array",
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map",
+          "x-kubernetes-validations": [
+            {
+              "message": "port number cannot be duplicated",
+              "rule": "self.all(l1, self.exists_one(l2, l1.number == l2.number))"
+            }
+          ]
         },
         "resolution": {
           "enum": [
@@ -156,8 +191,16 @@
           "properties": {
             "labels": {
               "additionalProperties": {
-                "type": "string"
+                "maxLength": 63,
+                "type": "string",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "wildcard is not supported in selector",
+                    "rule": "!self.contains('*')"
+                  }
+                ]
               },
+              "maxProperties": 256,
               "type": "object"
             }
           },
@@ -167,12 +210,109 @@
       "required": [
         "hosts"
       ],
-      "type": "object"
+      "type": "object",
+      "x-kubernetes-validations": [
+        {
+          "message": "only one of WorkloadSelector or Endpoints can be set",
+          "rule": "(has(self.workloadSelector)?1:0)+(has(self.endpoints)?1:0)<=1"
+        },
+        {
+          "message": "CIDR addresses are allowed only for NONE/STATIC resolution types",
+          "rule": "!(has(self.addresses) && self.addresses.exists(k, k.contains('/')) && (has(self.resolution) && self.resolution != 'STATIC' && self.resolution != 'NONE'))"
+        },
+        {
+          "message": "NONE mode cannot set endpoints",
+          "rule": "(!has(self.resolution) || self.resolution == 'NONE') ? !has(self.endpoints) : true"
+        },
+        {
+          "message": "DNS_ROUND_ROBIN mode cannot have multiple endpoints",
+          "rule": "(has(self.resolution) && self.resolution == 'DNS_ROUND_ROBIN') ? (!has(self.endpoints) || size(self.endpoints) == 1) : true"
+        }
+      ]
     },
     "status": {
+      "additionalProperties": false,
+      "properties": {
+        "conditions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "lastProbeTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "lastTransitionTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "observedGeneration": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "x-kubernetes-int-or-string": true
+        },
+        "validationMessages": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "documentationUrl": {
+                "type": "string"
+              },
+              "level": {
+                "enum": [
+                  "UNKNOWN",
+                  "ERROR",
+                  "WARNING",
+                  "INFO"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
       "type": "object",
       "x-kubernetes-preserve-unknown-fields": true
     }
   },
+  "required": [
+    "spec"
+  ],
   "type": "object"
 }
