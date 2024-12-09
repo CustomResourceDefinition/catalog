@@ -4,7 +4,7 @@ echo "Setup verified schemas ... "
 
 rm -rf -- /tmp/verified &>/dev/null || true
 mkdir -p /tmp/verified/base
-cp /app/test/fixtures/*.json /tmp/verified/base/
+cp /app/test/fixtures/test_v1.json /tmp/verified/base/
 
 if [ "$1" = "all-versions" ]; then
     cp -r /tmp/verified/base /verified-schema/chart.conditional
@@ -26,6 +26,9 @@ elif [ "$1" = "only-latest" ]; then
     cp -r /tmp/verified/base /verified-schema/chart.git
     cp -r /tmp/verified/base /verified-schema/chart.uri
 fi
+
+mkdir -p /verified-schema/source.example.com
+cp /app/test/fixtures/foo_foo.json /verified-schema/source.example.com/
 
 echo "  - updated for test '$1'"
 echo

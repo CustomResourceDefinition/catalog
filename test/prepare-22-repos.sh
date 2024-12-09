@@ -22,8 +22,12 @@ echo 'resources:'
 echo '  - crd.yaml'
 } > kustomizations/kustomization.yaml
 
+mkdir source
+cp /app/test/fixtures/source/* source
+
 git add crds/crd.yaml
 git add kustomizations
+git add source
 git commit -m commit >/dev/null
 git tag v1.0.0
 git tag v2.0.0
