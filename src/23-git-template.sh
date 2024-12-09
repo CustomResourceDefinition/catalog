@@ -18,7 +18,7 @@ function generate {
             test -d "/tmp/git/$path/" && kustomize build "/tmp/git/$path/"
         done
         for path in ${5}; do
-            controller-gen crd "paths=/tmp/git/$path/" output:crd:dir=/tmp/gen output:none || true
+            controller-gen crd "paths=/tmp/git/$path/" output:crd:dir=/tmp/gen output:none 2>/dev/null || true
             find /tmp/gen -type f -iname "*.yaml" -exec sh -c 'echo "---"; cat $0;' {} \;
         done
     } | yq 'select(.kind == "CustomResourceDefinition")' > "$1"
