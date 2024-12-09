@@ -3,8 +3,11 @@ output=/templates/%s/%s/
 outputfile=/templates/%s/%s/%s.yaml
 echo "Templating (git) ..."
 
+mkdir -p /tmp/gen
+
 function generate {
     cd /tmp/git || return
+    find /tmp/gen -type f -delete || true
     git checkout "$2" &>/dev/null
     {
         for path in ${3}; do
@@ -13,6 +16,10 @@ function generate {
         for path in ${4}; do
             echo '---'
             test -d "/tmp/git/$path/" && kustomize build "/tmp/git/$path/"
+        done
+        for path in ${5}; do
+            controller-gen crd "paths=/tmp/git/$path/" output:crd:dir=/tmp/gen output:none || true
+            find /tmp/gen -type f -iname "*.yaml" -exec sh -c 'echo "---"; cat $0;' {} \;
         done
     } | yq 'select(.kind == "CustomResourceDefinition")' > "$1"
 }
@@ -24,6 +31,7 @@ yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read
     versionSuffix=$(echo "$item" | jq -r '.versionSuffix? // "$"' -)
     paths=$(echo "$item" | jq -r '.searchPaths[]? // ""' -)
     kustomizations=$(echo "$item" | jq -r '.kustomizationPaths[]? // ""' -)
+    genPaths=$(echo "$item" | jq -r '.genPaths[]? // ""' -)
     combinedname=$(echo "$repository" | rev | cut -d/ -f1-2 | rev)
     name=$(echo "$combinedname" | cut -d/ -f1)
     entry=$(echo "$item" | jq -r '.name' -)
@@ -52,7 +60,7 @@ yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read
     cd - >/dev/null || exit 1
     { test -s /tmp/versions && [ ! "$version" = "" ]; } || continue
 
-    generate "$file" "$version" "$paths" "$kustomizations"
+    generate "$file" "$version" "$paths" "$kustomizations" "$genPaths"
 
     groups=$(yq .spec.group < $file | grep -v '\---' | grep -v null | uniq)
     known=1
@@ -70,7 +78,7 @@ yq eval '.[] | select(.kind == "git")' $input -o json | jq -rc | while IFS= read
     for version in ${versions}; do
         printf '      - version %s\n' "$version"
         file=$(printf "$outputfile" "$name" "$entry" "$version" | tr '[:upper:]' '[:lower:]')
-        generate "$file" "$version" "$paths" "$kustomizations"
+        generate "$file" "$version" "$paths" "$kustomizations" "$genPaths"
     done
 done
 echo

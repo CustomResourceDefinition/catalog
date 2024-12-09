@@ -1,4 +1,5 @@
 set -o allexport
+# shellcheck source=/dev/null
 test -f /app/.env && source /app/.env
 set +o allexport
 
