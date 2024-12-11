@@ -7,7 +7,6 @@ mkdir -p /tmp/gen
 
 function generate {
     cd /tmp/git || return
-    find /tmp/gen -type f -delete || true
     git checkout "$2" &>/dev/null
     {
         for path in ${3}; do
@@ -18,6 +17,7 @@ function generate {
             test -d "/tmp/git/$path/" && kustomize build "/tmp/git/$path/"
         done
         for path in ${5}; do
+            find /tmp/gen -type f -delete || true
             controller-gen crd "paths=/tmp/git/$path/" output:crd:dir=/tmp/gen output:none 2>/dev/null || true
             find /tmp/gen -type f -iname "*.yaml" -exec sh -c 'echo "---"; cat $0;' {} \;
         done
