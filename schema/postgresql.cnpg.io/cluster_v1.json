@@ -1100,6 +1100,9 @@
             "initdb": {
               "additionalProperties": false,
               "properties": {
+                "builtinLocale": {
+                  "type": "string"
+                },
                 "dataChecksums": {
                   "type": "boolean"
                 },
@@ -1109,10 +1112,28 @@
                 "encoding": {
                   "type": "string"
                 },
+                "icuLocale": {
+                  "type": "string"
+                },
+                "icuRules": {
+                  "type": "string"
+                },
                 "import": {
                   "additionalProperties": false,
                   "properties": {
                     "databases": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "pgDumpExtraOptions": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "pgRestoreExtraOptions": {
                       "items": {
                         "type": "string"
                       },
@@ -1160,10 +1181,16 @@
                   ],
                   "type": "object"
                 },
+                "locale": {
+                  "type": "string"
+                },
                 "localeCType": {
                   "type": "string"
                 },
                 "localeCollate": {
+                  "type": "string"
+                },
+                "localeProvider": {
                   "type": "string"
                 },
                 "options": {
@@ -1343,7 +1370,21 @@
                   "type": "integer"
                 }
               },
-              "type": "object"
+              "type": "object",
+              "x-kubernetes-validations": [
+                {
+                  "message": "builtinLocale is only available when localeProvider is set to `builtin`",
+                  "rule": "!has(self.builtinLocale) || self.localeProvider == 'builtin'"
+                },
+                {
+                  "message": "icuLocale is only available when localeProvider is set to `icu`",
+                  "rule": "!has(self.icuLocale) || self.localeProvider == 'icu'"
+                },
+                {
+                  "message": "icuRules is only available when localeProvider is set to `icu`",
+                  "rule": "!has(self.icuRules) || self.localeProvider == 'icu'"
+                }
+              ]
             },
             "pg_basebackup": {
               "additionalProperties": false,
@@ -2233,6 +2274,28 @@
                 "type": "object",
                 "x-kubernetes-map-type": "atomic"
               },
+              "plugin": {
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "parameters": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
               "sslCert": {
                 "additionalProperties": false,
                 "properties": {
@@ -2494,21 +2557,10 @@
                     "additionalProperties": false,
                     "properties": {
                       "selectorType": {
-                        "allOf": [
-                          {
-                            "enum": [
-                              "rw",
-                              "r",
-                              "ro"
-                            ]
-                          },
-                          {
-                            "enum": [
-                              "rw",
-                              "r",
-                              "ro"
-                            ]
-                          }
+                        "enum": [
+                          "rw",
+                          "r",
+                          "ro"
                         ],
                         "type": "string"
                       },
@@ -2926,6 +2978,10 @@
           "items": {
             "additionalProperties": false,
             "properties": {
+              "enabled": {
+                "default": true,
+                "type": "boolean"
+              },
               "name": {
                 "type": "string"
               },
@@ -3080,6 +3136,14 @@
             "synchronous": {
               "additionalProperties": false,
               "properties": {
+                "dataDurability": {
+                  "default": "required",
+                  "enum": [
+                    "required",
+                    "preferred"
+                  ],
+                  "type": "string"
+                },
                 "maxStandbyNamesFromCluster": {
                   "type": "integer"
                 },
@@ -3116,7 +3180,13 @@
                 "method",
                 "number"
               ],
-              "type": "object"
+              "type": "object",
+              "x-kubernetes-validations": [
+                {
+                  "message": "dataDurability set to 'preferred' requires empty 'standbyNamesPre' and empty 'standbyNamesPost'",
+                  "rule": "self.dataDurability!='preferred' || ((!has(self.standbyNamesPre) || self.standbyNamesPre.size()==0) && (!has(self.standbyNamesPost) || self.standbyNamesPost.size()==0))"
+                }
+              ]
             }
           },
           "type": "object"
@@ -3139,6 +3209,102 @@
         },
         "priorityClassName": {
           "type": "string"
+        },
+        "probes": {
+          "additionalProperties": false,
+          "properties": {
+            "liveness": {
+              "additionalProperties": false,
+              "properties": {
+                "failureThreshold": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "initialDelaySeconds": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "periodSeconds": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "successThreshold": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "terminationGracePeriodSeconds": {
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "timeoutSeconds": {
+                  "format": "int32",
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "readiness": {
+              "additionalProperties": false,
+              "properties": {
+                "failureThreshold": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "initialDelaySeconds": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "periodSeconds": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "successThreshold": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "terminationGracePeriodSeconds": {
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "timeoutSeconds": {
+                  "format": "int32",
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "startup": {
+              "additionalProperties": false,
+              "properties": {
+                "failureThreshold": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "initialDelaySeconds": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "periodSeconds": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "successThreshold": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "terminationGracePeriodSeconds": {
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "timeoutSeconds": {
+                  "format": "int32",
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
         },
         "projectedVolumeTemplate": {
           "additionalProperties": false,
@@ -4496,6 +4662,12 @@
                 "type": "string"
               },
               "operatorCapabilities": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "restoreJobHookCapabilities": {
                 "items": {
                   "type": "string"
                 },
