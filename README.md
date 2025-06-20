@@ -29,6 +29,8 @@ We prefer using the [Helm charts](#helm-charts) method to avoid issues like need
 > [!IMPORTANT]  
 > Please keep the `configuration.yaml` sorted by name.  
 
+Looking through the [COMPARISON.md](COMPARISON.md) for CRDs we would like to have sources for.
+
 ## Helm charts
 
 To add CRDs for [ArgoCD](https://github.com/argoproj/argo-cd) you should apply the following changes to `configuration.yaml`.

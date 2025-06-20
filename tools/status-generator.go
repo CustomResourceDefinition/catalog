@@ -1,12 +1,16 @@
 package main
 
 import (
+	"cmp"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"path"
 	"regexp"
+	"slices"
+	"strings"
+	"text/template"
 )
 
 type StatusGenerator struct {
@@ -18,7 +22,42 @@ type item struct {
 	group, kind, version string
 }
 
+type markdownData struct {
+	Name, Uri string
+	Data      []markdownItem
+}
+
+type markdownItem struct {
+	Group string
+	Items []markdownItems
+}
+
+type markdownItems struct {
+	Kind, Versions string
+}
+
 var errInvalidConfiguration = errors.New("invalid configuration")
+
+const markdown = `
+# Comparison
+
+This page lists missing CRD validation schemas that are present in alternative catalogs. If anyone knows the source of any of these CRDs, please make a pull request with that source or create an issue explaining where or what the source is.
+
+{{- range . }}
+
+## [{{ .Name }}]({{ .Uri }})
+
+{{- range .Data }}
+
+| {{ .Group }} | |
+| --- | --- |
+{{- range .Items }}
+| {{ .Kind }} | {{ .Versions }} |
+{{- end }}
+{{- end }}
+
+{{- end }}
+`
 
 func (g StatusGenerator) Run() error {
 	if err := g.Validate(); err != nil {
@@ -28,34 +67,12 @@ func (g StatusGenerator) Run() error {
 		return errors.Join(errInvalidConfiguration, err)
 	}
 
-	current, err := findItems(g.Current)
+	data, err := find(g.Current, g.Remote, "datreeio/CRDs-catalog", "https://github.com/datreeio/CRDs-catalog")
 	if err != nil {
-		return nil
+		return err
 	}
 
-	remote, err := findItems(g.Remote)
-	if err != nil {
-		return nil
-	}
-
-	fqrf := make(map[string]bool, 0)
-	klrf := make(map[string]bool, 0)
-	tlrf := make(map[string]bool, 0)
-	for _, i := range remote {
-		fqrf[i.Id()] = false
-		klrf[i.Kind()] = false
-		tlrf[i.group] = false
-	}
-	for _, i := range current {
-		fqrf[i.Id()] = true
-		klrf[i.Kind()] = true
-		tlrf[i.group] = true
-	}
-
-	// FIXME: write template report with numbers for FQ, kinds and groups
-	// 		  update README too about looking for migration help
-
-	return nil
+	return render([]markdownData{data}, g.Out)
 }
 
 func (g StatusGenerator) Validate() error {
@@ -69,6 +86,75 @@ func (g StatusGenerator) Validate() error {
 		return fmt.Errorf("no output path was configured")
 	}
 	return nil
+}
+
+func find(src string, remote string, name string, uri string) (markdownData, error) {
+	data := markdownData{
+		Name: name,
+		Uri:  uri,
+		Data: make([]markdownItem, 0),
+	}
+
+	current, err := findItems(src)
+	if err != nil {
+		return data, err
+	}
+
+	target, err := findItems(remote)
+	if err != nil {
+		return data, err
+	}
+
+	marker := make(map[string]bool, 0)
+	for _, i := range current {
+		marker[i.Id()] = false
+	}
+
+	missing := make([]item, 0)
+	groups := make(map[string]string, 0)
+	for _, item := range target {
+		if _, ok := marker[item.Id()]; !ok {
+			missing = append(missing, item)
+			groups[item.group] = item.group
+		}
+	}
+
+	for group := range groups {
+		item := markdownItem{Group: group, Items: []markdownItems{}}
+
+		kinds := make(map[string]string, 0)
+		for _, i := range missing {
+			if i.group != group {
+				continue
+			}
+			kinds[i.kind] = i.kind
+		}
+
+		versions := make([]string, 0)
+		for kind := range kinds {
+			groupItem := markdownItems{Kind: kind}
+
+			for _, i := range missing {
+				if i.group != group || i.kind != kind {
+					continue
+				}
+				versions = append(versions, i.version)
+			}
+
+			slices.Sort(versions)
+
+			groupItem.Versions = strings.Join(versions, ", ")
+			item.Items = append(item.Items, groupItem)
+		}
+
+		slices.SortFunc(item.Items, func(a, b markdownItems) int { return cmp.Compare(a.Kind, b.Kind) })
+
+		data.Data = append(data.Data, item)
+	}
+
+	slices.SortFunc(data.Data, func(a, b markdownItem) int { return cmp.Compare(a.Group, b.Group) })
+
+	return data, nil
 }
 
 func findItems(src string) ([]item, error) {
@@ -96,7 +182,7 @@ func findGroupItems(src string) ([]item, error) {
 		return nil, err
 	}
 
-	re := regexp.MustCompile(`(.+)_v(.+)\.json`)
+	re := regexp.MustCompile(`(.+)_(v.+)\.json`)
 
 	items := make([]item, 0)
 	for _, entry := range entries {
@@ -116,6 +202,26 @@ func findGroupItems(src string) ([]item, error) {
 		})
 	}
 	return items, nil
+}
+
+func render(list []markdownData, out string) error {
+	f, err := os.CreateTemp("", "*.md")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+
+	generator, err := template.New("markdown").Parse(markdown)
+	if err != nil {
+		return err
+	}
+
+	err = generator.Execute(f, list)
+	if err != nil {
+		return err
+	}
+
+	return os.Rename(f.Name(), out)
 }
 
 func (i *item) Id() string {
