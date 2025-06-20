@@ -1,7 +1,6 @@
 generate-comparison: build
 	$(COMPOSE_RUN) \
-	-v $$(pwd)/schema:/schema \
-	-v $$(pwd)/configuration.yaml:/app/configuration.yaml:ro \
+	-v $$(pwd)/schema:/schema:ro \
 	runner make _generate-comparison
 
 _generate-comparison:

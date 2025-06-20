@@ -29,7 +29,7 @@ We prefer using the [Helm charts](#helm-charts) method to avoid issues like need
 > [!IMPORTANT]  
 > Please keep the `configuration.yaml` sorted by name.  
 
-Looking through the [COMPARISON.md](COMPARISON.md) for CRDs we would like to have sources for.
+We encourage you to look through the [COMPARISON.md](COMPARISON.md), if you would like to help add relevant missing schemas.
 
 ## Helm charts
 
