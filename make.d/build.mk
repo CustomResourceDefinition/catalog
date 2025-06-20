@@ -1,4 +1,4 @@
-export RUNNER=ghcr.io/customresourcedefinition/catalog-runner:$(shell docker run -it -v $$(pwd)/Dockerfile:/Dockerfile --rm alpine /bin/sh -c 'md5sum < /Dockerfile | cut -f1 -d" "' 2>/dev/null)
+export RUNNER=ghcr.io/customresourcedefinition/catalog-runner:$(shell docker run -v $$(pwd)/Dockerfile:/Dockerfile --rm alpine /bin/sh -c 'md5sum < /Dockerfile | cut -f1 -d" "' 2>/dev/null)
 
 build:
 ifeq ($(strip $(CI)),)
