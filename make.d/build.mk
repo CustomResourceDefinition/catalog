@@ -7,14 +7,15 @@ ifeq ($(strip $(CI)),)
 else ifeq ($(strip $(GITHUB_REF)),main)
 	test -n "$$(docker images -q $(RUNNER))" || \
 		docker pull $(RUNNER) || \
-		(echo "$$GITHUB_TOKEN" | docker login ghcr.io -u $$GITHUB_ACTOR --password-stdin) || \
-		docker build --tag $(RUNNER) --push .
+		(echo "$$GITHUB_TOKEN" | docker login ghcr.io -u $$GITHUB_ACTOR --password-stdin && \
+		docker build --tag $(RUNNER) --push .)
 else
 	test -n "$$(docker images -q $(RUNNER))" || \
 		docker pull $(RUNNER) || \
-		(echo "$$GITHUB_TOKEN" | docker login ghcr.io -u $$GITHUB_ACTOR --password-stdin) || \
-		docker build --tag $(RUNNER)$(PUSH) .
+		(echo "$$GITHUB_TOKEN" | docker login ghcr.io -u $$GITHUB_ACTOR --password-stdin && \
+		docker build --tag $(RUNNER) .)
 endif
+	test -n "$$(docker images -q $(RUNNER))"
 	$(COMPOSE_RUN) \
 	runner make _build
 
