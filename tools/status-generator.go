@@ -227,7 +227,3 @@ func render(list []markdownData, out string) error {
 func (i *item) Id() string {
 	return fmt.Sprintf("%s/%s_%s.json", i.group, i.kind, i.version)
 }
-
-func (i *item) Kind() string {
-	return fmt.Sprintf("%s/%s", i.group, i.kind)
-}

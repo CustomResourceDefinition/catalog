@@ -58,8 +58,8 @@ func TestGenerateCommandRunningInvalidConfiguration(t *testing.T) {
 	tests := [][]string{
 		{"bin", commandGenerate},
 		{"bin", commandGenerate, "--current", "."},
-		{"bin", commandGenerate, "--target", "."},
-		{"bin", commandGenerate, "--current", ".", "--target", "."},
+		{"bin", commandGenerate, "--remote", "."},
+		{"bin", commandGenerate, "--current", ".", "--remote", "."},
 	}
 
 	for _, test := range tests {
