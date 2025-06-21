@@ -25,30 +25,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | redisenterprisedatabase | v1alpha1 |
 | redisenterpriseremotecluster | v1alpha1 |
 
-| aquasecurity.github.io | |
-| --- | --- |
-| clustercompliancereport | v1alpha1 |
-| clusterconfigauditreport | v1alpha1 |
-| clusterinfraassessmentreport | v1alpha1 |
-| clusterrbacassessmentreport | v1alpha1 |
-| clustersbomreport | v1alpha1 |
-| clustervulnerabilityreport | v1alpha1 |
-| configauditreport | v1alpha1 |
-| exposedsecretreport | v1alpha1 |
-| infraassessmentreport | v1alpha1 |
-| rbacassessmentreport | v1alpha1 |
-| sbomreport | v1alpha1 |
-| vulnerabilityreport | v1alpha1 |
-
 | awspca.cert-manager.io | |
 | --- | --- |
 | awspcaclusterissuer | v1beta1 |
 | awspcaissuer | v1beta1 |
-
-| azmonitoring.coreos.com | |
-| --- | --- |
-| podmonitor | v1 |
-| servicemonitor | v1 |
 
 | barmancloud.cnpg.io | |
 | --- | --- |
@@ -112,10 +92,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | configconnector | v1beta1 |
 | configconnectorcontext | v1beta1 |
 
-| coroot.com | |
-| --- | --- |
-| coroot | v1 |
-
 | crd.k8s.amazonaws.com | |
 | --- | --- |
 | eniconfig | v1alpha1 |
@@ -126,13 +102,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | mutatingwebhookconfigurationcustomization | v1alpha1, v1beta1 |
 | namespacedcontrollerresource | v1alpha1, v1beta1 |
 | validatingwebhookconfigurationcustomization | v1alpha1, v1beta1 |
-
-| datadoghq.com | |
-| --- | --- |
-| datadogagentprofile | v1alpha1 |
-| datadogdashboard | v1alpha1 |
-| datadoggenericresource | v1alpha1 |
-| datadogslo | v1alpha1 |
 
 | dex.coreos.com | |
 | --- | --- |
@@ -163,10 +132,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | executor | v1 |
 | webhook | v1 |
 | webhooktemplate | v1 |
-
-| flink.apache.org | |
-| --- | --- |
-| flinkstatesnapshot | v1beta1 |
 
 | fluentbit.fluent.io | |
 | --- | --- |
