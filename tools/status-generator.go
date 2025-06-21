@@ -135,7 +135,7 @@ func find(src string, remote string, name string, uri string) (markdownData, err
 			groupItem := markdownItems{Kind: kind}
 
 			for _, i := range missing {
-				if i.group != group || i.kind != kind {
+				if i.group != group || i.kind != kind || slices.Contains(versions, i.version) {
 					continue
 				}
 				versions = append(versions, i.version)
@@ -205,7 +205,7 @@ func findGroupItems(src string) ([]item, error) {
 }
 
 func render(list []markdownData, out string) error {
-	f, err := os.CreateTemp("", "*.md")
+	f, err := os.Create(fmt.Sprintf("%s.tmp", out))
 	if err != nil {
 		return err
 	}
