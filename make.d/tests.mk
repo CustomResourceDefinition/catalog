@@ -10,26 +10,25 @@ test: build test-docker test-makefile test-editorcheck test-shellcheck
 	runner make _test
 
 _build-test:
+	@yq -o json test/configuration.yaml | \
+		jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
+		yq -p json -o yaml > build/configuration.yaml
 	cat test/prepare-*.sh > build/bin/test-prepare
 	cat test/verify-*.sh > build/bin/test-verify
 	cat src/0?-*.sh test/unit-test-*.sh > build/bin/unit-tests
-	@chmod +x build/bin/test-prepare build/bin/test-verify build/bin/unit-tests
-	@yq -o json test/configuration.yaml | \
-	jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
-	yq -p json -o yaml > build/configuration.yaml
 
 _test: _unit-tests _test-configuration _test-all-versions _test-only-latest _test-schemas _test-tools
 
 _test-all-versions: _build-test
-	build/bin/test-prepare all-versions
+	sh build/bin/test-prepare all-versions
 	build/bin/main
-	build/bin/test-verify "Happy path works"
+	sh build/bin/test-verify "Happy path works"
 	@printf $(GREEN) "OK"
 
 _test-only-latest: _build-test
-	build/bin/test-prepare only-latest
+	sh build/bin/test-prepare only-latest
 	build/bin/main
-	build/bin/test-verify "Only latest version used"
+	sh build/bin/test-verify "Only latest version used"
 	@printf $(GREEN) "OK"
 
 _test-configuration:
@@ -54,7 +53,7 @@ endif
 	@printf $(GREEN) "OK"
 
 _unit-tests: _build-test
-	build/bin/unit-tests
+	sh build/bin/unit-tests
 	@printf $(GREEN) "OK"
 
 test-shellcheck:
