@@ -34,19 +34,19 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | alertsmanagement.azure.com | |
 | --- | --- |
-| prometheusrulegroup | v1api20210401, v1api20230301 |
+| prometheusrulegroup | v1api20230301 |
 | smartdetectoralertrule | v1api20210401 |
 
 | anywhere.eks.amazonaws.com | |
 | --- | --- |
-| cluster | v1, v1alpha3, v1alpha4, v1beta1 |
-| clusterclass | v1alpha3, v1alpha4, v1beta1 |
-| clusterissuer | v1, v1alpha3, v1alpha4, v1beta1 |
-| clusterresourceset | v1, v1alpha3, v1alpha4, v1beta1 |
-| clusterresourcesetbinding | v1, v1alpha3, v1alpha4, v1beta1 |
+| cluster | v1alpha3, v1alpha4, v1beta1 |
+| clusterclass | v1alpha4, v1beta1 |
+| clusterissuer | v1 |
+| clusterresourceset | v1alpha3, v1alpha4, v1beta1 |
+| clusterresourcesetbinding | v1alpha3, v1alpha4, v1beta1 |
 | dockercluster | v1alpha3, v1alpha4, v1beta1 |
-| dockerclustertemplate | v1, v1alpha3, v1alpha4, v1beta1 |
-| dockermachine | v1, v1alpha3, v1alpha4, v1beta1 |
+| dockerclustertemplate | v1alpha4, v1beta1 |
+| dockermachine | v1alpha3, v1alpha4, v1beta1 |
 | dockermachinepool | v1alpha3, v1alpha4, v1beta1 |
 | dockermachinetemplate | v1alpha3, v1alpha4, v1beta1 |
 
@@ -78,8 +78,8 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | redisenterpriseactiveactivedatabase | v1alpha1 |
 | redisenterprisecluster | v1, v1alpha1 |
-| redisenterprisedatabase | v1, v1alpha1 |
-| redisenterpriseremotecluster | v1, v1alpha1 |
+| redisenterprisedatabase | v1alpha1 |
+| redisenterpriseremotecluster | v1alpha1 |
 
 | appconfiguration.azure.com | |
 | --- | --- |
@@ -140,17 +140,17 @@ This page lists missing CRD validation schemas that are present in alternative c
 | cache.azure.com | |
 | --- | --- |
 | redis | v1api20201201, v1api20230401, v1api20230801 |
-| redisenterprise | v1api20201201, v1api20210301, v1api20230401, v1api20230701, v1api20230801 |
-| redisenterprisedatabase | v1api20201201, v1api20210301, v1api20230401, v1api20230701, v1api20230801 |
-| redisfirewallrule | v1api20201201, v1api20210301, v1api20230401, v1api20230701, v1api20230801 |
+| redisenterprise | v1api20210301, v1api20230701 |
+| redisenterprisedatabase | v1api20210301, v1api20230701 |
+| redisfirewallrule | v1api20201201, v1api20230401, v1api20230801 |
 | redislinkedserver | v1api20201201, v1api20230401, v1api20230801 |
 | redispatchschedule | v1api20201201, v1api20230401, v1api20230801 |
 
 | capi.weave.works | |
 | --- | --- |
 | capitemplate | v1alpha1, v1alpha2 |
-| clusterbootstrapconfig | v1alpha1, v1alpha2 |
-| secretsync | v1alpha1, v1alpha2 |
+| clusterbootstrapconfig | v1alpha1 |
+| secretsync | v1alpha1 |
 
 | capsule.clastix.io | |
 | --- | --- |
@@ -161,17 +161,17 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | cdn.azure.com | |
 | --- | --- |
-| afdcustomdomain | v1api20210601, v1api20230501 |
+| afdcustomdomain | v1api20230501 |
 | afdendpoint | v1api20230501 |
 | afdorigin | v1api20230501 |
-| afdorigingroup | v1api20210601, v1api20230501 |
+| afdorigingroup | v1api20230501 |
 | profile | v1api20210601, v1api20230501 |
-| profilesendpoint | v1api20210601, v1api20230501 |
-| route | v1api20210601, v1api20230501 |
-| rule | v1api20210601, v1api20230501 |
-| ruleset | v1api20210601, v1api20230501 |
-| secret | v1api20210601, v1api20230501 |
-| securitypolicy | v1api20210601, v1api20230501 |
+| profilesendpoint | v1api20210601 |
+| route | v1api20230501 |
+| rule | v1api20230501 |
+| ruleset | v1api20230501 |
+| secret | v1api20230501 |
+| securitypolicy | v1api20230501 |
 
 | ceph.rook.io | |
 | --- | --- |
@@ -226,15 +226,15 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | compute.azure.com | |
 | --- | --- |
-| disk | v1api20200930, v1api20201201, v1api20220301, v1api20240302 |
-| diskaccess | v1api20200930, v1api20201201, v1api20210701, v1api20220301, v1api20220702, v1api20240302 |
-| diskencryptionset | v1api20200930, v1api20201201, v1api20220301, v1api20220702, v1api20240302 |
-| image | v1api20200930, v1api20201201, v1api20210701, v1api20220301, v1api20220702, v1api20240302 |
-| snapshot | v1api20200930, v1api20201201, v1api20210701, v1api20220301, v1api20220702, v1api20240302 |
-| virtualmachine | v1api20200930, v1api20201201, v1api20210701, v1api20220301, v1api20220702, v1api20240302 |
+| disk | v1api20200930, v1api20240302 |
+| diskaccess | v1api20240302 |
+| diskencryptionset | v1api20220702, v1api20240302 |
+| image | v1api20210701, v1api20220301 |
+| snapshot | v1api20200930, v1api20240302 |
+| virtualmachine | v1api20201201, v1api20220301 |
 | virtualmachinescaleset | v1api20201201, v1api20220301 |
 | virtualmachinescalesetsextension | v1api20201201, v1api20220301 |
-| virtualmachinesextension | v1api20200930, v1api20201201, v1api20210701, v1api20220301, v1api20220702, v1api20240302 |
+| virtualmachinesextension | v1api20201201, v1api20220301 |
 
 | config.concierge.pinniped.dev | |
 | --- | --- |
@@ -252,17 +252,17 @@ This page lists missing CRD validation schemas that are present in alternative c
 | containerregistry.azure.com | |
 | --- | --- |
 | registry | v1api20210901, v1api20230701 |
-| registryreplication | v1api20210901, v1api20230701 |
+| registryreplication | v1api20230701 |
 
 | containerservice.azure.com | |
 | --- | --- |
-| fleet | v1api20210501, v1api20230201, v1api20230315preview, v1api20231001, v1api20231102preview, v1api20240402preview, v1api20240901 |
-| fleetsmember | v1api20210501, v1api20230201, v1api20230315preview, v1api20231001, v1api20231102preview, v1api20240402preview, v1api20240901 |
-| fleetsupdaterun | v1api20210501, v1api20230201, v1api20230315preview, v1api20231001, v1api20231102preview, v1api20240402preview, v1api20240901 |
-| maintenanceconfiguration | v1api20210501, v1api20230201, v1api20230315preview, v1api20231001, v1api20231102preview, v1api20240402preview, v1api20240901 |
+| fleet | v1api20230315preview |
+| fleetsmember | v1api20230315preview |
+| fleetsupdaterun | v1api20230315preview |
+| maintenanceconfiguration | v1api20240901 |
 | managedcluster | v1api20210501, v1api20230201, v1api20231001, v1api20231102preview, v1api20240402preview, v1api20240901 |
 | managedclustersagentpool | v1api20210501, v1api20230201, v1api20231001, v1api20231102preview, v1api20240402preview, v1api20240901 |
-| trustedaccessrolebinding | v1api20210501, v1api20230201, v1api20231001, v1api20231102preview, v1api20240402preview, v1api20240901 |
+| trustedaccessrolebinding | v1api20231001, v1api20240402preview, v1api20240901 |
 
 | controlplane.cluster.x-k8s.io | |
 | --- | --- |
@@ -302,7 +302,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | dataprotection.azure.com | |
 | --- | --- |
 | backupvault | v1api20230101, v1api20231101 |
-| backupvaultsbackupinstance | v1api20230101, v1api20231101 |
+| backupvaultsbackupinstance | v1api20231101 |
 | backupvaultsbackuppolicy | v1api20230101, v1api20231101 |
 
 | dbformariadb.azure.com | |
@@ -313,23 +313,23 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | dbformysql.azure.com | |
 | --- | --- |
-| flexibleserver | v1, v1api20210501, v1api20230630, v1api20231230 |
-| flexibleserversadministrator | v1, v1api20210501, v1api20220101, v1api20230630, v1api20231230 |
-| flexibleserversconfiguration | v1, v1api20210501, v1api20220101, v1api20230630, v1api20231230 |
-| flexibleserversdatabase | v1, v1api20210501, v1api20220101, v1api20230630, v1api20231230 |
-| flexibleserversfirewallrule | v1, v1api20210501, v1api20220101, v1api20230630, v1api20231230 |
+| flexibleserver | v1api20210501, v1api20230630, v1api20231230 |
+| flexibleserversadministrator | v1api20220101, v1api20230630, v1api20231230 |
+| flexibleserversconfiguration | v1api20220101, v1api20230630, v1api20231230 |
+| flexibleserversdatabase | v1api20210501, v1api20230630, v1api20231230 |
+| flexibleserversfirewallrule | v1api20210501, v1api20230630, v1api20231230 |
 | user | v1 |
 
 | dbforpostgresql.azure.com | |
 | --- | --- |
-| flexibleserver | v1, v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
-| flexibleserversadvancedthreatprotectionsettings | v1, v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
-| flexibleserversbackup | v1, v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
-| flexibleserversconfiguration | v1, v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
-| flexibleserversdatabase | v1, v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
-| flexibleserversfirewallrule | v1, v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
+| flexibleserver | v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
+| flexibleserversadvancedthreatprotectionsettings | v1api20240801 |
+| flexibleserversbackup | v1api20240801 |
+| flexibleserversconfiguration | v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
+| flexibleserversdatabase | v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
+| flexibleserversfirewallrule | v1api20210601, v1api20220120preview, v1api20221201, v1api20230601preview, v1api20240801 |
 | flexibleserversvirtualendpoint | v1api20240801 |
-| user | v1, v1api20240801 |
+| user | v1 |
 
 | devices.azure.com | |
 | --- | --- |
@@ -359,7 +359,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | mongodbdatabasecollection | v1api20210515, v1api20231115, v1api20240815 |
 | mongodbdatabasecollectionthroughputsetting | v1api20210515, v1api20231115, v1api20240815 |
 | mongodbdatabasethroughputsetting | v1api20210515, v1api20231115, v1api20240815 |
-| mongodbuserdefinition | v1api20210515, v1api20231115, v1api20240815 |
+| mongodbuserdefinition | v1api20240815 |
 | sqldatabase | v1api20210515, v1api20231115, v1api20240815 |
 | sqldatabasecontainer | v1api20210515, v1api20231115, v1api20240815 |
 | sqldatabasecontainerstoredprocedure | v1api20210515, v1api20231115, v1api20240815 |
@@ -373,8 +373,8 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | ingressclassparams | v1 |
 | nodeclass | v1 |
-| nodediagnostic | v1, v1alpha1 |
-| targetgroupbinding | v1, v1alpha1 |
+| nodediagnostic | v1alpha1 |
+| targetgroupbinding | v1 |
 
 | eventgrid.azure.com | |
 | --- | --- |
@@ -450,40 +450,40 @@ This page lists missing CRD validation schemas that are present in alternative c
 | gateway.networking.k8s.io | |
 | --- | --- |
 | backendlbpolicy | v1alpha2 |
-| backendtlspolicy | v1alpha2, v1alpha3 |
+| backendtlspolicy | v1alpha3 |
 
 | getambassador.io | |
 | --- | --- |
-| authservice | v1beta1, v1beta2, v2, v3alpha1 |
-| consulresolver | v1beta1, v1beta2, v2, v3alpha1 |
-| devportal | v1, v1beta1, v1beta2, v2, v3alpha1 |
-| filter | v1, v1beta1, v1beta2, v2, v3alpha1 |
-| filterpolicy | v1, v1beta1, v1beta2, v2, v3alpha1 |
+| authservice | v3alpha1 |
+| consulresolver | v3alpha1 |
+| devportal | v1, v3alpha1 |
+| filter | v1beta2, v2, v3alpha1 |
+| filterpolicy | v1beta2, v2, v3alpha1 |
 | host | v3alpha1 |
-| kubernetesendpointresolver | v1, v1beta1, v1beta2, v2, v3alpha1 |
-| kubernetesserviceresolver | v1, v1beta1, v1beta2, v2, v3alpha1 |
-| listener | v1beta1, v1beta2, v2, v3alpha1 |
-| logservice | v1beta1, v1beta2, v2, v3alpha1 |
+| kubernetesendpointresolver | v3alpha1 |
+| kubernetesserviceresolver | v3alpha1 |
+| listener | v3alpha1 |
+| logservice | v3alpha1 |
 | mapping | v3alpha1 |
 | module | v3alpha1 |
 | ratelimit | v1beta1, v1beta2, v2, v3alpha1 |
-| ratelimitservice | v1beta1, v1beta2, v2, v3alpha1 |
+| ratelimitservice | v3alpha1 |
 | tcpmapping | v3alpha1 |
 | tlscontext | v3alpha1 |
-| tracingservice | v1beta1, v1beta2, v2, v3alpha1 |
+| tracingservice | v3alpha1 |
 
 | grafana.integreatly.org | |
 | --- | --- |
 | grafana | v1alpha1, v1beta1 |
-| grafanaalertrulegroup | v1alpha1, v1beta1 |
+| grafanaalertrulegroup | v1beta1 |
 | grafanacontactpoint | v1beta1 |
-| grafanadashboard | v1alpha1, v1beta1 |
+| grafanadashboard | v1beta1 |
 | grafanadatasource | v1beta1 |
 | grafanafolder | v1beta1 |
-| grafanalibrarypanel | v1alpha1, v1beta1 |
-| grafanamutetiming | v1alpha1, v1beta1 |
+| grafanalibrarypanel | v1beta1 |
+| grafanamutetiming | v1beta1 |
 | grafananotificationpolicy | v1beta1 |
-| grafananotificationpolicyroute | v1alpha1, v1beta1 |
+| grafananotificationpolicyroute | v1beta1 |
 | grafananotificationtemplate | v1beta1 |
 
 | groupsnapshot.storage.k8s.io | |
@@ -511,54 +511,54 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | infrastructure.cluster.x-k8s.io | |
 | --- | --- |
-| bootstrapkubeconfig | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| byocluster | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| byoclustertemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| byohost | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| byomachine | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| byomachinetemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| devcluster | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| devclustertemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| devmachine | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| devmachinetemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| dockercluster | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| dockerclustertemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| dockermachine | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| dockermachinepool | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| dockermachinepooltemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| dockermachinetemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| gcpcluster | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| gcpmachine | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| gcpmachinetemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| k8sinstallerconfig | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| k8sinstallerconfigtemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
+| bootstrapkubeconfig | v1beta1 |
+| byocluster | v1beta1 |
+| byoclustertemplate | v1beta1 |
+| byohost | v1beta1 |
+| byomachine | v1beta1 |
+| byomachinetemplate | v1beta1 |
+| devcluster | v1beta1 |
+| devclustertemplate | v1beta1 |
+| devmachine | v1beta1 |
+| devmachinetemplate | v1beta1 |
+| dockercluster | v1alpha2, v1alpha3, v1alpha4, v1beta1 |
+| dockerclustertemplate | v1alpha4, v1beta1 |
+| dockermachine | v1alpha2, v1alpha3, v1alpha4, v1beta1 |
+| dockermachinepool | v1alpha3, v1alpha4, v1beta1 |
+| dockermachinepooltemplate | v1beta1 |
+| dockermachinetemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1 |
+| gcpcluster | v1alpha2 |
+| gcpmachine | v1alpha2 |
+| gcpmachinetemplate | v1alpha2 |
+| k8sinstallerconfig | v1beta1 |
+| k8sinstallerconfigtemplate | v1beta1 |
 | ocicluster | v1beta1, v1beta2 |
 | ociclusteridentity | v1beta1, v1beta2 |
-| ociclustertemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimachine | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimachinepool | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimachinepoolmachine | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimachinetemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimanagedcluster | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimanagedclustertemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimanagedcontrolplane | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimanagedcontrolplanetemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimanagedmachinepool | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocimanagedmachinepooltemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| ocivirtualmachinepool | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| tinkerbellcluster | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| tinkerbellmachine | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
-| tinkerbellmachinetemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1, v1beta2 |
+| ociclustertemplate | v1beta1, v1beta2 |
+| ocimachine | v1beta1, v1beta2 |
+| ocimachinepool | v1beta1, v1beta2 |
+| ocimachinepoolmachine | v1beta1, v1beta2 |
+| ocimachinetemplate | v1beta1, v1beta2 |
+| ocimanagedcluster | v1beta1, v1beta2 |
+| ocimanagedclustertemplate | v1beta1, v1beta2 |
+| ocimanagedcontrolplane | v1beta1, v1beta2 |
+| ocimanagedcontrolplanetemplate | v1beta1, v1beta2 |
+| ocimanagedmachinepool | v1beta1, v1beta2 |
+| ocimanagedmachinepooltemplate | v1beta1, v1beta2 |
+| ocivirtualmachinepool | v1beta1, v1beta2 |
+| tinkerbellcluster | v1beta1 |
+| tinkerbellmachine | v1beta1 |
+| tinkerbellmachinetemplate | v1beta1 |
 
 | insights.azure.com | |
 | --- | --- |
 | actiongroup | v1api20230101 |
-| autoscalesetting | v1api20221001, v1api20230101 |
-| component | v1api20200202, v1api20221001, v1api20230101 |
-| diagnosticsetting | v1api20200202, v1api20210501preview, v1api20221001, v1api20230101 |
-| metricalert | v1api20180301, v1api20200202, v1api20210501preview, v1api20221001, v1api20230101 |
-| scheduledqueryrule | v1api20180301, v1api20200202, v1api20210501preview, v1api20220615, v1api20221001, v1api20230101, v1api20240101preview |
-| webtest | v1api20180301, v1api20180501preview, v1api20200202, v1api20210501preview, v1api20220615, v1api20221001, v1api20230101, v1api20240101preview |
+| autoscalesetting | v1api20221001 |
+| component | v1api20200202 |
+| diagnosticsetting | v1api20210501preview |
+| metricalert | v1api20180301 |
+| scheduledqueryrule | v1api20220615, v1api20240101preview |
+| webtest | v1api20180501preview, v1api20220615 |
 
 | k8s.keycloak.org | |
 | --- | --- |
@@ -579,7 +579,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | kafka.strimzi.io | |
 | --- | --- |
-| kafkatopiccontrolacls | v1alpha1, v1beta1, v1beta2 |
+| kafkatopiccontrolacls | v1alpha1, v1beta1 |
 | strimzipodset | v1beta2 |
 
 | kargo.akuity.io | |
@@ -608,8 +608,8 @@ This page lists missing CRD validation schemas that are present in alternative c
 | kubeflow.org | |
 | --- | --- |
 | notebook | v1, v1alpha1, v1beta1 |
-| poddefault | v1, v1alpha1, v1beta1 |
-| profile | v1, v1alpha1, v1beta1 |
+| poddefault | v1alpha1 |
+| profile | v1, v1beta1 |
 
 | kubernetesconfiguration.azure.com | |
 | --- | --- |
@@ -618,7 +618,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | kubescape.io | |
 | --- | --- |
-| operatorcommand | v1, v1alpha1 |
+| operatorcommand | v1alpha1 |
 | runtimerulealertbinding | v1 |
 
 | kusto.azure.com | |
@@ -630,9 +630,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | kyverno.io | |
 | --- | --- |
 | clusterephemeralreport | v1 |
-| clusterpolicyreport | v1, v1alpha2 |
-| ephemeralreport | v1, v1alpha2 |
-| policyreport | v1, v1alpha2 |
+| clusterpolicyreport | v1alpha2 |
+| ephemeralreport | v1 |
+| policyreport | v1alpha2 |
 
 | linkerd.io | |
 | --- | --- |
@@ -643,28 +643,28 @@ This page lists missing CRD validation schemas that are present in alternative c
 | backingimage | v1beta1, v1beta2 |
 | backingimagedatasource | v1beta1, v1beta2 |
 | backingimagemanager | v1beta1, v1beta2 |
-| backupbackingimage | v1beta1, v1beta2 |
+| backupbackingimage | v1beta2 |
 | backuptarget | v1beta1, v1beta2 |
 | backupvolume | v1beta1, v1beta2 |
 | engine | v1beta1, v1beta2 |
 | engineimage | v1beta1, v1beta2 |
 | instancemanager | v1beta1, v1beta2 |
 | node | v1beta1, v1beta2 |
-| orphan | v1beta1, v1beta2 |
+| orphan | v1beta2 |
 | recurringjob | v1beta1, v1beta2 |
 | replica | v1beta1, v1beta2 |
 | setting | v1beta1, v1beta2 |
 | sharemanager | v1beta1, v1beta2 |
-| snapshot | v1beta1, v1beta2 |
-| supportbundle | v1beta1, v1beta2 |
-| systembackup | v1beta1, v1beta2 |
-| systemrestore | v1beta1, v1beta2 |
+| snapshot | v1beta2 |
+| supportbundle | v1beta2 |
+| systembackup | v1beta2 |
+| systemrestore | v1beta2 |
 | volume | v1beta1, v1beta2 |
-| volumeattachment | v1beta1, v1beta2 |
+| volumeattachment | v1beta2 |
 
 | machinelearningservices.azure.com | |
 | --- | --- |
-| registry | v1api20210701, v1api20240401 |
+| registry | v1api20240401 |
 | workspace | v1api20210701, v1api20240401 |
 | workspacescompute | v1api20210701, v1api20240401 |
 | workspacesconnection | v1api20210701, v1api20240401 |
@@ -672,7 +672,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | managedidentity.azure.com | |
 | --- | --- |
 | federatedidentitycredential | v1api20220131preview, v1api20230131 |
-| userassignedidentity | v1api20181130, v1api20220131preview, v1api20230131 |
+| userassignedidentity | v1api20181130, v1api20230131 |
 
 | metal3.io | |
 | --- | --- |
@@ -692,7 +692,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | monitoring.googleapis.com | |
 | --- | --- |
-| clusternodemonitoring | v1, v1alpha1 |
+| clusternodemonitoring | v1 |
 | clusterpodmonitoring | v1, v1alpha1 |
 | clusterrules | v1, v1alpha1 |
 | globalrules | v1, v1alpha1 |
@@ -703,62 +703,62 @@ This page lists missing CRD validation schemas that are present in alternative c
 | mysql.presslabs.org | |
 | --- | --- |
 | mysqlbackup | v1alpha1, v2 |
-| mysqlcluster | v1alpha1, v2 |
+| mysqlcluster | v1alpha1 |
 | mysqldatabase | v1alpha1 |
 | mysqluser | v1alpha1 |
 
 | network.azure.com | |
 | --- | --- |
-| applicationgateway | v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| applicationsecuritygroup | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| bastionhost | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnsforwardingruleset | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnsforwardingrulesetsforwardingrule | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnsforwardingrulesetsvirtualnetworklink | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| dnsresolver | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnsresolversinboundendpoint | v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| dnsresolversoutboundendpoint | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnszone | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| dnszonesaaaarecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnszonesarecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| dnszonescaarecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnszonescnamerecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| dnszonesmxrecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnszonesnsrecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnszonesptrrecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| dnszonessrvrecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| dnszonestxtrecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| loadbalancer | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| loadbalancersinboundnatrule | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| natgateway | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| networkinterface | v1api20201101, v1api20220401, v1api20240301 |
-| networksecuritygroup | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| networksecuritygroupssecurityrule | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| privatednszone | v1api20180901, v1api20201101, v1api20220401, v1api20240301, v1api20240601 |
-| privatednszonesaaaarecord | v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20240301, v1api20240601 |
-| privatednszonesarecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| privatednszonescnamerecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| privatednszonesmxrecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| privatednszonesptrrecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| privatednszonessrvrecord | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| privatednszonestxtrecord | v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20240301, v1api20240601 |
-| privatednszonesvirtualnetworklink | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| privateendpoint | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| privateendpointsprivatednszonegroup | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| privatelinkservice | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| publicipaddress | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| publicipprefix | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| routetable | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| routetablesroute | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| trafficmanagerprofile | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| trafficmanagerprofilesazureendpoint | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
+| applicationgateway | v1api20220701 |
+| applicationsecuritygroup | v1api20240101 |
+| bastionhost | v1api20220701, v1api20240301 |
+| dnsforwardingruleset | v1api20220701 |
+| dnsforwardingrulesetsforwardingrule | v1api20220701 |
+| dnsforwardingrulesetsvirtualnetworklink | v1api20220701 |
+| dnsresolver | v1api20220701 |
+| dnsresolversinboundendpoint | v1api20220701 |
+| dnsresolversoutboundendpoint | v1api20220701 |
+| dnszone | v1api20180501 |
+| dnszonesaaaarecord | v1api20180501 |
+| dnszonesarecord | v1api20180501 |
+| dnszonescaarecord | v1api20180501 |
+| dnszonescnamerecord | v1api20180501 |
+| dnszonesmxrecord | v1api20180501 |
+| dnszonesnsrecord | v1api20180501 |
+| dnszonesptrrecord | v1api20180501 |
+| dnszonessrvrecord | v1api20180501 |
+| dnszonestxtrecord | v1api20180501 |
+| loadbalancer | v1api20201101, v1api20240301 |
+| loadbalancersinboundnatrule | v1api20201101, v1api20240301 |
+| natgateway | v1api20220701, v1api20240301 |
+| networkinterface | v1api20201101, v1api20240301 |
+| networksecuritygroup | v1api20201101, v1api20240301 |
+| networksecuritygroupssecurityrule | v1api20201101, v1api20240301 |
+| privatednszone | v1api20180901, v1api20240601 |
+| privatednszonesaaaarecord | v1api20200601, v1api20240601 |
+| privatednszonesarecord | v1api20200601, v1api20240601 |
+| privatednszonescnamerecord | v1api20200601, v1api20240601 |
+| privatednszonesmxrecord | v1api20200601, v1api20240601 |
+| privatednszonesptrrecord | v1api20200601, v1api20240601 |
+| privatednszonessrvrecord | v1api20200601, v1api20240601 |
+| privatednszonestxtrecord | v1api20200601, v1api20240601 |
+| privatednszonesvirtualnetworklink | v1api20200601, v1api20240601 |
+| privateendpoint | v1api20220701, v1api20240301 |
+| privateendpointsprivatednszonegroup | v1api20220701, v1api20240301 |
+| privatelinkservice | v1api20220701, v1api20240301 |
+| publicipaddress | v1api20201101, v1api20240301 |
+| publicipprefix | v1api20220701, v1api20240301 |
+| routetable | v1api20201101, v1api20240301 |
+| routetablesroute | v1api20201101, v1api20240301 |
+| trafficmanagerprofile | v1api20220401 |
+| trafficmanagerprofilesazureendpoint | v1api20220401 |
 | trafficmanagerprofilesexternalendpoint | v1api20220401 |
 | trafficmanagerprofilesnestedendpoint | v1api20220401 |
-| virtualnetwork | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240301, v1api20240601 |
-| virtualnetworkgateway | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| virtualnetworkssubnet | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
-| virtualnetworksvirtualnetworkpeering | v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20240301, v1api20240601 |
-| webapplicationfirewallpolicy | v1api20180501, v1api20180901, v1api20200601, v1api20201101, v1api20220401, v1api20220701, v1api20240101, v1api20240301, v1api20240601 |
+| virtualnetwork | v1api20201101, v1api20240301 |
+| virtualnetworkgateway | v1api20201101, v1api20240301 |
+| virtualnetworkssubnet | v1api20201101, v1api20240301 |
+| virtualnetworksvirtualnetworkpeering | v1api20201101, v1api20240301 |
+| webapplicationfirewallpolicy | v1api20240101 |
 
 | network.azure.upbound.io | |
 | --- | --- |
@@ -770,16 +770,16 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | networking.gke.io | |
 | --- | --- |
-| frontendconfig | v1, v1beta1, v1beta2 |
-| gcpbackendpolicy | v1, v1beta1, v1beta2 |
-| gcpgatewaypolicy | v1, v1beta1 |
-| gkenetworkparamset | v1, v1beta1, v1beta2 |
-| healthcheckpolicy | v1, v1beta1 |
-| lbpolicy | v1, v1beta1 |
+| frontendconfig | v1beta1 |
+| gcpbackendpolicy | v1 |
+| gcpgatewaypolicy | v1 |
+| gkenetworkparamset | v1 |
+| healthcheckpolicy | v1 |
+| lbpolicy | v1 |
 | managedcertificate | v1, v1beta1, v1beta2 |
-| network | v1, v1beta1, v1beta2 |
-| networklogging | v1, v1alpha1, v1beta1, v1beta2 |
-| serviceattachment | v1, v1alpha1, v1beta1, v1beta2 |
+| network | v1 |
+| networklogging | v1alpha1 |
+| serviceattachment | v1, v1beta1 |
 | servicenetworkendpointgroup | v1beta1 |
 
 | networking.k8s.aws | |
@@ -802,7 +802,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | blockdevice | v1alpha1 |
 | blockdeviceclaim | v1alpha1 |
-| diskpool | v1alpha1, v1beta1, v1beta2 |
+| diskpool | v1beta1, v1beta2 |
 
 | operationalinsights.azure.com | |
 | --- | --- |
@@ -812,8 +812,8 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | perconapgbackup | v2beta1 |
 | perconapgcluster | v1, v2beta1 |
-| perconapgrestore | v1, v2beta1 |
-| postgrescluster | v1, v1beta1, v2beta1 |
+| perconapgrestore | v2beta1 |
+| postgrescluster | v1beta1 |
 
 | policy.cert-manager.io | |
 | --- | --- |
@@ -821,17 +821,17 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | policy.linkerd.io | |
 | --- | --- |
-| authorizationpolicy | v1, v1alpha1, v1beta1, v1beta2, v1beta3 |
+| authorizationpolicy | v1alpha1 |
 | httproute | v1, v1alpha1, v1beta1, v1beta2, v1beta3 |
-| meshtlsauthentication | v1, v1alpha1, v1beta1, v1beta2, v1beta3 |
-| networkauthentication | v1, v1alpha1, v1beta1, v1beta2, v1beta3 |
-| server | v1, v1alpha1, v1beta1, v1beta2, v1beta3 |
-| serverauthorization | v1, v1alpha1, v1beta1, v1beta2, v1beta3 |
+| meshtlsauthentication | v1alpha1 |
+| networkauthentication | v1alpha1 |
+| server | v1alpha1, v1beta1 |
+| serverauthorization | v1alpha1, v1beta1 |
 
 | policy.sigstore.dev | |
 | --- | --- |
 | clusterimagepolicy | v1alpha1, v1beta1 |
-| trustroot | v1alpha1, v1beta1 |
+| trustroot | v1alpha1 |
 
 | postgresql.cnpg.io | |
 | --- | --- |
@@ -868,21 +868,21 @@ This page lists missing CRD validation schemas that are present in alternative c
 | namespacestopic | v1api20210101preview, v1api20211101, v1api20221001preview, v1api20240101 |
 | namespacestopicssubscription | v1api20210101preview, v1api20211101, v1api20221001preview, v1api20240101 |
 | namespacestopicssubscriptionsrule | v1api20210101preview, v1api20211101, v1api20221001preview, v1api20240101 |
-| topicauthorizationrule | v1api20210101preview, v1api20211101, v1api20221001preview, v1api20240101 |
+| topicauthorizationrule | v1api20240101 |
 
 | serving.kserve.io | |
 | --- | --- |
-| clusterservingruntime | v1alpha1, v1beta1 |
-| inferencegraph | v1alpha1, v1beta1 |
+| clusterservingruntime | v1alpha1 |
+| inferencegraph | v1alpha1 |
 | inferenceservice | v1beta1 |
-| servingruntime | v1alpha1, v1beta1 |
-| trainedmodel | v1alpha1, v1beta1 |
+| servingruntime | v1alpha1 |
+| trainedmodel | v1alpha1 |
 
 | signalrservice.azure.com | |
 | --- | --- |
-| customcertificate | v1api20211001, v1api20240301 |
-| customdomain | v1api20211001, v1api20240301 |
-| replica | v1api20211001, v1api20240301 |
+| customcertificate | v1api20240301 |
+| customdomain | v1api20240301 |
+| replica | v1api20240301 |
 | signalr | v1api20211001, v1api20240301 |
 
 | sql.azure.com | |
@@ -894,7 +894,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | serversazureadonlyauthentication | v1api20211101 |
 | serversconnectionpolicy | v1api20211101 |
 | serversdatabase | v1api20211101 |
-| serversdatabasesadvancedthreatprotectionsetting | v1, v1api20211101 |
+| serversdatabasesadvancedthreatprotectionsetting | v1api20211101 |
 | serversdatabasesauditingsetting | v1api20211101 |
 | serversdatabasesbackuplongtermretentionpolicy | v1api20211101 |
 | serversdatabasesbackupshorttermretentionpolicy | v1api20211101 |
@@ -904,25 +904,25 @@ This page lists missing CRD validation schemas that are present in alternative c
 | serverselasticpool | v1api20211101 |
 | serversfailovergroup | v1api20211101 |
 | serversfirewallrule | v1api20211101 |
-| serversipv6firewallrule | v1, v1api20211101 |
+| serversipv6firewallrule | v1api20211101 |
 | serversoutboundfirewallrule | v1api20211101 |
 | serverssecurityalertpolicy | v1api20211101 |
 | serversvirtualnetworkrule | v1api20211101 |
 | serversvulnerabilityassessment | v1api20211101 |
-| user | v1, v1api20211101 |
+| user | v1 |
 
 | storage.azure.com | |
 | --- | --- |
 | storageaccount | v1api20210401, v1api20220901, v1api20230101 |
 | storageaccountsblobservice | v1api20210401, v1api20220901, v1api20230101 |
 | storageaccountsblobservicescontainer | v1api20210401, v1api20220901, v1api20230101 |
-| storageaccountsfileservice | v1api20210401, v1api20220901, v1api20230101 |
-| storageaccountsfileservicesshare | v1api20210401, v1api20220901, v1api20230101 |
+| storageaccountsfileservice | v1api20220901, v1api20230101 |
+| storageaccountsfileservicesshare | v1api20220901, v1api20230101 |
 | storageaccountsmanagementpolicy | v1api20210401, v1api20220901, v1api20230101 |
 | storageaccountsqueueservice | v1api20210401, v1api20220901, v1api20230101 |
 | storageaccountsqueueservicesqueue | v1api20210401, v1api20220901, v1api20230101 |
-| storageaccountstableservice | v1api20210401, v1api20220901, v1api20230101 |
-| storageaccountstableservicestable | v1api20210401, v1api20220901, v1api20230101 |
+| storageaccountstableservice | v1api20220901, v1api20230101 |
+| storageaccountstableservicestable | v1api20220901, v1api20230101 |
 
 | subscription.azure.com | |
 | --- | --- |
@@ -954,14 +954,14 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | tests.testkube.io | |
 | --- | --- |
-| script | v1, v2, v3 |
-| template | v1, v2, v3 |
+| script | v1, v2 |
+| template | v1 |
 | test | v1, v2, v3 |
-| testexecution | v1, v2, v3 |
-| testsource | v1, v2, v3 |
+| testexecution | v1 |
+| testsource | v1 |
 | testsuite | v1, v2, v3 |
-| testsuiteexecution | v1, v2, v3 |
-| testtrigger | v1, v2, v3 |
+| testsuiteexecution | v1 |
+| testtrigger | v1 |
 
 | testworkflows.testkube.io | |
 | --- | --- |
@@ -980,19 +980,19 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | v1.edp.epam.com | |
 | --- | --- |
-| clusterkeycloak | v1, v1alpha1 |
-| clusterkeycloakrealm | v1, v1alpha1 |
-| keycloak | v1, v1alpha1 |
-| keycloakauthflow | v1, v1alpha1 |
-| keycloakclient | v1, v1alpha1 |
-| keycloakclientscope | v1, v1alpha1 |
-| keycloakrealm | v1, v1alpha1 |
-| keycloakrealmcomponent | v1, v1alpha1 |
-| keycloakrealmgroup | v1, v1alpha1 |
-| keycloakrealmidentityprovider | v1, v1alpha1 |
+| clusterkeycloak | v1alpha1 |
+| clusterkeycloakrealm | v1alpha1 |
+| keycloak | v1 |
+| keycloakauthflow | v1 |
+| keycloakclient | v1 |
+| keycloakclientscope | v1 |
+| keycloakrealm | v1 |
+| keycloakrealmcomponent | v1 |
+| keycloakrealmgroup | v1 |
+| keycloakrealmidentityprovider | v1 |
 | keycloakrealmrole | v1 |
-| keycloakrealmrolebatch | v1, v1alpha1 |
-| keycloakrealmuser | v1, v1alpha1 |
+| keycloakrealmrolebatch | v1 |
+| keycloakrealmuser | v1 |
 
 | web.azure.com | |
 | --- | --- |
