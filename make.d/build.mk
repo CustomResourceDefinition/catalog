@@ -20,7 +20,7 @@ endif
 	runner make _build
 
 _build: _clean
-	mkdir -p build/bin build/ephemeral build/remote/datreeio
+	mkdir -p build/bin build/ephemeral
 	cat src/*.sh > build/bin/main
 	chmod +x build/bin/main
 	cd tools && \
