@@ -10,7 +10,7 @@ function generate {
     git checkout "$2" &>/dev/null
     {
         for path in ${3}; do
-            test -d "/tmp/git/$path/" && find "/tmp/git/$path/" -type f \( -iname '*.yaml' -o -iname '*.yml' \) -exec sh -c "echo '---'; cat \$0" {} \;
+            test -d "/tmp/git/$path/" && find "/tmp/git/$path/" -type f \( -iname '*.yaml' -o -iname '*.yml' \) -exec sh -c "echo '---'; cat \$0 | yq 2>/dev/null || echo" {} \;
         done
         for path in ${4}; do
             echo '---'
