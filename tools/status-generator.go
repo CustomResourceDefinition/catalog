@@ -92,7 +92,6 @@ func find(src string, remote string, name string, uri string) (markdownData, err
 	data := markdownData{
 		Name: name,
 		Uri:  uri,
-		Data: make([]markdownItem, 0),
 	}
 
 	current, err := findItems(src)
@@ -105,54 +104,7 @@ func find(src string, remote string, name string, uri string) (markdownData, err
 		return data, err
 	}
 
-	marker := make(map[string]bool, 0)
-	for _, i := range current {
-		marker[i.Id()] = false
-	}
-
-	missing := make([]item, 0)
-	groups := make(map[string]string, 0)
-	for _, item := range target {
-		if _, ok := marker[item.Id()]; !ok {
-			missing = append(missing, item)
-			groups[item.group] = item.group
-		}
-	}
-
-	for group := range groups {
-		item := markdownItem{Group: group, Items: []markdownItems{}}
-
-		kinds := make(map[string]string, 0)
-		for _, i := range missing {
-			if i.group != group {
-				continue
-			}
-			kinds[i.kind] = i.kind
-		}
-
-		versions := make([]string, 0)
-		for kind := range kinds {
-			groupItem := markdownItems{Kind: kind}
-
-			for _, i := range missing {
-				if i.group != group || i.kind != kind || slices.Contains(versions, i.version) {
-					continue
-				}
-				versions = append(versions, i.version)
-			}
-
-			slices.Sort(versions)
-
-			groupItem.Versions = strings.Join(versions, ", ")
-			item.Items = append(item.Items, groupItem)
-		}
-
-		slices.SortFunc(item.Items, func(a, b markdownItems) int { return cmp.Compare(a.Kind, b.Kind) })
-
-		data.Data = append(data.Data, item)
-	}
-
-	slices.SortFunc(data.Data, func(a, b markdownItem) int { return cmp.Compare(a.Group, b.Group) })
+	data.update(current, target)
 
 	return data, nil
 }
@@ -226,4 +178,59 @@ func render(list []markdownData, out string) error {
 
 func (i *item) Id() string {
 	return fmt.Sprintf("%s/%s_%s.json", i.group, i.kind, i.version)
+}
+
+func (data *markdownData) update(current []item, target []item) {
+	if data.Data == nil {
+		data.Data = make([]markdownItem, 0)
+	}
+
+	marker := make(map[string]bool, 0)
+	for _, i := range current {
+		marker[i.Id()] = false
+	}
+
+	missing := make([]item, 0)
+	groups := make(map[string]string, 0)
+	for _, item := range target {
+		if _, ok := marker[item.Id()]; !ok {
+			missing = append(missing, item)
+			groups[item.group] = item.group
+		}
+	}
+
+	for group := range groups {
+		item := markdownItem{Group: group, Items: []markdownItems{}}
+
+		kinds := make(map[string]string, 0)
+		for _, i := range missing {
+			if i.group != group {
+				continue
+			}
+			kinds[i.kind] = i.kind
+		}
+
+		for kind := range kinds {
+			versions := make([]string, 0)
+			groupItem := markdownItems{Kind: kind}
+
+			for _, i := range missing {
+				if i.group != group || i.kind != kind || slices.Contains(versions, i.version) {
+					continue
+				}
+				versions = append(versions, i.version)
+			}
+
+			slices.Sort(versions)
+
+			groupItem.Versions = strings.Join(versions, ", ")
+			item.Items = append(item.Items, groupItem)
+		}
+
+		slices.SortFunc(item.Items, func(a, b markdownItems) int { return cmp.Compare(a.Kind, b.Kind) })
+
+		data.Data = append(data.Data, item)
+	}
+
+	slices.SortFunc(data.Data, func(a, b markdownItem) int { return cmp.Compare(a.Group, b.Group) })
 }
