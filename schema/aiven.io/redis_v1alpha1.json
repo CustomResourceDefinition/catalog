@@ -37,7 +37,30 @@
         "connInfoSecretTarget": {
           "additionalProperties": false,
           "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object",
+              "x-kubernetes-preserve-unknown-fields": true
+            },
+            "labels": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object",
+              "x-kubernetes-preserve-unknown-fields": true
+            },
             "name": {
+              "type": "string",
+              "x-kubernetes-validations": [
+                {
+                  "message": "Value is immutable",
+                  "rule": "self == oldSelf"
+                }
+              ]
+            },
+            "prefix": {
               "type": "string"
             }
           },
@@ -46,8 +69,17 @@
           ],
           "type": "object"
         },
+        "connInfoSecretTargetDisabled": {
+          "type": "boolean",
+          "x-kubernetes-validations": [
+            {
+              "message": "connInfoSecretTargetDisabled is immutable.",
+              "rule": "self == oldSelf"
+            }
+          ]
+        },
         "disk_space": {
-          "format": "^[1-9][0-9]*(GiB|G)*",
+          "pattern": "(?i)^[1-9][0-9]*(GiB|G)?$",
           "type": "string"
         },
         "maintenanceWindowDow": {
@@ -71,8 +103,8 @@
           "type": "string"
         },
         "project": {
-          "format": "^[a-zA-Z0-9_-]*$",
           "maxLength": 63,
+          "pattern": "^[a-zA-Z0-9_-]+$",
           "type": "string",
           "x-kubernetes-validations": [
             {
@@ -96,23 +128,11 @@
           "required": [
             "name"
           ],
-          "type": "object",
-          "x-kubernetes-validations": [
-            {
-              "message": "Value is immutable",
-              "rule": "self == oldSelf"
-            }
-          ]
+          "type": "object"
         },
         "projectVpcId": {
           "maxLength": 36,
-          "type": "string",
-          "x-kubernetes-validations": [
-            {
-              "message": "Value is immutable",
-              "rule": "self == oldSelf"
-            }
-          ]
+          "type": "string"
         },
         "serviceIntegrations": {
           "items": {
@@ -151,6 +171,23 @@
           },
           "type": "object"
         },
+        "technicalEmails": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "email": {
+                "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "email"
+            ],
+            "type": "object"
+          },
+          "maxItems": 10,
+          "type": "array"
+        },
         "terminationProtection": {
           "type": "boolean"
         },
@@ -163,6 +200,16 @@
               },
               "maxItems": 1,
               "type": "array"
+            },
+            "backup_hour": {
+              "maximum": 23,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "backup_minute": {
+              "maximum": 59,
+              "minimum": 0,
+              "type": "integer"
             },
             "ip_filter": {
               "items": {
@@ -182,7 +229,7 @@
                 ],
                 "type": "object"
               },
-              "maxItems": 1024,
+              "maxItems": 2048,
               "type": "array"
             },
             "migration": {
@@ -197,6 +244,10 @@
                   "type": "string"
                 },
                 "ignore_dbs": {
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                "ignore_roles": {
                   "maxLength": 2048,
                   "type": "string"
                 },
@@ -256,6 +307,7 @@
             },
             "project_to_fork_from": {
               "maxLength": 63,
+              "pattern": "^[a-z][-a-z0-9]{0,63}$|^$",
               "type": "string",
               "x-kubernetes-validations": [
                 {
@@ -305,20 +357,20 @@
             },
             "redis_maxmemory_policy": {
               "enum": [
-                "noeviction",
+                "allkeys-lfu",
                 "allkeys-lru",
-                "volatile-lru",
                 "allkeys-random",
-                "volatile-random",
-                "volatile-ttl",
+                "noeviction",
                 "volatile-lfu",
-                "allkeys-lfu"
+                "volatile-lru",
+                "volatile-random",
+                "volatile-ttl"
               ],
               "type": "string"
             },
             "redis_notify_keyspace_events": {
               "maxLength": 32,
-              "pattern": "^[KEg\\$lshzxeA]*$",
+              "pattern": "^[KEg\\$lshzxentdmA]*$",
               "type": "string"
             },
             "redis_number_of_databases": {
@@ -342,12 +394,22 @@
               "type": "boolean"
             },
             "redis_timeout": {
-              "maximum": 31536000,
+              "maximum": 2073600,
               "minimum": 0,
               "type": "integer"
             },
+            "redis_version": {
+              "enum": [
+                "7.0"
+              ],
+              "type": "string"
+            },
+            "service_log": {
+              "type": "boolean"
+            },
             "service_to_fork_from": {
               "maxLength": 64,
+              "pattern": "^[a-z][-a-z0-9]{0,63}$|^$",
               "type": "string",
               "x-kubernetes-validations": [
                 {
@@ -364,9 +426,16 @@
         }
       },
       "required": [
+        "plan",
         "project"
       ],
-      "type": "object"
+      "type": "object",
+      "x-kubernetes-validations": [
+        {
+          "message": "connInfoSecretTargetDisabled can only be set during resource creation.",
+          "rule": "has(oldSelf.connInfoSecretTargetDisabled) == has(self.connInfoSecretTargetDisabled)"
+        }
+      ]
     },
     "status": {
       "additionalProperties": false,
@@ -423,10 +492,6 @@
           "type": "string"
         }
       },
-      "required": [
-        "conditions",
-        "state"
-      ],
       "type": "object"
     }
   },
