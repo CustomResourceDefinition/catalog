@@ -4,7 +4,7 @@ build:
 ifeq ($(strip $(CI)),)
 	test -n "$$(docker images -q $(RUNNER))" || \
 		docker build --tag $(RUNNER) .
-else ifeq ($(strip $(GITHUB_REF)),main)
+else ifeq ($(strip $(GITHUB_REF)),refs/heads/main)
 	test -n "$$(docker images -q $(RUNNER))" || \
 		docker pull $(RUNNER) || \
 		(echo "$$GITHUB_TOKEN" | docker login ghcr.io -u $$GITHUB_ACTOR --password-stdin && \
