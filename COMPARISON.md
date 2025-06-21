@@ -5,33 +5,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 ## [datreeio/CRDs-catalog](https://github.com/datreeio/CRDs-catalog)
 
-| aiven.io | |
-| --- | --- |
-| cassandra | v1alpha1 |
-| clickhouse | v1alpha1 |
-| clickhousedatabase | v1alpha1 |
-| clickhousegrant | v1alpha1 |
-| clickhouserole | v1alpha1 |
-| clickhouseuser | v1alpha1 |
-| connectionpool | v1alpha1 |
-| database | v1alpha1 |
-| kafka | v1alpha1 |
-| kafkaacl | v1alpha1 |
-| kafkaconnect | v1alpha1 |
-| kafkaconnector | v1alpha1 |
-| kafkaschema | v1alpha1 |
-| kafkaschemaregistryacl | v1alpha1 |
-| kafkatopic | v1alpha1 |
-| mysql | v1alpha1 |
-| opensearch | v1alpha1 |
-| postgresql | v1alpha1 |
-| project | v1alpha1 |
-| projectvpc | v1alpha1 |
-| redis | v1alpha1 |
-| serviceintegration | v1alpha1 |
-| serviceintegrationendpoint | v1alpha1 |
-| serviceuser | v1alpha1 |
-
 | alertsmanagement.azure.com | |
 | --- | --- |
 | prometheusrulegroup | v1api20230301 |
@@ -84,10 +57,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | appconfiguration.azure.com | |
 | --- | --- |
 | configurationstore | v1api20220501 |
-
-| apps.jfrog.com | |
-| --- | --- |
-| secretrotator | v1alpha1 |
 
 | aquasecurity.github.io | |
 | --- | --- |
