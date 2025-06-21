@@ -5,11 +5,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 ## [datreeio/CRDs-catalog](https://github.com/datreeio/CRDs-catalog)
 
-| alertsmanagement.azure.com | |
-| --- | --- |
-| prometheusrulegroup | v1api20230301 |
-| smartdetectoralertrule | v1api20210401 |
-
 | anywhere.eks.amazonaws.com | |
 | --- | --- |
 | cluster | v1alpha3, v1alpha4, v1beta1 |
@@ -22,30 +17,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | dockermachine | v1alpha3, v1alpha4, v1beta1 |
 | dockermachinepool | v1alpha3, v1alpha4, v1beta1 |
 | dockermachinetemplate | v1alpha3, v1alpha4, v1beta1 |
-
-| apimanagement.azure.com | |
-| --- | --- |
-| api | v1api20220801, v1api20230501preview |
-| apiversionset | v1api20220801, v1api20230501preview |
-| authorizationprovider | v1api20220801, v1api20230501preview |
-| authorizationprovidersauthorization | v1api20220801, v1api20230501preview |
-| authorizationprovidersauthorizationsaccesspolicy | v1api20220801, v1api20230501preview |
-| backend | v1api20220801, v1api20230501preview |
-| namedvalue | v1api20220801, v1api20230501preview |
-| policy | v1api20220801, v1api20230501preview |
-| policyfragment | v1api20220801, v1api20230501preview |
-| product | v1api20220801, v1api20230501preview |
-| productapi | v1api20220801, v1api20230501preview |
-| productpolicy | v1api20220801, v1api20230501preview |
-| service | v1api20220801, v1api20230501preview |
-| subscription | v1api20220801, v1api20230501preview |
-
-| app.azure.com | |
-| --- | --- |
-| authconfig | v1api20240301 |
-| containerapp | v1api20240301 |
-| job | v1api20240301 |
-| managedenvironment | v1api20240301 |
 
 | app.redislabs.com | |
 | --- | --- |
@@ -69,16 +40,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | sbomreport | v1alpha1 |
 | vulnerabilityreport | v1alpha1 |
 
-| authentication.concierge.pinniped.dev | |
-| --- | --- |
-| jwtauthenticator | v1alpha1 |
-| webhookauthenticator | v1alpha1 |
-
-| authorization.azure.com | |
-| --- | --- |
-| roleassignment | v1api20220401 |
-| roledefinition | v1api20220401 |
-
 | awspca.cert-manager.io | |
 | --- | --- |
 | awspcaclusterissuer | v1beta1 |
@@ -98,15 +59,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | talosconfig | v1alpha2, v1alpha3 |
 | talosconfigtemplate | v1alpha2, v1alpha3 |
 
-| cache.azure.com | |
-| --- | --- |
-| redis | v1api20230401, v1api20230801 |
-| redisenterprise | v1api20230701 |
-| redisenterprisedatabase | v1api20230701 |
-| redisfirewallrule | v1api20230401, v1api20230801 |
-| redislinkedserver | v1api20230401, v1api20230801 |
-| redispatchschedule | v1api20230401, v1api20230801 |
-
 | capi.weave.works | |
 | --- | --- |
 | capitemplate | v1alpha1, v1alpha2 |
@@ -119,39 +71,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | globaltenantresource | v1beta2 |
 | tenant | v1beta1, v1beta2 |
 | tenantresource | v1beta2 |
-
-| cdn.azure.com | |
-| --- | --- |
-| afdcustomdomain | v1api20230501 |
-| afdendpoint | v1api20230501 |
-| afdorigin | v1api20230501 |
-| afdorigingroup | v1api20230501 |
-| profile | v1api20230501 |
-| route | v1api20230501 |
-| rule | v1api20230501 |
-| ruleset | v1api20230501 |
-| secret | v1api20230501 |
-| securitypolicy | v1api20230501 |
-
-| ceph.rook.io | |
-| --- | --- |
-| cephblockpool | v1 |
-| cephblockpoolradosnamespace | v1 |
-| cephbucketnotification | v1 |
-| cephbuckettopic | v1 |
-| cephclient | v1 |
-| cephcluster | v1 |
-| cephcosidriver | v1 |
-| cephfilesystem | v1 |
-| cephfilesystemmirror | v1 |
-| cephfilesystemsubvolumegroup | v1 |
-| cephnfs | v1 |
-| cephobjectrealm | v1 |
-| cephobjectstore | v1 |
-| cephobjectstoreuser | v1 |
-| cephobjectzone | v1 |
-| cephobjectzonegroup | v1 |
-| cephrbdmirror | v1 |
 
 | cert-manager.k8s.cloudflare.com | |
 | --- | --- |
@@ -184,39 +103,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | machinedeployment | v1alpha1 |
 | machineset | v1alpha1 |
 
-| compute.azure.com | |
-| --- | --- |
-| disk | v1api20240302 |
-| diskaccess | v1api20240302 |
-| diskencryptionset | v1api20220702, v1api20240302 |
-| snapshot | v1api20240302 |
-| virtualmachinescalesetsextension | v1api20201201, v1api20220301 |
-| virtualmachinesextension | v1api20201201, v1api20220301 |
-
-| config.concierge.pinniped.dev | |
-| --- | --- |
-| credentialissuer | v1alpha1 |
-
-| config.supervisor.pinniped.dev | |
-| --- | --- |
-| federationdomain | v1alpha1 |
-| oidcclient | v1alpha1 |
-
-| containerregistry.azure.com | |
-| --- | --- |
-| registry | v1api20230701 |
-| registryreplication | v1api20230701 |
-
-| containerservice.azure.com | |
-| --- | --- |
-| fleet | v1api20230315preview |
-| fleetsmember | v1api20230315preview |
-| fleetsupdaterun | v1api20230315preview |
-| maintenanceconfiguration | v1api20240901 |
-| managedcluster | v1api20231001, v1api20231102preview, v1api20240402preview, v1api20240901 |
-| managedclustersagentpool | v1api20231001, v1api20231102preview, v1api20240402preview, v1api20240901 |
-| trustedaccessrolebinding | v1api20231001, v1api20240402preview, v1api20240901 |
-
 | controlplane.cluster.x-k8s.io | |
 | --- | --- |
 | taloscontrolplane | v1alpha3 |
@@ -248,34 +134,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | datadoggenericresource | v1alpha1 |
 | datadogslo | v1alpha1 |
 
-| dataprotection.azure.com | |
-| --- | --- |
-| backupvault | v1api20230101, v1api20231101 |
-| backupvaultsbackupinstance | v1api20231101 |
-| backupvaultsbackuppolicy | v1api20230101, v1api20231101 |
-
-| dbformysql.azure.com | |
-| --- | --- |
-| flexibleserver | v1api20230630, v1api20231230 |
-| flexibleserversadministrator | v1api20220101, v1api20230630, v1api20231230 |
-| flexibleserversconfiguration | v1api20220101, v1api20230630, v1api20231230 |
-| flexibleserversdatabase | v1api20230630, v1api20231230 |
-| flexibleserversfirewallrule | v1api20230630, v1api20231230 |
-
-| dbforpostgresql.azure.com | |
-| --- | --- |
-| flexibleserver | v1api20221201, v1api20230601preview, v1api20240801 |
-| flexibleserversadvancedthreatprotectionsettings | v1api20240801 |
-| flexibleserversbackup | v1api20240801 |
-| flexibleserversconfiguration | v1api20221201, v1api20230601preview, v1api20240801 |
-| flexibleserversdatabase | v1api20221201, v1api20230601preview, v1api20240801 |
-| flexibleserversfirewallrule | v1api20221201, v1api20230601preview, v1api20240801 |
-| flexibleserversvirtualendpoint | v1api20240801 |
-
-| devices.azure.com | |
-| --- | --- |
-| iothub | v1api20210702 |
-
 | dex.coreos.com | |
 | --- | --- |
 | authcode | v1 |
@@ -293,37 +151,12 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | release | v1alpha1 |
 
-| documentdb.azure.com | |
-| --- | --- |
-| databaseaccount | v1api20231115, v1api20240815 |
-| mongodbdatabase | v1api20231115, v1api20240815 |
-| mongodbdatabasecollection | v1api20231115, v1api20240815 |
-| mongodbdatabasecollectionthroughputsetting | v1api20231115, v1api20240815 |
-| mongodbdatabasethroughputsetting | v1api20231115, v1api20240815 |
-| mongodbuserdefinition | v1api20240815 |
-| sqldatabase | v1api20231115, v1api20240815 |
-| sqldatabasecontainer | v1api20231115, v1api20240815 |
-| sqldatabasecontainerstoredprocedure | v1api20231115, v1api20240815 |
-| sqldatabasecontainerthroughputsetting | v1api20231115, v1api20240815 |
-| sqldatabasecontainertrigger | v1api20231115, v1api20240815 |
-| sqldatabasecontaineruserdefinedfunction | v1api20231115, v1api20240815 |
-| sqldatabasethroughputsetting | v1api20231115, v1api20240815 |
-| sqlroleassignment | v1api20231115, v1api20240815 |
-
 | eks.amazonaws.com | |
 | --- | --- |
 | ingressclassparams | v1 |
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
-
-| eventhub.azure.com | |
-| --- | --- |
-| namespace | v1api20240101 |
-| namespacesauthorizationrule | v1api20240101 |
-| namespaceseventhub | v1api20240101 |
-| namespaceseventhubsauthorizationrule | v1api20240101 |
-| namespaceseventhubsconsumergroup | v1api20240101 |
 
 | executor.testkube.io | |
 | --- | --- |
@@ -430,13 +263,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | helmrelease | v1 |
 
-| idp.supervisor.pinniped.dev | |
-| --- | --- |
-| activedirectoryidentityprovider | v1alpha1 |
-| githubidentityprovider | v1alpha1 |
-| ldapidentityprovider | v1alpha1 |
-| oidcidentityprovider | v1alpha1 |
-
 | image.toolkit.fluxcd.io | |
 | --- | --- |
 | imagepolicy | v1alpha1, v1alpha2 |
@@ -484,15 +310,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | tinkerbellmachine | v1beta1 |
 | tinkerbellmachinetemplate | v1beta1 |
 
-| insights.azure.com | |
-| --- | --- |
-| actiongroup | v1api20230101 |
-| autoscalesetting | v1api20221001 |
-| diagnosticsetting | v1api20210501preview |
-| metricalert | v1api20180301 |
-| scheduledqueryrule | v1api20220615, v1api20240101preview |
-| webtest | v1api20220615 |
-
 | k8s.keycloak.org | |
 | --- | --- |
 | keycloak | v2alpha1 |
@@ -534,31 +351,16 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | cloudeventsource | v1alpha1 |
 
-| keyvault.azure.com | |
-| --- | --- |
-| vault | v1api20230701 |
-
 | kubeflow.org | |
 | --- | --- |
 | notebook | v1, v1alpha1, v1beta1 |
 | poddefault | v1alpha1 |
 | profile | v1, v1beta1 |
 
-| kubernetesconfiguration.azure.com | |
-| --- | --- |
-| extension | v1api20230501, v1api20241101 |
-| fluxconfiguration | v1api20230501, v1api20241101 |
-
 | kubescape.io | |
 | --- | --- |
 | operatorcommand | v1alpha1 |
 | runtimerulealertbinding | v1 |
-
-| kusto.azure.com | |
-| --- | --- |
-| cluster | v1api20230815 |
-| database | v1api20230815 |
-| dataconnection | v1api20230815 |
 
 | kyverno.io | |
 | --- | --- |
@@ -595,18 +397,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | volume | v1beta1, v1beta2 |
 | volumeattachment | v1beta2 |
 
-| machinelearningservices.azure.com | |
-| --- | --- |
-| registry | v1api20240401 |
-| workspace | v1api20240401 |
-| workspacescompute | v1api20240401 |
-| workspacesconnection | v1api20240401 |
-
-| managedidentity.azure.com | |
-| --- | --- |
-| federatedidentitycredential | v1api20230131 |
-| userassignedidentity | v1api20230131 |
-
 | metal3.io | |
 | --- | --- |
 | baremetalhost | v1alpha1 |
@@ -618,10 +408,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | hostfirmwaresettings | v1alpha1 |
 | hostupdatepolicy | v1alpha1 |
 | preprovisioningimage | v1alpha1 |
-
-| monitor.azure.com | |
-| --- | --- |
-| account | v1api20230403 |
 
 | monitoring.googleapis.com | |
 | --- | --- |
@@ -640,56 +426,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | mysqldatabase | v1alpha1 |
 | mysqluser | v1alpha1 |
 
-| network.azure.com | |
-| --- | --- |
-| applicationgateway | v1api20220701 |
-| applicationsecuritygroup | v1api20240101 |
-| bastionhost | v1api20240301 |
-| dnsforwardingruleset | v1api20220701 |
-| dnsforwardingrulesetsforwardingrule | v1api20220701 |
-| dnsforwardingrulesetsvirtualnetworklink | v1api20220701 |
-| dnsresolver | v1api20220701 |
-| dnsresolversinboundendpoint | v1api20220701 |
-| dnsresolversoutboundendpoint | v1api20220701 |
-| loadbalancer | v1api20240301 |
-| loadbalancersinboundnatrule | v1api20201101, v1api20240301 |
-| natgateway | v1api20240301 |
-| networkinterface | v1api20240301 |
-| networksecuritygroup | v1api20240301 |
-| networksecuritygroupssecurityrule | v1api20240301 |
-| privatednszone | v1api20240601 |
-| privatednszonesaaaarecord | v1api20240601 |
-| privatednszonesarecord | v1api20240601 |
-| privatednszonescnamerecord | v1api20240601 |
-| privatednszonesmxrecord | v1api20240601 |
-| privatednszonesptrrecord | v1api20240601 |
-| privatednszonessrvrecord | v1api20240601 |
-| privatednszonestxtrecord | v1api20240601 |
-| privatednszonesvirtualnetworklink | v1api20240601 |
-| privateendpoint | v1api20240301 |
-| privateendpointsprivatednszonegroup | v1api20240301 |
-| privatelinkservice | v1api20240301 |
-| publicipaddress | v1api20240301 |
-| publicipprefix | v1api20240301 |
-| routetable | v1api20240301 |
-| routetablesroute | v1api20240301 |
-| trafficmanagerprofile | v1api20220401 |
-| trafficmanagerprofilesazureendpoint | v1api20220401 |
-| trafficmanagerprofilesexternalendpoint | v1api20220401 |
-| trafficmanagerprofilesnestedendpoint | v1api20220401 |
-| virtualnetwork | v1api20240301 |
-| virtualnetworkgateway | v1api20240301 |
-| virtualnetworkssubnet | v1api20240301 |
-| virtualnetworksvirtualnetworkpeering | v1api20240301 |
-| webapplicationfirewallpolicy | v1api20240101 |
-
 | network.azure.upbound.io | |
 | --- | --- |
 | firewallpolicyrulecollectiongroup | v1beta1 |
-
-| network.frontdoor.azure.com | |
-| --- | --- |
-| webapplicationfirewallpolicy | v1api20220501 |
 
 | networking.gke.io | |
 | --- | --- |
@@ -708,18 +447,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | networking.k8s.aws | |
 | --- | --- |
 | policyendpoint | v1alpha1 |
-
-| notificationhubs.azure.com | |
-| --- | --- |
-| namespace | v1api20230901 |
-| namespacesauthorizationrule | v1api20230901 |
-| notificationhub | v1api20230901 |
-| notificationhubsauthorizationrule | v1api20230901 |
-
-| objectbucket.io | |
-| --- | --- |
-| objectbucket | v1alpha1 |
-| objectbucketclaim | v1alpha1 |
 
 | openebs.io | |
 | --- | --- |
@@ -760,26 +487,12 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | rbacdefinitions | v1alpha1 |
 
-| redhatopenshift.azure.com | |
-| --- | --- |
-| openshiftcluster | v1api20231122 |
-
 | redis.redis.opstreelabs.in | |
 | --- | --- |
 | redis | v1beta2 |
 | rediscluster | v1beta2 |
 | redisreplication | v1beta2 |
 | redissentinel | v1beta2 |
-
-| servicebus.azure.com | |
-| --- | --- |
-| namespace | v1api20211101, v1api20221001preview, v1api20240101 |
-| namespacesauthorizationrule | v1api20210101preview, v1api20211101, v1api20221001preview, v1api20240101 |
-| namespacesqueue | v1api20211101, v1api20221001preview, v1api20240101 |
-| namespacestopic | v1api20211101, v1api20221001preview, v1api20240101 |
-| namespacestopicssubscription | v1api20211101, v1api20221001preview, v1api20240101 |
-| namespacestopicssubscriptionsrule | v1api20211101, v1api20221001preview, v1api20240101 |
-| topicauthorizationrule | v1api20240101 |
 
 | serving.kserve.io | |
 | --- | --- |
@@ -788,30 +501,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | inferenceservice | v1beta1 |
 | servingruntime | v1alpha1 |
 | trainedmodel | v1alpha1 |
-
-| signalrservice.azure.com | |
-| --- | --- |
-| customcertificate | v1api20240301 |
-| customdomain | v1api20240301 |
-| replica | v1api20240301 |
-| signalr | v1api20240301 |
-
-| sql.azure.com | |
-| --- | --- |
-| user | v1 |
-
-| storage.azure.com | |
-| --- | --- |
-| storageaccount | v1api20220901, v1api20230101 |
-| storageaccountsblobservice | v1api20220901, v1api20230101 |
-| storageaccountsblobservicescontainer | v1api20220901, v1api20230101 |
-| storageaccountsfileservice | v1api20220901, v1api20230101 |
-| storageaccountsfileservicesshare | v1api20220901, v1api20230101 |
-| storageaccountsmanagementpolicy | v1api20220901, v1api20230101 |
-| storageaccountsqueueservice | v1api20220901, v1api20230101 |
-| storageaccountsqueueservicesqueue | v1api20220901, v1api20230101 |
-| storageaccountstableservice | v1api20220901, v1api20230101 |
-| storageaccountstableservicestable | v1api20220901, v1api20230101 |
 
 | tailscale.com | |
 | --- | --- |
@@ -873,7 +562,3 @@ This page lists missing CRD validation schemas that are present in alternative c
 | keycloakrealmrole | v1 |
 | keycloakrealmrolebatch | v1 |
 | keycloakrealmuser | v1 |
-
-| web.azure.com | |
-| --- | --- |
-| sitessourcecontrol | v1api20220301 |
