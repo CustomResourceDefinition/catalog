@@ -229,18 +229,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | keycloak | v2alpha1 |
 | keycloakrealmimport | v2alpha1 |
 
-| k8s.mariadb.com | |
-| --- | --- |
-| backup | v1alpha1 |
-| connection | v1alpha1 |
-| database | v1alpha1 |
-| grant | v1alpha1 |
-| mariadb | v1alpha1 |
-| maxscale | v1alpha1 |
-| restore | v1alpha1 |
-| sqljob | v1alpha1 |
-| user | v1alpha1 |
-
 | kargo.akuity.io | |
 | --- | --- |
 | clusterpromotiontask | v1alpha1 |
@@ -262,14 +250,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | kubeflow.org | |
 | --- | --- |
-| notebook | v1, v1alpha1, v1beta1 |
 | poddefault | v1alpha1 |
-| profile | v1, v1beta1 |
-
-| kubescape.io | |
-| --- | --- |
-| operatorcommand | v1alpha1 |
-| runtimerulealertbinding | v1 |
 
 | kyverno.io | |
 | --- | --- |
@@ -281,42 +262,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | linkerd.io | |
 | --- | --- |
 | serviceprofile | v1alpha1, v1alpha2 |
-
-| longhorn.io | |
-| --- | --- |
-| backingimage | v1beta1, v1beta2 |
-| backingimagedatasource | v1beta1, v1beta2 |
-| backingimagemanager | v1beta1, v1beta2 |
-| backupbackingimage | v1beta2 |
-| backuptarget | v1beta1, v1beta2 |
-| backupvolume | v1beta1, v1beta2 |
-| engine | v1beta1, v1beta2 |
-| engineimage | v1beta1, v1beta2 |
-| instancemanager | v1beta1, v1beta2 |
-| node | v1beta1, v1beta2 |
-| orphan | v1beta2 |
-| recurringjob | v1beta1, v1beta2 |
-| replica | v1beta1, v1beta2 |
-| setting | v1beta1, v1beta2 |
-| sharemanager | v1beta1, v1beta2 |
-| snapshot | v1beta2 |
-| supportbundle | v1beta2 |
-| systembackup | v1beta2 |
-| systemrestore | v1beta2 |
-| volume | v1beta1, v1beta2 |
-| volumeattachment | v1beta2 |
-
-| metal3.io | |
-| --- | --- |
-| baremetalhost | v1alpha1 |
-| bmceventsubscription | v1alpha1 |
-| dataimage | v1alpha1 |
-| firmwareschema | v1alpha1 |
-| hardwaredata | v1alpha1 |
-| hostfirmwarecomponents | v1alpha1 |
-| hostfirmwaresettings | v1alpha1 |
-| hostupdatepolicy | v1alpha1 |
-| preprovisioningimage | v1alpha1 |
 
 | monitoring.googleapis.com | |
 | --- | --- |
@@ -330,10 +275,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | mysql.presslabs.org | |
 | --- | --- |
-| mysqlbackup | v1alpha1, v2 |
-| mysqlcluster | v1alpha1 |
-| mysqldatabase | v1alpha1 |
-| mysqluser | v1alpha1 |
+| mysqlbackup | v2 |
 
 | network.azure.upbound.io | |
 | --- | --- |
@@ -356,12 +298,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | networking.k8s.aws | |
 | --- | --- |
 | policyendpoint | v1alpha1 |
-
-| openebs.io | |
-| --- | --- |
-| blockdevice | v1alpha1 |
-| blockdeviceclaim | v1alpha1 |
-| diskpool | v1beta1, v1beta2 |
 
 | pg.percona.com | |
 | --- | --- |
@@ -399,24 +335,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | redisreplication | v1beta2 |
 | redissentinel | v1beta2 |
 
-| serving.kserve.io | |
-| --- | --- |
-| clusterservingruntime | v1alpha1 |
-| inferencegraph | v1alpha1 |
-| inferenceservice | v1beta1 |
-| servingruntime | v1alpha1 |
-| trainedmodel | v1alpha1 |
-
 | templates.kluctl.io | |
 | --- | --- |
-| githubcomment | v1alpha1 |
-| gitlabcomment | v1alpha1 |
-| gitprojector | v1alpha1 |
-| listgithubpullrequests | v1alpha1 |
-| listgitlabmergerequests | v1alpha1 |
 | objecthandler | v1alpha1 |
-| objecttemplate | v1alpha1 |
-| texttemplate | v1alpha1 |
 
 | v1.edp.epam.com | |
 | --- | --- |
