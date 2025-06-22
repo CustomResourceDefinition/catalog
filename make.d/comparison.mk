@@ -5,4 +5,4 @@ generate-comparison: build
 	runner make _generate-comparison
 
 _generate-comparison:
-	build/bin/catalog generate-status --current /schema --ignore /ignores.yaml --remote build/remote/datreeio --out COMPARISON.md
+	build/bin/catalog generate-status --current /schema --ignore /ignores.yaml --datreeio build/remote/datreeio --out COMPARISON.md
