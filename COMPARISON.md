@@ -25,46 +25,14 @@ This page lists missing CRD validation schemas that are present in alternative c
 | redisenterprisedatabase | v1alpha1 |
 | redisenterpriseremotecluster | v1alpha1 |
 
-| awspca.cert-manager.io | |
-| --- | --- |
-| awspcaclusterissuer | v1beta1 |
-| awspcaissuer | v1beta1 |
-
-| barmancloud.cnpg.io | |
-| --- | --- |
-| objectstore | v1 |
-
 | bootstrap.cluster.x-k8s.io | |
 | --- | --- |
 | talosconfig | v1alpha2, v1alpha3 |
 | talosconfigtemplate | v1alpha2, v1alpha3 |
 
-| capi.weave.works | |
-| --- | --- |
-| capitemplate | v1alpha1, v1alpha2 |
-| clusterbootstrapconfig | v1alpha1 |
-| secretsync | v1alpha1 |
-
-| capsule.clastix.io | |
-| --- | --- |
-| capsuleconfiguration | v1beta2 |
-| globaltenantresource | v1beta2 |
-| tenant | v1beta1, v1beta2 |
-| tenantresource | v1beta2 |
-
 | cert-manager.k8s.cloudflare.com | |
 | --- | --- |
 | originissuer | v1 |
-
-| certmanager.step.sm | |
-| --- | --- |
-| stepclusterissuer | v1beta1 |
-| stepissuer | v1beta1 |
-
-| chisel-operator.io | |
-| --- | --- |
-| exitnode | v1 |
-| exitnodeprovisioner | v1 |
 
 | cloud.google.com | |
 | --- | --- |
@@ -113,12 +81,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
-
-| executor.testkube.io | |
-| --- | --- |
-| executor | v1 |
-| webhook | v1 |
-| webhooktemplate | v1 |
 
 | fluentbit.fluent.io | |
 | --- | --- |
@@ -467,23 +429,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | objecthandler | v1alpha1 |
 | objecttemplate | v1alpha1 |
 | texttemplate | v1alpha1 |
-
-| tests.testkube.io | |
-| --- | --- |
-| script | v1, v2 |
-| template | v1 |
-| test | v1, v2, v3 |
-| testexecution | v1 |
-| testsource | v1 |
-| testsuite | v1, v2, v3 |
-| testsuiteexecution | v1 |
-| testtrigger | v1 |
-
-| testworkflows.testkube.io | |
-| --- | --- |
-| testworkflow | v1 |
-| testworkflowexecution | v1 |
-| testworkflowtemplate | v1 |
 
 | uds.dev | |
 | --- | --- |
