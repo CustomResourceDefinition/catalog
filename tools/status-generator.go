@@ -11,11 +11,13 @@ import (
 	"slices"
 	"strings"
 	"text/template"
+
+	"gopkg.in/yaml.v3"
 )
 
 type StatusGenerator struct {
-	Remote, Current, Out string
-	flags                *flag.FlagSet
+	Datreeio, Current, Out, Ignore string
+	flags                          *flag.FlagSet
 }
 
 type item struct {
@@ -34,6 +36,17 @@ type markdownItem struct {
 
 type markdownItems struct {
 	Kind, Versions string
+}
+
+type ignore struct {
+	Description string       `yaml:"description"`
+	Items       []ignoreItem `yaml:"items"`
+}
+
+type ignoreItem struct {
+	Group   string `yaml:"group"`
+	Kind    string `yaml:"kind"`
+	Version string `yaml:"version"`
 }
 
 var errInvalidConfiguration = errors.New("invalid configuration")
@@ -67,7 +80,20 @@ func (g StatusGenerator) Run() error {
 		return errors.Join(errInvalidConfiguration, err)
 	}
 
-	data, err := find(g.Current, g.Remote, "datreeio/CRDs-catalog", "https://github.com/datreeio/CRDs-catalog")
+	ignores := make([]ignore, 0)
+	if len(g.Ignore) > 0 {
+		f, err := os.ReadFile(g.Ignore)
+		if err != nil {
+			return err
+		}
+
+		err = yaml.Unmarshal(f, &ignores)
+		if err != nil {
+			return err
+		}
+	}
+
+	data, err := find(g.Current, ignores, g.Datreeio, "datreeio/CRDs-catalog", "https://github.com/datreeio/CRDs-catalog")
 	if err != nil {
 		return err
 	}
@@ -76,10 +102,15 @@ func (g StatusGenerator) Run() error {
 }
 
 func (g StatusGenerator) Validate() error {
-	directories := []string{g.Current, g.Remote}
+	directories := []string{g.Current, g.Datreeio}
 	for _, d := range directories {
-		if _, err := os.Stat(d); err != nil || len(d) == 0 {
+		if f, err := os.Stat(d); err != nil || len(d) == 0 || !f.IsDir() {
 			return fmt.Errorf("'%s' is not a valid directory path", d)
+		}
+	}
+	if len(g.Ignore) > 0 {
+		if f, err := os.Stat(g.Ignore); err != nil || f.IsDir() {
+			return fmt.Errorf("'%s' is not a valid file path", g.Ignore)
 		}
 	}
 	if len(g.Out) == 0 {
@@ -88,7 +119,7 @@ func (g StatusGenerator) Validate() error {
 	return nil
 }
 
-func find(src string, remote string, name string, uri string) (markdownData, error) {
+func find(src string, ignores []ignore, datreeio string, name string, uri string) (markdownData, error) {
 	data := markdownData{
 		Name: name,
 		Uri:  uri,
@@ -99,12 +130,12 @@ func find(src string, remote string, name string, uri string) (markdownData, err
 		return data, err
 	}
 
-	target, err := findItems(remote)
+	target, err := findItems(datreeio)
 	if err != nil {
 		return data, err
 	}
 
-	data.update(current, target)
+	data.update(current, target, ignores)
 
 	return data, nil
 }
@@ -177,12 +208,20 @@ func render(list []markdownData, out string) error {
 }
 
 func (i *item) Id() string {
-	return fmt.Sprintf("%s/%s_%s.json", i.group, i.kind, i.version)
+	return fmt.Sprintf("%s:%s:%s", i.group, i.kind, i.version)
 }
 
-func (data *markdownData) update(current []item, target []item) {
+func (data *markdownData) update(current []item, target []item, ignores []ignore) {
 	if data.Data == nil {
 		data.Data = make([]markdownItem, 0)
+	}
+
+	res := make([]*regexp.Regexp, 0)
+	for _, ignore := range ignores {
+		for _, i := range ignore.Items {
+			re := regexp.MustCompile(fmt.Sprintf("%s:%s:%s", i.Group, i.Kind, i.Version))
+			res = append(res, re)
+		}
 	}
 
 	marker := make(map[string]bool, 0)
@@ -193,7 +232,14 @@ func (data *markdownData) update(current []item, target []item) {
 	missing := make([]item, 0)
 	groups := make(map[string]string, 0)
 	for _, item := range target {
-		if _, ok := marker[item.Id()]; !ok {
+		id := item.Id()
+		_, ok := marker[id]
+		for _, re := range res {
+			if !ok && re.MatchString(id) {
+				ok = true
+			}
+		}
+		if !ok {
 			missing = append(missing, item)
 			groups[item.group] = item.group
 		}
