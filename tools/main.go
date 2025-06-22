@@ -36,8 +36,9 @@ func run(args []string) error {
 
 func parse(args []string) (Command, error) {
 	status := flag.NewFlagSet("generate-status", flag.ContinueOnError)
-	remote := status.String("remote", "", "Path of checked out remote target directory")
+	datreeio := status.String("datreeio", "", "Path of checked out remote datreeio directory")
 	current := status.String("current", "", "Path of local schema directory")
+	ignore := status.String("ignore", "", "Path of ignore configuration")
 	out := status.String("out", "", "Path of output markdown file")
 
 	if len(args) < 2 {
@@ -52,10 +53,11 @@ func parse(args []string) (Command, error) {
 			return nil, err
 		}
 		return StatusGenerator{
-			flags:   status,
-			Out:     *out,
-			Remote:  *remote,
-			Current: *current,
+			flags:    status,
+			Current:  *current,
+			Datreeio: *datreeio,
+			Ignore:   *ignore,
+			Out:      *out,
 		}, nil
 	default:
 		return nil, errors.Join(errUnknownCommand, fmt.Errorf("unknown arguments: %s", arg))
