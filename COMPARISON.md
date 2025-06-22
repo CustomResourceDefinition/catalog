@@ -103,19 +103,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | namespacedcontrollerresource | v1alpha1, v1beta1 |
 | validatingwebhookconfigurationcustomization | v1alpha1, v1beta1 |
 
-| dex.coreos.com | |
-| --- | --- |
-| authcode | v1 |
-| authrequest | v1 |
-| connector | v1 |
-| devicerequest | v1 |
-| devicetoken | v1 |
-| oauth2client | v1 |
-| offlinesessions | v1 |
-| password | v1 |
-| refreshtoken | v1 |
-| signingkey | v1 |
-
 | distro.eks.amazonaws.com | |
 | --- | --- |
 | release | v1alpha1 |
@@ -291,11 +278,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | restore | v1alpha1 |
 | sqljob | v1alpha1 |
 | user | v1alpha1 |
-
-| kafka.strimzi.io | |
-| --- | --- |
-| kafkatopiccontrolacls | v1alpha1, v1beta1 |
-| strimzipodset | v1beta2 |
 
 | kargo.akuity.io | |
 | --- | --- |
