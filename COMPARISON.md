@@ -388,10 +388,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | clusterimagepolicy | v1alpha1, v1beta1 |
 | trustroot | v1alpha1 |
 
-| postgresql.cnpg.io | |
-| --- | --- |
-| cluster | v3 |
-
 | rbacmanager.reactiveops.io | |
 | --- | --- |
 | rbacdefinitions | v1alpha1 |
@@ -411,14 +407,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | servingruntime | v1alpha1 |
 | trainedmodel | v1alpha1 |
 
-| tailscale.com | |
-| --- | --- |
-| connector | v1alpha1 |
-| dnsconfig | v1alpha1 |
-| proxyclass | v1alpha1 |
-| proxygroup | v1alpha1 |
-| recorder | v1alpha1 |
-
 | templates.kluctl.io | |
 | --- | --- |
 | githubcomment | v1alpha1 |
@@ -429,15 +417,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | objecthandler | v1alpha1 |
 | objecttemplate | v1alpha1 |
 | texttemplate | v1alpha1 |
-
-| uds.dev | |
-| --- | --- |
-| exemption | v1alpha1 |
-| package | v1alpha1 |
-
-| upgrade.cattle.io | |
-| --- | --- |
-| plan | v1 |
 
 | v1.edp.epam.com | |
 | --- | --- |
