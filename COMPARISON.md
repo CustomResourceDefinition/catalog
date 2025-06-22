@@ -259,10 +259,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | ephemeralreport | v1 |
 | policyreport | v1alpha2 |
 
-| linkerd.io | |
-| --- | --- |
-| serviceprofile | v1alpha1, v1alpha2 |
-
 | monitoring.googleapis.com | |
 | --- | --- |
 | clusternodemonitoring | v1 |
@@ -312,17 +308,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | policy.linkerd.io | |
 | --- | --- |
-| authorizationpolicy | v1alpha1 |
-| httproute | v1, v1alpha1, v1beta1, v1beta2, v1beta3 |
-| meshtlsauthentication | v1alpha1 |
-| networkauthentication | v1alpha1 |
-| server | v1alpha1, v1beta1 |
-| serverauthorization | v1alpha1, v1beta1 |
-
-| policy.sigstore.dev | |
-| --- | --- |
-| clusterimagepolicy | v1alpha1, v1beta1 |
-| trustroot | v1alpha1 |
+| httproute | v1 |
 
 | rbacmanager.reactiveops.io | |
 | --- | --- |
@@ -334,10 +320,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | rediscluster | v1beta2 |
 | redisreplication | v1beta2 |
 | redissentinel | v1beta2 |
-
-| templates.kluctl.io | |
-| --- | --- |
-| objecthandler | v1alpha1 |
 
 | v1.edp.epam.com | |
 | --- | --- |
