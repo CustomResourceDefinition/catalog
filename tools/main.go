@@ -12,11 +12,13 @@ type Command interface {
 	Run() error
 }
 
+const commandConvert = "convert"
 const commandGenerate = "generate-status"
 
 var (
-	errNoArguments    = errors.New("expected a subcommand, but got no arguments")
-	errUnknownCommand = errors.New("expected a known subcommand")
+	errNoArguments          = errors.New("expected a subcommand, but got no arguments")
+	errUnknownCommand       = errors.New("expected a known subcommand")
+	errInvalidConfiguration = errors.New("invalid configuration")
 )
 
 func main() {
@@ -35,12 +37,6 @@ func run(args []string) error {
 }
 
 func parse(args []string) (Command, error) {
-	status := flag.NewFlagSet("generate-status", flag.ContinueOnError)
-	datreeio := status.String("datreeio", "", "Path of checked out remote datreeio directory")
-	current := status.String("current", "", "Path of local schema directory")
-	ignore := status.String("ignore", "", "Path of ignore configuration")
-	out := status.String("out", "", "Path of output markdown file")
-
 	if len(args) < 2 {
 		return nil, errNoArguments
 	}
@@ -48,16 +44,34 @@ func parse(args []string) (Command, error) {
 	arg := args[1]
 	switch arg {
 	case commandGenerate:
-		err := status.Parse(args[2:])
+		cmd := flag.NewFlagSet(commandGenerate, flag.ContinueOnError)
+		datreeio := cmd.String("datreeio", "", "Path of checked out remote datreeio directory")
+		current := cmd.String("current", "", "Path of local schema directory")
+		ignore := cmd.String("ignore", "", "Path of ignore configuration")
+		out := cmd.String("out", "", "Path of output markdown file")
+		err := cmd.Parse(args[2:])
 		if err != nil {
 			return nil, err
 		}
 		return StatusGenerator{
-			flags:    status,
+			flags:    cmd,
 			Current:  *current,
 			Datreeio: *datreeio,
 			Ignore:   *ignore,
 			Out:      *out,
+		}, nil
+	case commandConvert:
+		cmd := flag.NewFlagSet(commandConvert, flag.ContinueOnError)
+		input := cmd.String("input", "", "Path for CRD input file")
+		output := cmd.String("output", "", "Directory for openapi schema output files")
+		err := cmd.Parse(args[2:])
+		if err != nil {
+			return nil, err
+		}
+		return Converter{
+			flags:  cmd,
+			Output: *output,
+			Input:  *input,
 		}, nil
 	default:
 		return nil, errors.Join(errUnknownCommand, fmt.Errorf("unknown arguments: %s", arg))

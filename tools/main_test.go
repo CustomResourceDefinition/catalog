@@ -54,16 +54,19 @@ func TestGenerateCommandParsing(t *testing.T) {
 	assert.NotNil(t, cmd)
 }
 
-func TestGenerateCommandRunningInvalidConfiguration(t *testing.T) {
+func TestCommandRunningInvalidConfiguration(t *testing.T) {
 	tests := [][]string{
 		{"bin", commandGenerate},
 		{"bin", commandGenerate, "--current", "."},
 		{"bin", commandGenerate, "--datreeio", "."},
 		{"bin", commandGenerate, "--current", ".", "--datreeio", "."},
+		{"bin", commandConvert},
+		{"bin", commandConvert, "--input", "testdata/crd.yaml"},
+		{"bin", commandConvert, "--output", "testdata/"},
 	}
 
-	for _, test := range tests {
+	for i, test := range tests {
 		err := run(test)
-		assert.ErrorIs(t, err, errInvalidConfiguration)
+		assert.ErrorIs(t, err, errInvalidConfiguration, "index %d failed", i)
 	}
 }
