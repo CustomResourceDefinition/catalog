@@ -23,5 +23,4 @@ _build: _clean
 	mkdir -p build/bin build/ephemeral
 	cat src/*.sh > build/bin/main
 	chmod +x build/bin/main
-	cd tools && \
-		go build -o ../build/bin/catalog -buildvcs=false
+	cd tools && go build -o ../build/bin/catalog -buildvcs=false

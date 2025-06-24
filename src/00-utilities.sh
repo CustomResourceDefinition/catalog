@@ -3,6 +3,8 @@ set -o allexport
 test -f /app/.env && source /app/.env
 set +o allexport
 
+PATH=$PATH:/workspace/build/bin/
+
 helm_values_file_of() {
     local input=$1
     local repository=$2

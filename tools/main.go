@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 )
@@ -12,35 +13,31 @@ type Command interface {
 	Run() error
 }
 
+const commandConvert = "convert"
 const commandGenerate = "generate-status"
 
 var (
-	errNoArguments    = errors.New("expected a subcommand, but got no arguments")
-	errUnknownCommand = errors.New("expected a known subcommand")
+	errNoArguments          = errors.New("expected a subcommand, but got no arguments")
+	errUnknownCommand       = errors.New("expected a known subcommand")
+	errInvalidConfiguration = errors.New("invalid configuration")
 )
 
 func main() {
-	err := run(os.Args)
+	err := run(os.Args, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(args []string) error {
-	cmd, err := parse(args)
+func run(args []string, output io.Writer) error {
+	cmd, err := parse(args, output)
 	if err != nil {
 		return err
 	}
 	return cmd.Run()
 }
 
-func parse(args []string) (Command, error) {
-	status := flag.NewFlagSet("generate-status", flag.ContinueOnError)
-	datreeio := status.String("datreeio", "", "Path of checked out remote datreeio directory")
-	current := status.String("current", "", "Path of local schema directory")
-	ignore := status.String("ignore", "", "Path of ignore configuration")
-	out := status.String("out", "", "Path of output markdown file")
-
+func parse(args []string, output io.Writer) (Command, error) {
 	if len(args) < 2 {
 		return nil, errNoArguments
 	}
@@ -48,16 +45,36 @@ func parse(args []string) (Command, error) {
 	arg := args[1]
 	switch arg {
 	case commandGenerate:
-		err := status.Parse(args[2:])
+		cmd := flag.NewFlagSet(commandGenerate, flag.ContinueOnError)
+		datreeio := cmd.String("datreeio", "", "Path of checked out remote datreeio directory")
+		current := cmd.String("current", "", "Path of local schema directory")
+		ignore := cmd.String("ignore", "", "Path of ignore configuration")
+		out := cmd.String("out", "", "Path of output markdown file")
+		cmd.SetOutput(output)
+		err := cmd.Parse(args[2:])
 		if err != nil {
 			return nil, err
 		}
 		return StatusGenerator{
-			flags:    status,
+			flags:    cmd,
 			Current:  *current,
 			Datreeio: *datreeio,
 			Ignore:   *ignore,
 			Out:      *out,
+		}, nil
+	case commandConvert:
+		cmd := flag.NewFlagSet(commandConvert, flag.ContinueOnError)
+		input := cmd.String("input", "", "Path for CRD input file")
+		out := cmd.String("output", "", "Directory for openapi schema output files")
+		cmd.SetOutput(output)
+		err := cmd.Parse(args[2:])
+		if err != nil {
+			return nil, err
+		}
+		return Converter{
+			flags:  cmd,
+			Output: *out,
+			Input:  *input,
 		}, nil
 	default:
 		return nil, errors.Join(errUnknownCommand, fmt.Errorf("unknown arguments: %s", arg))

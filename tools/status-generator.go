@@ -49,8 +49,6 @@ type ignoreItem struct {
 	Version string `yaml:"version"`
 }
 
-var errInvalidConfiguration = errors.New("invalid configuration")
-
 const markdown = `
 # Comparison
 
@@ -73,7 +71,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 `
 
 func (g StatusGenerator) Run() error {
-	if err := g.Validate(); err != nil {
+	if err := g.validate(); err != nil {
 		if g.flags != nil {
 			g.flags.Usage()
 		}
@@ -101,7 +99,7 @@ func (g StatusGenerator) Run() error {
 	return render([]markdownData{data}, g.Out)
 }
 
-func (g StatusGenerator) Validate() error {
+func (g StatusGenerator) validate() error {
 	directories := []string{g.Current, g.Datreeio}
 	for _, d := range directories {
 		if f, err := os.Stat(d); err != nil || len(d) == 0 || !f.IsDir() {
