@@ -36,23 +36,14 @@ func (c Converter) Run() error {
 		schema := v.Schema.OpenAPIV3Schema
 		applyDefaults(schema, true)
 
-		// FIXME:
-		//  - remove all descriptions
-		//  - sort object keys
-		//  - ensure no empty files are created
-		//  - arrange output files in group directories
-		//  - test multiple crds in one file is supported
-		//  - dedupping if multiple files can be input
-		//  - ignore/continue empty/incorrect files
-
 		b, err := json.MarshalIndent(schema, "", "  ")
 		if err != nil {
 			return err
 		}
 		b = append(b, []byte("\n")...)
 
-		filename := path.Join(c.Output, fmt.Sprintf("%s_%s.json", crd.Spec.Names.Kind, v.Name))
-		err = os.WriteFile(strings.ToLower(filename), b, 0644)
+		filename := path.Join(c.Output, strings.ToLower(fmt.Sprintf("%s_%s.json", crd.Spec.Names.Kind, v.Name)))
+		err = os.WriteFile(filename, b, 0644)
 		if err != nil {
 			return err
 		}
@@ -105,6 +96,7 @@ func applyDefaults(schema *v1.JSONSchemaProps, skip bool) {
 		schema.AdditionalProperties = &v1.JSONSchemaPropsOrBool{Allows: false}
 	}
 
+	schema.Description = ""
 	if schema.Format == "int-or-string" {
 		schema.Type = ""
 		schema.Format = ""

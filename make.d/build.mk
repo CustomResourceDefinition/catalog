@@ -16,7 +16,6 @@ else
 endif
 
 	test -n "$$(docker images -q $(RUNNER))"
-	cd tools && go build -o ../build/bin/catalog -buildvcs=false
 	$(COMPOSE_RUN) \
 	runner make _build
 
@@ -24,3 +23,4 @@ _build: _clean
 	mkdir -p build/bin build/ephemeral
 	cat src/*.sh > build/bin/main
 	chmod +x build/bin/main
+	cd tools && go build -o ../build/bin/catalog -buildvcs=false

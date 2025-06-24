@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 )
@@ -22,21 +23,21 @@ var (
 )
 
 func main() {
-	err := run(os.Args)
+	err := run(os.Args, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(args []string) error {
-	cmd, err := parse(args)
+func run(args []string, output io.Writer) error {
+	cmd, err := parse(args, output)
 	if err != nil {
 		return err
 	}
 	return cmd.Run()
 }
 
-func parse(args []string) (Command, error) {
+func parse(args []string, output io.Writer) (Command, error) {
 	if len(args) < 2 {
 		return nil, errNoArguments
 	}
@@ -49,6 +50,7 @@ func parse(args []string) (Command, error) {
 		current := cmd.String("current", "", "Path of local schema directory")
 		ignore := cmd.String("ignore", "", "Path of ignore configuration")
 		out := cmd.String("out", "", "Path of output markdown file")
+		cmd.SetOutput(output)
 		err := cmd.Parse(args[2:])
 		if err != nil {
 			return nil, err
@@ -63,14 +65,15 @@ func parse(args []string) (Command, error) {
 	case commandConvert:
 		cmd := flag.NewFlagSet(commandConvert, flag.ContinueOnError)
 		input := cmd.String("input", "", "Path for CRD input file")
-		output := cmd.String("output", "", "Directory for openapi schema output files")
+		out := cmd.String("output", "", "Directory for openapi schema output files")
+		cmd.SetOutput(output)
 		err := cmd.Parse(args[2:])
 		if err != nil {
 			return nil, err
 		}
 		return Converter{
 			flags:  cmd,
-			Output: *output,
+			Output: *out,
 			Input:  *input,
 		}, nil
 	default:
