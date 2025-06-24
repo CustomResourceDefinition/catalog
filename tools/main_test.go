@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,13 +9,13 @@ import (
 
 func TestNoArgumentsRunning(t *testing.T) {
 	args := []string{"bin"}
-	err := run(args)
+	err := run(args, bytes.NewBuffer([]byte{}))
 	assert.ErrorIs(t, err, errNoArguments)
 }
 
 func TestNoArgumentsParsing(t *testing.T) {
 	args := []string{"bin"}
-	_, err := parse(args)
+	_, err := parse(args, bytes.NewBuffer([]byte{}))
 	assert.ErrorIs(t, err, errNoArguments)
 }
 
@@ -28,7 +29,7 @@ func TestUnknownCommandParsing(t *testing.T) {
 	for _, test := range tests {
 		args := []string{"bin"}
 		args = append(args, test...)
-		_, err := parse(args)
+		_, err := parse(args, bytes.NewBuffer([]byte{}))
 		assert.ErrorIs(t, err, errUnknownCommand)
 	}
 }
@@ -39,7 +40,7 @@ func TestGenerateCommandParsingIncorrectFlags(t *testing.T) {
 		commandGenerate,
 		"--not-a-flag",
 	}
-	cmd, err := parse(args)
+	cmd, err := parse(args, bytes.NewBuffer([]byte{}))
 	assert.NotNil(t, err)
 	assert.Nil(t, cmd)
 }
@@ -49,21 +50,24 @@ func TestGenerateCommandParsing(t *testing.T) {
 		"bin",
 		commandGenerate,
 	}
-	cmd, err := parse(args)
+	cmd, err := parse(args, bytes.NewBuffer([]byte{}))
 	assert.Nil(t, err)
 	assert.NotNil(t, cmd)
 }
 
-func TestGenerateCommandRunningInvalidConfiguration(t *testing.T) {
+func TestCommandRunningInvalidConfiguration(t *testing.T) {
 	tests := [][]string{
 		{"bin", commandGenerate},
 		{"bin", commandGenerate, "--current", "."},
 		{"bin", commandGenerate, "--datreeio", "."},
 		{"bin", commandGenerate, "--current", ".", "--datreeio", "."},
+		{"bin", commandConvert},
+		{"bin", commandConvert, "--input", "testdata/crd.yaml"},
+		{"bin", commandConvert, "--output", "testdata/"},
 	}
 
-	for _, test := range tests {
-		err := run(test)
-		assert.ErrorIs(t, err, errInvalidConfiguration)
+	for i, test := range tests {
+		err := run(test, bytes.NewBuffer([]byte{}))
+		assert.ErrorIs(t, err, errInvalidConfiguration, "index %d failed", i)
 	}
 }
