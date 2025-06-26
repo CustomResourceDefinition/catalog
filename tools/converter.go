@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -12,10 +14,12 @@ import (
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type Converter struct {
 	Input, Output string
+	Logger        io.Writer
 	flags         *flag.FlagSet
 }
 
@@ -27,25 +31,31 @@ func (c Converter) Run() error {
 		return errors.Join(errInvalidConfiguration, err)
 	}
 
-	crd, err := decodeCRD(c.Input)
+	if c.Logger == nil {
+		c.Logger = os.Stderr
+	}
+
+	list, err := decodeCRDs(c.Input, c.Logger)
 	if err != nil {
 		return err
 	}
 
-	for _, v := range crd.Spec.Versions {
-		schema := v.Schema.OpenAPIV3Schema
-		applyDefaults(schema, true)
+	for _, crd := range list {
+		for _, v := range crd.Spec.Versions {
+			schema := v.Schema.OpenAPIV3Schema
+			applyDefaults(schema, true)
 
-		b, err := json.MarshalIndent(schema, "", "  ")
-		if err != nil {
-			return err
-		}
-		b = append(b, []byte("\n")...)
+			b, err := json.MarshalIndent(schema, "", "  ")
+			if err != nil {
+				return err
+			}
+			b = append(b, []byte("\n")...)
 
-		filename := path.Join(c.Output, strings.ToLower(fmt.Sprintf("%s_%s.json", crd.Spec.Names.Kind, v.Name)))
-		err = os.WriteFile(filename, b, 0644)
-		if err != nil {
-			return err
+			filename := path.Join(c.Output, strings.ToLower(fmt.Sprintf("%s_%s.json", crd.Spec.Names.Kind, v.Name)))
+			err = os.WriteFile(filename, b, 0644)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -65,12 +75,7 @@ func (c Converter) validate() error {
 	return nil
 }
 
-func decodeCRD(file string) (*v1.CustomResourceDefinition, error) {
-	b, err := os.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-
+func decodeCRDs(file string, logger io.Writer) ([]*v1.CustomResourceDefinition, error) {
 	scheme := runtime.NewScheme()
 	if err := v1.AddToScheme(scheme); err != nil {
 		return nil, err
@@ -78,17 +83,39 @@ func decodeCRD(file string) (*v1.CustomResourceDefinition, error) {
 	codecs := serializer.NewCodecFactory(scheme)
 	decoder := codecs.UniversalDeserializer()
 
-	obj, _, err := decoder.Decode(b, nil, nil)
+	f, err := os.Open(file)
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 
-	crd, ok := obj.(*v1.CustomResourceDefinition)
-	if !ok {
-		return nil, errors.New("unable to convert to CRD")
+	reader := yaml.NewYAMLReader(bufio.NewReader(f))
+
+	list := make([]*v1.CustomResourceDefinition, 0)
+	no := -1
+	for {
+		no++
+		doc, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+
+		obj, _, err := decoder.Decode(doc, nil, nil)
+		if err != nil {
+			fmt.Fprintf(logger, "Unable to decode document #%d at %s\n", no, file)
+			continue
+		}
+
+		crd, ok := obj.(*v1.CustomResourceDefinition)
+		if !ok {
+			fmt.Fprintf(logger, "Invalid document #%d at %s\n", no, file)
+			continue
+		}
+
+		list = append(list, crd)
 	}
 
-	return crd, nil
+	return list, nil
 }
 
 func applyDefaults(schema *v1.JSONSchemaProps, skip bool) {

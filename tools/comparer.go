@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type StatusGenerator struct {
+type Comparer struct {
 	Datreeio, Current, Out, Ignore string
 	flags                          *flag.FlagSet
 }
@@ -70,7 +70,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 {{- end }}
 `
 
-func (g StatusGenerator) Run() error {
+func (g Comparer) Run() error {
 	if err := g.validate(); err != nil {
 		if g.flags != nil {
 			g.flags.Usage()
@@ -99,7 +99,7 @@ func (g StatusGenerator) Run() error {
 	return render([]markdownData{data}, g.Out)
 }
 
-func (g StatusGenerator) validate() error {
+func (g Comparer) validate() error {
 	directories := []string{g.Current, g.Datreeio}
 	for _, d := range directories {
 		if f, err := os.Stat(d); err != nil || len(d) == 0 || !f.IsDir() {

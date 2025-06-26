@@ -10,11 +10,11 @@ import (
 
 func TestSimpleCRD(t *testing.T) {
 	out := t.TempDir()
-	expected, err := os.ReadFile("testdata/test_v1.json")
+	expected, err := os.ReadFile("testdata/converter/test_v1.json")
 	assert.Nil(t, err)
 
 	g := Converter{
-		Input:  "testdata/crd.yaml",
+		Input:  "testdata/converter/crd.yaml",
 		Output: out,
 	}
 	err = g.Run()
@@ -27,11 +27,11 @@ func TestSimpleCRD(t *testing.T) {
 
 func TestArgoCRD(t *testing.T) {
 	out := t.TempDir()
-	expected, err := os.ReadFile("testdata/application_v1alpha1.json")
+	expected, err := os.ReadFile("testdata/converter/application_v1alpha1.json")
 	assert.Nil(t, err)
 
 	g := Converter{
-		Input:  "testdata/argo-application-crd.yaml",
+		Input:  "testdata/converter/argo-application-crd.yaml",
 		Output: out,
 	}
 	err = g.Run()

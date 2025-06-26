@@ -34,10 +34,10 @@ func TestUnknownCommandParsing(t *testing.T) {
 	}
 }
 
-func TestGenerateCommandParsingIncorrectFlags(t *testing.T) {
+func TestCompareCommandParsingIncorrectFlags(t *testing.T) {
 	args := []string{
 		"bin",
-		commandGenerate,
+		commandCompare,
 		"--not-a-flag",
 	}
 	cmd, err := parse(args, bytes.NewBuffer([]byte{}))
@@ -45,10 +45,10 @@ func TestGenerateCommandParsingIncorrectFlags(t *testing.T) {
 	assert.Nil(t, cmd)
 }
 
-func TestGenerateCommandParsing(t *testing.T) {
+func TestCompareCommandParsing(t *testing.T) {
 	args := []string{
 		"bin",
-		commandGenerate,
+		commandCompare,
 	}
 	cmd, err := parse(args, bytes.NewBuffer([]byte{}))
 	assert.Nil(t, err)
@@ -57,13 +57,18 @@ func TestGenerateCommandParsing(t *testing.T) {
 
 func TestCommandRunningInvalidConfiguration(t *testing.T) {
 	tests := [][]string{
-		{"bin", commandGenerate},
-		{"bin", commandGenerate, "--current", "."},
-		{"bin", commandGenerate, "--datreeio", "."},
-		{"bin", commandGenerate, "--current", ".", "--datreeio", "."},
+		{"bin", commandCompare},
+		{"bin", commandCompare, "--current", "."},
+		{"bin", commandCompare, "--datreeio", "."},
+		{"bin", commandCompare, "--current", ".", "--datreeio", "."},
 		{"bin", commandConvert},
 		{"bin", commandConvert, "--input", "testdata/crd.yaml"},
 		{"bin", commandConvert, "--output", "testdata/"},
+		{"bin", commandUpdate},
+		{"bin", commandUpdate, "--input", "testdata"},
+		{"bin", commandUpdate, "--output", "testdata"},
+		{"bin", commandUpdate, "--input", "testdata/does-not-exist", "--output", "testdata"},
+		{"bin", commandUpdate, "--input", "testdata", "--output", "testdata/does-not-exist"},
 	}
 
 	for i, test := range tests {
