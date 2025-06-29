@@ -40,11 +40,12 @@ _test-configuration:
 
 _test-tools:
 	@printf 'Running tool tests:\n'
+	cd tools && test -z "$$(gofmt -l .)"
+	cd tools && go mod tidy -diff
 	cd tools && \
-		go test -timeout 10s -p 1 -coverprofile=../build/coverage.out && \
-		go tool cover -html=../build/coverage.out -o ../build/coverage.html && \
-		go fmt && \
-		go mod tidy -diff
+		go test -timeout 10s -shuffle on -p 1 -coverprofile=../build/coverage.out && \
+		go tool cover -html=../build/coverage.out -o ../build/coverage.html
+	cd tools && go vet ./...
 ifneq ($(TOOL_VERSION),$(MOD_VERSION))
 	@echo 'Mismatched go versions'
 	@exit 1

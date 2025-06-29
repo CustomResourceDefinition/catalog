@@ -10,13 +10,13 @@ import (
 
 func TestGeneratorOfTestdataResultsInKnownOutput(t *testing.T) {
 	out := path.Join(t.TempDir(), "out.md")
-	expected, err := os.ReadFile("testdata/expected.md")
+	expected, err := os.ReadFile("testdata/comparer/expected.md")
 	assert.Nil(t, err)
 
-	g := StatusGenerator{
-		Current:  "testdata/current",
-		Datreeio: "testdata/remote",
-		Ignore:   "testdata/ignore-status.yaml",
+	g := Comparer{
+		Current:  "testdata/comparer/current",
+		Datreeio: "testdata/comparer/remote",
+		Ignore:   "testdata/comparer/ignore-status.yaml",
 		Out:      out,
 	}
 	err = g.Run()
