@@ -92,9 +92,9 @@ func decodeCRDs(file string, logger io.Writer) ([]*v1.CustomResourceDefinition, 
 	reader := yaml.NewYAMLReader(bufio.NewReader(f))
 
 	list := make([]*v1.CustomResourceDefinition, 0)
-	no := -1
+	index := -1
 	for {
-		no++
+		index++
 		doc, err := reader.Read()
 		if err == io.EOF {
 			break
@@ -102,13 +102,13 @@ func decodeCRDs(file string, logger io.Writer) ([]*v1.CustomResourceDefinition, 
 
 		obj, _, err := decoder.Decode(doc, nil, nil)
 		if err != nil {
-			fmt.Fprintf(logger, "Unable to decode document #%d at %s\n", no, file)
+			fmt.Fprintf(logger, "Unable to decode document #%d at %s\n", index, file)
 			continue
 		}
 
 		crd, ok := obj.(*v1.CustomResourceDefinition)
 		if !ok {
-			fmt.Fprintf(logger, "Invalid document #%d at %s\n", no, file)
+			fmt.Fprintf(logger, "Invalid document #%d at %s\n", index, file)
 			continue
 		}
 
