@@ -14,7 +14,6 @@ type Command interface {
 }
 
 const commandCompare = "compare"
-const commandConvert = "convert"
 const commandUpdate = "update"
 
 var (
@@ -62,21 +61,6 @@ func parse(args []string, logger io.Writer) (Command, error) {
 			Datreeio: *datreeio,
 			Ignore:   *ignore,
 			Out:      *output,
-		}, nil
-	case commandConvert:
-		cmd := flag.NewFlagSet(commandConvert, flag.ContinueOnError)
-		input := cmd.String("input", "", "Path for CRD input file")
-		output := cmd.String("output", "", "Directory for openapi schema output files")
-		cmd.SetOutput(logger)
-		err := cmd.Parse(args[2:])
-		if err != nil {
-			return nil, err
-		}
-		return Converter{
-			flags:  cmd,
-			Output: *output,
-			Input:  *input,
-			Logger: logger,
 		}, nil
 	case commandUpdate:
 		cmd := flag.NewFlagSet(commandUpdate, flag.ContinueOnError)
