@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,11 +15,7 @@ type Updater struct {
 	Input, Output string
 	Logger        io.Writer
 	flags         *flag.FlagSet
-}
-
-type crd struct {
-	Group, Kind, Version string
-	Bytes                []byte
+	reader        CrdReader
 }
 
 func (u Updater) Run() error {
@@ -35,6 +30,12 @@ func (u Updater) Run() error {
 		u.Logger = os.Stderr
 	}
 
+	reader, err := NewCrdReader(u.Logger)
+	if err != nil {
+		return err
+	}
+	u.reader = reader
+
 	fmt.Fprintf(u.Logger, "Updating:\n")
 	dir := u.Input
 	entries, err := os.ReadDir(dir)
@@ -45,7 +46,7 @@ func (u Updater) Run() error {
 	for _, e := range entries {
 		fmt.Fprintf(u.Logger, " - group: %s\n", e.Name())
 		if e.IsDir() {
-			err := handleGroup(path.Join(dir, e.Name()), u.Output, u.Logger)
+			err := u.handleGroup(path.Join(dir, e.Name()), u.Output, u.Logger)
 			if err != nil {
 				return err
 			}
@@ -65,7 +66,7 @@ func (u Updater) validate() error {
 	return nil
 }
 
-func handleGroup(dir string, output string, logger io.Writer) error {
+func (u Updater) handleGroup(dir string, output string, logger io.Writer) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -75,7 +76,7 @@ func handleGroup(dir string, output string, logger io.Writer) error {
 		if e.IsDir() {
 			next := path.Join(dir, e.Name())
 			fmt.Fprintf(logger, "   - using application: %s\n", e.Name())
-			err := handleApplication(next, output, logger)
+			err := u.handleApplication(next, output, logger)
 			if err != nil {
 				return err
 			}
@@ -85,17 +86,17 @@ func handleGroup(dir string, output string, logger io.Writer) error {
 	return nil
 }
 
-func handleApplication(dir string, output string, logger io.Writer) error {
+func (u Updater) handleApplication(dir string, output string, logger io.Writer) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 
-	collection := make(map[string]crd, 0)
+	collection := make(map[string]CrdSchema, 0)
 	for _, e := range entries {
 		item := path.Join(dir, e.Name())
 		if !e.IsDir() && strings.HasSuffix(strings.ToLower(item), ".yaml") || strings.HasSuffix(strings.ToLower(item), ".yml") {
-			items, err := resolve(item, logger)
+			items, err := u.resolve(item)
 			if err != nil {
 				return err
 			}
@@ -116,33 +117,28 @@ func handleApplication(dir string, output string, logger io.Writer) error {
 	return nil
 }
 
-func resolve(path string, logger io.Writer) (map[string]crd, error) {
-	list, err := decodeCRDs(path, logger)
+func (u Updater) resolve(path string) (map[string]CrdSchema, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	list, err := u.reader.Read(file, path)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make(map[string]crd, 0)
-	for _, c := range list {
-		for _, v := range c.Spec.Versions {
-			schema := v.Schema.OpenAPIV3Schema
-			applyDefaults(schema, true)
+	items := make(map[string]CrdSchema, 0)
+	for _, item := range list {
+		schema, err := item.Schema()
+		if err != nil {
+			return nil, err
+		}
 
-			b, err := json.MarshalIndent(schema, "", "  ")
-			if err != nil {
-				return nil, err
-			}
-			b = append(b, []byte("\n")...)
-
-			item := crd{
-				Group:   strings.ToLower(c.Spec.Group),
-				Kind:    strings.ToLower(c.Spec.Names.Kind),
-				Version: strings.ToLower(v.Name),
-				Bytes:   b,
-			}
-
-			file := fmt.Sprintf("%s/%s_%s.json", item.Group, item.Kind, item.Version)
-			items[file] = item
+		for _, s := range schema {
+			file := fmt.Sprintf("%s/%s_%s.json", s.Group, s.Kind, s.Version)
+			items[file] = s
 		}
 	}
 
