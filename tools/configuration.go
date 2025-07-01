@@ -2,6 +2,8 @@ package main
 
 import (
 	_ "embed"
+	"errors"
+	"fmt"
 	"io"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
@@ -45,11 +47,21 @@ type ConfigurationValues struct {
 	Version    string `yaml:"version"`
 }
 
-//go:embed schema.json
+// FIXME: do not have two of these
+
+//go:embed .schema.json
 var schema string
 
+// UnmarshalConfigurations validates and unpacks bytes from the reader as a list of configurations.
+//
+// The jsonschema used for validating configurations is embedded.
 func UnmarshalConfigurations(reader io.Reader) (*[]Configuration, error) {
-	sch := jsonschema.MustCompileString("schema.json", schema)
+	if reader == nil {
+		return nil, fmt.Errorf("nothing to unmarshal, reader was nil")
+	}
+
+	const uri = "schema.json"
+	sch := jsonschema.MustCompileString(uri, schema)
 
 	bytes, err := io.ReadAll(reader)
 	if err != nil {
@@ -58,11 +70,7 @@ func UnmarshalConfigurations(reader io.Reader) (*[]Configuration, error) {
 
 	var dict []any
 	var conf []Configuration
-	err = yaml.Unmarshal(bytes, &dict)
-	if err != nil {
-		return nil, err
-	}
-	err = yaml.Unmarshal(bytes, &conf)
+	err = errors.Join(yaml.Unmarshal(bytes, &dict), yaml.Unmarshal(bytes, &conf))
 	if err != nil {
 		return nil, err
 	}
