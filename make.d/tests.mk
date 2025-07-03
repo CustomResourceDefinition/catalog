@@ -43,7 +43,7 @@ _test-tools:
 	cd tools && test -z "$$(gofmt -l .)"
 	cd tools && go mod tidy -diff
 	cd tools && \
-		go test -timeout 10s -shuffle on -p 1 -coverprofile=../build/coverage.out && \
+		go test -timeout 10s -shuffle on -p 1 -coverprofile=../build/coverage.out -tags containers_image_openpgp && \
 		go tool cover -html=../build/coverage.out -o ../build/coverage.html
 	cd tools && go vet ./...
 ifneq ($(TOOL_VERSION),$(MOD_VERSION))
