@@ -12,7 +12,7 @@ func TestHelm(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, s)
 
-	o, err := renderChart(s, "release", "namespace")
+	o, err := renderChart(s, "release", "namespace", make(map[string]interface{}))
 	assert.Nil(t, err)
 	assert.NotNil(t, o)
 }
@@ -21,7 +21,7 @@ func TestHelmOci(t *testing.T) {
 	out, err := pullOCIChart("oci://registry.developers.crunchydata.com/crunchydata/pgo", "") // 5.8.2
 	assert.Nil(t, err)
 
-	o, err := renderChart(out, "release", "namespace")
+	o, err := renderChart(out, "release", "namespace", make(map[string]interface{}))
 	assert.Nil(t, err)
 	assert.NotNil(t, o)
 }

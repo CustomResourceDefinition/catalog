@@ -5,10 +5,11 @@ import (
 	"os"
 	"path"
 
-	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
+	"helm.sh/helm/v3/pkg/engine"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
@@ -109,32 +110,42 @@ func pullHelmChart(repoURL, version, name, chart string) (string, error) {
 	return filename, nil
 }
 
-// renderChart renders a local Helm chart archive like `helm template`
-func renderChart(chartPath, releaseName, namespace string) (string, error) {
-	settings := cli.New()
-	actionConfig := new(action.Configuration)
-
-	err := actionConfig.Init(settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), func(string, ...interface{}) {})
-	if err != nil {
-		return "", err
-	}
-
-	client := action.NewInstall(actionConfig)
-	client.DryRun = true
-	client.ReleaseName = releaseName
-	client.Replace = true
-	client.ClientOnly = true
-	client.Namespace = namespace
-
+func renderChart(chartPath, releaseName, namespace string, values map[string]interface{}) (string, error) {
+	// Load chart from .tgz or directory
 	chart, err := loader.Load(chartPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to load chart: %w", err)
 	}
 
-	rel, err := client.Run(chart, nil)
+	if chart.Metadata == nil {
+		return "", fmt.Errorf("chart metadata is missing")
+	}
+
+	// Prepare chart values context
+	options := chartutil.ReleaseOptions{
+		Name:      releaseName,
+		Namespace: namespace,
+		Revision:  1,
+		IsInstall: true,
+	}
+
+	// Render values.yaml + --set values
+	vals, err := chartutil.ToRenderValues(chart, values, options, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to render values: %w", err)
 	}
 
-	return rel.Manifest, nil
+	// Use the engine to render templates
+	rendered, err := engine.Render(chart, vals)
+	if err != nil {
+		return "", fmt.Errorf("failed to render templates: %w", err)
+	}
+
+	// Flatten into a single manifest string (like helm template output)
+	final := ""
+	for _, content := range rendered {
+		final += content + "\n---\n"
+	}
+
+	return final, nil
 }
