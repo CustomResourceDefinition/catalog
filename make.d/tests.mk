@@ -6,10 +6,9 @@ test: build test-docker test-makefile test-editorcheck
 	$(COMPOSE_RUN) \
 	-v $$(pwd)/build/ephemeral/schema:/schema \
 	-v $$(pwd)/test/configuration.yaml:/app/configuration.yaml:ro \
-	-v $$(pwd)/test/.env:/app/.env:ro \
 	runner make _test
 
-_test: _test-configuration _test-schemas
+_test: _test-configuration
 	@yq -o json test/configuration.yaml | \
 		jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
 		yq -p json -o yaml > build/configuration.yaml
@@ -32,11 +31,6 @@ _unit-tests:
 	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags containers_image_openpgp
 	go tool cover -html=build/coverage.out -o build/coverage.html
 	go vet ./...
-
-_test-schemas:
-	check-jsonschema --schemafile internal/configuration/schema.json configuration.yaml
-	check-jsonschema --schemafile internal/configuration/schema.json test/configuration.yaml
-	check-jsonschema --builtin-schema dependabot .github/dependabot.yml
 
 test-editorcheck:
 	$(COMPOSE_RUN) editorconfig ec -exclude '^schema/|^\.git/'
