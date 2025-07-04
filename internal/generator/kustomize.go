@@ -1,4 +1,4 @@
-package main
+package generator
 
 import (
 	"sigs.k8s.io/kustomize/api/krusty"

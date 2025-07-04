@@ -7,20 +7,12 @@ import (
 	"io"
 	"log"
 	"os"
-)
 
-type Command interface {
-	Run() error
-}
+	"github.com/CustomResourceDefinition/catalog/internal/command"
+)
 
 const commandCompare = "compare"
 const commandUpdate = "update"
-
-var (
-	errNoArguments          = errors.New("expected a subcommand, but got no arguments")
-	errUnknownCommand       = errors.New("expected a known subcommand")
-	errInvalidConfiguration = errors.New("invalid configuration")
-)
 
 func main() {
 	err := run(os.Args, nil)
@@ -37,9 +29,9 @@ func run(args []string, logger io.Writer) error {
 	return cmd.Run()
 }
 
-func parse(args []string, logger io.Writer) (Command, error) {
+func parse(args []string, logger io.Writer) (command.Command, error) {
 	if len(args) < 2 {
-		return nil, errNoArguments
+		return nil, command.ErrNoArguments
 	}
 
 	arg := args[1]
@@ -55,13 +47,7 @@ func parse(args []string, logger io.Writer) (Command, error) {
 		if err != nil {
 			return nil, err
 		}
-		return Comparer{
-			flags:    cmd,
-			Current:  *current,
-			Datreeio: *datreeio,
-			Ignore:   *ignore,
-			Out:      *output,
-		}, nil
+		return command.NewComparer(*datreeio, *current, *output, *ignore, cmd), nil
 	case commandUpdate:
 		cmd := flag.NewFlagSet(commandUpdate, flag.ContinueOnError)
 		input := cmd.String("input", "", "Directory for prepared templated CRDs directory")
@@ -71,13 +57,8 @@ func parse(args []string, logger io.Writer) (Command, error) {
 		if err != nil {
 			return nil, err
 		}
-		return Updater{
-			flags:  cmd,
-			Input:  *input,
-			Output: *output,
-			Logger: logger,
-		}, nil
+		return command.NewUpdater(*input, *output, logger, cmd), nil
 	default:
-		return nil, errors.Join(errUnknownCommand, fmt.Errorf("unknown arguments: %s", arg))
+		return nil, errors.Join(command.ErrUnknownCommand, fmt.Errorf("unknown arguments: %s", arg))
 	}
 }

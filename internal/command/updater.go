@@ -1,4 +1,4 @@
-package main
+package command
 
 import (
 	"errors"
@@ -9,13 +9,24 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/CustomResourceDefinition/catalog/internal/generator"
 )
 
 type Updater struct {
 	Input, Output string
 	Logger        io.Writer
 	flags         *flag.FlagSet
-	reader        CrdReader
+	reader        generator.CrdReader
+}
+
+func NewUpdater(input, output string, logger io.Writer, flags *flag.FlagSet) Updater {
+	return Updater{
+		flags:  flags,
+		Input:  input,
+		Output: output,
+		Logger: logger,
+	}
 }
 
 func (u Updater) Run() error {
@@ -23,14 +34,14 @@ func (u Updater) Run() error {
 		if u.flags != nil {
 			u.flags.Usage()
 		}
-		return errors.Join(errInvalidConfiguration, err)
+		return errors.Join(ErrInvalidConfiguration, err)
 	}
 
 	if u.Logger == nil {
 		u.Logger = os.Stderr
 	}
 
-	reader, err := NewCrdReader(u.Logger)
+	reader, err := generator.NewCrdReader(u.Logger)
 	if err != nil {
 		return err
 	}
@@ -92,7 +103,7 @@ func (u Updater) handleApplication(dir string, output string, logger io.Writer) 
 		return err
 	}
 
-	collection := make(map[string]CrdSchema, 0)
+	collection := make(map[string]generator.CrdSchema, 0)
 	for _, e := range entries {
 		item := path.Join(dir, e.Name())
 		if !e.IsDir() && strings.HasSuffix(strings.ToLower(item), ".yaml") || strings.HasSuffix(strings.ToLower(item), ".yml") {
@@ -117,7 +128,7 @@ func (u Updater) handleApplication(dir string, output string, logger io.Writer) 
 	return nil
 }
 
-func (u Updater) resolve(path string) (map[string]CrdSchema, error) {
+func (u Updater) resolve(path string) (map[string]generator.CrdSchema, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -129,7 +140,7 @@ func (u Updater) resolve(path string) (map[string]CrdSchema, error) {
 		return nil, err
 	}
 
-	items := make(map[string]CrdSchema, 0)
+	items := make(map[string]generator.CrdSchema, 0)
 	for _, item := range list {
 		schema, err := item.Schema()
 		if err != nil {

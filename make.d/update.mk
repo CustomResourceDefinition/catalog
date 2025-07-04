@@ -5,4 +5,4 @@ update: build
 	runner make _update
 
 _update:
-	build/bin/main
+	build/bin/catalog --config configuration.yaml --output /schema

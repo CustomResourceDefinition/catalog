@@ -1,4 +1,4 @@
-package main
+package configuration
 
 import (
 	_ "embed"
@@ -49,7 +49,7 @@ type ConfigurationValues struct {
 
 // FIXME: do not have two of these
 
-//go:embed .schema.json
+//go:embed schema.json
 var schema string
 
 // UnmarshalConfigurations validates and unpacks bytes from the reader as a list of configurations.

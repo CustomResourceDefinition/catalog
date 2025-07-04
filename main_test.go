@@ -4,19 +4,20 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/CustomResourceDefinition/catalog/internal/command"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNoArgumentsRunning(t *testing.T) {
 	args := []string{"bin"}
 	err := run(args, bytes.NewBuffer([]byte{}))
-	assert.ErrorIs(t, err, errNoArguments)
+	assert.ErrorIs(t, err, command.ErrNoArguments)
 }
 
 func TestNoArgumentsParsing(t *testing.T) {
 	args := []string{"bin"}
 	_, err := parse(args, bytes.NewBuffer([]byte{}))
-	assert.ErrorIs(t, err, errNoArguments)
+	assert.ErrorIs(t, err, command.ErrNoArguments)
 }
 
 func TestUnknownCommandParsing(t *testing.T) {
@@ -30,7 +31,7 @@ func TestUnknownCommandParsing(t *testing.T) {
 		args := []string{"bin"}
 		args = append(args, test...)
 		_, err := parse(args, bytes.NewBuffer([]byte{}))
-		assert.ErrorIs(t, err, errUnknownCommand)
+		assert.ErrorIs(t, err, command.ErrUnknownCommand)
 	}
 }
 
@@ -70,6 +71,6 @@ func TestCommandRunningInvalidConfiguration(t *testing.T) {
 
 	for i, test := range tests {
 		err := run(test, bytes.NewBuffer([]byte{}))
-		assert.ErrorIs(t, err, errInvalidConfiguration, "index %d failed", i)
+		assert.ErrorIs(t, err, command.ErrInvalidConfiguration, "index %d failed", i)
 	}
 }
