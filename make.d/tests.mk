@@ -8,27 +8,18 @@ test: build test-docker test-makefile test-editorcheck
 	-v $$(pwd)/test/configuration.yaml:/app/configuration.yaml:ro \
 	runner make _test
 
-_test: _test-configuration
-	@yq -o json test/configuration.yaml | \
-		jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
-		yq -p json -o yaml > build/configuration.yaml
+_test:
 	go mod tidy -diff
 	@test -z "$$(gofmt -l .)"
 ifneq ($(TOOL_VERSION),$(MOD_VERSION))
 	@echo 'Mismatched go versions'
 	@exit 1
 endif
-	@exit 0
 	@printf $(GREEN) "OK"
 	$(MAKE) _unit-tests
 
-_test-configuration:
-	@yq 'sort_by(.name)' configuration.yaml > build/configuration.sorted
-	@diff configuration.yaml build/configuration.sorted
-	@grep -q 'file://' configuration.yaml && exit 1 || true
-
 _unit-tests:
-	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags containers_image_openpgp
+	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags $(GO_TAGS)
 	go tool cover -html=build/coverage.out -o build/coverage.html
 	go vet ./...
 

@@ -47,15 +47,13 @@ type ConfigurationValues struct {
 	Version    string `yaml:"version"`
 }
 
-// FIXME: do not have two of these
-
 //go:embed schema.json
 var schema string
 
 // UnmarshalConfigurations validates and unpacks bytes from the reader as a list of configurations.
 //
 // The jsonschema used for validating configurations is embedded.
-func UnmarshalConfigurations(reader io.Reader) (*[]Configuration, error) {
+func UnmarshalConfigurations(reader io.Reader) ([]Configuration, error) {
 	if reader == nil {
 		return nil, fmt.Errorf("nothing to unmarshal, reader was nil")
 	}
@@ -80,5 +78,5 @@ func UnmarshalConfigurations(reader io.Reader) (*[]Configuration, error) {
 		return nil, err
 	}
 
-	return &conf, nil
+	return conf, nil
 }
