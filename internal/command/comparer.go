@@ -1,4 +1,4 @@
-package main
+package command
 
 import (
 	"cmp"
@@ -70,12 +70,22 @@ This page lists missing CRD validation schemas that are present in alternative c
 {{- end }}
 `
 
+func NewComparer(datreeio, current, output, ignore string, flags *flag.FlagSet) Comparer {
+	return Comparer{
+		flags:    flags,
+		Current:  current,
+		Datreeio: datreeio,
+		Ignore:   ignore,
+		Out:      output,
+	}
+}
+
 func (g Comparer) Run() error {
 	if err := g.validate(); err != nil {
 		if g.flags != nil {
 			g.flags.Usage()
 		}
-		return errors.Join(errInvalidConfiguration, err)
+		return errors.Join(ErrInvalidConfiguration, err)
 	}
 
 	ignores := make([]ignore, 0)
