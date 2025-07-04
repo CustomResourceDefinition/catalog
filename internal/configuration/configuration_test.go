@@ -3,25 +3,49 @@ package configuration
 import (
 	"fmt"
 	"os"
+	"slices"
+	"strings"
 	"testing"
 	"testing/iotest"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnmarshalCorrectConfigurations(t *testing.T) {
-	f, err := os.Open("testdata/configuration/correct.yaml")
+func TestConfigurationIsSortedAndValid(t *testing.T) {
+	f, err := os.Open("../../configuration.yaml")
 	assert.Nil(t, err)
 	defer f.Close()
 
 	conf, err := UnmarshalConfigurations(f)
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
-	assert.Equal(t, 6, len(*conf))
+
+	unsorted := make([]string, 0)
+	for _, c := range conf {
+		unsorted = append(unsorted, c.Name)
+		hasFilePrefix := strings.HasPrefix(strings.ToLower(c.Repository), "file://")
+		assert.False(t, hasFilePrefix, "invalid registry scheme for '%s'", c.Name)
+	}
+	sorted := make([]string, len(unsorted))
+	copy(sorted, unsorted)
+	slices.Sort(sorted)
+
+	assert.Equal(t, sorted, unsorted)
+}
+
+func TestUnmarshalCorrectConfigurations(t *testing.T) {
+	f, err := os.Open("testdata/correct.yaml")
+	assert.Nil(t, err)
+	defer f.Close()
+
+	conf, err := UnmarshalConfigurations(f)
+	assert.Nil(t, err)
+	assert.NotNil(t, conf)
+	assert.Equal(t, 6, len(conf))
 }
 
 func TestUnmarshalInvalidConfigurations(t *testing.T) {
-	f, err := os.Open("testdata/configuration/invalid.yaml")
+	f, err := os.Open("testdata/invalid.yaml")
 	assert.Nil(t, err)
 	defer f.Close()
 
@@ -31,7 +55,7 @@ func TestUnmarshalInvalidConfigurations(t *testing.T) {
 }
 
 func TestUnmarshalMalformedConfigurations(t *testing.T) {
-	f, err := os.Open("testdata/configuration/malformed.yaml")
+	f, err := os.Open("testdata/malformed.yaml")
 	assert.Nil(t, err)
 	defer f.Close()
 
