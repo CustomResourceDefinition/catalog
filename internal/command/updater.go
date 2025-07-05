@@ -29,35 +29,35 @@ func NewUpdater(input, output string, logger io.Writer, flags *flag.FlagSet) Upd
 	}
 }
 
-func (u Updater) Run() error {
-	if err := u.validate(); err != nil {
-		if u.flags != nil {
-			u.flags.Usage()
+func (cmd Updater) Run() error {
+	if err := cmd.validate(); err != nil {
+		if cmd.flags != nil {
+			cmd.flags.Usage()
 		}
 		return errors.Join(ErrInvalidConfiguration, err)
 	}
 
-	if u.Logger == nil {
-		u.Logger = os.Stderr
+	if cmd.Logger == nil {
+		cmd.Logger = os.Stderr
 	}
 
-	reader, err := generator.NewCrdReader(u.Logger)
+	reader, err := generator.NewCrdReader(cmd.Logger)
 	if err != nil {
 		return err
 	}
-	u.reader = reader
+	cmd.reader = reader
 
-	fmt.Fprintf(u.Logger, "Updating:\n")
-	dir := u.Input
+	fmt.Fprintf(cmd.Logger, "Updating:\n")
+	dir := cmd.Input
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 
 	for _, e := range entries {
-		fmt.Fprintf(u.Logger, " - group: %s\n", e.Name())
+		fmt.Fprintf(cmd.Logger, " - group: %s\n", e.Name())
 		if e.IsDir() {
-			err := u.handleGroup(path.Join(dir, e.Name()), u.Output, u.Logger)
+			err := cmd.handleGroup(path.Join(dir, e.Name()), cmd.Output, cmd.Logger)
 			if err != nil {
 				return err
 			}
@@ -67,8 +67,8 @@ func (u Updater) Run() error {
 	return nil
 }
 
-func (u Updater) validate() error {
-	directories := []string{u.Input, u.Output}
+func (cmd Updater) validate() error {
+	directories := []string{cmd.Input, cmd.Output}
 	for _, d := range directories {
 		if f, err := os.Stat(d); err != nil || len(d) == 0 || !f.IsDir() {
 			return fmt.Errorf("'%s' is not a valid directory path", d)
@@ -77,7 +77,7 @@ func (u Updater) validate() error {
 	return nil
 }
 
-func (u Updater) handleGroup(dir string, output string, logger io.Writer) error {
+func (cmd Updater) handleGroup(dir string, output string, logger io.Writer) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (u Updater) handleGroup(dir string, output string, logger io.Writer) error 
 		if e.IsDir() {
 			next := path.Join(dir, e.Name())
 			fmt.Fprintf(logger, "   - using application: %s\n", e.Name())
-			err := u.handleApplication(next, output, logger)
+			err := cmd.handleApplication(next, output, logger)
 			if err != nil {
 				return err
 			}
@@ -97,7 +97,7 @@ func (u Updater) handleGroup(dir string, output string, logger io.Writer) error 
 	return nil
 }
 
-func (u Updater) handleApplication(dir string, output string, logger io.Writer) error {
+func (cmd Updater) handleApplication(dir string, output string, logger io.Writer) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (u Updater) handleApplication(dir string, output string, logger io.Writer) 
 	for _, e := range entries {
 		item := path.Join(dir, e.Name())
 		if !e.IsDir() && strings.HasSuffix(strings.ToLower(item), ".yaml") || strings.HasSuffix(strings.ToLower(item), ".yml") {
-			items, err := u.resolve(item)
+			items, err := cmd.resolve(item)
 			if err != nil {
 				return err
 			}
@@ -128,14 +128,14 @@ func (u Updater) handleApplication(dir string, output string, logger io.Writer) 
 	return nil
 }
 
-func (u Updater) resolve(path string) (map[string]generator.CrdSchema, error) {
+func (cmd Updater) resolve(path string) (map[string]generator.CrdSchema, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	list, err := u.reader.Read(file, path)
+	list, err := cmd.reader.Read(file, path)
 	if err != nil {
 		return nil, err
 	}

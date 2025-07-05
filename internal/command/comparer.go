@@ -80,17 +80,17 @@ func NewComparer(datreeio, current, output, ignore string, flags *flag.FlagSet) 
 	}
 }
 
-func (g Comparer) Run() error {
-	if err := g.validate(); err != nil {
-		if g.flags != nil {
-			g.flags.Usage()
+func (cmd Comparer) Run() error {
+	if err := cmd.validate(); err != nil {
+		if cmd.flags != nil {
+			cmd.flags.Usage()
 		}
 		return errors.Join(ErrInvalidConfiguration, err)
 	}
 
 	ignores := make([]ignore, 0)
-	if len(g.Ignore) > 0 {
-		f, err := os.ReadFile(g.Ignore)
+	if len(cmd.Ignore) > 0 {
+		f, err := os.ReadFile(cmd.Ignore)
 		if err != nil {
 			return err
 		}
@@ -101,27 +101,27 @@ func (g Comparer) Run() error {
 		}
 	}
 
-	data, err := find(g.Current, ignores, g.Datreeio, "datreeio/CRDs-catalog", "https://github.com/datreeio/CRDs-catalog")
+	data, err := find(cmd.Current, ignores, cmd.Datreeio, "datreeio/CRDs-catalog", "https://github.com/datreeio/CRDs-catalog")
 	if err != nil {
 		return err
 	}
 
-	return render([]markdownData{data}, g.Out)
+	return render([]markdownData{data}, cmd.Out)
 }
 
-func (g Comparer) validate() error {
-	directories := []string{g.Current, g.Datreeio}
+func (cmd Comparer) validate() error {
+	directories := []string{cmd.Current, cmd.Datreeio}
 	for _, d := range directories {
 		if f, err := os.Stat(d); err != nil || len(d) == 0 || !f.IsDir() {
 			return fmt.Errorf("'%s' is not a valid directory path", d)
 		}
 	}
-	if len(g.Ignore) > 0 {
-		if f, err := os.Stat(g.Ignore); err != nil || f.IsDir() {
-			return fmt.Errorf("'%s' is not a valid file path", g.Ignore)
+	if len(cmd.Ignore) > 0 {
+		if f, err := os.Stat(cmd.Ignore); err != nil || f.IsDir() {
+			return fmt.Errorf("'%s' is not a valid file path", cmd.Ignore)
 		}
 	}
-	if len(g.Out) == 0 {
+	if len(cmd.Out) == 0 {
 		return fmt.Errorf("no output path was configured")
 	}
 	return nil

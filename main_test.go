@@ -36,24 +36,29 @@ func TestUnknownCommandParsing(t *testing.T) {
 }
 
 func TestCompareCommandParsingIncorrectFlags(t *testing.T) {
-	args := []string{
-		"bin",
-		commandCompare,
-		"--not-a-flag",
+	tests := [][]string{
+		{"bin", commandCompare, "--not-a-flag"},
+		{"bin", commandUpdate, "--not-a-flag"},
+		{"bin", commandVerify, "--not-a-flag"},
 	}
-	cmd, err := parse(args, bytes.NewBuffer([]byte{}))
-	assert.NotNil(t, err)
-	assert.Nil(t, cmd)
+	for i, test := range tests {
+		cmd, err := parse(test, bytes.NewBuffer([]byte{}))
+		assert.NotNil(t, err, "index %d failed", i)
+		assert.Nil(t, cmd, "index %d failed", i)
+	}
 }
 
 func TestCompareCommandParsing(t *testing.T) {
-	args := []string{
-		"bin",
-		commandCompare,
+	tests := [][]string{
+		{"bin", commandCompare},
+		{"bin", commandUpdate},
+		{"bin", commandVerify},
 	}
-	cmd, err := parse(args, bytes.NewBuffer([]byte{}))
-	assert.Nil(t, err)
-	assert.NotNil(t, cmd)
+	for i, test := range tests {
+		cmd, err := parse(test, bytes.NewBuffer([]byte{}))
+		assert.Nil(t, err, "index %d failed", i)
+		assert.NotNil(t, cmd, "index %d failed", i)
+	}
 }
 
 func TestCommandRunningInvalidConfiguration(t *testing.T) {
@@ -67,6 +72,11 @@ func TestCommandRunningInvalidConfiguration(t *testing.T) {
 		{"bin", commandUpdate, "--output", "testdata"},
 		{"bin", commandUpdate, "--input", "testdata/does-not-exist", "--output", "testdata"},
 		{"bin", commandUpdate, "--input", "testdata", "--output", "testdata/does-not-exist"},
+		{"bin", commandVerify},
+		{"bin", commandVerify, "--schema", "testdata/schema.json"},
+		{"bin", commandVerify, "--file", "testdata/schema.json"},
+		{"bin", commandVerify, "--schema", "testdata/does-not-exist.json", "--file", "testdata/schema.json"},
+		{"bin", commandVerify, "--schema", "testdata/schema.json", "--file", "testdata/does-not-exist.json"},
 	}
 
 	for i, test := range tests {
