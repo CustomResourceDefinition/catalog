@@ -13,6 +13,7 @@ import (
 
 const commandCompare = "compare"
 const commandUpdate = "update"
+const commandVerify = "verify"
 
 func main() {
 	err := run(os.Args, nil)
@@ -58,6 +59,16 @@ func parse(args []string, logger io.Writer) (command.Command, error) {
 			return nil, err
 		}
 		return command.NewUpdater(*input, *output, logger, cmd), nil
+	case commandVerify:
+		cmd := flag.NewFlagSet(commandVerify, flag.ContinueOnError)
+		schema := cmd.String("schema", "", "jsonschema file to use")
+		file := cmd.String("file", "", "file to check")
+		cmd.SetOutput(logger)
+		err := cmd.Parse(args[2:])
+		if err != nil {
+			return nil, err
+		}
+		return command.NewVerifier(*schema, *file, logger, cmd), nil
 	default:
 		return nil, errors.Join(command.ErrUnknownCommand, fmt.Errorf("unknown arguments: %s", arg))
 	}

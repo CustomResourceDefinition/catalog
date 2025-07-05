@@ -8,7 +8,7 @@ test: build test-docker test-makefile test-editorcheck
 	-v $$(pwd)/test/configuration.yaml:/app/configuration.yaml:ro \
 	runner make _test
 
-_test:
+_test: _test-schemas
 	go mod tidy -diff
 	@test -z "$$(gofmt -l .)"
 ifneq ($(TOOL_VERSION),$(MOD_VERSION))
@@ -22,6 +22,13 @@ _unit-tests:
 	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags $(GO_TAGS)
 	go tool cover -html=build/coverage.out -o build/coverage.html
 	go vet ./...
+
+_test-schemas:
+	build/bin/catalog verify --schema internal/configuration/schema.json --file configuration.yaml
+	build/bin/catalog verify --schema internal/configuration/schema.json --file test/configuration.yaml
+	build/bin/catalog verify --schema /opt/schemastore/dependabot-2.0.json --file .github/dependabot.yml
+	build/bin/catalog verify --schema /opt/schemastore/github-workflow.json --file .github/workflows/tests.yaml
+	build/bin/catalog verify --schema /opt/schemastore/github-workflow.json --file .github/workflows/scheduled-jobs.yaml
 
 test-editorcheck:
 	$(COMPOSE_RUN) editorconfig ec -exclude '^schema/|^\.git/'
