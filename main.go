@@ -51,24 +51,24 @@ func parse(args []string, logger io.Writer) (command.Command, error) {
 		return command.NewComparer(*datreeio, *current, *output, *ignore, cmd), nil
 	case commandUpdate:
 		cmd := flag.NewFlagSet(commandUpdate, flag.ContinueOnError)
-		input := cmd.String("input", "", "Directory for prepared templated CRDs directory")
-		output := cmd.String("output", "", "Directory for openapi schema output files")
+		configuration := cmd.String("configuration", "", "Path to configuration file for CRD sources")
+		output := cmd.String("output", "", "Path of directory for openapi schema output files")
 		cmd.SetOutput(logger)
 		err := cmd.Parse(args[2:])
 		if err != nil {
 			return nil, err
 		}
-		return command.NewUpdater(*input, *output, logger, cmd), nil
+		return command.NewUpdater(*configuration, *output, logger, cmd), nil
 	case commandVerify:
 		cmd := flag.NewFlagSet(commandVerify, flag.ContinueOnError)
-		schema := cmd.String("schema", "", "jsonschema file to use")
-		file := cmd.String("file", "", "file to check")
+		schema := cmd.String("schema", "", "Path of jsonschema file to use")
+		file := cmd.String("file", "", "Path of file to check")
 		cmd.SetOutput(logger)
 		err := cmd.Parse(args[2:])
 		if err != nil {
 			return nil, err
 		}
-		return command.NewVerifier(*schema, *file, logger, cmd), nil
+		return command.NewVerifier(*schema, *file, cmd), nil
 	default:
 		return nil, errors.Join(command.ErrUnknownCommand, fmt.Errorf("unknown arguments: %s", arg))
 	}
