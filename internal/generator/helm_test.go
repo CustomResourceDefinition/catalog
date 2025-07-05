@@ -1,27 +1,98 @@
 package generator
 
 import (
+	"bytes"
 	"testing"
 
+	"github.com/CustomResourceDefinition/catalog/internal/configuration"
+	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/stretchr/testify/assert"
 )
 
-// FIXME: more tests
-func TestHelm(t *testing.T) {
-	s, err := pullHelmChart("https://1password.github.io/connect-helm-charts", "", "1password", "connect")
-	assert.Nil(t, err)
-	assert.NotNil(t, s)
+func TestHelmGeneratorVersions(t *testing.T) {
+	expectedVersions := []string{"2.0.0"}
 
-	o, err := renderChart(s, "release", "namespace", make(map[string]interface{}))
+	server, finish := setupServer("index.yaml", "testdata/helm-index.yaml")
+	defer finish()
+
+	config := configuration.Configuration{
+		Kind:       configuration.Helm,
+		Repository: server.URL,
+	}
+
+	generator := NewHelmGenerator("connect", config, nil)
+
+	versions, err := generator.Versions()
 	assert.Nil(t, err)
-	assert.NotNil(t, o)
+	assert.Equal(t, expectedVersions, versions)
 }
 
-func TestHelmOci(t *testing.T) {
-	out, err := pullOCIChart("oci://registry.developers.crunchydata.com/crunchydata/pgo", "") // 5.8.2
+func TestHelmGeneratorUnknownTarget(t *testing.T) {
+	server, finish := setupServer("index.yaml", "testdata/helm-index.yaml")
+	defer finish()
+
+	config := configuration.Configuration{
+		Kind:       configuration.Helm,
+		Repository: server.URL,
+	}
+
+	generator := NewHelmGenerator("unknown", config, nil)
+
+	versions, err := generator.Versions()
+	assert.Nil(t, versions)
+	assert.NotNil(t, err)
+}
+
+func TestHelmGeneratorUnknownVersion(t *testing.T) {
+	server, finish := setupServer("index.yaml", "testdata/helm-index.yaml")
+	defer finish()
+
+	config := configuration.Configuration{
+		Name:       "helm",
+		Kind:       configuration.Helm,
+		Repository: server.URL,
+	}
+
+	generator := NewHelmGenerator("connect", config, nil)
+
+	versions, err := generator.MetaData("4.5.6")
+	assert.Nil(t, versions)
+	assert.NotNil(t, err)
+}
+
+func TestHelmGeneratorMetadata(t *testing.T) {
+	server, finish := setupRequests([]serverRequest{
+		{urlPath: "index.yaml", status: 200, file: "testdata/helm-index.yaml"}, // FIXME: replace server.URL in yaml
+		{urlPath: "asdf", status: 200, file: "testdata/connect-2.0.0.tgz"},
+	})
+	defer finish()
+
+	config := configuration.Configuration{
+		Name:       "helm",
+		Kind:       configuration.Helm,
+		Repository: server.URL,
+	}
+
+	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
 	assert.Nil(t, err)
 
-	o, err := renderChart(out, "release", "namespace", make(map[string]interface{}))
+	generator := NewHelmGenerator("connect", config, reader)
+
+	metadata, err := generator.MetaData("")
 	assert.Nil(t, err)
-	assert.NotNil(t, o)
+	assert.Equal(t, 1, len(metadata))
+	assert.Equal(t, "onepassword.com", metadata[0].Group)
+	assert.Equal(t, "onepassworditem", metadata[0].Kind)
+	assert.Equal(t, "v1", metadata[0].Version)
 }
+
+// // FIXME: more tests
+
+// func TestHelmOci(t *testing.T) {
+// 	out, err := pullOCIChart("oci://registry.developers.crunchydata.com/crunchydata/pgo", "") // 5.8.2
+// 	assert.Nil(t, err)
+
+// 	o, err := renderChart(out, "release", "namespace", make(map[string]interface{}))
+// 	assert.Nil(t, err)
+// 	assert.NotNil(t, o)
+// }
