@@ -10,7 +10,9 @@ import (
 	"path"
 	"strings"
 
+	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
+	"github.com/CustomResourceDefinition/catalog/internal/generator"
 )
 
 type Updater struct {
@@ -37,6 +39,46 @@ func (cmd Updater) Run() error {
 		return errors.Join(ErrInvalidConfiguration, err)
 	}
 
+	if err := cmd.initialize(); err != nil {
+		return err
+	}
+
+	configurations, err := readConfiguration(cmd.Configuration)
+	if err != nil {
+		return err
+	}
+
+	factory, err := generator.NewFactory(cmd.Output, cmd.Logger)
+	if err != nil {
+		return err
+	}
+
+	for _, config := range configurations {
+		build, err := factory.NewBuild(config)
+		if err == nil {
+			continue
+		}
+
+		err = build.Complete()
+		if err == nil {
+			continue
+		}
+	}
+
+	return nil
+}
+
+func (cmd Updater) validate() error {
+	directories := []string{cmd.Configuration, cmd.Output}
+	for _, d := range directories {
+		if f, err := os.Stat(d); err != nil || len(d) == 0 || !f.IsDir() {
+			return fmt.Errorf("'%s' is not a valid directory path", d)
+		}
+	}
+	return nil
+}
+
+func (cmd Updater) initialize() error {
 	if cmd.Logger == nil {
 		cmd.Logger = os.Stderr
 	}
@@ -46,6 +88,11 @@ func (cmd Updater) Run() error {
 		return err
 	}
 	cmd.reader = reader
+
+	return nil
+}
+
+func (cmd Updater) tmpOld() error {
 
 	fmt.Fprintf(cmd.Logger, "Updating:\n")
 	dir := cmd.Configuration
@@ -64,16 +111,6 @@ func (cmd Updater) Run() error {
 		}
 	}
 
-	return nil
-}
-
-func (cmd Updater) validate() error {
-	directories := []string{cmd.Configuration, cmd.Output}
-	for _, d := range directories {
-		if f, err := os.Stat(d); err != nil || len(d) == 0 || !f.IsDir() {
-			return fmt.Errorf("'%s' is not a valid directory path", d)
-		}
-	}
 	return nil
 }
 
@@ -148,10 +185,23 @@ func (cmd Updater) resolve(path string) (map[string]crd.CrdSchema, error) {
 		}
 
 		for _, s := range schema {
-			file := fmt.Sprintf("%s/%s_%s.json", s.Group, s.Kind, s.Version)
-			items[file] = s
+			items[s.Filepath()] = s
 		}
 	}
 
 	return items, nil
+}
+
+func readConfiguration(file string) ([]configuration.Configuration, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	configs, err := configuration.UnmarshalConfigurations(f)
+	if err != nil {
+		return nil, err
+	}
+	return configs, nil
 }

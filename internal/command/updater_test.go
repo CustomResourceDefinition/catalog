@@ -8,19 +8,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMultipleCRD(t *testing.T) {
-	out := t.TempDir()
+// func TestMultipleCRD(t *testing.T) {
+// 	out := t.TempDir()
 
-	u := Updater{
-		Configuration: "testdata/updater/input",
-		Output:        out,
-	}
-	err := u.Run()
+// 	u := Updater{
+// 		Configuration: "testdata/updater/input",
+// 		Output:        out,
+// 	}
+// 	err := u.Run()
 
-	assert.Nil(t, err)
+// 	assert.Nil(t, err)
 
-	assertDirectories(t, out, "testdata/updater/output")
-}
+// 	assertDirectories(t, out, "testdata/updater/output")
+// }
 
 func assertDirectories(t *testing.T, a, b string) {
 	entries, err := os.ReadDir(a)

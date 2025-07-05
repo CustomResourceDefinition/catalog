@@ -5,12 +5,23 @@ import (
 	"io"
 	"os"
 
+	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"sigs.k8s.io/controller-tools/pkg/crd"
 	crdMarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
 	"sigs.k8s.io/controller-tools/pkg/genall"
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
+
+type GenAllGenerator struct{}
+
+func (generator GenAllGenerator) NeededVersions(config configuration.Configuration, schemaRepository string) ([]string, error) {
+	return nil, nil
+}
+
+func (generator GenAllGenerator) Read(config configuration.Configuration, version string) ([]byte, error) {
+	return nil, nil
+}
 
 // GenAllCrd mimics the following command
 // `controller-gen crd "paths=/input" output:crd:dir=/output output:none`

@@ -1,10 +1,13 @@
 package generator
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path"
 
+	"github.com/CustomResourceDefinition/catalog/internal/configuration"
+	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
@@ -14,6 +17,193 @@ import (
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
 )
+
+type HelmGenerator struct {
+	target     string
+	config     configuration.Configuration
+	reader     crd.CrdReader
+	tmpDir     string
+	versions   repo.ChartVersions
+	downloader downloader.ChartDownloader
+}
+
+func NewHelmGenerator(target string, config configuration.Configuration, reader crd.CrdReader) Generator {
+	return HelmGenerator{
+		target: target,
+		config: config,
+		reader: reader,
+	}
+}
+
+func (generator HelmGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
+	if err := generator.ensureLoaded(); err != nil {
+		return nil, err
+	}
+
+	schemas, err := generator.Schemas(version)
+	if err != nil {
+		return nil, err
+	}
+	metadata := make([]crd.CrdMetaSchema, len(schemas))
+	for i, s := range schemas {
+		metadata[i] = s.CrdMetaSchema
+	}
+	return metadata, nil
+}
+
+func (generator HelmGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
+	if err := generator.ensureLoaded(); err != nil {
+		return nil, err
+	}
+
+	if version == "" {
+		version = ">0.0.0"
+	}
+
+	ref := fmt.Sprintf("%s/%s", generator.config.Name, generator.target)
+	filename, _, err := generator.downloader.DownloadTo(ref, version, generator.tmpDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download chart: %w", err)
+	}
+
+	rendered, err := renderChart(filename, "release", "namespace", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	crds, err := generator.reader.Read(bytes.NewReader(rendered), fmt.Sprintf("buffered bytes for %s", generator.config.Name))
+	if err != nil {
+		return nil, err
+	}
+
+	schemas := make([]crd.CrdSchema, 0)
+	for _, c := range crds {
+		schema, err := c.Schema()
+		if err != nil {
+			return nil, err
+		}
+		schemas = append(schemas, schema...)
+	}
+
+	return schemas, nil
+}
+
+func (generator HelmGenerator) Versions() ([]string, error) {
+	if err := generator.ensureLoaded(); err != nil {
+		return nil, err
+	}
+
+	versions := make([]string, len(generator.versions))
+
+	for i, version := range generator.versions {
+		versions[i] = version.Version
+	}
+
+	return versions, nil
+}
+
+func (generator HelmGenerator) Close() error {
+	return os.Remove(generator.tmpDir)
+}
+
+func (generator *HelmGenerator) ensureLoaded() error {
+	if len(generator.tmpDir) != 0 {
+		return nil
+	}
+
+	tmpDir, err := os.MkdirTemp("", generator.config.Name)
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %w", err)
+	}
+
+	settings := cli.EnvSettings{}
+	getters := getter.All(&settings)
+	entry := repo.Entry{
+		Name: generator.config.Name,
+		URL:  generator.config.Repository,
+	}
+
+	repoFilePath := path.Join(tmpDir, "repositories.yaml")
+	repoFile := repo.NewFile()
+	repoFile.Add(&entry)
+	repoFile.WriteFile(repoFilePath, 0644)
+
+	chartRepo, err := repo.NewChartRepository(&entry, getters)
+	if err != nil {
+		return err
+	}
+
+	chartRepo.CachePath = tmpDir
+	indexFile, err := chartRepo.DownloadIndexFile()
+	if err != nil {
+		return err
+	}
+
+	index, err := repo.LoadIndexFile(indexFile)
+	if err != nil {
+		return err
+	}
+
+	versions, ok := index.Entries[generator.target]
+	if !ok {
+		return fmt.Errorf("target '%s' was not found in index file", generator.target)
+	}
+
+	chartDownloader := downloader.ChartDownloader{
+		Getters:          getters,
+		RepositoryConfig: repoFilePath,
+		RepositoryCache:  tmpDir,
+	}
+
+	generator.downloader = chartDownloader
+	generator.versions = versions
+	generator.tmpDir = tmpDir
+
+	return nil
+}
+
+func renderChart(chartPath, releaseName, namespace string, values map[string]interface{}) ([]byte, error) {
+	chart, err := loader.Load(chartPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load chart: %w", err)
+	}
+
+	if chart.Metadata == nil {
+		return nil, fmt.Errorf("chart metadata is missing")
+	}
+
+	options := chartutil.ReleaseOptions{
+		Name:      releaseName,
+		Namespace: namespace,
+		Revision:  1,
+		IsInstall: true,
+	}
+
+	vals, err := chartutil.ToRenderValues(chart, values, options, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render values: %w", err)
+	}
+
+	rendered, err := engine.Render(chart, vals)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render templates: %w", err)
+	}
+
+	buf := bytes.Buffer{}
+	for _, content := range rendered {
+		buf.WriteString(content)
+		buf.WriteString("\n---\n")
+	}
+
+	for _, obj := range chart.CRDObjects() {
+		buf.Write(obj.File.Data)
+		buf.WriteString("\n---\n")
+	}
+
+	return buf.Bytes(), nil
+}
+
+/// ---
 
 func pullOCIChart(ociRef string, version string) (string, error) {
 	settings := cli.EnvSettings{}
@@ -47,105 +237,4 @@ func pullOCIChart(ociRef string, version string) (string, error) {
 
 	// Returns full path to .tgz file
 	return savedPath, nil
-}
-
-// pullHelmChart downloads a Helm chart from an HTTP repo and returns the path to the .tgz file.
-func pullHelmChart(repoURL, version, name, chart string) (string, error) {
-	// Create a temporary directory to store the downloaded chart
-	tmpDir, err := os.MkdirTemp("", "helm-pull-")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %w", err)
-	}
-
-	settings := cli.EnvSettings{}
-	getters := getter.All(&settings)
-	entry := repo.Entry{
-		Name: name,
-		URL:  repoURL,
-	}
-
-	repoFilePath := path.Join(tmpDir, "rps.yaml")
-	repoFile := repo.NewFile()
-	repoFile.Add(&entry)
-	repoFile.WriteFile(repoFilePath, 0644)
-
-	chartRepo, err := repo.NewChartRepository(&entry, getters)
-	if err != nil {
-		return "", err
-	}
-
-	chartRepo.CachePath = tmpDir
-	_, err = chartRepo.DownloadIndexFile()
-	if err != nil {
-		return "", err
-	}
-	// tmp + repoName + -index.yaml
-	// LoadIndexFile
-	// SortEntries
-
-	chartDownloader := downloader.ChartDownloader{
-		Getters:          getters,
-		RepositoryConfig: repoFilePath,
-		RepositoryCache:  tmpDir,
-	}
-
-	// Pull chart
-	destPath := tmpDir
-	if version == "" {
-		version = ">0.0.0" // fetch latest if not provided
-	}
-
-	ref := fmt.Sprintf("%s/%s", name, chart)
-	filename, _, err := chartDownloader.DownloadTo(ref, version, destPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to download chart: %w", err)
-	}
-
-	// Validate it loads
-	_, err = loader.Load(filename)
-	if err != nil {
-		return "", fmt.Errorf("downloaded chart is invalid: %w", err)
-	}
-
-	return filename, nil
-}
-
-func renderChart(chartPath, releaseName, namespace string, values map[string]interface{}) (string, error) {
-	// Load chart from .tgz or directory
-	chart, err := loader.Load(chartPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to load chart: %w", err)
-	}
-
-	if chart.Metadata == nil {
-		return "", fmt.Errorf("chart metadata is missing")
-	}
-
-	// Prepare chart values context
-	options := chartutil.ReleaseOptions{
-		Name:      releaseName,
-		Namespace: namespace,
-		Revision:  1,
-		IsInstall: true,
-	}
-
-	// Render values.yaml + --set values
-	vals, err := chartutil.ToRenderValues(chart, values, options, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to render values: %w", err)
-	}
-
-	// Use the engine to render templates
-	rendered, err := engine.Render(chart, vals)
-	if err != nil {
-		return "", fmt.Errorf("failed to render templates: %w", err)
-	}
-
-	// Flatten into a single manifest string (like helm template output)
-	final := ""
-	for _, content := range rendered {
-		final += content + "\n---\n"
-	}
-
-	return final, nil
 }

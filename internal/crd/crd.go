@@ -28,8 +28,12 @@ type Crd struct {
 }
 
 type CrdSchema struct {
+	CrdMetaSchema
+	Bytes []byte
+}
+
+type CrdMetaSchema struct {
 	Group, Kind, Version string
-	Bytes                []byte
 }
 
 func NewCrdReader(logger io.Writer) (CrdReader, error) {
@@ -79,6 +83,22 @@ func (r crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 	return list, nil
 }
 
+func (c Crd) MetaSchema() ([]CrdMetaSchema, error) {
+	list := make([]CrdMetaSchema, 0)
+
+	for _, v := range c.definition.Spec.Versions {
+		item := CrdMetaSchema{
+			Group:   strings.ToLower(c.definition.Spec.Group),
+			Kind:    strings.ToLower(c.definition.Spec.Names.Kind),
+			Version: strings.ToLower(v.Name),
+		}
+
+		list = append(list, item)
+	}
+
+	return list, nil
+}
+
 func (c Crd) Schema() ([]CrdSchema, error) {
 	list := make([]CrdSchema, 0)
 
@@ -93,16 +113,22 @@ func (c Crd) Schema() ([]CrdSchema, error) {
 		b = append(b, []byte("\n")...)
 
 		item := CrdSchema{
-			Group:   strings.ToLower(c.definition.Spec.Group),
-			Kind:    strings.ToLower(c.definition.Spec.Names.Kind),
-			Version: strings.ToLower(v.Name),
-			Bytes:   b,
+			CrdMetaSchema: CrdMetaSchema{
+				Group:   strings.ToLower(c.definition.Spec.Group),
+				Kind:    strings.ToLower(c.definition.Spec.Names.Kind),
+				Version: strings.ToLower(v.Name),
+			},
+			Bytes: b,
 		}
 
 		list = append(list, item)
 	}
 
 	return list, nil
+}
+
+func (s CrdMetaSchema) Filepath() string {
+	return fmt.Sprintf("%s/%s_%s.json", s.Group, s.Kind, s.Version)
 }
 
 func applyDefaults(schema *v1.JSONSchemaProps, skip bool) {
