@@ -12,8 +12,8 @@ func TestMultipleCRD(t *testing.T) {
 	out := t.TempDir()
 
 	u := Updater{
-		Input:  "testdata/updater/input",
-		Output: out,
+		Configuration: "testdata/updater/input",
+		Output:        out,
 	}
 	err := u.Run()
 

@@ -2,7 +2,6 @@ package command
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"testing/iotest"
 
@@ -26,7 +25,7 @@ func TestVerifierValidatesKnownSamples(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		cmd := NewVerifier(test.schema, test.file, os.Stdout, nil)
+		cmd := NewVerifier(test.schema, test.file, nil)
 
 		err := cmd.Run()
 
@@ -55,7 +54,7 @@ func TestVerifierRejectsKnownSamples(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		cmd := NewVerifier(test.schema, test.file, os.Stdout, nil)
+		cmd := NewVerifier(test.schema, test.file, nil)
 
 		err := cmd.Run()
 
@@ -64,7 +63,7 @@ func TestVerifierRejectsKnownSamples(t *testing.T) {
 }
 
 func TestVerifierValidateWithWrongPaths(t *testing.T) {
-	cmd := NewVerifier("testdata/verifier/does-not-exist.json", "testdata/verifier/object-data.json", os.Stdout, nil)
+	cmd := NewVerifier("testdata/verifier/does-not-exist.json", "testdata/verifier/object-data.json", nil)
 	err := cmd.validate()
 	assert.NotNil(t, err)
 }

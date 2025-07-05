@@ -19,11 +19,10 @@ type Verifier struct {
 	flags        *flag.FlagSet
 }
 
-func NewVerifier(schema, file string, logger io.Writer, flags *flag.FlagSet) Verifier {
+func NewVerifier(schema, file string, flags *flag.FlagSet) Verifier {
 	return Verifier{
 		Schema: schema,
 		File:   file,
-		Logger: logger,
 		flags:  flags,
 	}
 }
