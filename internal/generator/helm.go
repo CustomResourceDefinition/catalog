@@ -205,36 +205,50 @@ func renderChart(chartPath, releaseName, namespace string, values map[string]int
 
 /// ---
 
-func pullOCIChart(ociRef string, version string) (string, error) {
-	settings := cli.EnvSettings{}
+func newOCIGetter(options ...getter.Option) (getter.Getter, error) {
+	return getter.NewOCIGetter(getter.WithPlainHTTP(true))
+}
+
+func pullOCIChart(ociRef string, version string) (*string, error) {
+	// settings := cli.EnvSettings{}
+
+	provider := getter.Provider{
+		Schemes: []string{registry.OCIScheme},
+		New:     newOCIGetter,
+	}
+	// provider, err := getter.NewOCIGetter(getter.WithPlainHTTP(true))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	regClient, err := registry.NewClient(
 		registry.ClientOptDebug(false),
 		registry.ClientOptEnableCache(true),
 		registry.ClientOptWriter(os.Stdout),
+		registry.ClientOptPlainHTTP(),
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to create registry client: %w", err)
+		return nil, fmt.Errorf("failed to create registry client: %w", err)
 	}
 
 	// Set up the ChartDownloader with OCI support
 	chartDownloader := downloader.ChartDownloader{
-		Getters:        getter.All(&settings),
+		Getters:        []getter.Provider{provider},
 		RegistryClient: regClient,
 	}
 
 	// Destination to save the chart
 	tmpDir, err := os.MkdirTemp("", "helm-oci-*")
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %w", err)
+		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
 	// Pull the chart into the temp dir
 	savedPath, _, err := chartDownloader.DownloadTo(ociRef, version, tmpDir)
 	if err != nil {
-		return "", fmt.Errorf("failed to download chart: %w", err)
+		return nil, fmt.Errorf("failed to download chart: %w", err)
 	}
 
 	// Returns full path to .tgz file
-	return savedPath, nil
+	return &savedPath, nil
 }

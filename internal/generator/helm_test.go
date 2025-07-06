@@ -2,6 +2,8 @@ package generator
 
 import (
 	"bytes"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -61,11 +63,13 @@ func TestHelmGeneratorUnknownVersion(t *testing.T) {
 }
 
 func TestHelmGeneratorMetadata(t *testing.T) {
-	server, finish := setupRequests([]serverRequest{
-		{urlPath: "index.yaml", status: 200, file: "testdata/helm-index.yaml"}, // FIXME: replace server.URL in yaml
-		{urlPath: "asdf", status: 200, file: "testdata/connect-2.0.0.tgz"},
-	})
+	b, _ := os.ReadFile("testdata/helm-index.yaml")
+	s := string(b)
+
+	server, finish := setupServer("1Password/connect-helm-charts/releases/download/connect-2.0.0/connect-2.0.0.tgz", "testdata/connect-2.0.0.tgz")
 	defer finish()
+	updated := strings.ReplaceAll(s, "https://github.com", server.URL)
+	server.addRequest(serverRequest{urlPath: "index.yaml", status: 200, response: strings.NewReader(updated)})
 
 	config := configuration.Configuration{
 		Name:       "helm",

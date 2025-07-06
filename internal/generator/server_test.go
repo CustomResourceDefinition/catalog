@@ -2,13 +2,15 @@ package generator
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 )
 
-func setupServer(url, file string) (*httptest.Server, func()) {
+func setupServer(url, file string) (mockServer, func()) {
 	req := serverRequest{
 		urlPath: url,
 		status:  http.StatusOK,
@@ -18,31 +20,47 @@ func setupServer(url, file string) (*httptest.Server, func()) {
 	return setupRequests([]serverRequest{req})
 }
 
+type mockServer struct {
+	mux    *http.ServeMux
+	server *httptest.Server
+	URL    string
+}
+
 type serverRequest struct {
 	urlPath, file string
 	status        int
 	response      io.Reader
 }
 
-func setupRequests(requests []serverRequest) (*httptest.Server, func()) {
-	mux := http.NewServeMux()
+func setupRequests(requests []serverRequest) (mockServer, func()) {
+	mock := mockServer{mux: http.NewServeMux()}
 
 	for _, request := range requests {
-		mux.HandleFunc(request.urlPath, func(w http.ResponseWriter, r *http.Request) {
-			if len(request.file) != 0 {
-				b, _ := os.ReadFile(request.file)
-				request.response = bytes.NewReader(b)
-			}
-			w.WriteHeader(request.status)
-			var bytes []byte
-			request.response.Read(bytes)
-			w.Write(bytes)
-		})
+		mock.addRequest(request)
 	}
 
-	server := httptest.NewServer(mux)
+	server := httptest.NewServer(mock.mux)
+	mock.server = server
+	mock.URL = server.URL
 
-	return server, func() {
+	return mock, func() {
 		server.Close()
 	}
+}
+
+func (mock mockServer) addRequest(request serverRequest) {
+	path := request.urlPath
+	if !strings.HasPrefix(path, "/") {
+		path = fmt.Sprintf("/%s", path)
+	}
+	mock.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		if len(request.file) != 0 {
+			b, _ := os.ReadFile(request.file)
+			request.response = bytes.NewReader(b)
+		}
+		w.WriteHeader(request.status)
+		buf := bytes.Buffer{}
+		io.Copy(&buf, request.response)
+		w.Write(buf.Bytes())
+	})
 }
