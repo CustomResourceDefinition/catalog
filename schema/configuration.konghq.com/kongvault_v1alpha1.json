@@ -27,12 +27,97 @@
         "config": {
           "x-kubernetes-preserve-unknown-fields": true
         },
+        "controlPlaneRef": {
+          "type": "object",
+          "properties": {
+            "konnectID": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}(?:\\-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+            },
+            "konnectNamespacedRef": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "namespace": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "type": {
+              "type": "string",
+              "default": "kic",
+              "enum": [
+                "konnectID",
+                "konnectNamespacedRef",
+                "kic"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type != 'konnectID'",
+              "message": "'konnectID' type is not supported"
+            },
+            {
+              "rule": "(has(self.type) \u0026\u0026 self.type == 'konnectNamespacedRef') ? has(self.konnectNamespacedRef) : true",
+              "message": "when type is konnectNamespacedRef, konnectNamespacedRef must be set"
+            },
+            {
+              "rule": "(has(self.type) \u0026\u0026 self.type == 'konnectNamespacedRef') ? !has(self.konnectID) : true",
+              "message": "when type is konnectNamespacedRef, konnectID must not be set"
+            },
+            {
+              "rule": "(has(self.type) \u0026\u0026 self.type == 'konnectID') ? has(self.konnectID) : true",
+              "message": "when type is konnectID, konnectID must be set"
+            },
+            {
+              "rule": "(has(self.type) \u0026\u0026 self.type == 'konnectID') ? !has(self.konnectNamespacedRef) : true",
+              "message": "when type is konnectID, konnectNamespacedRef must not be set"
+            },
+            {
+              "rule": "(has(self.type) \u0026\u0026 self.type == 'kic') ? !has(self.konnectID) : true",
+              "message": "when type is kic, konnectID must not be set"
+            },
+            {
+              "rule": "(has(self.type) \u0026\u0026 self.type == 'kic') ? !has(self.konnectNamespacedRef) : true",
+              "message": "when type is kic, konnectNamespacedRef must not be set"
+            },
+            {
+              "rule": "!has(self.type) ? !has(self.konnectID) : true",
+              "message": "when type is unset, konnectID must not be set"
+            },
+            {
+              "rule": "!has(self.type) ? !has(self.konnectNamespacedRef) : true",
+              "message": "when type is unset, konnectNamespacedRef must not be set"
+            }
+          ]
+        },
         "description": {
           "type": "string"
         },
         "prefix": {
           "type": "string",
           "minLength": 1
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string"
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.all(tag, size(tag) \u003e= 1 \u0026\u0026 size(tag) \u003c= 128)",
+              "message": "tags entries must not be longer than 128 characters"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -104,6 +189,24 @@
             "type"
           ],
           "x-kubernetes-list-type": "map"
+        },
+        "konnect": {
+          "type": "object",
+          "properties": {
+            "controlPlaneID": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "organizationID": {
+              "type": "string"
+            },
+            "serverURL": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -113,6 +216,14 @@
     {
       "rule": "self.spec.prefix == oldSelf.spec.prefix",
       "message": "The spec.prefix field is immutable"
+    },
+    {
+      "rule": "!has(oldSelf.spec.controlPlaneRef) || has(self.spec.controlPlaneRef)",
+      "message": "controlPlaneRef is required once set"
+    },
+    {
+      "rule": "(!has(self.status) || !self.status.conditions.exists(c, c.type == 'Programmed' \u0026\u0026 c.status == 'True') || !has(self.spec.controlPlaneRef)) ? true : oldSelf.spec.controlPlaneRef == self.spec.controlPlaneRef",
+      "message": "spec.controlPlaneRef is immutable when an entity is already Programmed"
     }
   ]
 }
