@@ -89,14 +89,3 @@ func TestHelmGeneratorMetadata(t *testing.T) {
 	assert.Equal(t, "onepassworditem", metadata[0].Kind)
 	assert.Equal(t, "v1", metadata[0].Version)
 }
-
-// // FIXME: more tests
-
-// func TestHelmOci(t *testing.T) {
-// 	out, err := pullOCIChart("oci://registry.developers.crunchydata.com/crunchydata/pgo", "") // 5.8.2
-// 	assert.Nil(t, err)
-
-// 	o, err := renderChart(out, "release", "namespace", make(map[string]interface{}))
-// 	assert.Nil(t, err)
-// 	assert.NotNil(t, o)
-// }
