@@ -117,9 +117,8 @@ func (build Build) versions() ([]string, error) {
 
 func resolveGenerator(config configuration.Configuration, reader crd.CrdReader) (Generator, error) {
 	switch config.Kind {
-	// FIXME: no no
-	// case configuration.Git:
-	// 	return GitGenerator{}, nil
+	case configuration.Git:
+		return NewGitGenerator(config, reader), nil
 	case configuration.Http:
 		return NewHttpGenerator(config, reader), nil
 	case configuration.Helm:
