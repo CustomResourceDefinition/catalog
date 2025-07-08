@@ -125,7 +125,8 @@ func resolveGenerator(config configuration.Configuration, reader crd.CrdReader) 
 	case configuration.Helm:
 		target := config.Entries[len(config.Entries)-1] // FIXME: do config splitting
 		return NewHelmGenerator(target, config, reader), nil
-	// case configuration.HelmOci:
+	case configuration.HelmOci:
+		return NewOciGenerator(config, reader), nil
 	default:
 		return nil, fmt.Errorf("no generators matched for kind '%s'", config.Kind)
 	}

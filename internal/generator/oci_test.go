@@ -3,7 +3,6 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -12,7 +11,9 @@ import (
 )
 
 func TestOciGeneratorVersions(t *testing.T) {
-	server, finish := setupOciServer([]ociChart{
+	t.Setenv(HELM_OCI_PLAIN_HTTP, "true")
+
+	server, finish := setupOciServer(t, []ociChart{
 		{
 			repoName: "helm",
 			name:     "connect",
@@ -24,7 +25,7 @@ func TestOciGeneratorVersions(t *testing.T) {
 
 	config := configuration.Configuration{
 		Kind:       configuration.HelmOci,
-		Repository: fmt.Sprintf("%s%s", strings.ReplaceAll(server.URL, "oci://", "http://"), "/helm/connect"),
+		Repository: fmt.Sprintf("%s%s", server.URL, "/helm/connect"),
 	}
 
 	generator := NewOciGenerator(config, nil)
@@ -35,7 +36,9 @@ func TestOciGeneratorVersions(t *testing.T) {
 }
 
 func TestOciGeneratorUnknownVersion(t *testing.T) {
-	server, finish := setupOciServer([]ociChart{
+	t.Setenv(HELM_OCI_PLAIN_HTTP, "true")
+
+	server, finish := setupOciServer(t, []ociChart{
 		{
 			repoName: "helm",
 			name:     "connect",
@@ -59,7 +62,9 @@ func TestOciGeneratorUnknownVersion(t *testing.T) {
 }
 
 func TestOciGeneratorMetadata(t *testing.T) {
-	server, finish := setupOciServer([]ociChart{
+	t.Setenv(HELM_OCI_PLAIN_HTTP, "true")
+
+	server, finish := setupOciServer(t, []ociChart{
 		{
 			repoName: "helm",
 			name:     "connect",

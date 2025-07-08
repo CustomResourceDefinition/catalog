@@ -12,6 +12,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func setupServer(url, file string) (mockServer, func()) {
@@ -73,7 +76,7 @@ type ociChart struct {
 	repoName, name, tag, path string
 }
 
-func setupOciServer(charts []ociChart) (mockServer, func()) {
+func setupOciServer(t *testing.T, charts []ociChart) (mockServer, func()) {
 	mock := mockServer{mux: http.NewServeMux()}
 
 	configBytes := []byte(`{"mediaType":"application/vnd.cncf.helm.config.v1+json"}`)
@@ -83,7 +86,8 @@ func setupOciServer(charts []ociChart) (mockServer, func()) {
 	for _, chart := range charts {
 		data, err := os.ReadFile(chart.path)
 		if err != nil {
-			continue // FIXME:
+			assert.Fail(t, "unable to read chart at %s", chart.path)
+			continue
 		}
 
 		hash := sha256.Sum256(data)
@@ -162,7 +166,7 @@ func setupOciServer(charts []ociChart) (mockServer, func()) {
 
 	server := httptest.NewServer(mock.mux)
 	mock.server = server
-	mock.URL = strings.ReplaceAll(server.URL, "http://", "oci://") // FIXME: argh?
+	mock.URL = strings.ReplaceAll(server.URL, "http://", "oci://")
 
 	return mock, func() {
 		server.Close()

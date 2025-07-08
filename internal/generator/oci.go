@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,20 +21,31 @@ import (
 
 // FIXME: limit all generators versions by regex
 type OciGenerator struct {
-	client     http.Client
-	config     configuration.Configuration
-	reader     crd.CrdReader
-	tmpDir     string
-	downloader downloader.ChartDownloader
+	client        http.Client
+	config        configuration.Configuration
+	reader        crd.CrdReader
+	defaultScheme string
+	tmpDir        string
+	downloader    downloader.ChartDownloader
 }
 
+const HELM_OCI_PLAIN_HTTP = "HELM_OCI_PLAIN_HTTP"
+
 func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
+	defaultScheme := "https://"
+	env, found := os.LookupEnv(HELM_OCI_PLAIN_HTTP)
+	value, err := strconv.ParseBool(env)
+	if found && err == nil && value {
+		defaultScheme = "http://"
+	}
+
 	return OciGenerator{
 		client: http.Client{
 			Timeout: 15 * time.Second,
 		},
-		config: config,
-		reader: reader,
+		defaultScheme: defaultScheme,
+		config:        config,
+		reader:        reader,
 	}
 }
 
@@ -102,9 +114,7 @@ func (generator OciGenerator) Versions() ([]string, error) {
 		return nil, err
 	}
 
-	// FIXME: based on env swap to http or https
-
-	u, err := url.Parse(strings.ReplaceAll(generator.config.Repository, "oci://", "http://"))
+	u, err := url.Parse(strings.ReplaceAll(generator.config.Repository, "oci://", generator.defaultScheme))
 	if err != nil {
 		return nil, err
 	}
