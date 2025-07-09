@@ -4,6 +4,7 @@ import (
 	"testing"
 )
 
+// FIXME: more tests
 func TestEngineWithNoConfiguration(t *testing.T) {
 	// config := configuration.Configuration{}
 

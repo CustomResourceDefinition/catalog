@@ -1,4 +1,4 @@
-package generator
+package genall
 
 import (
 	"bytes"
@@ -12,10 +12,12 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
 
-// GenAllCrd mimics the following command
+// FIXME: naming
+
+// Render mimics the following command
 // `controller-gen crd "paths=/input" output:crd:dir=/output output:none`
 // and returns bytes for generated CRD yaml documents, if possible.
-func GenAllCrd(input string) ([]byte, error) {
+func Render(input string) ([]byte, error) {
 	buf := bytes.Buffer{}
 
 	oldWD, _ := os.Getwd()

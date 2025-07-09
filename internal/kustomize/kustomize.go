@@ -1,11 +1,11 @@
-package generator
+package kustomize
 
 import (
 	"sigs.k8s.io/kustomize/api/krusty"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 
-func renderKustomize(path string) ([]byte, error) {
+func Render(path string) ([]byte, error) {
 	fSys := filesys.MakeFsOnDisk()
 	k := krusty.MakeKustomizer(krusty.MakeDefaultOptions())
 

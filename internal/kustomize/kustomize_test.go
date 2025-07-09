@@ -1,4 +1,4 @@
-package generator
+package kustomize
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 
 // FIXME: more tests
 func TestKustomize(t *testing.T) {
-	bytes, err := renderKustomize("testdata/kustomize")
+	bytes, err := Render("testdata/kustomize")
 	assert.Nil(t, err)
 	assert.NotNil(t, bytes)
 }

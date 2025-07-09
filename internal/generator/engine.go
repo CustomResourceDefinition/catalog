@@ -12,6 +12,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
+// FIXME: factory/build vs generator - names are hard
 type Factory struct {
 	schemaRepository string
 	crdReader        crd.CrdReader

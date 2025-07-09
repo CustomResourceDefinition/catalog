@@ -11,6 +11,8 @@ import (
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
+	"github.com/CustomResourceDefinition/catalog/internal/genall"
+	"github.com/CustomResourceDefinition/catalog/internal/kustomize"
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
 )
@@ -74,7 +76,7 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 		return nil, err
 	}
 
-	buf := bytes.Buffer{}
+	buf := bytes.Buffer{} // FIXME: special buffer
 	if len(generator.config.SearchPaths) > 0 {
 		for _, sp := range generator.config.SearchPaths {
 			filepath.Walk(path.Join(generator.tmpDir, sp), func(p string, info fs.FileInfo, err error) error {
@@ -102,7 +104,7 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 	if len(generator.config.KustomizePaths) > 0 {
 		for _, sp := range generator.config.KustomizePaths {
 			directory := path.Join(generator.tmpDir, sp)
-			bytes, err := renderKustomize(directory)
+			bytes, err := kustomize.Render(directory)
 			if err != nil {
 				continue
 			}
@@ -114,7 +116,7 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 	if len(generator.config.GenPaths) > 0 {
 		for _, sp := range generator.config.GenPaths {
 			directory := path.Join(generator.tmpDir, strings.TrimSuffix(sp, "..."))
-			bytes, err := GenAllCrd(directory)
+			bytes, err := genall.Render(directory)
 			if err != nil {
 				continue
 			}

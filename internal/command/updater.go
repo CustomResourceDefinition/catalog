@@ -92,6 +92,7 @@ func (cmd Updater) initialize() error {
 	return nil
 }
 
+// FIXME: clean up?
 func (cmd Updater) tmpOld() error {
 
 	fmt.Fprintf(cmd.Logger, "Updating:\n")
