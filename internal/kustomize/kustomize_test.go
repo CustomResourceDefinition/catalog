@@ -8,7 +8,7 @@ import (
 
 // FIXME: more tests
 func TestKustomize(t *testing.T) {
-	bytes, err := Render("testdata/kustomize")
+	bytes, err := Render("testdata")
 	assert.Nil(t, err)
 	assert.NotNil(t, bytes)
 }

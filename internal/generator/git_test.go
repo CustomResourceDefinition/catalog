@@ -119,15 +119,15 @@ func TestGitGeneratorMetadataForKustomizeFile(t *testing.T) {
 			paths: []gitPath{
 				{
 					path: "kustomize/kustomization.yaml",
-					file: "testdata/kustomize/kustomization.yaml",
+					file: "../kustomize/testdata/kustomization.yaml",
 				},
 				{
 					path: "kustomize/password.txt",
-					file: "testdata/kustomize/password.txt",
+					file: "../kustomize/testdata/password.txt",
 				},
 				{
 					path: "kustomize/crd.yaml",
-					file: "testdata/test-crd.yaml",
+					file: "../kustomize/testdata/crd.yaml",
 				},
 			},
 		},
@@ -165,15 +165,15 @@ func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
 			paths: []gitPath{
 				{
 					path: "api/go.mod",
-					file: "testdata/genall/source/go.mod",
+					file: "../genall/testdata/source/go.mod",
 				},
 				{
 					path: "api/go.sum",
-					file: "testdata/genall/source/go.sum",
+					file: "../genall/testdata/source/go.sum",
 				},
 				{
 					path: "api/source.go",
-					file: "testdata/genall/source/source.go",
+					file: "../genall/testdata/source/source.go",
 				},
 			},
 		},

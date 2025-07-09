@@ -6,13 +6,13 @@ import (
 )
 
 func Render(path string) ([]byte, error) {
-	fSys := filesys.MakeFsOnDisk()
+	fs := filesys.MakeFsOnDisk()
 	k := krusty.MakeKustomizer(krusty.MakeDefaultOptions())
 
-	resMap, err := k.Run(fSys, path)
+	mapping, err := k.Run(fs, path)
 	if err != nil {
 		return nil, err
 	}
 
-	return resMap.AsYaml()
+	return mapping.AsYaml()
 }
