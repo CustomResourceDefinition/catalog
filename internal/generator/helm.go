@@ -188,15 +188,13 @@ func renderChart(chartPath, releaseName, namespace string, values map[string]int
 		return nil, fmt.Errorf("failed to render templates: %w", err)
 	}
 
-	buf := bytes.Buffer{}
+	buf := Buffer{}
 	for _, content := range rendered {
 		buf.WriteString(content)
-		buf.WriteString("\n---\n")
 	}
 
 	for _, obj := range chart.CRDObjects() {
 		buf.Write(obj.File.Data)
-		buf.WriteString("\n---\n")
 	}
 
 	return buf.Bytes(), nil

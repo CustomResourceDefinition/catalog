@@ -48,6 +48,8 @@ func (cmd Updater) Run() error {
 		return err
 	}
 
+	configurations = splitConfigurations(configurations)
+
 	factory, err := generator.NewFactory(cmd.Output, cmd.Logger)
 	if err != nil {
 		return err
@@ -205,4 +207,22 @@ func readConfiguration(file string) ([]configuration.Configuration, error) {
 		return nil, err
 	}
 	return configs, nil
+}
+
+// splitConfigurations will duplicate all entries in Entries, so each configuration only has a single entry in Entries
+func splitConfigurations(configurations []configuration.Configuration) []configuration.Configuration {
+	updated := make([]configuration.Configuration, 0)
+	for _, c := range configurations {
+		if len(c.Entries) == 0 {
+			updated = append(updated, c)
+			continue
+		}
+		for _, e := range c.Entries {
+			copy := c
+			copy.Entries = []string{e}
+			updated = append(updated, copy)
+		}
+	}
+
+	return updated
 }

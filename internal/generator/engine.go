@@ -124,7 +124,7 @@ func resolveGenerator(config configuration.Configuration, reader crd.CrdReader) 
 	case configuration.Http:
 		return NewHttpGenerator(config, reader), nil
 	case configuration.Helm:
-		target := config.Entries[len(config.Entries)-1] // FIXME: do config splitting
+		target := config.Entries[len(config.Entries)-1]
 		return NewHelmGenerator(target, config, reader), nil
 	case configuration.HelmOci:
 		return NewOciGenerator(config, reader), nil

@@ -76,7 +76,7 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 		return nil, err
 	}
 
-	buf := bytes.Buffer{} // FIXME: special buffer
+	buf := Buffer{}
 	if len(generator.config.SearchPaths) > 0 {
 		for _, sp := range generator.config.SearchPaths {
 			filepath.Walk(path.Join(generator.tmpDir, sp), func(p string, info fs.FileInfo, err error) error {
@@ -94,7 +94,6 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 					return nil
 				}
 				buf.Write(bytes)
-				buf.WriteString("\n---\n")
 
 				return nil
 			})
@@ -109,7 +108,6 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 				continue
 			}
 			buf.Write(bytes)
-			buf.WriteString("\n---\n")
 		}
 	}
 
@@ -121,7 +119,6 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 				continue
 			}
 			buf.Write(bytes)
-			buf.WriteString("\n---\n")
 		}
 	}
 
