@@ -98,8 +98,30 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 			})
 		}
 	}
-	// FIXME: kustomize
-	// FIXME: genall
+
+	if len(generator.config.KustomizePaths) > 0 {
+		for _, sp := range generator.config.KustomizePaths {
+			directory := path.Join(generator.tmpDir, sp)
+			bytes, err := renderKustomize(directory)
+			if err != nil {
+				continue
+			}
+			buf.Write(bytes)
+			buf.WriteString("\n---\n")
+		}
+	}
+
+	if len(generator.config.GenPaths) > 0 {
+		for _, sp := range generator.config.GenPaths {
+			directory := path.Join(generator.tmpDir, strings.TrimSuffix(sp, "..."))
+			bytes, err := GenAllCrd(directory)
+			if err != nil {
+				continue
+			}
+			buf.Write(bytes)
+			buf.WriteString("\n---\n")
+		}
+	}
 
 	crds, err := generator.reader.Read(bytes.NewReader(buf.Bytes()), fmt.Sprintf("buffered bytes for %s", generator.config.Name))
 	if err != nil {
@@ -152,7 +174,8 @@ func (generator *GitGenerator) ensureLoaded() error {
 	}
 
 	repo, err := git.PlainClone(tmpDir, &git.CloneOptions{
-		URL: generator.config.Repository,
+		URL:               generator.config.Repository,
+		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 	})
 	if err != nil {
 		return err

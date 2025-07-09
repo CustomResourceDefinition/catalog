@@ -118,7 +118,15 @@ func TestGitGeneratorMetadataForKustomizeFile(t *testing.T) {
 			tag: expectedVersion,
 			paths: []gitPath{
 				{
-					path: "regular/crd.yaml",
+					path: "kustomize/kustomization.yaml",
+					file: "testdata/kustomize/kustomization.yaml",
+				},
+				{
+					path: "kustomize/password.txt",
+					file: "testdata/kustomize/password.txt",
+				},
+				{
+					path: "kustomize/crd.yaml",
 					file: "testdata/test-crd.yaml",
 				},
 			},
@@ -143,8 +151,8 @@ func TestGitGeneratorMetadataForKustomizeFile(t *testing.T) {
 	metadata, err := generator.MetaData("")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(metadata))
-	assert.Equal(t, "onepassword.com", metadata[0].Group)
-	assert.Equal(t, "onepassworditem", metadata[0].Kind)
+	assert.Equal(t, "crd.example.com", metadata[0].Group)
+	assert.Equal(t, "test", metadata[0].Kind)
 	assert.Equal(t, "v1", metadata[0].Version)
 }
 
@@ -156,8 +164,16 @@ func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
 			tag: expectedVersion,
 			paths: []gitPath{
 				{
-					path: "regular/crd.yaml",
-					file: "testdata/test-crd.yaml",
+					path: "api/go.mod",
+					file: "testdata/genall/source/go.mod",
+				},
+				{
+					path: "api/go.sum",
+					file: "testdata/genall/source/go.sum",
+				},
+				{
+					path: "api/source.go",
+					file: "testdata/genall/source/source.go",
 				},
 			},
 		},
@@ -181,7 +197,7 @@ func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
 	metadata, err := generator.MetaData("")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(metadata))
-	assert.Equal(t, "onepassword.com", metadata[0].Group)
-	assert.Equal(t, "onepassworditem", metadata[0].Kind)
+	assert.Equal(t, "source.example.com", metadata[0].Group)
+	assert.Equal(t, "foo", metadata[0].Kind)
 	assert.Equal(t, "v1", metadata[0].Version)
 }

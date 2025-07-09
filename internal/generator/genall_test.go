@@ -11,17 +11,17 @@ func TestGenAllCrd(t *testing.T) {
 	expected, err := os.ReadFile("testdata/genall/expected.yaml")
 	assert.Nil(t, err)
 
-	bytes := GenAllCrd("testdata/genall/source")
+	bytes, _ := GenAllCrd("testdata/genall/source")
 
 	assert.Equal(t, expected, bytes)
 }
 
 func TestGenAllCrdWithNonExistingInput(t *testing.T) {
-	bytes := GenAllCrd("testdata/genall/does-not-exist")
+	bytes, _ := GenAllCrd("testdata/genall/does-not-exist")
 	assert.Nil(t, bytes)
 }
 
 func TestGenAllCrdWithEmptyInput(t *testing.T) {
-	bytes := GenAllCrd("testdata/genall/empty")
+	bytes, _ := GenAllCrd("testdata/genall/empty")
 	assert.Nil(t, bytes)
 }

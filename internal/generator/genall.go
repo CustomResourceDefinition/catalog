@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"sigs.k8s.io/controller-tools/pkg/crd"
 	crdMarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
 	"sigs.k8s.io/controller-tools/pkg/genall"
@@ -13,32 +12,29 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
 
-type GenAllGenerator struct{}
-
-func (generator GenAllGenerator) NeededVersions(config configuration.Configuration, schemaRepository string) ([]string, error) {
-	return nil, nil
-}
-
-func (generator GenAllGenerator) Read(config configuration.Configuration, version string) ([]byte, error) {
-	return nil, nil
-}
-
 // GenAllCrd mimics the following command
 // `controller-gen crd "paths=/input" output:crd:dir=/output output:none`
 // and returns bytes for generated CRD yaml documents, if possible.
-func GenAllCrd(input string) []byte {
+func GenAllCrd(input string) ([]byte, error) {
 	buf := bytes.Buffer{}
 
 	oldWD, _ := os.Getwd()
 	defer os.Chdir(oldWD)
 	err := os.Chdir(input)
 	if err != nil {
-		return buf.Bytes()
+		return nil, err
 	}
 
-	roots, _ := loader.LoadRoots(".")
+	roots, err := loader.LoadRoots(".")
+	if err != nil {
+		return nil, err
+	}
+
 	reg := &markers.Registry{}
-	crdMarkers.Register(reg)
+	err = crdMarkers.Register(reg)
+	if err != nil {
+		return nil, err
+	}
 
 	out := &outputRule{
 		buf: &buf,
@@ -57,9 +53,12 @@ func GenAllCrd(input string) []byte {
 		MaxDescLen:  &length,
 	}
 
-	gen.Generate(ctx)
+	err = gen.Generate(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // outputRule is wrapping a byte buffer up so we can use it as an OutputRule
