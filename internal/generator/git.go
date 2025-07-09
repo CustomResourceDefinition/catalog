@@ -1,8 +1,13 @@
 package generator
 
 import (
+	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
@@ -25,7 +30,7 @@ func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader) G
 }
 
 func (generator GitGenerator) Close() error {
-	panic("unimplemented")
+	return os.Remove(generator.tmpDir)
 }
 
 func (generator GitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
@@ -33,7 +38,15 @@ func (generator GitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, err
 		return nil, err
 	}
 
-	panic("unimplemented")
+	schemas, err := generator.Schemas(version)
+	if err != nil {
+		return nil, err
+	}
+	metadata := make([]crd.CrdMetaSchema, len(schemas))
+	for i, s := range schemas {
+		metadata[i] = s.CrdMetaSchema
+	}
+	return metadata, nil
 }
 
 func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
@@ -41,7 +54,68 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 		return nil, err
 	}
 
-	panic("unimplemented")
+	if len(version) == 0 {
+		versions, err := generator.Versions()
+		if err != nil {
+			return nil, err
+		}
+		version = versions[0]
+	}
+
+	tree, err := generator.repo.Worktree()
+	if err != nil {
+		return nil, err
+	}
+
+	err = tree.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewTagReferenceName(version),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.Buffer{}
+	if len(generator.config.SearchPaths) > 0 {
+		for _, sp := range generator.config.SearchPaths {
+			filepath.Walk(path.Join(generator.tmpDir, sp), func(p string, info fs.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+
+				name := strings.ToLower(info.Name())
+				if info.IsDir() || !(strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
+					return nil
+				}
+
+				bytes, err := os.ReadFile(p)
+				if err != nil {
+					return nil
+				}
+				buf.Write(bytes)
+				buf.WriteString("\n---\n")
+
+				return nil
+			})
+		}
+	}
+	// FIXME: kustomize
+	// FIXME: genall
+
+	crds, err := generator.reader.Read(bytes.NewReader(buf.Bytes()), fmt.Sprintf("buffered bytes for %s", generator.config.Name))
+	if err != nil {
+		return nil, err
+	}
+
+	schemas := make([]crd.CrdSchema, 0)
+	for _, c := range crds {
+		schema, err := c.Schema()
+		if err != nil {
+			return nil, err
+		}
+		schemas = append(schemas, schema...)
+	}
+
+	return schemas, nil
 }
 
 func (generator GitGenerator) Versions() ([]string, error) {
@@ -59,6 +133,10 @@ func (generator GitGenerator) Versions() ([]string, error) {
 		tags = append(tags, r.Name().Short())
 		return nil
 	})
+
+	if generator.config.IncludeHead {
+		tags = append(tags, "head")
+	}
 
 	return tags, nil
 }

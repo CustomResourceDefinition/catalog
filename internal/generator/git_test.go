@@ -1,29 +1,36 @@
 package generator
 
 import (
+	"bytes"
 	"fmt"
-	"os"
-	"path"
 	"testing"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
-	"github.com/go-git/go-billy/v6/osfs"
-	"github.com/go-git/go-git/v6"
-	"github.com/go-git/go-git/v6/plumbing/object"
-	"github.com/go-git/go-git/v6/storage/filesystem"
+	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/stretchr/testify/assert"
 )
 
-// FIXME: more tests
-func TestGit(t *testing.T) {
-	p, err := setupGit()
+func TestGitGeneratorVersions(t *testing.T) {
+	expectedVersion := "1.0.0"
+
+	bundles := []gitBundle{
+		{
+			tag: expectedVersion,
+			paths: []gitPath{
+				{
+					path: "regular/crd.yaml",
+					file: "testdata/test-crd.yaml",
+				},
+			},
+		},
+	}
+
+	p, err := setupGit(bundles)
 	assert.Nil(t, err)
 	assert.NotNil(t, p)
 
-	expectedVersions := []string{"1.0.0"}
-
 	config := configuration.Configuration{
-		Kind:       configuration.Helm,
+		Kind:       configuration.Git,
 		Repository: fmt.Sprintf("file://%s", *p),
 	}
 
@@ -31,69 +38,150 @@ func TestGit(t *testing.T) {
 
 	versions, err := generator.Versions()
 	assert.Nil(t, err)
-	assert.Equal(t, expectedVersions, versions)
+	assert.Equal(t, []string{expectedVersion}, versions)
 }
 
-func setupGit() (*string, error) {
-	tmpDir, err := os.MkdirTemp("", "generator.config.Name")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+func TestGitGeneratorUnknownVersion(t *testing.T) {
+	expectedVersion := "1.0.0"
+
+	bundles := []gitBundle{
+		{
+			tag: expectedVersion,
+			paths: []gitPath{
+				{
+					path: "regular/crd.yaml",
+					file: "testdata/test-crd.yaml",
+				},
+			},
+		},
 	}
 
-	dotgitdir := path.Join(tmpDir, ".git")
-	store := filesystem.NewStorage(osfs.New(dotgitdir), nil)
+	p, err := setupGit(bundles)
+	assert.Nil(t, err)
+	assert.NotNil(t, p)
 
-	repo, err := git.Init(store, git.WithDefaultBranch("refs/heads/main"), git.WithWorkTree(osfs.New(tmpDir)))
-	if err != nil {
-		return nil, err
+	config := configuration.Configuration{
+		Kind:       configuration.Git,
+		Repository: fmt.Sprintf("file://%s", *p),
 	}
 
-	cfg, err := repo.Config()
-	if err != nil {
-		return nil, err
+	generator := NewGitGenerator(config, nil)
+
+	metadata, err := generator.MetaData("4.5.6")
+	assert.Nil(t, metadata)
+	assert.NotNil(t, err)
+}
+
+func TestGitGeneratorMetadataForRegularFile(t *testing.T) {
+	expectedVersion := "1.0.0"
+
+	bundles := []gitBundle{
+		{
+			tag: expectedVersion,
+			paths: []gitPath{
+				{
+					path: "regular/crd.yaml",
+					file: "testdata/test-crd.yaml",
+				},
+			},
+		},
 	}
 
-	cfg.User.Name = "runner"
-	err = repo.Storer.SetConfig(cfg)
-	if err != nil {
-		return nil, err
+	p, err := setupGit(bundles)
+	assert.Nil(t, err)
+	assert.NotNil(t, p)
+
+	config := configuration.Configuration{
+		Kind:        configuration.Git,
+		Repository:  fmt.Sprintf("file://%s", *p),
+		SearchPaths: []string{"extra/", "regular/"},
 	}
 
-	tree, err := repo.Worktree()
-	if err != nil {
-		return nil, err
+	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	assert.Nil(t, err)
+
+	generator := NewGitGenerator(config, reader)
+
+	metadata, err := generator.MetaData("")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(metadata))
+	assert.Equal(t, "crd.example.com", metadata[0].Group)
+	assert.Equal(t, "test", metadata[0].Kind)
+	assert.Equal(t, "v1", metadata[0].Version)
+}
+
+func TestGitGeneratorMetadataForKustomizeFile(t *testing.T) {
+	expectedVersion := "1.0.0"
+
+	bundles := []gitBundle{
+		{
+			tag: expectedVersion,
+			paths: []gitPath{
+				{
+					path: "regular/crd.yaml",
+					file: "testdata/test-crd.yaml",
+				},
+			},
+		},
 	}
 
-	bytes, err := os.ReadFile("testdata/test-crd.yaml")
-	if err != nil {
-		return nil, err
+	p, err := setupGit(bundles)
+	assert.Nil(t, err)
+	assert.NotNil(t, p)
+
+	config := configuration.Configuration{
+		Kind:           configuration.Git,
+		Repository:     fmt.Sprintf("file://%s", *p),
+		KustomizePaths: []string{"kustomize/"},
 	}
 
-	filename := path.Join(tmpDir, "test-crd.yaml")
-	err = os.WriteFile(filename, bytes, 0644)
-	if err != nil {
-		return nil, err
+	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	assert.Nil(t, err)
+
+	generator := NewGitGenerator(config, reader)
+
+	metadata, err := generator.MetaData("")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(metadata))
+	assert.Equal(t, "onepassword.com", metadata[0].Group)
+	assert.Equal(t, "onepassworditem", metadata[0].Kind)
+	assert.Equal(t, "v1", metadata[0].Version)
+}
+
+func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
+	expectedVersion := "1.0.0"
+
+	bundles := []gitBundle{
+		{
+			tag: expectedVersion,
+			paths: []gitPath{
+				{
+					path: "regular/crd.yaml",
+					file: "testdata/test-crd.yaml",
+				},
+			},
+		},
 	}
 
-	_, err = tree.Add("test-crd.yaml")
-	if err != nil {
-		return nil, err
+	p, err := setupGit(bundles)
+	assert.Nil(t, err)
+	assert.NotNil(t, p)
+
+	config := configuration.Configuration{
+		Kind:       configuration.Git,
+		Repository: fmt.Sprintf("file://%s", *p),
+		GenPaths:   []string{"./api/..."},
 	}
 
-	commit, err := tree.Commit("Add CRD", &git.CommitOptions{Author: &object.Signature{Name: "runner", Email: "runner"}})
-	if err != nil {
-		return nil, err
-	}
+	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	assert.Nil(t, err)
 
-	_, err = repo.CommitObject(commit)
-	if err != nil {
-		return nil, err
-	}
+	generator := NewGitGenerator(config, reader)
 
-	_, err = repo.CreateTag("1.0.0", commit, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return &dotgitdir, nil
+	metadata, err := generator.MetaData("")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(metadata))
+	assert.Equal(t, "onepassword.com", metadata[0].Group)
+	assert.Equal(t, "onepassworditem", metadata[0].Kind)
+	assert.Equal(t, "v1", metadata[0].Version)
 }

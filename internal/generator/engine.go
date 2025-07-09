@@ -109,6 +109,7 @@ func (build Build) versions() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	// FIXME: sort vs head
 	sort.Slice(versions, func(i, j int) bool {
 		return semver.Compare(versions[i], versions[j]) > 0
 	})

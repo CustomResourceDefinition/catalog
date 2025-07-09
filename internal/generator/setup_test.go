@@ -11,9 +11,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-billy/v6/osfs"
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing/object"
+	"github.com/go-git/go-git/v6/storage/filesystem"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -171,4 +176,84 @@ func setupOciServer(t *testing.T, charts []ociChart) (mockServer, func()) {
 	return mock, func() {
 		server.Close()
 	}
+}
+
+type gitBundle struct {
+	tag   string
+	paths []gitPath
+}
+
+type gitPath struct {
+	path, file string
+}
+
+func setupGit(bundles []gitBundle) (*string, error) {
+	tmpDir, err := os.MkdirTemp("", "generator.config.Name")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+	}
+
+	dotgitdir := path.Join(tmpDir, ".git")
+	store := filesystem.NewStorage(osfs.New(dotgitdir), nil)
+
+	repo, err := git.Init(store, git.WithDefaultBranch("refs/heads/main"), git.WithWorkTree(osfs.New(tmpDir)))
+	if err != nil {
+		return nil, err
+	}
+
+	cfg, err := repo.Config()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.User.Name = "runner"
+	// set config to create file _required_ by work trees
+	err = repo.Storer.SetConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	tree, err := repo.Worktree()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, bundle := range bundles {
+		for _, p := range bundle.paths {
+			directory := path.Join(tmpDir, path.Dir(p.path))
+
+			bytes, err := os.ReadFile(p.file)
+			if err != nil {
+				return nil, err
+			}
+
+			os.MkdirAll(directory, 0775)
+			err = os.WriteFile(path.Join(tmpDir, p.path), bytes, 0644)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = tree.Add(p.path)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		commit, err := tree.Commit("Add bundle", &git.CommitOptions{Author: &object.Signature{Name: "runner", Email: "runner"}})
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = repo.CommitObject(commit)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = repo.CreateTag(bundle.tag, commit, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &dotgitdir, nil
 }

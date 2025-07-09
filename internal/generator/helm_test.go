@@ -57,8 +57,8 @@ func TestHelmGeneratorUnknownVersion(t *testing.T) {
 
 	generator := NewHelmGenerator("connect", config, nil)
 
-	versions, err := generator.MetaData("4.5.6")
-	assert.Nil(t, versions)
+	metadata, err := generator.MetaData("4.5.6")
+	assert.Nil(t, metadata)
 	assert.NotNil(t, err)
 }
 

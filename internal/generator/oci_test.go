@@ -56,8 +56,8 @@ func TestOciGeneratorUnknownVersion(t *testing.T) {
 
 	generator := NewOciGenerator(config, nil)
 
-	versions, err := generator.MetaData("4.5.6")
-	assert.Nil(t, versions)
+	metadata, err := generator.MetaData("4.5.6")
+	assert.Nil(t, metadata)
 	assert.NotNil(t, err)
 }
 
