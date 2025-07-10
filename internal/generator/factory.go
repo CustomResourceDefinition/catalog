@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -12,50 +13,50 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// FIXME: factory/build vs generator - names are hard
-type Factory struct {
+type Builder struct {
 	schemaRepository string
-	crdReader        crd.CrdReader
 	logger           io.Writer
+	config           configuration.Configuration
+	generator        Generator
+	versionFilter    *regexp.Regexp
 }
 
-type Build struct {
-	Factory
-	config    configuration.Configuration
-	generator Generator
-}
-
-func NewFactory(schemaRepository string, logger io.Writer) (*Factory, error) {
-	reader, err := crd.NewCrdReader(logger)
+func NewBuilder(config configuration.Configuration, reader crd.CrdReader, schemaRepository string, logger io.Writer) (*Builder, error) {
+	generator, err := resolveGenerator(config, reader)
 	if err != nil {
 		return nil, err
 	}
-	return &Factory{
-		schemaRepository: schemaRepository,
-		crdReader:        reader,
+
+	if len(config.VersionPrefix) == 0 {
+		config.VersionPrefix = ""
+	}
+
+	if len(config.VersionSuffix) == 0 {
+		config.VersionSuffix = "$"
+	}
+
+	pattern := fmt.Sprintf(`^%s[0-9]{1,}\.[0-9]{1,}\.[0-9]{1,}%s`, config.VersionPrefix, config.VersionSuffix)
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Builder{
+		config:           config,
+		generator:        generator,
+		versionFilter:    re,
 		logger:           logger,
+		schemaRepository: schemaRepository,
 	}, nil
 }
 
-func (f Factory) NewBuild(config configuration.Configuration) (*Build, error) {
-	generator, err := resolveGenerator(config, f.crdReader)
-	if err != nil {
-		return nil, err
-	}
-	return &Build{
-		Factory:   f,
-		config:    config,
-		generator: generator,
-	}, nil
-}
+func (builder Builder) Build() error {
+	logger := builder.logger
 
-func (build Build) Complete() error {
-	logger := build.Factory.logger
-
-	fmt.Fprintf(logger, "Producing for %s:\n", build.config.Name)
+	fmt.Fprintf(logger, "Producing for %s:\n", builder.config.Name)
 	defer fmt.Fprintf(logger, "End.\n")
 
-	versions, err := build.versions()
+	versions, err := builder.versions()
 	if err != nil {
 		return err
 	}
@@ -63,17 +64,17 @@ func (build Build) Complete() error {
 	fmt.Fprintf(logger, " - found %d versions.\n", count)
 
 	if count <= 0 {
-		return fmt.Errorf("empty list of versions for '%s'", build.config.Name)
+		return fmt.Errorf("empty list of versions for '%s'", builder.config.Name)
 	}
 	version := versions[0]
 
 	fmt.Fprintf(logger, " - checking version %s for completeness.\n", version)
-	metadata, err := build.generator.MetaData(version)
+	metadata, err := builder.generator.MetaData(version)
 	if err != nil {
 		return err
 	}
 
-	missing, known := verifyKnownMetadata(metadata, build.schemaRepository)
+	missing, known := verifyKnownMetadata(metadata, builder.schemaRepository)
 	if known {
 		fmt.Fprintf(logger, " - complete -> render only latest version.\n")
 		versions = []string{version}
@@ -83,7 +84,7 @@ func (build Build) Complete() error {
 
 	for _, version := range versions {
 		fmt.Fprintf(logger, " - render version %s.\n", version)
-		schemas, err := build.generator.Schemas(version)
+		schemas, err := builder.generator.Schemas(version)
 		if err != nil {
 			fmt.Fprintf(logger, " - - discarded due to error: %s.\n", err.Error())
 			continue
@@ -91,7 +92,7 @@ func (build Build) Complete() error {
 
 		fmt.Fprintf(logger, " - - rendered %d schema.\n", len(schemas))
 		for _, schema := range schemas {
-			file := path.Join(build.schemaRepository, schema.Filepath())
+			file := path.Join(builder.schemaRepository, schema.Filepath())
 			os.MkdirAll(path.Dir(file), 0755)
 			err := os.WriteFile(file, schema.Bytes, 0644)
 			if err != nil {
@@ -100,21 +101,40 @@ func (build Build) Complete() error {
 		}
 	}
 
-	build.generator.Close()
+	builder.generator.Close()
 
 	return nil
 }
 
-func (build Build) versions() ([]string, error) {
-	versions, err := build.generator.Versions()
+func (builder Builder) versions() ([]string, error) {
+	versions, err := builder.generator.Versions()
 	if err != nil {
 		return nil, err
 	}
-	// FIXME: sort vs head
-	sort.Slice(versions, func(i, j int) bool {
-		return semver.Compare(versions[i], versions[j]) > 0
+
+	filtered := make([]string, 0)
+	for _, v := range versions {
+		if builder.versionFilter.MatchString(v) || v == referenceHead {
+			filtered = append(filtered, v)
+		}
+	}
+
+	sort.Slice(filtered, func(i, j int) bool {
+		return compareVersion(filtered[i], filtered[j]) > 0
 	})
-	return versions, nil
+	return filtered, nil
+}
+
+func compareVersion(a, b string) int {
+	if len(a) >= 0 && a[0] != 'v' {
+		a = fmt.Sprintf("v%s", a)
+	}
+
+	if len(b) >= 0 && b[0] != 'v' {
+		b = fmt.Sprintf("v%s", b)
+	}
+
+	return semver.Compare(a, b)
 }
 
 func resolveGenerator(config configuration.Configuration, reader crd.CrdReader) (Generator, error) {

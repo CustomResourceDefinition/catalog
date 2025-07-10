@@ -21,8 +21,11 @@ type GitGenerator struct {
 	config configuration.Configuration
 	repo   *git.Repository
 	reader crd.CrdReader
+	head   plumbing.Hash
 	tmpDir string
 }
+
+const referenceHead = "head"
 
 func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
 	return GitGenerator{
@@ -56,6 +59,11 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 		return nil, err
 	}
 
+	tree, err := generator.repo.Worktree()
+	if err != nil {
+		return nil, err
+	}
+
 	if len(version) == 0 {
 		versions, err := generator.Versions()
 		if err != nil {
@@ -64,14 +72,17 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 		version = versions[0]
 	}
 
-	tree, err := generator.repo.Worktree()
-	if err != nil {
-		return nil, err
+	var opts git.CheckoutOptions
+	if version == referenceHead {
+		opts = git.CheckoutOptions{
+			Hash: generator.head,
+		}
+	} else {
+		opts = git.CheckoutOptions{
+			Branch: plumbing.NewTagReferenceName(version),
+		}
 	}
-
-	err = tree.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewTagReferenceName(version),
-	})
+	err = tree.Checkout(&opts)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +167,7 @@ func (generator GitGenerator) Versions() ([]string, error) {
 	})
 
 	if generator.config.IncludeHead {
-		tags = append(tags, "head")
+		tags = append(tags, referenceHead)
 	}
 
 	return tags, nil
@@ -180,6 +191,12 @@ func (generator *GitGenerator) ensureLoaded() error {
 		return err
 	}
 
+	head, err := repo.Head()
+	if err != nil {
+		return err
+	}
+
+	generator.head = head.Hash()
 	generator.repo = repo
 	generator.tmpDir = tmpDir
 

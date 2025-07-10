@@ -218,6 +218,11 @@ func setupGit(bundles []gitBundle) (*string, error) {
 		return nil, err
 	}
 
+	_, err = tree.Commit("Empty initial commit", &git.CommitOptions{Author: &object.Signature{Name: "runner", Email: "runner"}, AllowEmptyCommits: true})
+	if err != nil {
+		return nil, err
+	}
+
 	for _, bundle := range bundles {
 		for _, p := range bundle.paths {
 			directory := path.Join(tmpDir, path.Dir(p.path))
@@ -239,19 +244,28 @@ func setupGit(bundles []gitBundle) (*string, error) {
 			}
 		}
 
-		commit, err := tree.Commit("Add bundle", &git.CommitOptions{Author: &object.Signature{Name: "runner", Email: "runner"}})
-		if err != nil {
-			return nil, err
-		}
+		if len(bundle.paths) > 0 {
+			commit, err := tree.Commit("Add bundle", &git.CommitOptions{Author: &object.Signature{Name: "runner", Email: "runner"}})
+			if err != nil {
+				return nil, err
+			}
 
-		_, err = repo.CommitObject(commit)
-		if err != nil {
-			return nil, err
-		}
+			_, err = repo.CommitObject(commit)
+			if err != nil {
+				return nil, err
+			}
 
-		_, err = repo.CreateTag(bundle.tag, commit, nil)
-		if err != nil {
-			return nil, err
+			_, err = repo.CreateTag(bundle.tag, commit, nil)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			commit, _ := repo.Head()
+
+			_, err = repo.CreateTag(bundle.tag, commit.Hash(), nil)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

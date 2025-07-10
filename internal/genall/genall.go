@@ -12,8 +12,6 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
 
-// FIXME: naming
-
 // Render mimics the following command
 // `controller-gen crd "paths=/input" output:crd:dir=/output output:none`
 // and returns bytes for generated CRD yaml documents, if possible.

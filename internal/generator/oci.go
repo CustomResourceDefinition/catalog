@@ -19,7 +19,6 @@ import (
 	"helm.sh/helm/v3/pkg/registry"
 )
 
-// FIXME: limit all generators versions by regex
 type OciGenerator struct {
 	client        http.Client
 	config        configuration.Configuration
