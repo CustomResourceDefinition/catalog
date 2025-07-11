@@ -157,7 +157,7 @@ func verifyKnownMetadata(metadata []crd.CrdMetaSchema, schemaRepository string) 
 	for _, m := range metadata {
 		filename := m.Filepath()
 		fullPath := path.Join(schemaRepository, filename)
-		if f, err := os.Stat(fullPath); err != nil || !f.IsDir() {
+		if f, err := os.Stat(fullPath); err != nil || f.IsDir() {
 			return filename, false
 		}
 	}

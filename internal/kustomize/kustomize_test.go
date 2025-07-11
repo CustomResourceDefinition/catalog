@@ -6,9 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// FIXME: more tests
 func TestKustomize(t *testing.T) {
 	bytes, err := Render("testdata")
 	assert.Nil(t, err)
 	assert.NotNil(t, bytes)
+
+	// FIXME: test bytes
 }
