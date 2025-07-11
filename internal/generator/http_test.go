@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -64,7 +63,7 @@ func TestHttpGeneratorSchemas(t *testing.T) {
 		},
 	}
 
-	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
 	generator := NewHttpGenerator(config, reader)
@@ -96,7 +95,7 @@ func TestHttpGeneratorMetadata(t *testing.T) {
 		},
 	}
 
-	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
 	generator := NewHttpGenerator(config, reader)
@@ -131,7 +130,7 @@ func TestHttpGeneratorPartialSchemas(t *testing.T) {
 		},
 	}
 
-	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
 	generator := NewHttpGenerator(config, reader)

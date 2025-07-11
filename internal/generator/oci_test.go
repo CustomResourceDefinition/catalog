@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"bytes"
 	"fmt"
 	"testing"
 
@@ -80,7 +79,7 @@ func TestOciGeneratorMetadata(t *testing.T) {
 		Repository: fmt.Sprintf("%s%s", server.URL, "/helm/connect"),
 	}
 
-	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
 	generator := NewOciGenerator(config, reader)

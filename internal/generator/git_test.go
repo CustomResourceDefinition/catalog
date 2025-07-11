@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"bytes"
 	"fmt"
 	"testing"
 
@@ -97,7 +96,7 @@ func TestGitGeneratorMetadataForRegularFile(t *testing.T) {
 		SearchPaths: []string{"extra/", "regular/"},
 	}
 
-	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
 	generator := NewGitGenerator(config, reader)
@@ -143,7 +142,7 @@ func TestGitGeneratorMetadataForKustomizeFile(t *testing.T) {
 		KustomizePaths: []string{"kustomize/"},
 	}
 
-	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
 	generator := NewGitGenerator(config, reader)
@@ -190,7 +189,7 @@ func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
 		IncludeHead: true,
 	}
 
-	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
 	generator := NewGitGenerator(config, reader)

@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// FIXME: more tests
 type CrdReader interface {
 	Read(reader io.Reader, file string) ([]Crd, error)
 }

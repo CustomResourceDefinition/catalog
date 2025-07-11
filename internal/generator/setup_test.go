@@ -22,6 +22,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func setupLogger() io.Writer {
+	return bytes.NewBuffer([]byte{})
+}
+
 func setupServer(url, file string) (mockServer, func()) {
 	req := serverRequest{
 		urlPath: url,

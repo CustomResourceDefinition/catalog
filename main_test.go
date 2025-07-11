@@ -8,15 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var logger = bytes.NewBuffer([]byte{})
+
 func TestNoArgumentsRunning(t *testing.T) {
 	args := []string{"bin"}
-	err := run(args, bytes.NewBuffer([]byte{}))
+	err := run(args, logger)
 	assert.ErrorIs(t, err, command.ErrNoArguments)
 }
 
 func TestNoArgumentsParsing(t *testing.T) {
 	args := []string{"bin"}
-	_, err := parse(args, bytes.NewBuffer([]byte{}))
+	_, err := parse(args, logger)
 	assert.ErrorIs(t, err, command.ErrNoArguments)
 }
 
@@ -30,7 +32,7 @@ func TestUnknownCommandParsing(t *testing.T) {
 	for _, test := range tests {
 		args := []string{"bin"}
 		args = append(args, test...)
-		_, err := parse(args, bytes.NewBuffer([]byte{}))
+		_, err := parse(args, logger)
 		assert.ErrorIs(t, err, command.ErrUnknownCommand)
 	}
 }
@@ -42,7 +44,7 @@ func TestCompareCommandParsingIncorrectFlags(t *testing.T) {
 		{"bin", commandVerify, "--not-a-flag"},
 	}
 	for i, test := range tests {
-		cmd, err := parse(test, bytes.NewBuffer([]byte{}))
+		cmd, err := parse(test, logger)
 		assert.NotNil(t, err, "index %d failed", i)
 		assert.Nil(t, cmd, "index %d failed", i)
 	}
@@ -55,7 +57,7 @@ func TestCompareCommandParsing(t *testing.T) {
 		{"bin", commandVerify},
 	}
 	for i, test := range tests {
-		cmd, err := parse(test, bytes.NewBuffer([]byte{}))
+		cmd, err := parse(test, logger)
 		assert.Nil(t, err, "index %d failed", i)
 		assert.NotNil(t, cmd, "index %d failed", i)
 	}
@@ -80,7 +82,7 @@ func TestCommandRunningInvalidConfiguration(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		err := run(test, bytes.NewBuffer([]byte{}))
+		err := run(test, logger)
 		assert.ErrorIs(t, err, command.ErrInvalidConfiguration, "index %d failed", i)
 	}
 }

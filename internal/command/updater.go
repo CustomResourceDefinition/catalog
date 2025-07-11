@@ -52,12 +52,12 @@ func (cmd Updater) Run() error {
 
 	for _, config := range splitConfigurations(configurations) {
 		build, err := generator.NewBuilder(config, reader, cmd.Output, cmd.Logger)
-		if err == nil {
+		if err != nil {
 			continue
 		}
 
 		err = build.Build()
-		if err == nil {
+		if err != nil {
 			continue
 		}
 	}
@@ -66,16 +66,18 @@ func (cmd Updater) Run() error {
 }
 
 func (cmd Updater) validate() error {
-	directories := []string{cmd.Configuration, cmd.Output}
-	for _, d := range directories {
-		if f, err := os.Stat(d); err != nil || len(d) == 0 || !f.IsDir() {
-			return fmt.Errorf("'%s' is not a valid directory path", d)
-		}
+	if f, err := os.Stat(cmd.Output); err != nil || len(cmd.Output) == 0 || !f.IsDir() {
+		return fmt.Errorf("'%s' is not a valid directory path", cmd.Output)
 	}
+
+	if f, err := os.Stat(cmd.Configuration); err != nil || len(cmd.Configuration) == 0 || f.IsDir() {
+		return fmt.Errorf("'%s' is not a valid file path", cmd.Configuration)
+	}
+
 	return nil
 }
 
-func (cmd Updater) initialize() error {
+func (cmd *Updater) initialize() error {
 	if cmd.Logger == nil {
 		cmd.Logger = os.Stderr
 	}

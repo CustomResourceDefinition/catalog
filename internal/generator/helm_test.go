@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"bytes"
 	"os"
 	"strings"
 	"testing"
@@ -77,7 +76,7 @@ func TestHelmGeneratorMetadata(t *testing.T) {
 		Repository: server.URL,
 	}
 
-	reader, err := crd.NewCrdReader(bytes.NewBuffer([]byte{}))
+	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
 	generator := NewHelmGenerator("connect", config, reader)
