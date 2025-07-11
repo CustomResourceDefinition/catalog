@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 
+	"github.com/CustomResourceDefinition/catalog/internal/semver"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 	"gopkg.in/yaml.v3"
 )
@@ -79,4 +81,27 @@ func UnmarshalConfigurations(reader io.Reader) ([]Configuration, error) {
 	}
 
 	return conf, nil
+}
+
+// ValuesFile resolves the most relevant values file content from the configuration,
+// note that versions are treated as semver, but any prefix/suffix extras will result in improper sorting
+func (c Configuration) ValuesFile(version string) (map[string]any, error) {
+	sort.Slice(c.Values, func(i, j int) bool {
+		return semver.Compare(c.Values[i].Version, c.Values[j].Version) > 0
+	})
+
+	for _, v := range c.Values {
+		if semver.Compare(v.Version, version) > 0 {
+			continue
+		}
+
+		var result map[string]any
+		err := yaml.Unmarshal([]byte(v.ValuesFile), &result)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+
+	return nil, nil
 }

@@ -10,7 +10,7 @@ import (
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
-	"golang.org/x/mod/semver"
+	"github.com/CustomResourceDefinition/catalog/internal/semver"
 )
 
 type Builder struct {
@@ -53,7 +53,7 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, schema
 func (builder Builder) Build() error {
 	logger := builder.logger
 
-	fmt.Fprintf(logger, "Producing for %s:\n", builder.config.Name)
+	fmt.Fprintf(logger, "Producing for %s@%s:\n", builder.config.Name, builder.config.Kind)
 	defer fmt.Fprintf(logger, "End.\n")
 
 	versions, err := builder.versions()
@@ -120,21 +120,9 @@ func (builder Builder) versions() ([]string, error) {
 	}
 
 	sort.Slice(filtered, func(i, j int) bool {
-		return compareVersion(filtered[i], filtered[j]) > 0
+		return semver.Compare(filtered[i], filtered[j]) > 0
 	})
 	return filtered, nil
-}
-
-func compareVersion(a, b string) int {
-	if len(a) >= 0 && a[0] != 'v' {
-		a = fmt.Sprintf("v%s", a)
-	}
-
-	if len(b) >= 0 && b[0] != 'v' {
-		b = fmt.Sprintf("v%s", b)
-	}
-
-	return semver.Compare(a, b)
 }
 
 func resolveGenerator(config configuration.Configuration, reader crd.CrdReader) (Generator, error) {

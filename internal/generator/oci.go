@@ -86,7 +86,12 @@ func (generator OciGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 		return nil, fmt.Errorf("failed to download chart: %w", err)
 	}
 
-	rendered, err := renderChart(savedPath, "release", "namespace", nil)
+	values, err := generator.config.ValuesFile(version)
+	if err != nil {
+		return nil, err
+	}
+
+	rendered, err := renderChart(savedPath, "release", "namespace", values)
 	if err != nil {
 		return nil, err
 	}

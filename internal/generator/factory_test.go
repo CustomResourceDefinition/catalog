@@ -13,28 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVersionSorting(t *testing.T) {
-	var result int
-
-	result = compareVersion("1.0.0", "1.0.0")
-	assert.Equal(t, 0, result)
-
-	result = compareVersion("2.0.0", "1.0.0")
-	assert.Equal(t, 1, result)
-
-	result = compareVersion("2.1.0", "2.2.0")
-	assert.Equal(t, -1, result)
-
-	result = compareVersion("2.10.0", "2.2.0")
-	assert.Equal(t, 1, result)
-
-	result = compareVersion("2.10.0", "2.1.0")
-	assert.Equal(t, 1, result)
-
-	result = compareVersion("2.10.0", "2.0.0")
-	assert.Equal(t, 1, result)
-}
-
 func TestBuilderVersionSorting(t *testing.T) {
 	seedVersions := []string{
 		"2.10.0", "1.0.0", "2.2.0", "2.1.0",

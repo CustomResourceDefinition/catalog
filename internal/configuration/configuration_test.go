@@ -77,3 +77,45 @@ func TestUnmarshalEmptyConfigurations(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, conf)
 }
+
+func TestResolvingConfigurationValues(t *testing.T) {
+	cv := []ConfigurationValues{
+		{
+			Version:    "0.0.0",
+			ValuesFile: "",
+		},
+		{
+			Version:    "2.0.0",
+			ValuesFile: "output: 2",
+		},
+		{
+			Version:    "1.0.0",
+			ValuesFile: "output: 1",
+		},
+	}
+
+	c := Configuration{
+		Values: cv,
+	}
+	v, err := c.ValuesFile("0.0.0")
+	assert.Nil(t, err)
+	assert.Nil(t, v)
+
+	v, err = c.ValuesFile("0.9.1")
+	assert.Nil(t, err)
+	assert.Nil(t, v)
+
+	v, err = c.ValuesFile("1.9.1")
+	assert.Nil(t, err)
+	assert.Equal(t, v, map[string]any{"output": 1})
+
+	v, err = c.ValuesFile("2.0.0")
+	assert.Nil(t, err)
+	assert.Equal(t, v, map[string]any{"output": 2})
+
+	v, err = c.ValuesFile("2.0.1")
+	assert.Nil(t, err)
+	assert.Equal(t, v, map[string]any{"output": 2})
+}
+
+// FIXME: test/unit-test-values-files.sh too

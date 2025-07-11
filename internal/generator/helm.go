@@ -65,7 +65,12 @@ func (generator HelmGenerator) Schemas(version string) ([]crd.CrdSchema, error) 
 		return nil, fmt.Errorf("failed to download chart: %w", err)
 	}
 
-	rendered, err := renderChart(filename, "release", "namespace", nil)
+	values, err := generator.config.ValuesFile(version)
+	if err != nil {
+		return nil, err
+	}
+
+	rendered, err := renderChart(filename, "release", "namespace", values)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +166,7 @@ func (generator *HelmGenerator) ensureLoaded() error {
 	return nil
 }
 
-func renderChart(chartPath, releaseName, namespace string, values map[string]interface{}) ([]byte, error) {
+func renderChart(chartPath, releaseName, namespace string, values map[string]any) ([]byte, error) {
 	chart, err := loader.Load(chartPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load chart: %w", err)

@@ -61,13 +61,13 @@ func (r crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 
 		obj, _, err := r.decoder.Decode(doc, nil, nil)
 		if err != nil {
-			fmt.Fprintf(r.logger, "Unable to decode document #%d at %s\n", index, file)
+			fmt.Fprintf(r.logger, "   unable to decode document #%d at %s, err: %s\n", index, file, strings.ReplaceAll(err.Error(), "\n", "\n   "))
 			continue
 		}
 
 		crd, ok := obj.(*v1.CustomResourceDefinition)
 		if !ok {
-			fmt.Fprintf(r.logger, "Invalid document #%d at %s\n", index, file)
+			fmt.Fprintf(r.logger, "   invalid document #%d at %s\n", index, file)
 			continue
 		}
 
