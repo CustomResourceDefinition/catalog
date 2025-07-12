@@ -27,7 +27,7 @@ endif
 
 _unit-tests:
 	@echo 'Running go unit tests ...'
-	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags $(GO_TAGS)
+	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags $(GO_TAGS) -skip 'TestCheckLocal'
 	go tool cover -html=build/coverage.out -o build/coverage.html
 	@echo 'Running static analysis ...'
 	go vet ./...

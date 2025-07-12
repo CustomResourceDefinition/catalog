@@ -25,7 +25,7 @@ func Render(input string) ([]byte, error) {
 		return nil, err
 	}
 
-	roots, err := loader.LoadRoots(".")
+	roots, err := loader.LoadRoots("./...")
 	if err != nil {
 		return nil, err
 	}

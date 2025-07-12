@@ -30,14 +30,3 @@
   name: karpenter
   repository: oci://public.ecr.aws/karpenter/karpenter
 ```
-
-## git - genall
-```
-- kind: git
-  name: kubeshop-testkube-operator
-  repository: https://github.com/kubeshop/testkube-operator
-  genPaths:
-    - ./api/...
-    - ./apis/...
-  versionPrefix: v
-```
