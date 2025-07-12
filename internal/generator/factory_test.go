@@ -181,8 +181,6 @@ func TestBuild(t *testing.T) {
 	fs, err := os.Stat(path.Join(tmpDir, "crd.example.com", "test_v1.json"))
 	assert.Nil(t, err)
 	assert.True(t, !fs.IsDir())
-
-	// FIXME: test output?
 }
 
 func TestBuildWithLatestVersion(t *testing.T) {

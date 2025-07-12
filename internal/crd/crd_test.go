@@ -65,8 +65,6 @@ func TestCrdSchema(t *testing.T) {
 	assert.Equal(t, "argoproj.io", schema.Group)
 	assert.Equal(t, "application", schema.Kind)
 	assert.Equal(t, "v1alpha1", schema.Version)
-
-	// FIXME: test the bytes?
 }
 
 func TestCrdReaderRead(t *testing.T) {

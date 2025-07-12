@@ -10,6 +10,4 @@ func TestKustomize(t *testing.T) {
 	bytes, err := Render("testdata")
 	assert.Nil(t, err)
 	assert.NotNil(t, bytes)
-
-	// FIXME: test bytes
 }

@@ -117,5 +117,3 @@ func TestResolvingConfigurationValues(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, v, map[string]any{"output": 2})
 }
-
-// FIXME: test/unit-test-values-files.sh too
