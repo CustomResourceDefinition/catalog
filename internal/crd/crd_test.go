@@ -85,10 +85,10 @@ func TestCrdReaderRead(t *testing.T) {
 
 	logs := logger.String()
 
-	assert.True(t, strings.Contains(logs, "Unable to decode document #0"))
-	assert.True(t, strings.Contains(logs, "Unable to decode document #1"))
-	assert.True(t, strings.Contains(logs, "Unable to decode document #2"))
-	assert.True(t, strings.Contains(logs, "Unable to decode document #3"))
+	assert.True(t, strings.Contains(logs, "unable to decode document #0"))
+	assert.True(t, strings.Contains(logs, "unable to decode document #1"))
+	assert.True(t, strings.Contains(logs, "unable to decode document #2"))
+	assert.True(t, strings.Contains(logs, "unable to decode document #3"))
 }
 
 type testScenario struct {

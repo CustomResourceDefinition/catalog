@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -80,6 +81,7 @@ func (builder Builder) Build() error {
 		versions = []string{version}
 	} else {
 		fmt.Fprintf(logger, " - missing %s -> render all versions.\n", missing)
+		slices.Reverse(versions)
 	}
 
 	for _, version := range versions {
@@ -120,6 +122,12 @@ func (builder Builder) versions() ([]string, error) {
 	}
 
 	sort.Slice(filtered, func(i, j int) bool {
+		if filtered[i] == referenceHead {
+			return true
+		}
+		if filtered[j] == referenceHead {
+			return false
+		}
 		return semver.Compare(filtered[i], filtered[j]) > 0
 	})
 	return filtered, nil

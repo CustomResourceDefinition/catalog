@@ -1,7 +1,5 @@
 # Problems
 
-- rendering all in the wrong order
-
 ## helm `--include-crds`?
 ```
 - entries:

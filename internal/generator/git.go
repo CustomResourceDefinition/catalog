@@ -161,14 +161,13 @@ func (generator GitGenerator) Versions() ([]string, error) {
 	}
 
 	tags := make([]string, 0)
+	if generator.config.IncludeHead {
+		tags = append(tags, referenceHead)
+	}
 	iter.ForEach(func(r *plumbing.Reference) error {
 		tags = append(tags, r.Name().Short())
 		return nil
 	})
-
-	if generator.config.IncludeHead {
-		tags = append(tags, referenceHead)
-	}
 
 	return tags, nil
 }
