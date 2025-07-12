@@ -8,6 +8,7 @@ import (
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
+	"github.com/CustomResourceDefinition/catalog/internal/semver"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
@@ -97,10 +98,12 @@ func (generator HelmGenerator) Versions() ([]string, error) {
 		return nil, err
 	}
 
-	versions := make([]string, len(generator.versions))
+	versions := make([]string, 0)
 
-	for i, version := range generator.versions {
-		versions[i] = version.Version
+	for _, version := range generator.versions {
+		if !version.Removed && semver.IsCanonical(version.Version) {
+			versions = append(versions, version.Version)
+		}
 	}
 
 	return versions, nil

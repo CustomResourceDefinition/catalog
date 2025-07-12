@@ -61,7 +61,9 @@ func (r crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 
 		obj, _, err := r.decoder.Decode(doc, nil, nil)
 		if err != nil {
-			fmt.Fprintf(r.logger, "   unable to decode document #%d at %s, err: %s\n", index, file, strings.ReplaceAll(err.Error(), "\n", "\n   "))
+			if !runtime.IsMissingKind(err) && !runtime.IsNotRegisteredError(err) {
+				fmt.Fprintf(r.logger, "   unable to decode document #%d at %s, err: %s\n", index, file, strings.ReplaceAll(err.Error(), "\n", "\n   "))
+			}
 			continue
 		}
 

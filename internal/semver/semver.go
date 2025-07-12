@@ -9,13 +9,19 @@ import (
 // Compare returns an integer comparing two versions according to
 // semantic version precedence.
 func Compare(a, b string) int {
-	if len(a) >= 0 && a[0] != 'v' {
-		a = fmt.Sprintf("v%s", a)
-	}
-
-	if len(b) >= 0 && b[0] != 'v' {
-		b = fmt.Sprintf("v%s", b)
-	}
-
+	a = normalize(a)
+	b = normalize(b)
 	return semantic.Compare(a, b)
+}
+
+func IsCanonical(s string) bool {
+	s = normalize(s)
+	return len(semantic.Build(s)) == 0 && len(semantic.Prerelease(s)) == 0
+}
+
+func normalize(s string) string {
+	if len(s) >= 0 && s[0] != 'v' {
+		return fmt.Sprintf("v%s", s)
+	}
+	return s
 }

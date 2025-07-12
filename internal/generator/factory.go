@@ -29,7 +29,11 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, schema
 	}
 
 	if len(config.VersionPrefix) == 0 {
-		config.VersionPrefix = ""
+		if config.Kind == configuration.Helm || config.Kind == configuration.HelmOci {
+			config.VersionPrefix = "v?"
+		} else {
+			config.VersionPrefix = ""
+		}
 	}
 
 	if len(config.VersionSuffix) == 0 {
