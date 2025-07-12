@@ -189,4 +189,5 @@ func TestCheckLocal(t *testing.T) {
 
 	err := updater.Run()
 	assert.Nil(t, err)
+	assert.True(t, false, "this test should always be skipped and/or ignored")
 }

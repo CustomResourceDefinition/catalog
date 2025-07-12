@@ -14,6 +14,26 @@
   repository: oci://public.ecr.aws/karpenter/karpenter-crd # this is a new repo - should be be run without `schema/karpenter.sh`
 ```
 
-## Clean configuration
+## smoke test #2
 
-- remove all '...' from genpaths
+Too much is produced:
+
+```
+Verifing Works using only latest version ...
+--- /tmp/schema.list
++++ /tmp/verified.list
+@@ -1,12 +1,7 @@
+-./chart.conditional-oci/test_v1.json
+-./chart.conditional/test_v1.json
+ ./chart.git/test_v1.json
+ ./chart.local-oci/test_v1.json
+ ./chart.local/test_v1.json
+-./chart.old-oci/test_v1.json
+-./chart.old/test_v1.json
+ ./chart.unconditional-oci/test_v1.json
+ ./chart.unconditional/test_v1.json
+ ./chart.uri/test_v1.json
+-./chart.uri1/test_v1.json
+ ./source.example.com/foo_foo.json
+make[1]: *** [make.d/tests.mk:55: _smoke-test] Error 1
+```
