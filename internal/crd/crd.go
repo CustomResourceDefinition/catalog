@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -20,6 +21,7 @@ type CrdReader interface {
 type crdReader struct {
 	decoder runtime.Decoder
 	logger  io.Writer
+	matcher *regexp.Regexp
 }
 
 type Crd struct {
@@ -44,7 +46,12 @@ func NewCrdReader(logger io.Writer) (CrdReader, error) {
 	codecs := serializer.NewCodecFactory(scheme)
 	decoder := codecs.UniversalDeserializer()
 
-	return crdReader{decoder: decoder, logger: logger}, nil
+	matcher, err := regexp.Compile(`[^\t\n\v\f\r ]+`)
+	if err != nil {
+		return nil, err
+	}
+
+	return crdReader{decoder: decoder, logger: logger, matcher: matcher}, nil
 }
 
 func (r crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
@@ -57,6 +64,9 @@ func (r crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 		doc, err := yr.Read()
 		if err == io.EOF {
 			break
+		}
+		if !r.matcher.Match(doc) {
+			continue
 		}
 
 		obj, _, err := r.decoder.Decode(doc, nil, nil)

@@ -3,7 +3,6 @@ package crd
 import (
 	"bytes"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -82,13 +81,6 @@ func TestCrdReaderRead(t *testing.T) {
 
 	assert.NotNil(t, crds)
 	assert.Equal(t, 1, len(crds))
-
-	logs := logger.String()
-
-	assert.True(t, strings.Contains(logs, "unable to decode document #0"))
-	assert.True(t, strings.Contains(logs, "unable to decode document #1"))
-	assert.True(t, strings.Contains(logs, "unable to decode document #2"))
-	assert.True(t, strings.Contains(logs, "unable to decode document #3"))
 }
 
 type testScenario struct {

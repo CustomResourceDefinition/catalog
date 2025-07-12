@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
@@ -197,7 +198,13 @@ func renderChart(chartPath, releaseName, namespace string, values map[string]any
 	}
 
 	buf := Buffer{}
-	for _, content := range rendered {
+	for filename, content := range rendered {
+		if len(strings.TrimSpace(content)) == 0 {
+			continue
+		}
+		if strings.HasSuffix(filename, "NOTES.txt") {
+			continue
+		}
 		buf.WriteString(content)
 	}
 
