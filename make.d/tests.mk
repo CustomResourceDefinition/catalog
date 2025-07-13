@@ -20,7 +20,6 @@ ifneq ($(TOOL_VERSION),$(MOD_VERSION))
 	@echo 'Mismatched go versions'
 	@exit 1
 endif
-
 	@printf $(GREEN) "OK"
 
 	$(MAKE) _unit-tests
