@@ -144,3 +144,33 @@ func TestHttpGeneratorPartialSchemas(t *testing.T) {
 	assert.Equal(t, "test", schemas[0].Kind)
 	assert.Equal(t, "v1", schemas[0].Version)
 }
+
+func TestHttpGeneratorNoSchemas(t *testing.T) {
+	version := "1.0.0"
+	server, finish := setupServer("file.yaml", "testdata/test-crd.yaml")
+	defer finish()
+
+	config := configuration.Configuration{
+		Name:      "http",
+		Kind:      configuration.Http,
+		ApiGroups: []string{"crd.example.com"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: version,
+				Paths: []string{
+					"not-present.yaml",
+				},
+			},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	generator := NewHttpGenerator(config, reader)
+
+	schemas, err := generator.Schemas(version)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(schemas))
+}

@@ -50,12 +50,12 @@ func (generator *HttpGenerator) Schemas(version string) ([]crd.CrdSchema, error)
 		request := fmt.Sprintf("%s/%s", download.BaseUri, path)
 		resp, err := generator.client.Get(request)
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		bytes, err := generator.read(resp)
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		buf.Write(bytes)
