@@ -243,6 +243,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | karpenter.sh | |
 | --- | --- |
 | machine | v1alpha5 |
+| provisioner | v1alpha5 |
 
 | keda.sh | |
 | --- | --- |
