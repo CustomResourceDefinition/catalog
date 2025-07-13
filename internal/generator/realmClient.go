@@ -38,7 +38,7 @@ func newRealmClient(plainHttp bool) realmClient {
 }
 
 // ListOciTags produces a list of tags from a OCI repository. If needed, it will handle authentication.
-func (realm realmClient) ListOciTags(uri string) ([]string, error) {
+func (realm *realmClient) ListOciTags(uri string) ([]string, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (realm realmClient) ListOciTags(uri string) ([]string, error) {
 	return realm.listOciTags(request, "")
 }
 
-func (realm realmClient) listOciTags(request, token string) ([]string, error) {
+func (realm *realmClient) listOciTags(request, token string) ([]string, error) {
 	req, err := http.NewRequest(http.MethodGet, request, nil)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func (realm realmClient) listOciTags(request, token string) ([]string, error) {
 	return r.Tags, nil
 }
 
-func (realm realmClient) fetchToken(req string) (*string, error) {
+func (realm *realmClient) fetchToken(req string) (*string, error) {
 	resp, err := realm.client.Get(req)
 	if err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func (realm realmClient) fetchToken(req string) (*string, error) {
 	return &r.Token, nil
 }
 
-func (realmClient) read(resp *http.Response) ([]byte, error) {
+func (*realmClient) read(resp *http.Response) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -122,7 +122,7 @@ func (realmClient) read(resp *http.Response) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func (realm realmClient) authenticate(resp *http.Response) (*string, error) {
+func (realm *realmClient) authenticate(resp *http.Response) (*string, error) {
 	defer resp.Body.Close()
 
 	challenge, err := realm.parseChallenge(resp.Header.Get("www-authenticate"))
@@ -134,7 +134,7 @@ func (realm realmClient) authenticate(resp *http.Response) (*string, error) {
 	return realm.fetchToken(tokenRequest)
 }
 
-func (realmClient) parseChallenge(challenge string) (map[string]string, error) {
+func (*realmClient) parseChallenge(challenge string) (map[string]string, error) {
 	parts := strings.SplitN(challenge, " ", 2)
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) != "Bearer" {
 		return nil, fmt.Errorf("encountered a non-bearer challenge: %s", challenge)

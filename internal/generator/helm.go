@@ -29,14 +29,14 @@ type HelmGenerator struct {
 }
 
 func NewHelmGenerator(target string, config configuration.Configuration, reader crd.CrdReader) Generator {
-	return HelmGenerator{
+	return &HelmGenerator{
 		target: target,
 		config: config,
 		reader: reader,
 	}
 }
 
-func (generator HelmGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
+func (generator *HelmGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (generator HelmGenerator) MetaData(version string) ([]crd.CrdMetaSchema, er
 	return metadata, nil
 }
 
-func (generator HelmGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
+func (generator *HelmGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (generator HelmGenerator) Schemas(version string) ([]crd.CrdSchema, error) 
 	return schemas, nil
 }
 
-func (generator HelmGenerator) Versions() ([]string, error) {
+func (generator *HelmGenerator) Versions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (generator HelmGenerator) Versions() ([]string, error) {
 	return versions, nil
 }
 
-func (generator HelmGenerator) Close() error {
+func (generator *HelmGenerator) Close() error {
 	return os.Remove(generator.tmpDir)
 }
 

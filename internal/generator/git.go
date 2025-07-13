@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -28,17 +29,17 @@ type GitGenerator struct {
 const referenceHead = "head"
 
 func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
-	return GitGenerator{
+	return &GitGenerator{
 		config: config,
 		reader: reader,
 	}
 }
 
-func (generator GitGenerator) Close() error {
+func (generator *GitGenerator) Close() error {
 	return os.Remove(generator.tmpDir)
 }
 
-func (generator GitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
+func (generator *GitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -54,7 +55,7 @@ func (generator GitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, err
 	return metadata, nil
 }
 
-func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
+func (generator *GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -150,7 +151,7 @@ func (generator GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 	return schemas, nil
 }
 
-func (generator GitGenerator) Versions() ([]string, error) {
+func (generator *GitGenerator) Versions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -182,10 +183,13 @@ func (generator *GitGenerator) ensureLoaded() error {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
-	repo, err := git.PlainClone(tmpDir, &git.CloneOptions{
-		URL:               generator.config.Repository,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-	})
+	// go-git cloning balloons into too much memory usage, so exec out and use git cli for cloning
+	err = exec.Command("git", "clone", "--quiet", "--recursive", generator.config.Repository, tmpDir).Run()
+	if err != nil {
+		return err
+	}
+
+	repo, err := git.PlainOpen(tmpDir)
 	if err != nil {
 		return err
 	}

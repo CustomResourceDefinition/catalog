@@ -18,7 +18,7 @@ type HttpGenerator struct {
 }
 
 func NewHttpGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
-	return HttpGenerator{
+	return &HttpGenerator{
 		client: http.Client{
 			Timeout: 15 * time.Second,
 		},
@@ -27,7 +27,7 @@ func NewHttpGenerator(config configuration.Configuration, reader crd.CrdReader) 
 	}
 }
 
-func (generator HttpGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
+func (generator *HttpGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
 	schemas, err := generator.Schemas(version)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (generator HttpGenerator) MetaData(version string) ([]crd.CrdMetaSchema, er
 	return metadata, nil
 }
 
-func (generator HttpGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
+func (generator *HttpGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 	download, err := resolveDownload(version, generator.config.Downloads)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (generator HttpGenerator) Schemas(version string) ([]crd.CrdSchema, error) 
 	return schemas, nil
 }
 
-func (generator HttpGenerator) Versions() ([]string, error) {
+func (generator *HttpGenerator) Versions() ([]string, error) {
 	versions := make([]string, len(generator.config.Downloads))
 
 	for i, download := range generator.config.Downloads {
@@ -95,7 +95,7 @@ func (generator HttpGenerator) Versions() ([]string, error) {
 	return versions, nil
 }
 
-func (generator HttpGenerator) Close() error {
+func (generator *HttpGenerator) Close() error {
 	return nil
 }
 

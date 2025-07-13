@@ -32,7 +32,7 @@ func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) G
 		plainHttp = true
 	}
 
-	return OciGenerator{
+	return &OciGenerator{
 		realmClient: newRealmClient(plainHttp),
 		config:      config,
 		reader:      reader,
@@ -40,11 +40,11 @@ func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) G
 	}
 }
 
-func (generator OciGenerator) Close() error {
+func (generator *OciGenerator) Close() error {
 	return os.Remove(generator.tmpDir)
 }
 
-func (generator OciGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
+func (generator *OciGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (generator OciGenerator) MetaData(version string) ([]crd.CrdMetaSchema, err
 	return metadata, nil
 }
 
-func (generator OciGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
+func (generator *OciGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (generator OciGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
 	return schemas, nil
 }
 
-func (generator OciGenerator) Versions() ([]string, error) {
+func (generator *OciGenerator) Versions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}

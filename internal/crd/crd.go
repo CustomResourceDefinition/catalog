@@ -51,10 +51,10 @@ func NewCrdReader(logger io.Writer) (CrdReader, error) {
 		return nil, err
 	}
 
-	return crdReader{decoder: decoder, logger: logger, matcher: matcher}, nil
+	return &crdReader{decoder: decoder, logger: logger, matcher: matcher}, nil
 }
 
-func (r crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
+func (r *crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 	yr := yaml.NewYAMLReader(bufio.NewReader(reader))
 
 	list := make([]Crd, 0)
@@ -95,7 +95,7 @@ func (r crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 	return list, nil
 }
 
-func (c Crd) MetaSchema() ([]CrdMetaSchema, error) {
+func (c *Crd) MetaSchema() ([]CrdMetaSchema, error) {
 	list := make([]CrdMetaSchema, 0)
 
 	for _, v := range c.definition.Spec.Versions {
@@ -111,7 +111,7 @@ func (c Crd) MetaSchema() ([]CrdMetaSchema, error) {
 	return list, nil
 }
 
-func (c Crd) Schema() ([]CrdSchema, error) {
+func (c *Crd) Schema() ([]CrdSchema, error) {
 	list := make([]CrdSchema, 0)
 
 	for _, v := range c.definition.Spec.Versions {
@@ -139,7 +139,7 @@ func (c Crd) Schema() ([]CrdSchema, error) {
 	return list, nil
 }
 
-func (s CrdMetaSchema) Filepath() string {
+func (s *CrdMetaSchema) Filepath() string {
 	return fmt.Sprintf("%s/%s_%s.json", s.Group, s.Kind, s.Version)
 }
 

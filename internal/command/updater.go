@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
@@ -51,6 +52,8 @@ func (cmd Updater) Run() error {
 	}
 
 	for _, config := range splitConfigurations(configurations) {
+		runtime.GC()
+
 		build, err := generator.NewBuilder(config, reader, cmd.Output, cmd.Logger)
 		if err != nil {
 			continue
