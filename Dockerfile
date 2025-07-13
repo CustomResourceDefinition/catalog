@@ -1,4 +1,6 @@
-FROM alpine:3
+FROM golang:1.24-alpine
 
-RUN apk add --no-cache -q yq-go helm jq wget git kustomize make go check-jsonschema && \
-    GOPATH=/usr/local/ go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+RUN apk add --no-cache -q make yq-go helm git
+RUN mkdir /opt/schemastore && \
+        wget -qP /opt/schemastore/ https://json.schemastore.org/dependabot-2.0.json && \
+        wget -qP /opt/schemastore/ https://json.schemastore.org/github-workflow.json

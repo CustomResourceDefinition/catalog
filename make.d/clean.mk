@@ -1,5 +1,6 @@
 clean: _clean
-	docker compose down --remove-orphans --volumes --rmi local
+	docker compose down --remove-orphans --rmi local
 
 _clean:
-	rm -r build/bin build/ephemeral/templates/* build/ephemeral/schema/* &>/dev/null || true
+	-find build -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
+	-find build -type d -empty -delete

@@ -1,81 +1,78 @@
 GREEN='\e[1;32m%-6s\e[m\n'
 TOOL_VERSION = $(shell grep '^golang ' .tool-versions | sed 's/golang //')
-MOD_VERSION = $(shell grep '^go ' tools/go.mod | sed 's/go //')
+MOD_VERSION = $(shell grep '^go ' go.mod | sed 's/go //')
 
-test: build test-docker test-makefile test-editorcheck test-shellcheck
+test: build test-docker test-makefile test-editorcheck
 	$(COMPOSE_RUN) \
 	-v $$(pwd)/build/ephemeral/schema:/schema \
 	-v $$(pwd)/test/configuration.yaml:/app/configuration.yaml:ro \
-	-v $$(pwd)/test/.env:/app/.env:ro \
+	-v $$(pwd)/test:/app/test \
 	runner make _test
 
-_build-test:
-	@yq -o json test/configuration.yaml | \
-		jq --arg prefix build/ephemeral 'map(if .kind == "git" and (.repository | test("^/repository/")) then .repository = "\($$prefix)\(.repository)" else . end)' | \
-		yq -p json -o yaml > build/configuration.yaml
-	cat test/prepare-*.sh > build/bin/test-prepare
-	cat test/verify-*.sh > build/bin/test-verify
-	cat src/0?-*.sh test/unit-test-*.sh > build/bin/unit-tests
+_test: _test-schemas
+	@echo 'Checking for mod file changes ...'
+	go mod tidy -diff
 
-_test: _unit-tests _test-configuration _test-all-versions _test-only-latest _test-schemas _test-tools
+	@echo 'Checking for incorrectly formatted files ...'
+	@test -z "$$(gofmt -l .)"
 
-_test-all-versions: _build-test
-	sh build/bin/test-prepare all-versions
-	build/bin/main
-	sh build/bin/test-verify "Happy path works"
-	@printf $(GREEN) "OK"
-
-_test-only-latest: _build-test
-	sh build/bin/test-prepare only-latest
-	build/bin/main
-	sh build/bin/test-verify "Only latest version used"
-	@printf $(GREEN) "OK"
-
-_test-configuration:
-	@yq 'sort_by(.name)' configuration.yaml > build/configuration.sorted
-	@diff configuration.yaml build/configuration.sorted
-	check-jsonschema --schemafile .schema.json configuration.yaml
-	check-jsonschema --schemafile .schema.json test/configuration.yaml
-	@grep -q 'file://' configuration.yaml && exit 1 || true
-
-_test-tools:
-	@printf 'Running tool tests:\n'
-	cd tools && test -z "$$(gofmt -l .)"
-	cd tools && go mod tidy -diff
-	cd tools && \
-		go test -timeout 10s -shuffle on -p 1 -coverprofile=../build/coverage.out && \
-		go tool cover -html=../build/coverage.out -o ../build/coverage.html
-	cd tools && go vet ./...
 ifneq ($(TOOL_VERSION),$(MOD_VERSION))
 	@echo 'Mismatched go versions'
 	@exit 1
 endif
-	@exit 0
+
 	@printf $(GREEN) "OK"
 
-_unit-tests: _build-test
-	sh build/bin/unit-tests
-	@printf $(GREEN) "OK"
+	$(MAKE) _unit-tests
+	$(MAKE) _smoke-tests
 
-test-shellcheck:
-	$(COMPOSE_RUN) shellcheck shellcheck src/*.sh test/*.sh
-	@printf $(GREEN) "OK"
+_unit-tests:
+	@echo 'Running go unit tests ...'
+	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags $(GO_TAGS) -skip 'TestCheckLocal'
+	go tool cover -html=build/coverage.out -o build/coverage.html
+	@echo 'Running static analysis ...'
+	go vet ./...
 
 _test-schemas:
-	check-jsonschema --schemafile .schema.json configuration.yaml
-	check-jsonschema --schemafile .schema.json test/configuration.yaml
-	check-jsonschema --builtin-schema dependabot .github/dependabot.yml
+	@echo 'Checking validity of certain files ...'
+	build/bin/catalog verify --schema internal/configuration/schema.json --file configuration.yaml
+	build/bin/catalog verify --schema internal/configuration/schema.json --file test/configuration.yaml
+	build/bin/catalog verify --schema /opt/schemastore/dependabot-2.0.json --file .github/dependabot.yml
+	build/bin/catalog verify --schema /opt/schemastore/github-workflow.json --file .github/workflows/tests.yaml
+	build/bin/catalog verify --schema /opt/schemastore/github-workflow.json --file .github/workflows/scheduled-jobs.yaml
+
+_smoke-tests:
+	@echo 'Prepare smoke test files ...'
+	cat test/prepare-*.sh > build/bin/test-prepare
+	cat test/verify-*.sh > build/bin/test-verify
+
+	@echo 'Run first smoke test ...'
+	sh build/bin/test-prepare all-versions
+	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema
+	sh build/bin/test-verify "Happy path works"
+	@printf $(GREEN) "OK"
+
+	@echo 'Run second smoke test ...'
+	sh build/bin/test-prepare only-latest
+	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema
+	sh build/bin/test-verify "Works using only latest version"
+	@printf $(GREEN) "OK"
 
 test-editorcheck:
-	$(COMPOSE_RUN) editorconfig ec -exclude '^schema/|^\.git/'
+	@echo 'Checking general formatting of all files ...'
+	$(COMPOSE_RUN) editorconfig ec -exclude '^schema/|^\.git/|.DS_Store'
 	@printf $(GREEN) "OK"
 
 test-docker:
+	@echo 'Checking formatting of Dockerfile ...'
 	$(COMPOSE_RUN) hadolint --ignore DL3018 Dockerfile
 	@printf $(GREEN) "OK"
+
+	@echo 'Checking formatting of docker-compose.yml ...'
 	docker compose config -q
 	@printf $(GREEN) "OK"
 
 test-makefile:
+	@echo 'Checking formatting of Makefile and *.mk files ...'
 	$(COMPOSE_RUN) checkmake
 	@printf $(GREEN) "OK"

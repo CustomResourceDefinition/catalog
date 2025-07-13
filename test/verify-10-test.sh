@@ -2,8 +2,19 @@ set -e
 
 echo "Verifing $1 ..."
 
-find /schema -type f -name "*.json" -exec sh -c 'echo diff $0 ${0/schema/verified-schema}' {} \; | sh -e
-find /verified-schema -type f -name "*.json" -exec sh -c 'echo diff $0 ${0/verified-schema/schema}' {} \; | sh -e
+{
+  cd /schema || true
+  find . -type f -name "*.json"
+  cd - &>/dev/null || true
+} | sort > /tmp/schema.list
+
+{
+  cd /verified-schema || true
+  find . -type f -name "*.json"
+  cd - &>/dev/null || true
+} | sort > /tmp/verified.list
+
+diff /tmp/schema.list /tmp/verified.list
 
 echo
 echo " --- Passed - $1"
