@@ -40,7 +40,7 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, schema
 		config.VersionSuffix = "$"
 	}
 
-	pattern := fmt.Sprintf(`^%s[0-9]{1,}\.[0-9]{1,}\.[0-9]{1,}%s`, config.VersionPrefix, config.VersionSuffix)
+	pattern := fmt.Sprintf(`^%s([0-9]{1,}\.[0-9]{1,}\.[0-9]{1,})%s`, config.VersionPrefix, config.VersionSuffix)
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,8 @@ func (builder Builder) versions() ([]string, error) {
 		if filtered[j] == referenceHead {
 			return false
 		}
-		return semver.Compare(filtered[i], filtered[j]) > 0
+
+		return semver.Compare(builder.versionFilter.FindAllStringSubmatch(filtered[i], 1)[0][1], builder.versionFilter.FindAllStringSubmatch(filtered[j], 1)[0][1]) > 0
 	})
 	return filtered, nil
 }

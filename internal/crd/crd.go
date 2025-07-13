@@ -8,7 +8,10 @@ import (
 	"regexp"
 	"strings"
 
+	api "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	v1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -20,6 +23,7 @@ type CrdReader interface {
 
 type crdReader struct {
 	decoder runtime.Decoder
+	scheme  *runtime.Scheme
 	logger  io.Writer
 	matcher *regexp.Regexp
 }
@@ -40,9 +44,28 @@ type CrdMetaSchema struct {
 
 func NewCrdReader(logger io.Writer) (CrdReader, error) {
 	scheme := runtime.NewScheme()
+	if err := v1beta1.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
 	if err := v1.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
+	if err := api.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
+	scheme.AddConversionFunc((*v1beta1.CustomResourceDefinition)(nil), (*api.CustomResourceColumnDefinition)(nil), func(in interface{}, out interface{}, s conversion.Scope) error {
+		return v1beta1.Convert_v1beta1_CustomResourceColumnDefinition_To_apiextensions_CustomResourceColumnDefinition(in.(*v1beta1.CustomResourceColumnDefinition), out.(*api.CustomResourceColumnDefinition), s)
+	})
+	scheme.AddConversionFunc(
+		(*api.CustomResourceDefinition)(nil),
+		(*v1.CustomResourceDefinition)(nil),
+		func(in interface{}, out interface{}, s conversion.Scope) error {
+			return v1.Convert_apiextensions_CustomResourceDefinition_To_v1_CustomResourceDefinition(
+				in.(*api.CustomResourceDefinition), out.(*v1.CustomResourceDefinition), s)
+		},
+	)
+
 	codecs := serializer.NewCodecFactory(scheme)
 	decoder := codecs.UniversalDeserializer()
 
@@ -51,7 +74,7 @@ func NewCrdReader(logger io.Writer) (CrdReader, error) {
 		return nil, err
 	}
 
-	return &crdReader{decoder: decoder, logger: logger, matcher: matcher}, nil
+	return &crdReader{decoder: decoder, logger: logger, matcher: matcher, scheme: scheme}, nil
 }
 
 func (r *crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
@@ -77,8 +100,8 @@ func (r *crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 			continue
 		}
 
-		crd, ok := obj.(*v1.CustomResourceDefinition)
-		if !ok {
+		crd := r.convertToV1(obj)
+		if crd == nil {
 			fmt.Fprintf(r.logger, "   invalid document #%d at %s\n", index, file)
 			continue
 		}
@@ -188,4 +211,28 @@ func applyDefaults(schema *v1.JSONSchemaProps, skip bool) {
 		applyDefaults(&v, false)
 		schema.Properties[k] = v
 	}
+}
+
+func (r crdReader) convertToV1(obj runtime.Object) *v1.CustomResourceDefinition {
+	var (
+		crd v1.CustomResourceDefinition
+		err error
+	)
+
+	if beta, ok := obj.(*v1beta1.CustomResourceDefinition); ok {
+		var extension api.CustomResourceDefinition
+		err = r.scheme.Convert(beta, &extension, nil)
+		if err == nil {
+			err = r.scheme.Convert(&extension, &crd, nil)
+			if err == nil {
+				return &crd
+			}
+		}
+	}
+
+	if c, ok := obj.(*v1.CustomResourceDefinition); ok {
+		return c
+	}
+
+	return nil
 }

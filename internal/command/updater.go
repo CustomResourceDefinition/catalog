@@ -118,6 +118,7 @@ func splitConfigurations(configurations []configuration.Configuration) []configu
 		}
 		for _, e := range c.Entries {
 			copy := c
+			copy.Name = fmt.Sprintf("%s.%s", c.Name, e)
 			copy.Entries = []string{e}
 			updated = append(updated, copy)
 		}
