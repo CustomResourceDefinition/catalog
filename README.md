@@ -77,7 +77,7 @@ To add CRDs for [eks-anywhere](https://github.com/aws/eks-anywhere) you should a
   # searchPaths: # paths to recursively find yaml files in (non-CRDs are discarded)
   #   - crds
   # genPaths: # paths to recursively find go files to generate CRDs from
-  #   - api/...
+  #   - api
 ```
 
 ## OCI charts
