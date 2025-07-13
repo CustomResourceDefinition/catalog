@@ -53,13 +53,7 @@ func (generator *HttpGenerator) Schemas(version string) ([]crd.CrdSchema, error)
 			return nil, err
 		}
 
-		defer resp.Body.Close()
-
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			continue
-		}
-
-		bytes, err := io.ReadAll(resp.Body)
+		bytes, err := generator.read(resp)
 		if err != nil {
 			return nil, err
 		}
@@ -97,6 +91,16 @@ func (generator *HttpGenerator) Versions() ([]string, error) {
 
 func (generator *HttpGenerator) Close() error {
 	return nil
+}
+
+func (generator *HttpGenerator) read(resp *http.Response) ([]byte, error) {
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("response had status: %d", resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
 }
 
 func resolveDownload(version string, downloads []configuration.ConfigurationDownload) (*configuration.ConfigurationDownload, error) {

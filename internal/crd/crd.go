@@ -138,6 +138,9 @@ func (c *Crd) Schema() ([]CrdSchema, error) {
 	list := make([]CrdSchema, 0)
 
 	for _, v := range c.definition.Spec.Versions {
+		if v.Schema == nil || v.Schema.OpenAPIV3Schema == nil {
+			continue
+		}
 		schema := v.Schema.OpenAPIV3Schema
 		applyDefaults(schema, true)
 
