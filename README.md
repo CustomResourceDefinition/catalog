@@ -82,20 +82,13 @@ To add CRDs for [eks-anywhere](https://github.com/aws/eks-anywhere) you should a
 
 ## OCI charts
 
-> [!IMPORTANT]  
-> Always use a https helm repository, if one is available.  
-
 To add CRDs for [CrunchyData/postgres-operator](https://github.com/CrunchyData/postgres-operator) you should apply the following changes to `configuration.yaml`.
 
 ```yaml
-- additionalVersions:
-    - 5.5.2
-  kind: helm-oci
+- kind: helm-oci
   name: crunchydata-pgo
   repository: oci://registry.developers.crunchydata.com/crunchydata/pgo
 ```
-
-The `additionalVersions` entry should be a list of previous versions that have old CRDs that should still be available. You should always add the current version to this list when initially adding a new chart.
 
 ## Uris
 

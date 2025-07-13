@@ -22,20 +22,19 @@ const (
 )
 
 type Configuration struct {
-	AdditionalVersions []string                `yaml:"additionalVersions"`
-	ApiGroups          []string                `yaml:"apiGroups"`
-	Downloads          []ConfigurationDownload `yaml:"crds"`
-	Entries            []string                `yaml:"entries"`
-	GenPaths           []string                `yaml:"genPaths"`
-	IncludeHead        bool                    `yaml:"includeHead"`
-	Kind               Kind                    `yaml:"kind"`
-	KustomizePaths     []string                `yaml:"kustomizationPaths"`
-	Name               string                  `yaml:"name"`
-	Repository         string                  `yaml:"repository"`
-	SearchPaths        []string                `yaml:"searchPaths"`
-	Values             []ConfigurationValues   `yaml:"valuesFiles"`
-	VersionPrefix      string                  `yaml:"versionPrefix"`
-	VersionSuffix      string                  `yaml:"versionSuffix"`
+	ApiGroups      []string                `yaml:"apiGroups"`
+	Downloads      []ConfigurationDownload `yaml:"crds"`
+	Entries        []string                `yaml:"entries"`
+	GenPaths       []string                `yaml:"genPaths"`
+	IncludeHead    bool                    `yaml:"includeHead"`
+	Kind           Kind                    `yaml:"kind"`
+	KustomizePaths []string                `yaml:"kustomizationPaths"`
+	Name           string                  `yaml:"name"`
+	Repository     string                  `yaml:"repository"`
+	SearchPaths    []string                `yaml:"searchPaths"`
+	Values         []ConfigurationValues   `yaml:"valuesFiles"`
+	VersionPrefix  string                  `yaml:"versionPrefix"`
+	VersionSuffix  string                  `yaml:"versionSuffix"`
 }
 
 type ConfigurationDownload struct {
