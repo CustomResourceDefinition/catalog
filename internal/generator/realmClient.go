@@ -6,8 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -25,11 +23,9 @@ type tokenResponse struct {
 	Token string `json:"token"`
 }
 
-func newRealmClient() realmClient {
+func newRealmClient(plainHttp bool) realmClient {
 	defaultScheme := "https"
-	env, found := os.LookupEnv(HELM_OCI_PLAIN_HTTP)
-	value, err := strconv.ParseBool(env)
-	if found && err == nil && value {
+	if plainHttp {
 		defaultScheme = "http"
 	}
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
@@ -18,15 +19,24 @@ type OciGenerator struct {
 	reader      crd.CrdReader
 	tmpDir      string
 	downloader  downloader.ChartDownloader
+	plainHttp   bool
 }
 
 const HELM_OCI_PLAIN_HTTP = "HELM_OCI_PLAIN_HTTP"
 
 func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
+	plainHttp := false
+	env, found := os.LookupEnv(HELM_OCI_PLAIN_HTTP)
+	value, err := strconv.ParseBool(env)
+	if found && err == nil && value {
+		plainHttp = true
+	}
+
 	return OciGenerator{
-		realmClient: newRealmClient(),
+		realmClient: newRealmClient(plainHttp),
 		config:      config,
 		reader:      reader,
+		plainHttp:   plainHttp,
 	}
 }
 
@@ -118,19 +128,26 @@ func (generator *OciGenerator) ensureLoaded() error {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
-	regClient, err := registry.NewClient(
+	opts := []registry.ClientOption{
 		registry.ClientOptDebug(false),
 		registry.ClientOptEnableCache(true),
 		registry.ClientOptWriter(os.Stdout),
-		registry.ClientOptPlainHTTP(), // FIXME: follow up
-	)
+	}
+
+	if generator.plainHttp {
+		opts = append(opts, registry.ClientOptPlainHTTP())
+	}
+
+	regClient, err := registry.NewClient(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create registry client: %w", err)
 	}
 
 	provider := getter.Provider{
 		Schemes: []string{registry.OCIScheme},
-		New:     newOCIGetter,
+		New: func(options ...getter.Option) (getter.Getter, error) {
+			return getter.NewOCIGetter(getter.WithPlainHTTP(generator.plainHttp))
+		},
 	}
 
 	chartDownloader := downloader.ChartDownloader{
@@ -142,8 +159,4 @@ func (generator *OciGenerator) ensureLoaded() error {
 	generator.tmpDir = tmpDir
 
 	return nil
-}
-
-func newOCIGetter(options ...getter.Option) (getter.Getter, error) {
-	return getter.NewOCIGetter(getter.WithPlainHTTP(true)) // FIXME: follow up
 }

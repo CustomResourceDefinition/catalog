@@ -8,8 +8,6 @@ import (
 )
 
 func TestRealmClient(t *testing.T) {
-	t.Setenv(HELM_OCI_PLAIN_HTTP, "true")
-
 	server, finish := setupOciServer(t, []ociChart{
 		{
 			repoName: "helm",
@@ -20,7 +18,7 @@ func TestRealmClient(t *testing.T) {
 	})
 	defer finish()
 
-	client := newRealmClient()
+	client := newRealmClient(true)
 	versions, err := client.ListOciTags(fmt.Sprintf("%s%s", server.URL, "/helm/connect"))
 
 	assert.Nil(t, err)
