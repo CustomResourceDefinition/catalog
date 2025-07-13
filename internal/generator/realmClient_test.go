@@ -8,13 +8,11 @@ import (
 )
 
 func TestRealmClient(t *testing.T) {
-	server, finish := setupOciServer(t, []ociChart{
-		{
-			repoName: "helm",
-			name:     "connect",
-			tag:      "2.0.0",
-			path:     "testdata/connect-2.0.0.tgz",
-		},
+	server, finish := setupOciServer(t, ociChart{
+		repoName: "helm",
+		name:     "connect",
+		tag:      "2.0.0",
+		path:     "testdata/connect-2.0.0.tgz",
 	})
 	defer finish()
 

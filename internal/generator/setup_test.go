@@ -85,11 +85,7 @@ type ociChart struct {
 	repoName, name, tag, path string
 }
 
-func setupOciServer(t *testing.T, charts []ociChart) (mockServer, func()) {
-	if len(charts) > 1 {
-		log.Fatal("support for multiple charts requires refactoring") // FIXME: argh
-	}
-
+func setupOciServer(t *testing.T, chart ociChart) (mockServer, func()) {
 	mock := mockServer{mux: http.NewServeMux()}
 
 	configBytes := []byte(`{"mediaType":"application/vnd.cncf.helm.config.v1+json"}`)
@@ -100,101 +96,99 @@ func setupOciServer(t *testing.T, charts []ociChart) (mockServer, func()) {
 	mock.server = server
 	mock.URL = strings.ReplaceAll(server.URL, "http://", "oci://")
 
-	for _, chart := range charts {
-		data, err := os.ReadFile(chart.path)
-		if err != nil {
-			assert.Fail(t, "unable to read chart at %s", chart.path)
-			continue
+	data, err := os.ReadFile(chart.path)
+	if err != nil {
+		assert.Fail(t, "unable to read chart at %s", chart.path)
+		data = []byte(fmt.Sprintf("unable to read chart at %s", chart.path))
+	}
+
+	hash := sha256.Sum256(data)
+	layerDigest := "sha256:" + hex.EncodeToString(hash[:])
+	layerSize := len(data)
+	namespace := fmt.Sprintf("%s/%s", chart.repoName, chart.name)
+	token := hex.EncodeToString(hash[:])
+
+	mock.mux.HandleFunc(fmt.Sprintf("/v2/%s/manifests/%s", namespace, chart.tag), func(w http.ResponseWriter, r *http.Request) {
+		manifest := map[string]interface{}{
+			"schemaVersion": 2,
+			"mediaType":     "application/vnd.oci.image.manifest.v1+json",
+			"config": map[string]interface{}{
+				"mediaType": "application/vnd.cncf.helm.config.v1+json",
+				"digest":    configDigest,
+				"size":      len(configBytes),
+			},
+			"layers": []map[string]interface{}{
+				{
+					"mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+					"digest":    layerDigest,
+					"size":      layerSize,
+				},
+			},
 		}
 
-		hash := sha256.Sum256(data)
-		layerDigest := "sha256:" + hex.EncodeToString(hash[:])
-		layerSize := len(data)
-		namespace := fmt.Sprintf("%s/%s", chart.repoName, chart.name)
-		token := hex.EncodeToString(hash[:])
+		w.Header().Set("Content-Type", "application/vnd.oci.image.manifest.v1+json")
+		_ = json.NewEncoder(w).Encode(manifest)
+	})
 
-		mock.mux.HandleFunc(fmt.Sprintf("/v2/%s/manifests/%s", namespace, chart.tag), func(w http.ResponseWriter, r *http.Request) {
+	mock.mux.HandleFunc(fmt.Sprintf("/v2/%s/blobs/%s", namespace, layerDigest), func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.cncf.helm.chart.content.v1.tar+gzip")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", layerSize))
+		w.WriteHeader(http.StatusOK)
+		if r.Method == http.MethodHead {
+			return
+		}
+		_, _ = w.Write(data)
+	})
+
+	mock.mux.HandleFunc(fmt.Sprintf("/v2/%s/blobs/%s", namespace, configDigest), func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(configBytes)))
+		w.WriteHeader(http.StatusOK)
+		if r.Method == http.MethodHead {
+			return
+		}
+		_, _ = w.Write(configBytes)
+	})
+
+	mock.mux.HandleFunc(fmt.Sprintf("/v2/%s/tags/list", namespace), func(w http.ResponseWriter, r *http.Request) {
+		bearer := strings.Trim(r.Header.Get("Authorization"), " ")
+		parts := strings.Split(bearer, " ")
+		if len(parts) != 2 || token != parts[1] {
+			w.Header().Set("www-authenticate", fmt.Sprintf(`Bearer realm="%s/token",service="registry",scope="repository:%s:pull",charset="UTF-8"`, server.URL, namespace))
+			w.WriteHeader(http.StatusUnauthorized)
+		} else {
 			manifest := map[string]interface{}{
-				"schemaVersion": 2,
-				"mediaType":     "application/vnd.oci.image.manifest.v1+json",
-				"config": map[string]interface{}{
-					"mediaType": "application/vnd.cncf.helm.config.v1+json",
-					"digest":    configDigest,
-					"size":      len(configBytes),
-				},
-				"layers": []map[string]interface{}{
-					{
-						"mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
-						"digest":    layerDigest,
-						"size":      layerSize,
-					},
-				},
+				"name": namespace,
+				"tags": []string{chart.tag},
 			}
-
-			w.Header().Set("Content-Type", "application/vnd.oci.image.manifest.v1+json")
 			_ = json.NewEncoder(w).Encode(manifest)
-		})
+		}
+	})
 
-		mock.mux.HandleFunc(fmt.Sprintf("/v2/%s/blobs/%s", namespace, layerDigest), func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/vnd.cncf.helm.chart.content.v1.tar+gzip")
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", layerSize))
-			w.WriteHeader(http.StatusOK)
-			if r.Method == http.MethodHead {
-				return
-			}
-			_, _ = w.Write(data)
-		})
+	mock.mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
 
-		mock.mux.HandleFunc(fmt.Sprintf("/v2/%s/blobs/%s", namespace, configDigest), func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/octet-stream")
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(configBytes)))
-			w.WriteHeader(http.StatusOK)
-			if r.Method == http.MethodHead {
-				return
-			}
-			_, _ = w.Write(configBytes)
-		})
+		if v, ok := q["service"]; !ok || len(v) == 0 || v[0] != "registry" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 
-		mock.mux.HandleFunc(fmt.Sprintf("/v2/%s/tags/list", namespace), func(w http.ResponseWriter, r *http.Request) {
-			bearer := strings.Trim(r.Header.Get("Authorization"), " ")
-			parts := strings.Split(bearer, " ")
-			if len(parts) != 2 || token != parts[1] {
-				w.Header().Set("www-authenticate", fmt.Sprintf(`Bearer realm="%s/token",service="registry",scope="repository:%s:pull",charset="UTF-8"`, server.URL, namespace))
-				w.WriteHeader(http.StatusUnauthorized)
-			} else {
-				manifest := map[string]interface{}{
-					"name": namespace,
-					"tags": []string{chart.tag},
-				}
-				_ = json.NewEncoder(w).Encode(manifest)
-			}
-		})
+		if v, ok := q["scope"]; !ok || len(v) == 0 || v[0] != fmt.Sprintf("repository:%s:pull", namespace) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 
-		mock.mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
-			q := r.URL.Query()
+		manifest := map[string]interface{}{
+			"token": token,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(manifest)
+	})
 
-			if v, ok := q["service"]; !ok || len(v) == 0 || v[0] != "registry" {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			if v, ok := q["scope"]; !ok || len(v) == 0 || v[0] != fmt.Sprintf("repository:%s:pull", namespace) {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			manifest := map[string]interface{}{
-				"token": token,
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(manifest)
-		})
-
-		mock.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			log.Printf("unable to serve path from oci server: %s\n", r.URL.Path)
-			w.WriteHeader(http.StatusNotFound)
-		})
-	}
+	mock.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("unable to serve path from oci server: %s\n", r.URL.Path)
+		w.WriteHeader(http.StatusNotFound)
+	})
 
 	return mock, func() {
 		server.Close()

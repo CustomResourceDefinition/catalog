@@ -12,13 +12,11 @@ import (
 func TestOciGeneratorVersions(t *testing.T) {
 	t.Setenv(HELM_OCI_PLAIN_HTTP, "true")
 
-	server, finish := setupOciServer(t, []ociChart{
-		{
-			repoName: "helm",
-			name:     "connect",
-			tag:      "2.0.0",
-			path:     "testdata/connect-2.0.0.tgz",
-		},
+	server, finish := setupOciServer(t, ociChart{
+		repoName: "helm",
+		name:     "connect",
+		tag:      "2.0.0",
+		path:     "testdata/connect-2.0.0.tgz",
 	})
 	defer finish()
 
@@ -37,13 +35,11 @@ func TestOciGeneratorVersions(t *testing.T) {
 func TestOciGeneratorUnknownVersion(t *testing.T) {
 	t.Setenv(HELM_OCI_PLAIN_HTTP, "true")
 
-	server, finish := setupOciServer(t, []ociChart{
-		{
-			repoName: "helm",
-			name:     "connect",
-			tag:      "2.0.0",
-			path:     "testdata/connect-2.0.0.tgz",
-		},
+	server, finish := setupOciServer(t, ociChart{
+		repoName: "helm",
+		name:     "connect",
+		tag:      "2.0.0",
+		path:     "testdata/connect-2.0.0.tgz",
 	})
 	defer finish()
 
@@ -63,13 +59,11 @@ func TestOciGeneratorUnknownVersion(t *testing.T) {
 func TestOciGeneratorMetadata(t *testing.T) {
 	t.Setenv(HELM_OCI_PLAIN_HTTP, "true")
 
-	server, finish := setupOciServer(t, []ociChart{
-		{
-			repoName: "helm",
-			name:     "connect",
-			tag:      "2.0.0",
-			path:     "testdata/connect-2.0.0.tgz",
-		},
+	server, finish := setupOciServer(t, ociChart{
+		repoName: "helm",
+		name:     "connect",
+		tag:      "2.0.0",
+		path:     "testdata/connect-2.0.0.tgz",
 	})
 	defer finish()
 
