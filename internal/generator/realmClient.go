@@ -49,6 +49,10 @@ func (realm *realmClient) ListOciTags(uri string) ([]string, error) {
 	}
 	scheme := strings.ReplaceAll(u.Scheme, "oci", realm.defaultScheme)
 
+	if strings.EqualFold(u.Host, "docker.io") {
+		u.Host = "registry-1.docker.io"
+	}
+
 	path := strings.Trim(u.Path, "/")
 	request := fmt.Sprintf("%s://%s/v2/%s/tags/list", scheme, u.Host, path)
 	return realm.listOciTags(request, "")
