@@ -315,13 +315,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | redisreplication | v1beta2 |
 | redissentinel | v1beta2 |
 
-| twingate.com | |
-| --- | --- |
-| twingateconnector | v1beta |
-| twingategroup | v1beta |
-| twingateresource | v1beta |
-| twingateresourceaccess | v1beta |
-
 | v1.edp.epam.com | |
 | --- | --- |
 | clusterkeycloak | v1alpha1 |
