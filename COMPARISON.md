@@ -18,11 +18,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | dockermachinepool | v1alpha3, v1alpha4, v1beta1 |
 | dockermachinetemplate | v1alpha3, v1alpha4, v1beta1 |
 
-| bootstrap.cluster.x-k8s.io | |
-| --- | --- |
-| talosconfig | v1alpha2, v1alpha3 |
-| talosconfigtemplate | v1alpha2, v1alpha3 |
-
 | cert-manager.k8s.cloudflare.com | |
 | --- | --- |
 | originissuer | v1 |
