@@ -106,44 +106,16 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | infrastructure.cluster.x-k8s.io | |
 | --- | --- |
-| bootstrapkubeconfig | v1beta1 |
-| byocluster | v1beta1 |
-| byoclustertemplate | v1beta1 |
-| byohost | v1beta1 |
-| byomachine | v1beta1 |
-| byomachinetemplate | v1beta1 |
 | devcluster | v1beta1 |
 | devclustertemplate | v1beta1 |
 | devmachine | v1beta1 |
 | devmachinetemplate | v1beta1 |
-| dockercluster | v1alpha2, v1alpha3, v1alpha4, v1beta1 |
 | dockerclustertemplate | v1alpha4, v1beta1 |
-| dockermachine | v1alpha2, v1alpha3, v1alpha4, v1beta1 |
 | dockermachinepool | v1alpha3, v1alpha4, v1beta1 |
 | dockermachinepooltemplate | v1beta1 |
-| dockermachinetemplate | v1alpha2, v1alpha3, v1alpha4, v1beta1 |
 | gcpcluster | v1alpha2 |
 | gcpmachine | v1alpha2 |
 | gcpmachinetemplate | v1alpha2 |
-| k8sinstallerconfig | v1beta1 |
-| k8sinstallerconfigtemplate | v1beta1 |
-| ocicluster | v1beta1, v1beta2 |
-| ociclusteridentity | v1beta1, v1beta2 |
-| ociclustertemplate | v1beta1, v1beta2 |
-| ocimachine | v1beta1, v1beta2 |
-| ocimachinepool | v1beta1, v1beta2 |
-| ocimachinepoolmachine | v1beta1, v1beta2 |
-| ocimachinetemplate | v1beta1, v1beta2 |
-| ocimanagedcluster | v1beta1, v1beta2 |
-| ocimanagedclustertemplate | v1beta1, v1beta2 |
-| ocimanagedcontrolplane | v1beta1, v1beta2 |
-| ocimanagedcontrolplanetemplate | v1beta1, v1beta2 |
-| ocimanagedmachinepool | v1beta1, v1beta2 |
-| ocimanagedmachinepooltemplate | v1beta1, v1beta2 |
-| ocivirtualmachinepool | v1beta1, v1beta2 |
-| tinkerbellcluster | v1beta1 |
-| tinkerbellmachine | v1beta1 |
-| tinkerbellmachinetemplate | v1beta1 |
 
 | k8s.keycloak.org | |
 | --- | --- |
@@ -153,13 +125,8 @@ This page lists missing CRD validation schemas that are present in alternative c
 | kargo.akuity.io | |
 | --- | --- |
 | clusterpromotiontask | v1alpha1 |
-| freight | v1alpha1 |
-| project | v1alpha1 |
 | projectconfig | v1alpha1 |
-| promotion | v1alpha1 |
 | promotiontask | v1alpha1 |
-| stage | v1alpha1 |
-| warehouse | v1alpha1 |
 
 | karpenter.sh | |
 | --- | --- |
@@ -195,19 +162,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | mysqlbackup | v2 |
 
-| network.azure.upbound.io | |
-| --- | --- |
-| firewallpolicyrulecollectiongroup | v1beta1 |
-
 | networking.gke.io | |
 | --- | --- |
-| gcpbackendpolicy | v1 |
-| gcpgatewaypolicy | v1 |
-| gkenetworkparamset | v1 |
-| healthcheckpolicy | v1 |
 | lbpolicy | v1 |
 | managedcertificate | v1, v1beta1, v1beta2 |
-| network | v1 |
 | networklogging | v1alpha1 |
 
 | networking.k8s.aws | |
