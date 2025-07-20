@@ -18,13 +18,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | dockermachinepool | v1alpha3, v1alpha4, v1beta1 |
 | dockermachinetemplate | v1alpha3, v1alpha4, v1beta1 |
 
-| app.redislabs.com | |
-| --- | --- |
-| redisenterpriseactiveactivedatabase | v1alpha1 |
-| redisenterprisecluster | v1, v1alpha1 |
-| redisenterprisedatabase | v1alpha1 |
-| redisenterpriseremotecluster | v1alpha1 |
-
 | bootstrap.cluster.x-k8s.io | |
 | --- | --- |
 | talosconfig | v1alpha2, v1alpha3 |
