@@ -83,6 +83,7 @@ func (generator *GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) 
 			Branch: plumbing.NewTagReferenceName(version),
 		}
 	}
+	opts.Force = true
 	err = tree.Checkout(&opts)
 	if err != nil {
 		return nil, err
