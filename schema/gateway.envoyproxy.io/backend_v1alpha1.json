@@ -1,0 +1,250 @@
+{
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "type": "object",
+      "properties": {
+        "appProtocols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "gateway.envoyproxy.io/h2c",
+              "gateway.envoyproxy.io/ws",
+              "gateway.envoyproxy.io/wss"
+            ]
+          }
+        },
+        "endpoints": {
+          "type": "array",
+          "maxItems": 64,
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "fqdn": {
+                "type": "object",
+                "required": [
+                  "hostname",
+                  "port"
+                ],
+                "properties": {
+                  "hostname": {
+                    "type": "string",
+                    "maxLength": 253,
+                    "minLength": 1,
+                    "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                  },
+                  "port": {
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 65535,
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              },
+              "ip": {
+                "type": "object",
+                "required": [
+                  "address",
+                  "port"
+                ],
+                "properties": {
+                  "address": {
+                    "type": "string",
+                    "maxLength": 45,
+                    "minLength": 3,
+                    "pattern": "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(([0-9a-fA-F]{1,4}:){1,7}[0-9a-fA-F]{1,4}|::|(([0-9a-fA-F]{1,4}:){0,5})?(:[0-9a-fA-F]{1,4}){1,2})$"
+                  },
+                  "port": {
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 65535,
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              },
+              "unix": {
+                "type": "object",
+                "required": [
+                  "path"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "(has(self.fqdn) || has(self.ip) || has(self.unix))",
+                "message": "one of fqdn, ip or unix must be specified"
+              },
+              {
+                "rule": "((has(self.fqdn) \u0026\u0026 !(has(self.ip) || has(self.unix))) || (has(self.ip) \u0026\u0026 !(has(self.fqdn) || has(self.unix))) || (has(self.unix) \u0026\u0026 !(has(self.ip) || has(self.fqdn))))",
+                "message": "only one of fqdn, ip or unix can be specified"
+              }
+            ]
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.all(f, has(f.fqdn)) || !self.exists(f, has(f.fqdn))",
+              "message": "fqdn addresses cannot be mixed with other address types"
+            }
+          ]
+        },
+        "fallback": {
+          "type": "boolean"
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "caCertificateRefs": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "required": [
+                  "group",
+                  "kind",
+                  "name"
+                ],
+                "properties": {
+                  "group": {
+                    "type": "string",
+                    "maxLength": 253,
+                    "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "maxLength": 63,
+                    "minLength": 1,
+                    "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 253,
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "wellKnownCACertificates": {
+              "type": "string",
+              "enum": [
+                "System"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!(has(self.caCertificateRefs) \u0026\u0026 size(self.caCertificateRefs) \u003e 0 \u0026\u0026 has(self.wellKnownCACertificates) \u0026\u0026 self.wellKnownCACertificates != \"\")",
+              "message": "must not contain both CACertificateRefs and WellKnownCACertificates"
+            },
+            {
+              "rule": "(has(self.caCertificateRefs) \u0026\u0026 size(self.caCertificateRefs) \u003e 0 || has(self.wellKnownCACertificates) \u0026\u0026 self.wellKnownCACertificates != \"\")",
+              "message": "must specify either CACertificateRefs or WellKnownCACertificates"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "default": "Endpoints",
+          "enum": [
+            "Endpoints",
+            "DynamicResolver"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "self.type != 'DynamicResolver' || !has(self.endpoints) \u0026\u0026 !has(self.appProtocols)",
+          "message": "DynamicResolver type cannot have endpoints and appProtocols specified"
+        },
+        {
+          "rule": "has(self.tls) ? self.type == 'DynamicResolver' : true",
+          "message": "TLS settings can only be specified for DynamicResolver backends"
+        }
+      ]
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

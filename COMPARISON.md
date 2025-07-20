@@ -18,18 +18,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | dockermachinepool | v1alpha3, v1alpha4, v1beta1 |
 | dockermachinetemplate | v1alpha3, v1alpha4, v1beta1 |
 
-| cert-manager.k8s.cloudflare.com | |
-| --- | --- |
-| originissuer | v1 |
-
 | cloud.google.com | |
 | --- | --- |
-| backendconfig | v1, v1beta1 |
 | computeclass | v1 |
-
-| cloudsql.cloud.google.com | |
-| --- | --- |
-| authproxyworkload | v1 |
 
 | cluster.x-k8s.io | |
 | --- | --- |
@@ -43,21 +34,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | taloscontrolplane | v1alpha3 |
 
-| core.cnrm.cloud.google.com | |
-| --- | --- |
-| configconnector | v1beta1 |
-| configconnectorcontext | v1beta1 |
-
 | crd.k8s.amazonaws.com | |
 | --- | --- |
 | eniconfig | v1alpha1 |
-
-| customize.core.cnrm.cloud.google.com | |
-| --- | --- |
-| controllerresource | v1alpha1, v1beta1 |
-| mutatingwebhookconfigurationcustomization | v1alpha1, v1beta1 |
-| namespacedcontrollerresource | v1alpha1, v1beta1 |
-| validatingwebhookconfigurationcustomization | v1alpha1, v1beta1 |
 
 | distro.eks.amazonaws.com | |
 | --- | --- |
@@ -69,52 +48,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
-
-| fluentbit.fluent.io | |
-| --- | --- |
-| clusterfilter | v1alpha2 |
-| clusterfluentbitconfig | v1alpha2 |
-| clusterinput | v1alpha2 |
-| clustermultilineparser | v1alpha2 |
-| clusteroutput | v1alpha2 |
-| clusterparser | v1alpha2 |
-| collector | v1alpha2 |
-| filter | v1alpha2 |
-| fluentbit | v1alpha2 |
-| fluentbitconfig | v1alpha2 |
-| multilineparser | v1alpha2 |
-| output | v1alpha2 |
-| parser | v1alpha2 |
-
-| fluentd.fluent.io | |
-| --- | --- |
-| clusterfilter | v1alpha1 |
-| clusterfluentdconfig | v1alpha1 |
-| clusterinput | v1alpha1 |
-| clusteroutput | v1alpha1 |
-| filter | v1alpha1 |
-| fluentd | v1alpha1 |
-| fluentdconfig | v1alpha1 |
-| input | v1alpha1 |
-| output | v1alpha1 |
-
-| fluxcd.controlplane.io | |
-| --- | --- |
-| fluxinstance | v1 |
-| fluxreport | v1 |
-| resourceset | v1 |
-| resourcesetinputprovider | v1 |
-
-| gateway.envoyproxy.io | |
-| --- | --- |
-| backend | v1alpha1 |
-| backendtrafficpolicy | v1alpha1 |
-| clienttrafficpolicy | v1alpha1 |
-| envoyextensionpolicy | v1alpha1 |
-| envoypatchpolicy | v1alpha1 |
-| envoyproxy | v1alpha1 |
-| httproutefilter | v1alpha1 |
-| securitypolicy | v1alpha1 |
 
 | gateway.networking.k8s.io | |
 | --- | --- |
@@ -268,7 +201,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | networking.gke.io | |
 | --- | --- |
-| frontendconfig | v1beta1 |
 | gcpbackendpolicy | v1 |
 | gcpgatewaypolicy | v1 |
 | gkenetworkparamset | v1 |
@@ -277,8 +209,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | managedcertificate | v1, v1beta1, v1beta2 |
 | network | v1 |
 | networklogging | v1alpha1 |
-| serviceattachment | v1, v1beta1 |
-| servicenetworkendpointgroup | v1beta1 |
 
 | networking.k8s.aws | |
 | --- | --- |
