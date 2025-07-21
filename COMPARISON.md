@@ -116,7 +116,5 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | pg.percona.com | |
 | --- | --- |
-| perconapgbackup | v2beta1 |
-| perconapgcluster | v1, v2beta1 |
-| perconapgrestore | v2beta1 |
+| perconapgcluster | v1 |
 | postgrescluster | v1beta1 |
