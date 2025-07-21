@@ -102,23 +102,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | kyverno.io | |
 | --- | --- |
-| admissionreport | v1alpha2, v2 |
-| backgroundscanreport | v1alpha2, v2 |
-| cleanuppolicy | v2, v2alpha1, v2beta1 |
-| clusteradmissionreport | v1alpha2, v2 |
-| clusterbackgroundscanreport | v1alpha2, v2 |
-| clustercleanuppolicy | v2, v2alpha1, v2beta1 |
 | clusterephemeralreport | v1 |
-| clusterpolicy | v1, v2beta1 |
 | clusterpolicyreport | v1alpha2 |
-| clusterreportchangerequest | v1alpha2 |
 | ephemeralreport | v1 |
-| globalcontextentry | v2alpha1 |
-| policy | v2beta1 |
-| policyexception | v2, v2alpha1, v2beta1 |
 | policyreport | v1alpha2 |
-| reportchangerequest | v1alpha2 |
-| updaterequest | v1beta1, v2 |
 
 | monitoring.googleapis.com | |
 | --- | --- |
@@ -150,14 +137,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | perconapgcluster | v1, v2beta1 |
 | perconapgrestore | v2beta1 |
 | postgrescluster | v1beta1 |
-
-| policy.cert-manager.io | |
-| --- | --- |
-| certificaterequestpolicy | v1alpha1 |
-
-| policy.linkerd.io | |
-| --- | --- |
-| httproute | v1 |
 
 | rbacmanager.reactiveops.io | |
 | --- | --- |
