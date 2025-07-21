@@ -23,7 +23,7 @@ func TestBuilderVersionSorting(t *testing.T) {
 	}
 	expectedVersions := []string{"head", seedVersions[0], seedVersions[2], seedVersions[3], seedVersions[1]}
 
-	p, err := setupGit(bundles)
+	p, err := setupGit(t, bundles)
 	assert.Nil(t, err)
 	assert.NotNil(t, p)
 

@@ -14,16 +14,13 @@ import (
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/CustomResourceDefinition/catalog/internal/genall"
 	"github.com/CustomResourceDefinition/catalog/internal/kustomize"
-	"github.com/go-git/go-git/v6"
-	"github.com/go-git/go-git/v6/plumbing"
 )
 
 type GitGenerator struct {
-	config configuration.Configuration
-	repo   *git.Repository
-	reader crd.CrdReader
-	head   plumbing.Hash
-	tmpDir string
+	config         configuration.Configuration
+	reader         crd.CrdReader
+	tmpDir, gitDir string
+	tags           []string
 }
 
 const referenceHead = "head"
@@ -60,11 +57,6 @@ func (generator *GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) 
 		return nil, err
 	}
 
-	tree, err := generator.repo.Worktree()
-	if err != nil {
-		return nil, err
-	}
-
 	if len(version) == 0 {
 		versions, err := generator.Versions()
 		if err != nil {
@@ -73,21 +65,16 @@ func (generator *GitGenerator) Schemas(version string) ([]crd.CrdSchema, error) 
 		version = versions[0]
 	}
 
-	var opts git.CheckoutOptions
 	if version == referenceHead {
-		opts = git.CheckoutOptions{
-			Hash: generator.head,
-		}
-	} else {
-		opts = git.CheckoutOptions{
-			Branch: plumbing.NewTagReferenceName(version),
-		}
+		version = "HEAD"
 	}
-	opts.Force = true
-	err = tree.Checkout(&opts)
+
+	err := exec.Command("git", "--git-dir", generator.gitDir, "--work-tree", generator.tmpDir, "checkout", "--force", version).Run()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to checkout '%s': %w", version, err)
 	}
+
+	_ = exec.Command("git", "--git-dir", generator.gitDir, "--work-tree", generator.tmpDir, "submodule", "update", "--init", "--recursive").Run()
 
 	buf := Buffer{}
 	if len(generator.config.SearchPaths) > 0 {
@@ -157,21 +144,7 @@ func (generator *GitGenerator) Versions() ([]string, error) {
 		return nil, err
 	}
 
-	iter, err := generator.repo.Tags()
-	if err != nil {
-		return nil, err
-	}
-
-	tags := make([]string, 0)
-	if generator.config.IncludeHead {
-		tags = append(tags, referenceHead)
-	}
-	iter.ForEach(func(r *plumbing.Reference) error {
-		tags = append(tags, r.Name().Short())
-		return nil
-	})
-
-	return tags, nil
+	return generator.tags, nil
 }
 
 func (generator *GitGenerator) ensureLoaded() error {
@@ -184,24 +157,27 @@ func (generator *GitGenerator) ensureLoaded() error {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
-	// go-git cloning balloons into too much memory usage, so exec out and use git cli for cloning
+	gitDir := fmt.Sprintf("%s/.git", tmpDir)
+
+	// while now irrelevant, this is left as a warning - go-git cloning balloons into too much memory usage, so exec out and use git cli for cloning
 	err = exec.Command("git", "clone", "--quiet", "--recursive", generator.config.Repository, tmpDir).Run()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to clone: %w", err)
 	}
 
-	repo, err := git.PlainOpen(tmpDir)
+	out, err := exec.Command("git", "--git-dir", gitDir, "tag").Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to list tags: %w", err)
 	}
 
-	head, err := repo.Head()
-	if err != nil {
-		return err
+	tags := make([]string, 0)
+	if generator.config.IncludeHead {
+		tags = append(tags, referenceHead)
 	}
+	tags = append(tags, strings.Split(strings.TrimSpace(string(out)), "\n")...)
 
-	generator.head = head.Hash()
-	generator.repo = repo
+	generator.tags = tags
+	generator.gitDir = gitDir
 	generator.tmpDir = tmpDir
 
 	return nil
