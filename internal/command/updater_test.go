@@ -14,7 +14,7 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	configTmpl := `
+	template := `
 - apiGroups:
     - chart.uri
   crds:
@@ -37,7 +37,7 @@ func TestRun(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	config := path.Join(tmpDir, "config.yaml")
-	os.WriteFile(config, []byte(strings.ReplaceAll(configTmpl, "{{ server }}", server.URL)), 0664)
+	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
 
 	updater := NewUpdater(config, tmpDir, bytes.NewBuffer([]byte{}), nil)
 
