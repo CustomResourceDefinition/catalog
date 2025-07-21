@@ -54,11 +54,11 @@ func (realm *realmClient) ListOciTags(uri string) ([]string, error) {
 	}
 
 	path := strings.Trim(u.Path, "/")
-	request := fmt.Sprintf("%s://%s/v2/%s/tags/list", scheme, u.Host, path)
-	return realm.listOciTags(request, "")
+	return realm.listOciTags(fmt.Sprintf("%s://%s", scheme, u.Host), fmt.Sprintf("/v2/%s/tags/list", path), "")
 }
 
-func (realm *realmClient) listOciTags(request, token string) ([]string, error) {
+func (realm *realmClient) listOciTags(host, path, token string) ([]string, error) {
+	request := fmt.Sprintf("%s%s", host, path)
 	req, err := http.NewRequest(http.MethodGet, request, nil)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func (realm *realmClient) listOciTags(request, token string) ([]string, error) {
 			return nil, err
 		}
 
-		return realm.listOciTags(request, *token)
+		return realm.listOciTags(host, path, *token)
 	}
 
 	bytes, err := realm.read(resp)
@@ -93,7 +93,12 @@ func (realm *realmClient) listOciTags(request, token string) ([]string, error) {
 		return nil, err
 	}
 
-	return r.Tags, nil
+	tags, err := realm.next(resp.Header, host, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(r.Tags, tags...), nil
 }
 
 func (realm *realmClient) fetchToken(req string) (*string, error) {
@@ -156,4 +161,22 @@ func (*realmClient) parseChallenge(challenge string) (map[string]string, error) 
 	}
 
 	return cfg, nil
+}
+
+func (realm *realmClient) next(header http.Header, host, token string) ([]string, error) {
+	result := make([]string, 0)
+	links := header.Get("link")
+
+	for link := range strings.SplitSeq(links, ",") {
+		if len(link) == 0 || !strings.Contains(strings.ToLower(link), `; rel="next"`) {
+			continue
+		}
+
+		req := strings.SplitN(link, ";", 2)[0]
+		path := strings.Trim(req, "<>")
+
+		return realm.listOciTags(host, path, token)
+	}
+
+	return result, nil
 }
