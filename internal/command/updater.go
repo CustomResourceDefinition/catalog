@@ -56,11 +56,12 @@ func (cmd Updater) Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
+	defer os.RemoveAll(tmpDir)
 
 	for _, config := range splitConfigurations(configurations) {
 		runtime.GC()
 
-		build, err := generator.NewBuilder(config, reader, tmpDir, cmd.Logger)
+		build, err := generator.NewBuilder(config, reader, tmpDir, cmd.Output, cmd.Logger)
 		if err != nil {
 			continue
 		}
@@ -133,7 +134,8 @@ func splitConfigurations(configurations []configuration.Configuration) []configu
 	return updated
 }
 
-// merge will move created files in generated into the schema repository
+// merge will move created files in generated into the schema repository,
+// and will attempt to write a file to schema repository if moving it fails
 func merge(generatedRepository, schemaRepository string) error {
 	groups, err := os.ReadDir(generatedRepository)
 	if err != nil {
@@ -154,7 +156,14 @@ func merge(generatedRepository, schemaRepository string) error {
 					destination := path.Join(schemaRepository, group.Name(), f.Name())
 					err = os.Rename(origin, destination)
 					if err != nil {
-						return err
+						bytes, err := os.ReadFile(origin)
+						if err != nil {
+							return err
+						}
+						err = os.WriteFile(destination, bytes, 0644)
+						if err != nil {
+							return err
+						}
 					}
 				}
 			}

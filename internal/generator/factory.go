@@ -15,14 +15,15 @@ import (
 )
 
 type Builder struct {
-	schemaRepository string
-	logger           io.Writer
-	config           configuration.Configuration
-	generator        Generator
-	versionFilter    *regexp.Regexp
+	generatedRepository string
+	schemaRepository    string
+	logger              io.Writer
+	config              configuration.Configuration
+	generator           Generator
+	versionFilter       *regexp.Regexp
 }
 
-func NewBuilder(config configuration.Configuration, reader crd.CrdReader, schemaRepository string, logger io.Writer) (*Builder, error) {
+func NewBuilder(config configuration.Configuration, reader crd.CrdReader, generatedRepository, schemaRepository string, logger io.Writer) (*Builder, error) {
 	generator, err := resolveGenerator(config, reader)
 	if err != nil {
 		return nil, err
@@ -47,11 +48,12 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, schema
 	}
 
 	return &Builder{
-		config:           config,
-		generator:        generator,
-		versionFilter:    re,
-		logger:           logger,
-		schemaRepository: schemaRepository,
+		config:              config,
+		generator:           generator,
+		versionFilter:       re,
+		logger:              logger,
+		schemaRepository:    schemaRepository,
+		generatedRepository: generatedRepository,
 	}, nil
 }
 
@@ -98,7 +100,7 @@ func (builder Builder) Build() error {
 
 		fmt.Fprintf(logger, " - - rendered %d schema.\n", len(schemas))
 		for _, schema := range schemas {
-			file := path.Join(builder.schemaRepository, schema.Filepath())
+			file := path.Join(builder.generatedRepository, schema.Filepath())
 			os.MkdirAll(path.Dir(file), 0755)
 			err := os.WriteFile(file, schema.Bytes, 0644)
 			if err != nil {
