@@ -56,9 +56,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | getambassador.io | |
 | --- | --- |
-| filter | v1beta2, v2, v3alpha1 |
-| filterpolicy | v1beta2, v2, v3alpha1 |
-| ratelimit | v1beta1, v1beta2, v2, v3alpha1 |
+| ratelimit | v1beta2 |
 
 | grafana.integreatly.org | |
 | --- | --- |
@@ -86,12 +84,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | keycloak | v2alpha1 |
 | keycloakrealmimport | v2alpha1 |
 
-| kargo.akuity.io | |
-| --- | --- |
-| clusterpromotiontask | v1alpha1 |
-| projectconfig | v1alpha1 |
-| promotiontask | v1alpha1 |
-
 | keda.sh | |
 | --- | --- |
 | cloudeventsource | v1alpha1 |
@@ -116,10 +108,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | operatorconfig | v1, v1alpha1 |
 | podmonitoring | v1, v1alpha1 |
 | rules | v1, v1alpha1 |
-
-| mysql.presslabs.org | |
-| --- | --- |
-| mysqlbackup | v2 |
 
 | networking.gke.io | |
 | --- | --- |

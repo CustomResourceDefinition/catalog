@@ -33,15 +33,18 @@
                   "minItems": 1,
                   "items": {
                     "type": "object",
-                    "required": [
-                      "uses"
-                    ],
                     "properties": {
                       "as": {
                         "type": "string"
                       },
                       "config": {
                         "x-kubernetes-preserve-unknown-fields": true
+                      },
+                      "continueOnError": {
+                        "type": "boolean"
+                      },
+                      "if": {
+                        "type": "string"
                       },
                       "retry": {
                         "type": "object",
@@ -56,12 +59,60 @@
                         },
                         "additionalProperties": false
                       },
+                      "task": {
+                        "type": "object",
+                        "required": [
+                          "name"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "PromotionTask",
+                              "ClusterPromotionTask"
+                            ]
+                          },
+                          "name": {
+                            "type": "string",
+                            "maxLength": 253,
+                            "minLength": 1,
+                            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
                       "uses": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "vars": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "name"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^[a-zA-Z_]\\w*$"
+                            },
+                            "value": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
                       }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "(has(self.uses) ? !has(self.task) : has(self.task))",
+                        "message": "PromotionTemplate step must have exactly one of uses or task set"
+                      }
+                    ]
                   }
                 },
                 "vars": {
@@ -69,8 +120,7 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "name",
-                      "value"
+                      "name"
                     ],
                     "properties": {
                       "name": {
@@ -123,8 +173,20 @@
               "sources": {
                 "type": "object",
                 "properties": {
+                  "availabilityStrategy": {
+                    "type": "string",
+                    "enum": [
+                      "All",
+                      "OneOf",
+                      ""
+                    ]
+                  },
                   "direct": {
                     "type": "boolean"
+                  },
+                  "requiredSoakTime": {
+                    "type": "string",
+                    "pattern": "^([0-9]+(\\.[0-9]+)?(s|m|h))+$"
                   },
                   "stages": {
                     "type": "array",
@@ -141,6 +203,26 @@
         },
         "shard": {
           "type": "string"
+        },
+        "vars": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-zA-Z_]\\w*$"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
         },
         "verification": {
           "type": "object",
@@ -171,6 +253,13 @@
                   "name"
                 ],
                 "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "AnalysisTemplate",
+                      "ClusterAnalysisTemplate"
+                    ]
+                  },
                   "name": {
                     "type": "string"
                   }
@@ -324,6 +413,12 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "annotations": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
                       "digest": {
                         "type": "string"
                       },
@@ -435,6 +530,12 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "annotations": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
                           "digest": {
                             "type": "string"
                           },
@@ -558,12 +659,19 @@
                               "description": "Image describes a specific version of a container image.",
                               "type": "object",
                               "properties": {
+                                "annotations": {
+                                  "description": "Annotations is a map of arbitrary metadata for the image.",
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
+                                },
                                 "digest": {
                                   "description": "Digest identifies a specific version of the image in the repository\nspecified by RepoURL. This is a more precise identifier than Tag.",
                                   "type": "string"
                                 },
                                 "gitRepoURL": {
-                                  "description": "GitRepoURL specifies the URL of a Git repository that contains the source\ncode for the image repository referenced by the RepoURL field if Kargo was\nable to infer it.",
+                                  "description": "GitRepoURL specifies the URL of a Git repository that contains the source\ncode for the image repository referenced by the RepoURL field if Kargo was\nable to infer it.\n\nDeprecated: Use OCI annotations instead. Will be removed in v1.7.0.",
                                   "type": "string"
                                 },
                                 "repoURL": {
@@ -578,7 +686,7 @@
                             }
                           },
                           "name": {
-                            "description": "Name is system-assigned identifier that is derived deterministically from\nthe contents of the Freight. i.e. Two pieces of Freight can be compared for\nequality by comparing their Names.",
+                            "description": "Name is a system-assigned identifier derived deterministically from\nthe contents of the Freight. I.e., two pieces of Freight can be compared\nfor equality by comparing their Names.",
                             "type": "string"
                           },
                           "origin": {
@@ -597,7 +705,7 @@
                                 ]
                               },
                               "name": {
-                                "description": "Name is the name of the resource of the kind indicated by the Kind field\nfrom which Freight may originated.",
+                                "description": "Name is the name of the resource of the kind indicated by the Kind field\nfrom which Freight may originate.",
                                 "type": "string"
                               }
                             }
@@ -695,6 +803,9 @@
                     "properties": {
                       "alias": {
                         "type": "string"
+                      },
+                      "continueOnError": {
+                        "type": "boolean"
                       },
                       "errorCount": {
                         "type": "integer",
@@ -808,12 +919,19 @@
                         "description": "Image describes a specific version of a container image.",
                         "type": "object",
                         "properties": {
+                          "annotations": {
+                            "description": "Annotations is a map of arbitrary metadata for the image.",
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
                           "digest": {
                             "description": "Digest identifies a specific version of the image in the repository\nspecified by RepoURL. This is a more precise identifier than Tag.",
                             "type": "string"
                           },
                           "gitRepoURL": {
-                            "description": "GitRepoURL specifies the URL of a Git repository that contains the source\ncode for the image repository referenced by the RepoURL field if Kargo was\nable to infer it.",
+                            "description": "GitRepoURL specifies the URL of a Git repository that contains the source\ncode for the image repository referenced by the RepoURL field if Kargo was\nable to infer it.\n\nDeprecated: Use OCI annotations instead. Will be removed in v1.7.0.",
                             "type": "string"
                           },
                           "repoURL": {
@@ -828,7 +946,7 @@
                       }
                     },
                     "name": {
-                      "description": "Name is system-assigned identifier that is derived deterministically from\nthe contents of the Freight. i.e. Two pieces of Freight can be compared for\nequality by comparing their Names.",
+                      "description": "Name is a system-assigned identifier derived deterministically from\nthe contents of the Freight. I.e., two pieces of Freight can be compared\nfor equality by comparing their Names.",
                       "type": "string"
                     },
                     "origin": {
@@ -847,7 +965,7 @@
                           ]
                         },
                         "name": {
-                          "description": "Name is the name of the resource of the kind indicated by the Kind field\nfrom which Freight may originated.",
+                          "description": "Name is the name of the resource of the kind indicated by the Kind field\nfrom which Freight may originate.",
                           "type": "string"
                         }
                       }
@@ -1001,6 +1119,12 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "annotations": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
                       "digest": {
                         "type": "string"
                       },
@@ -1112,6 +1236,12 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "annotations": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
                           "digest": {
                             "type": "string"
                           },
@@ -1235,12 +1365,19 @@
                               "description": "Image describes a specific version of a container image.",
                               "type": "object",
                               "properties": {
+                                "annotations": {
+                                  "description": "Annotations is a map of arbitrary metadata for the image.",
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
+                                },
                                 "digest": {
                                   "description": "Digest identifies a specific version of the image in the repository\nspecified by RepoURL. This is a more precise identifier than Tag.",
                                   "type": "string"
                                 },
                                 "gitRepoURL": {
-                                  "description": "GitRepoURL specifies the URL of a Git repository that contains the source\ncode for the image repository referenced by the RepoURL field if Kargo was\nable to infer it.",
+                                  "description": "GitRepoURL specifies the URL of a Git repository that contains the source\ncode for the image repository referenced by the RepoURL field if Kargo was\nable to infer it.\n\nDeprecated: Use OCI annotations instead. Will be removed in v1.7.0.",
                                   "type": "string"
                                 },
                                 "repoURL": {
@@ -1255,7 +1392,7 @@
                             }
                           },
                           "name": {
-                            "description": "Name is system-assigned identifier that is derived deterministically from\nthe contents of the Freight. i.e. Two pieces of Freight can be compared for\nequality by comparing their Names.",
+                            "description": "Name is a system-assigned identifier derived deterministically from\nthe contents of the Freight. I.e., two pieces of Freight can be compared\nfor equality by comparing their Names.",
                             "type": "string"
                           },
                           "origin": {
@@ -1274,7 +1411,7 @@
                                 ]
                               },
                               "name": {
-                                "description": "Name is the name of the resource of the kind indicated by the Kind field\nfrom which Freight may originated.",
+                                "description": "Name is the name of the resource of the kind indicated by the Kind field\nfrom which Freight may originate.",
                                 "type": "string"
                               }
                             }
@@ -1373,6 +1510,9 @@
                       "alias": {
                         "type": "string"
                       },
+                      "continueOnError": {
+                        "type": "boolean"
+                      },
                       "errorCount": {
                         "type": "integer",
                         "format": "int32"
@@ -1401,15 +1541,9 @@
           },
           "additionalProperties": false
         },
-        "message": {
-          "type": "string"
-        },
         "observedGeneration": {
           "type": "integer",
           "format": "int64"
-        },
-        "phase": {
-          "type": "string"
         }
       },
       "additionalProperties": false
