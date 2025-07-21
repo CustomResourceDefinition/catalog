@@ -30,6 +30,7 @@ type Configuration struct {
 	Kind           Kind                    `yaml:"kind"`
 	KustomizePaths []string                `yaml:"kustomizationPaths"`
 	Name           string                  `yaml:"name"`
+	Namespace      string                  `yaml:"namespace"`
 	Repository     string                  `yaml:"repository"`
 	SearchPaths    []string                `yaml:"searchPaths"`
 	Values         []ConfigurationValues   `yaml:"valuesFiles"`
