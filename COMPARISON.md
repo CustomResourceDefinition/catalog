@@ -56,53 +56,17 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | getambassador.io | |
 | --- | --- |
-| authservice | v3alpha1 |
-| consulresolver | v3alpha1 |
-| devportal | v1, v3alpha1 |
 | filter | v1beta2, v2, v3alpha1 |
 | filterpolicy | v1beta2, v2, v3alpha1 |
-| host | v3alpha1 |
-| kubernetesendpointresolver | v3alpha1 |
-| kubernetesserviceresolver | v3alpha1 |
-| listener | v3alpha1 |
-| logservice | v3alpha1 |
-| mapping | v3alpha1 |
-| module | v3alpha1 |
 | ratelimit | v1beta1, v1beta2, v2, v3alpha1 |
-| ratelimitservice | v3alpha1 |
-| tcpmapping | v3alpha1 |
-| tlscontext | v3alpha1 |
-| tracingservice | v3alpha1 |
 
 | grafana.integreatly.org | |
 | --- | --- |
-| grafana | v1alpha1, v1beta1 |
-| grafanaalertrulegroup | v1beta1 |
-| grafanacontactpoint | v1beta1 |
-| grafanadashboard | v1beta1 |
-| grafanadatasource | v1beta1 |
-| grafanafolder | v1beta1 |
-| grafanalibrarypanel | v1beta1 |
-| grafanamutetiming | v1beta1 |
-| grafananotificationpolicy | v1beta1 |
-| grafananotificationpolicyroute | v1beta1 |
-| grafananotificationtemplate | v1beta1 |
-
-| groupsnapshot.storage.k8s.io | |
-| --- | --- |
-| volumegroupsnapshot | v1beta1 |
-| volumegroupsnapshotclass | v1beta1 |
-| volumegroupsnapshotcontent | v1beta1 |
+| grafana | v1alpha1 |
 
 | helm.toolkit.fluxcd.io | |
 | --- | --- |
 | helmrelease | v1 |
-
-| image.toolkit.fluxcd.io | |
-| --- | --- |
-| imagepolicy | v1alpha1, v1alpha2 |
-| imagerepository | v1alpha1, v1alpha2 |
-| imageupdateautomation | v1alpha1, v1alpha2 |
 
 | infrastructure.cluster.x-k8s.io | |
 | --- | --- |
@@ -128,11 +92,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | projectconfig | v1alpha1 |
 | promotiontask | v1alpha1 |
 
-| karpenter.sh | |
-| --- | --- |
-| machine | v1alpha5 |
-| provisioner | v1alpha5 |
-
 | keda.sh | |
 | --- | --- |
 | cloudeventsource | v1alpha1 |
@@ -143,10 +102,23 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | kyverno.io | |
 | --- | --- |
+| admissionreport | v1alpha2, v2 |
+| backgroundscanreport | v1alpha2, v2 |
+| cleanuppolicy | v2, v2alpha1, v2beta1 |
+| clusteradmissionreport | v1alpha2, v2 |
+| clusterbackgroundscanreport | v1alpha2, v2 |
+| clustercleanuppolicy | v2, v2alpha1, v2beta1 |
 | clusterephemeralreport | v1 |
+| clusterpolicy | v1, v2beta1 |
 | clusterpolicyreport | v1alpha2 |
+| clusterreportchangerequest | v1alpha2 |
 | ephemeralreport | v1 |
+| globalcontextentry | v2alpha1 |
+| policy | v2beta1 |
+| policyexception | v2, v2alpha1, v2beta1 |
 | policyreport | v1alpha2 |
+| reportchangerequest | v1alpha2 |
+| updaterequest | v1beta1, v2 |
 
 | monitoring.googleapis.com | |
 | --- | --- |
