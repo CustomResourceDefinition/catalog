@@ -72,7 +72,7 @@ func (generator *HelmGenerator) Schemas(version string) ([]crd.CrdSchema, error)
 		return nil, err
 	}
 
-	rendered, err := renderChart(filename, "release", "namespace", values)
+	rendered, err := renderChart(filename, "release", generator.config.Namespace, values)
 	if err != nil {
 		return nil, err
 	}

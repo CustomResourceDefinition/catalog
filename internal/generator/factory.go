@@ -41,6 +41,10 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, genera
 		config.VersionSuffix = "$"
 	}
 
+	if len(config.Namespace) == 0 {
+		config.Namespace = "namespace"
+	}
+
 	pattern := fmt.Sprintf(`^%s([0-9]{1,}\.[0-9]{1,}\.[0-9]{1,})%s`, config.VersionPrefix, config.VersionSuffix)
 	re, err := regexp.Compile(pattern)
 	if err != nil {
@@ -78,6 +82,7 @@ func (builder Builder) Build() error {
 	fmt.Fprintf(logger, " - checking version %s for completeness.\n", version)
 	metadata, err := builder.generator.MetaData(version)
 	if err != nil {
+		fmt.Fprintf(logger, " ! failed: %s\n", err.Error())
 		return err
 	}
 
