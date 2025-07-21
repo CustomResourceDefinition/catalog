@@ -111,13 +111,8 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | networking.gke.io | |
 | --- | --- |
-| lbpolicy | v1 |
 | managedcertificate | v1, v1beta1, v1beta2 |
 | networklogging | v1alpha1 |
-
-| networking.k8s.aws | |
-| --- | --- |
-| policyendpoint | v1alpha1 |
 
 | pg.percona.com | |
 | --- | --- |
@@ -125,30 +120,3 @@ This page lists missing CRD validation schemas that are present in alternative c
 | perconapgcluster | v1, v2beta1 |
 | perconapgrestore | v2beta1 |
 | postgrescluster | v1beta1 |
-
-| rbacmanager.reactiveops.io | |
-| --- | --- |
-| rbacdefinitions | v1alpha1 |
-
-| redis.redis.opstreelabs.in | |
-| --- | --- |
-| redis | v1beta2 |
-| rediscluster | v1beta2 |
-| redisreplication | v1beta2 |
-| redissentinel | v1beta2 |
-
-| v1.edp.epam.com | |
-| --- | --- |
-| clusterkeycloak | v1alpha1 |
-| clusterkeycloakrealm | v1alpha1 |
-| keycloak | v1 |
-| keycloakauthflow | v1 |
-| keycloakclient | v1 |
-| keycloakclientscope | v1 |
-| keycloakrealm | v1 |
-| keycloakrealmcomponent | v1 |
-| keycloakrealmgroup | v1 |
-| keycloakrealmidentityprovider | v1 |
-| keycloakrealmrole | v1 |
-| keycloakrealmrolebatch | v1 |
-| keycloakrealmuser | v1 |
