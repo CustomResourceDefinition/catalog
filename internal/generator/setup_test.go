@@ -11,14 +11,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"testing"
 
-	"github.com/go-git/go-billy/v6/osfs"
-	"github.com/go-git/go-git/v6"
-	"github.com/go-git/go-git/v6/plumbing/object"
-	"github.com/go-git/go-git/v6/storage/filesystem"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -204,40 +201,29 @@ type gitPath struct {
 	path, file string
 }
 
-func setupGit(bundles []gitBundle) (*string, error) {
-	tmpDir, err := os.MkdirTemp("", "generator.config.Name")
+func setupGit(t *testing.T, bundles []gitBundle) (*string, error) {
+	tmpDir := t.TempDir()
+
+	err := exec.Command("git", "init", tmpDir).Run()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+		return nil, fmt.Errorf("unable to init: %w", err)
 	}
 
-	dotgitdir := path.Join(tmpDir, ".git")
-	store := filesystem.NewStorage(osfs.New(dotgitdir), nil)
+	gitDir := path.Join(tmpDir, ".git")
 
-	repo, err := git.Init(store, git.WithDefaultBranch("refs/heads/main"), git.WithWorkTree(osfs.New(tmpDir)))
+	err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "config", "user.name", "runner").Run()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to set user name: %w", err)
 	}
 
-	cfg, err := repo.Config()
+	err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "config", "user.email", "runner").Run()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to set user email: %w", err)
 	}
 
-	cfg.User.Name = "runner"
-	// set config to create file _required_ by work trees
-	err = repo.Storer.SetConfig(cfg)
+	err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "commit", "--allow-empty", "--message", "Empty initial commit").Run()
 	if err != nil {
-		return nil, err
-	}
-
-	tree, err := repo.Worktree()
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = tree.Commit("Empty initial commit", &git.CommitOptions{Author: &object.Signature{Name: "runner", Email: "runner"}, AllowEmptyCommits: true})
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to commit: %w", err)
 	}
 
 	for _, bundle := range bundles {
@@ -255,36 +241,24 @@ func setupGit(bundles []gitBundle) (*string, error) {
 				return nil, err
 			}
 
-			_, err = tree.Add(p.path)
+			err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "add", p.path).Run()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("unable to add: %w", err)
 			}
 		}
 
 		if len(bundle.paths) > 0 {
-			commit, err := tree.Commit("Add bundle", &git.CommitOptions{Author: &object.Signature{Name: "runner", Email: "runner"}})
+			err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "commit", "--message", "Add bundle").Run()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("unable to commit: %w", err)
 			}
+		}
 
-			_, err = repo.CommitObject(commit)
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = repo.CreateTag(bundle.tag, commit, nil)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			commit, _ := repo.Head()
-
-			_, err = repo.CreateTag(bundle.tag, commit.Hash(), nil)
-			if err != nil {
-				return nil, err
-			}
+		err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "tag", bundle.tag).Run()
+		if err != nil {
+			return nil, fmt.Errorf("unable to commit: %w", err)
 		}
 	}
 
-	return &dotgitdir, nil
+	return &gitDir, nil
 }

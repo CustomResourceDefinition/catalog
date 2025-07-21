@@ -24,7 +24,7 @@ func TestGitGeneratorVersions(t *testing.T) {
 		},
 	}
 
-	p, err := setupGit(bundles)
+	p, err := setupGit(t, bundles)
 	assert.Nil(t, err)
 	assert.NotNil(t, p)
 
@@ -55,7 +55,7 @@ func TestGitGeneratorUnknownVersion(t *testing.T) {
 		},
 	}
 
-	p, err := setupGit(bundles)
+	p, err := setupGit(t, bundles)
 	assert.Nil(t, err)
 	assert.NotNil(t, p)
 
@@ -86,7 +86,7 @@ func TestGitGeneratorMetadataForRegularFile(t *testing.T) {
 		},
 	}
 
-	p, err := setupGit(bundles)
+	p, err := setupGit(t, bundles)
 	assert.Nil(t, err)
 	assert.NotNil(t, p)
 
@@ -132,7 +132,7 @@ func TestGitGeneratorMetadataForKustomizeFile(t *testing.T) {
 		},
 	}
 
-	p, err := setupGit(bundles)
+	p, err := setupGit(t, bundles)
 	assert.Nil(t, err)
 	assert.NotNil(t, p)
 
@@ -178,7 +178,7 @@ func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
 		},
 	}
 
-	p, err := setupGit(bundles)
+	p, err := setupGit(t, bundles)
 	assert.Nil(t, err)
 	assert.NotNil(t, p)
 

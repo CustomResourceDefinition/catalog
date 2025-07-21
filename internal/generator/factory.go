@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"runtime"
 	"slices"
 	"sort"
 
@@ -96,6 +97,8 @@ func (builder Builder) Build() error {
 	}
 
 	for _, version := range versions {
+		runtime.GC()
+
 		fmt.Fprintf(logger, " - render version %s.\n", version)
 		schemas, err := builder.generator.Schemas(version)
 		if err != nil {
