@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"runtime"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -51,10 +52,16 @@ func (cmd Updater) Run() error {
 		return err
 	}
 
+	tmpDir, err := os.MkdirTemp("", "output")
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	for _, config := range splitConfigurations(configurations) {
 		runtime.GC()
 
-		build, err := generator.NewBuilder(config, reader, cmd.Output, cmd.Logger)
+		build, err := generator.NewBuilder(config, reader, tmpDir, cmd.Output, cmd.Logger)
 		if err != nil {
 			continue
 		}
@@ -65,7 +72,7 @@ func (cmd Updater) Run() error {
 		}
 	}
 
-	return nil
+	return merge(tmpDir, cmd.Output)
 }
 
 func (cmd Updater) validate() error {
@@ -125,4 +132,43 @@ func splitConfigurations(configurations []configuration.Configuration) []configu
 	}
 
 	return updated
+}
+
+// merge will move created files in generated into the schema repository,
+// and will attempt to write a file to schema repository if moving it fails
+func merge(generatedRepository, schemaRepository string) error {
+	groups, err := os.ReadDir(generatedRepository)
+	if err != nil {
+		return err
+	}
+
+	for _, group := range groups {
+		if group.IsDir() {
+			os.Mkdir(path.Join(schemaRepository, group.Name()), 0755)
+			files, err := os.ReadDir(path.Join(generatedRepository, group.Name()))
+			if err != nil {
+				return err
+			}
+
+			for _, f := range files {
+				if f.Type().IsRegular() {
+					origin := path.Join(generatedRepository, group.Name(), f.Name())
+					destination := path.Join(schemaRepository, group.Name(), f.Name())
+					err = os.Rename(origin, destination)
+					if err != nil {
+						bytes, err := os.ReadFile(origin)
+						if err != nil {
+							return err
+						}
+						err = os.WriteFile(destination, bytes, 0644)
+						if err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nil
 }
