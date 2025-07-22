@@ -5,18 +5,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 ## [datreeio/CRDs-catalog](https://github.com/datreeio/CRDs-catalog)
 
-| anywhere.eks.amazonaws.com | |
-| --- | --- |
-| cluster | v1alpha3, v1alpha4, v1beta1 |
-| clusterclass | v1alpha4, v1beta1 |
-| clusterissuer | v1 |
-| clusterresourceset | v1alpha3, v1alpha4, v1beta1 |
-| clusterresourcesetbinding | v1alpha3, v1alpha4, v1beta1 |
-| dockercluster | v1alpha3, v1alpha4, v1beta1 |
-| dockerclustertemplate | v1alpha4, v1beta1 |
-| dockermachine | v1alpha3, v1alpha4, v1beta1 |
-| dockermachinepool | v1alpha3, v1alpha4, v1beta1 |
-| dockermachinetemplate | v1alpha3, v1alpha4, v1beta1 |
+### Stats
+
+| Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
+| --- | --- | --- | --- |
+| 97.86% | 2432 | 6650 | 68 |
+
+### Missing Schemas
 
 | cloud.google.com | |
 | --- | --- |
@@ -72,9 +67,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | devclustertemplate | v1beta1 |
 | devmachine | v1beta1 |
 | devmachinetemplate | v1beta1 |
-| dockerclustertemplate | v1alpha4, v1beta1 |
-| dockermachinepool | v1alpha3, v1alpha4, v1beta1 |
-| dockermachinepooltemplate | v1beta1 |
 | gcpcluster | v1alpha2 |
 | gcpmachine | v1alpha2 |
 | gcpmachinetemplate | v1alpha2 |
@@ -118,3 +110,81 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | perconapgcluster | v1 |
 | postgrescluster | v1beta1 |
+
+### Ignored Schemas
+
+<details>
+<summary>Click to show ignored schemas</summary>
+
+| | | |
+| --- | --- | --- |
+| anywhere.eks.amazonaws.com | cluster | v1alpha3 |
+| anywhere.eks.amazonaws.com | cluster | v1alpha4 |
+| anywhere.eks.amazonaws.com | cluster | v1beta1 |
+| anywhere.eks.amazonaws.com | clusterclass | v1alpha4 |
+| anywhere.eks.amazonaws.com | clusterclass | v1beta1 |
+| anywhere.eks.amazonaws.com | clusterissuer | v1 |
+| anywhere.eks.amazonaws.com | clusterresourceset | v1alpha3 |
+| anywhere.eks.amazonaws.com | clusterresourceset | v1alpha4 |
+| anywhere.eks.amazonaws.com | clusterresourceset | v1beta1 |
+| anywhere.eks.amazonaws.com | clusterresourcesetbinding | v1alpha3 |
+| anywhere.eks.amazonaws.com | clusterresourcesetbinding | v1alpha4 |
+| anywhere.eks.amazonaws.com | clusterresourcesetbinding | v1beta1 |
+| anywhere.eks.amazonaws.com | dockercluster | v1alpha3 |
+| anywhere.eks.amazonaws.com | dockercluster | v1alpha4 |
+| anywhere.eks.amazonaws.com | dockercluster | v1beta1 |
+| anywhere.eks.amazonaws.com | dockerclustertemplate | v1alpha4 |
+| anywhere.eks.amazonaws.com | dockerclustertemplate | v1beta1 |
+| anywhere.eks.amazonaws.com | dockermachine | v1alpha3 |
+| anywhere.eks.amazonaws.com | dockermachine | v1alpha4 |
+| anywhere.eks.amazonaws.com | dockermachine | v1beta1 |
+| anywhere.eks.amazonaws.com | dockermachinepool | v1alpha3 |
+| anywhere.eks.amazonaws.com | dockermachinepool | v1alpha4 |
+| anywhere.eks.amazonaws.com | dockermachinepool | v1beta1 |
+| anywhere.eks.amazonaws.com | dockermachinetemplate | v1alpha3 |
+| anywhere.eks.amazonaws.com | dockermachinetemplate | v1alpha4 |
+| anywhere.eks.amazonaws.com | dockermachinetemplate | v1beta1 |
+| dex.coreos.com | authcode | v1 |
+| dex.coreos.com | authrequest | v1 |
+| dex.coreos.com | connector | v1 |
+| dex.coreos.com | devicerequest | v1 |
+| dex.coreos.com | devicetoken | v1 |
+| dex.coreos.com | oauth2client | v1 |
+| dex.coreos.com | offlinesessions | v1 |
+| dex.coreos.com | password | v1 |
+| dex.coreos.com | refreshtoken | v1 |
+| dex.coreos.com | signingkey | v1 |
+| infrastructure.cluster.x-k8s.io | dockercluster | v1alpha2 |
+| infrastructure.cluster.x-k8s.io | dockercluster | v1alpha3 |
+| infrastructure.cluster.x-k8s.io | dockercluster | v1alpha4 |
+| infrastructure.cluster.x-k8s.io | dockercluster | v1beta1 |
+| infrastructure.cluster.x-k8s.io | dockerclustertemplate | v1alpha4 |
+| infrastructure.cluster.x-k8s.io | dockerclustertemplate | v1beta1 |
+| infrastructure.cluster.x-k8s.io | dockermachine | v1alpha2 |
+| infrastructure.cluster.x-k8s.io | dockermachine | v1alpha3 |
+| infrastructure.cluster.x-k8s.io | dockermachine | v1alpha4 |
+| infrastructure.cluster.x-k8s.io | dockermachine | v1beta1 |
+| infrastructure.cluster.x-k8s.io | dockermachinepool | v1alpha3 |
+| infrastructure.cluster.x-k8s.io | dockermachinepool | v1alpha4 |
+| infrastructure.cluster.x-k8s.io | dockermachinepool | v1beta1 |
+| infrastructure.cluster.x-k8s.io | dockermachinepooltemplate | v1beta1 |
+| infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1alpha2 |
+| infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1alpha3 |
+| infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1alpha4 |
+| infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1beta1 |
+| kafka.strimzi.io | kafkatopiccontrolacls | v1alpha1 |
+| kafka.strimzi.io | kafkatopiccontrolacls | v1beta1 |
+| kafka.strimzi.io | strimzipodset | v1beta2 |
+| mysql.presslabs.org | mysqlbackup | v2 |
+| openebs.io | blockdevice | v1alpha1 |
+| openebs.io | blockdeviceclaim | v1alpha1 |
+| openebs.io | diskpool | v1beta1 |
+| openebs.io | diskpool | v1beta2 |
+| policy.linkerd.io | httproute | v1 |
+| postgresql.cnpg.io | cluster | v3 |
+| rbacmanager.reactiveops.io | rbacdefinitions | v1alpha1 |
+| templates.kluctl.io | objecthandler | v1alpha1 |
+| uds.dev | exemption | v1alpha1 |
+| uds.dev | package | v1alpha1 |
+
+</details>
