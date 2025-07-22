@@ -25,8 +25,13 @@ type item struct {
 }
 
 type markdownData struct {
-	Name, Uri string
-	Data      []markdownItem
+	Name, Uri          string
+	Ratio              string
+	SchemaCount        int
+	CurrentSchemaCount int
+	IgnoredSchemaCount int
+	Data               []markdownItem
+	Ignored            []ignoreItem
 }
 
 type markdownItem struct {
@@ -58,6 +63,14 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 ## [{{ .Name }}]({{ .Uri }})
 
+### Stats
+
+| Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
+| --- | --- | --- | --- |
+| {{ .Ratio }} | {{ .SchemaCount }} | {{ .CurrentSchemaCount }} | {{ .IgnoredSchemaCount }} |
+
+### Missing Schemas
+
 {{- range .Data }}
 
 | {{ .Group }} | |
@@ -67,7 +80,20 @@ This page lists missing CRD validation schemas that are present in alternative c
 {{- end }}
 {{- end }}
 
+### Ignored Schemas
+
+<details>
+<summary>Click to show ignored schemas</summary>
+
+| | | |
+| --- | --- | --- |
+{{- range .Ignored }}
+| {{ .Group }} | {{ .Kind }} | {{ .Version }} |
 {{- end }}
+
+{{- end }}
+
+</details>
 `
 
 func NewComparer(datreeio, current, output, ignore string, flags *flag.FlagSet) Comparer {
@@ -237,6 +263,7 @@ func (data *markdownData) update(current []item, target []item, ignores []ignore
 		marker[i.Id()] = false
 	}
 
+	ignored := make([]ignoreItem, 0)
 	missing := make([]item, 0)
 	groups := make(map[string]string, 0)
 	for _, item := range target {
@@ -245,6 +272,7 @@ func (data *markdownData) update(current []item, target []item, ignores []ignore
 		for _, re := range res {
 			if !ok && re.MatchString(id) {
 				ok = true
+				ignored = append(ignored, ignoreItem{Group: item.group, Kind: item.kind, Version: item.version})
 			}
 		}
 		if !ok {
@@ -287,4 +315,24 @@ func (data *markdownData) update(current []item, target []item, ignores []ignore
 	}
 
 	slices.SortFunc(data.Data, func(a, b markdownItem) int { return cmp.Compare(a.Group, b.Group) })
+
+	data.SchemaCount = len(target)
+	data.CurrentSchemaCount = len(current)
+	data.IgnoredSchemaCount = len(ignored)
+
+	data.Ignored = ignored
+	slices.SortFunc(data.Ignored, func(a, b ignoreItem) int {
+		var result int
+		result = cmp.Compare(a.Group, b.Group)
+		if result == 0 {
+			result = cmp.Compare(a.Kind, b.Kind)
+		}
+		if result == 0 {
+			result = cmp.Compare(a.Version, b.Version)
+		}
+		return result
+	})
+
+	ratio := float32(len(target)-len(missing)) / float32(len(target))
+	data.Ratio = fmt.Sprintf("%.2f%%", ratio*100)
 }
