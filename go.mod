@@ -11,7 +11,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.33.3
 	k8s.io/apimachinery v0.33.3
 	sigs.k8s.io/controller-tools v0.18.0
-	sigs.k8s.io/kustomize/kyaml v0.20.0
+	sigs.k8s.io/kustomize/kyaml v0.20.1
 )
 
 require (
