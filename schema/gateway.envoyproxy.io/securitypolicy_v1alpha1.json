@@ -85,6 +85,12 @@
                 },
                 "additionalProperties": false
               }
+            },
+            "forwardClientIDHeader": {
+              "type": "string"
+            },
+            "sanitize": {
+              "type": "boolean"
             }
           },
           "additionalProperties": false
@@ -348,7 +354,8 @@
               }
             },
             "maxAge": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
             }
           },
           "additionalProperties": false
@@ -578,7 +585,8 @@
                       "type": "object",
                       "properties": {
                         "dnsRefreshRate": {
-                          "type": "string"
+                          "type": "string",
+                          "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                         },
                         "lookupFamily": {
                           "type": "string",
@@ -678,6 +686,12 @@
                                     "minimum": 100
                                   }
                                 },
+                                "hostname": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1,
+                                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                                },
                                 "method": {
                                   "type": "string"
                                 },
@@ -689,10 +703,14 @@
                               },
                               "additionalProperties": false
                             },
+                            "initialJitter": {
+                              "type": "string",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+                            },
                             "interval": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "3s"
+                              "default": "3s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "tcp": {
                               "type": "object",
@@ -788,8 +806,8 @@
                             },
                             "timeout": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "1s"
+                              "default": "1s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "type": {
                               "type": "string",
@@ -844,8 +862,8 @@
                           "properties": {
                             "baseEjectionTime": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "30s"
+                              "default": "30s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "consecutive5XxErrors": {
                               "type": "integer",
@@ -864,8 +882,8 @@
                             },
                             "interval": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "3s"
+                              "default": "3s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "maxEjectionPercent": {
                               "type": "integer",
@@ -963,7 +981,8 @@
                                   "type": "string"
                                 },
                                 "ttl": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                 }
                               },
                               "additionalProperties": false
@@ -1008,6 +1027,29 @@
                             }
                           ]
                         },
+                        "endpointOverride": {
+                          "type": "object",
+                          "required": [
+                            "extractFrom"
+                          ],
+                          "properties": {
+                            "extractFrom": {
+                              "type": "array",
+                              "maxItems": 10,
+                              "minItems": 1,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "header": {
+                                    "type": "string"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "slowStart": {
                           "type": "object",
                           "required": [
@@ -1015,7 +1057,8 @@
                           ],
                           "properties": {
                             "window": {
-                              "type": "string"
+                              "type": "string",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             }
                           },
                           "additionalProperties": false
@@ -1028,6 +1071,32 @@
                             "Random",
                             "RoundRobin"
                           ]
+                        },
+                        "zoneAware": {
+                          "type": "object",
+                          "properties": {
+                            "preferLocal": {
+                              "type": "object",
+                              "properties": {
+                                "force": {
+                                  "type": "object",
+                                  "properties": {
+                                    "minEndpointsInZoneThreshold": {
+                                      "type": "integer",
+                                      "format": "int32"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "minEndpointsThreshold": {
+                                  "type": "integer",
+                                  "format": "int64"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       },
                       "additionalProperties": false,
@@ -1039,6 +1108,10 @@
                         {
                           "rule": "self.type in ['Random', 'ConsistentHash'] ? !has(self.slowStart) : true ",
                           "message": "Currently SlowStart is only supported for RoundRobin and LeastRequest load balancers."
+                        },
+                        {
+                          "rule": "self.type == 'ConsistentHash' ? !has(self.zoneAware) : true ",
+                          "message": "Currently ZoneAware is only supported for LeastRequest, Random, and RoundRobin load balancers."
                         }
                       ]
                     },
@@ -1061,6 +1134,10 @@
                     "retry": {
                       "type": "object",
                       "properties": {
+                        "numAttemptsPerPriority": {
+                          "type": "integer",
+                          "format": "int32"
+                        },
                         "numRetries": {
                           "type": "integer",
                           "format": "int32",
@@ -1075,18 +1152,18 @@
                               "properties": {
                                 "baseInterval": {
                                   "type": "string",
-                                  "format": "duration"
+                                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                 },
                                 "maxInterval": {
                                   "type": "string",
-                                  "format": "duration"
+                                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                 }
                               },
                               "additionalProperties": false
                             },
                             "timeout": {
                               "type": "string",
-                              "format": "duration"
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             }
                           },
                           "additionalProperties": false
@@ -1111,6 +1188,7 @@
                                   "5xx",
                                   "gateway-error",
                                   "reset",
+                                  "reset-before-request",
                                   "connect-failure",
                                   "retriable-4xx",
                                   "refused-stream",
@@ -1192,12 +1270,12 @@
                   "message": "backendRef or backendRefs needs to be set"
                 },
                 {
-                  "rule": "has(self.backendRefs) ? self.backendRefs.all(f, f.kind == 'Service' || f.kind == 'Backend') : true",
-                  "message": "BackendRefs only supports Service and Backend kind."
+                  "rule": "has(self.backendRefs) ? self.backendRefs.all(f, f.kind == 'Service' || f.kind == 'ServiceImport' || f.kind == 'Backend') : true",
+                  "message": "BackendRefs only supports Service, ServiceImport, and Backend kind."
                 },
                 {
-                  "rule": "has(self.backendRefs) ? (self.backendRefs.all(f, f.group == \"\" || f.group == 'gateway.envoyproxy.io')) : true",
-                  "message": "BackendRefs only supports Core and gateway.envoyproxy.io group."
+                  "rule": "has(self.backendRefs) ? (self.backendRefs.all(f, f.group == \"\" || f.group == 'multicluster.x-k8s.io' || f.group == 'gateway.envoyproxy.io')) : true",
+                  "message": "BackendRefs only supports Core, multicluster.x-k8s.io, and gateway.envoyproxy.io groups."
                 }
               ]
             },
@@ -1411,7 +1489,8 @@
                       "type": "object",
                       "properties": {
                         "dnsRefreshRate": {
-                          "type": "string"
+                          "type": "string",
+                          "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                         },
                         "lookupFamily": {
                           "type": "string",
@@ -1511,6 +1590,12 @@
                                     "minimum": 100
                                   }
                                 },
+                                "hostname": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1,
+                                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                                },
                                 "method": {
                                   "type": "string"
                                 },
@@ -1522,10 +1607,14 @@
                               },
                               "additionalProperties": false
                             },
+                            "initialJitter": {
+                              "type": "string",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+                            },
                             "interval": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "3s"
+                              "default": "3s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "tcp": {
                               "type": "object",
@@ -1621,8 +1710,8 @@
                             },
                             "timeout": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "1s"
+                              "default": "1s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "type": {
                               "type": "string",
@@ -1677,8 +1766,8 @@
                           "properties": {
                             "baseEjectionTime": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "30s"
+                              "default": "30s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "consecutive5XxErrors": {
                               "type": "integer",
@@ -1697,8 +1786,8 @@
                             },
                             "interval": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "3s"
+                              "default": "3s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "maxEjectionPercent": {
                               "type": "integer",
@@ -1796,7 +1885,8 @@
                                   "type": "string"
                                 },
                                 "ttl": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                 }
                               },
                               "additionalProperties": false
@@ -1841,6 +1931,29 @@
                             }
                           ]
                         },
+                        "endpointOverride": {
+                          "type": "object",
+                          "required": [
+                            "extractFrom"
+                          ],
+                          "properties": {
+                            "extractFrom": {
+                              "type": "array",
+                              "maxItems": 10,
+                              "minItems": 1,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "header": {
+                                    "type": "string"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "slowStart": {
                           "type": "object",
                           "required": [
@@ -1848,7 +1961,8 @@
                           ],
                           "properties": {
                             "window": {
-                              "type": "string"
+                              "type": "string",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             }
                           },
                           "additionalProperties": false
@@ -1861,6 +1975,32 @@
                             "Random",
                             "RoundRobin"
                           ]
+                        },
+                        "zoneAware": {
+                          "type": "object",
+                          "properties": {
+                            "preferLocal": {
+                              "type": "object",
+                              "properties": {
+                                "force": {
+                                  "type": "object",
+                                  "properties": {
+                                    "minEndpointsInZoneThreshold": {
+                                      "type": "integer",
+                                      "format": "int32"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "minEndpointsThreshold": {
+                                  "type": "integer",
+                                  "format": "int64"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       },
                       "additionalProperties": false,
@@ -1872,6 +2012,10 @@
                         {
                           "rule": "self.type in ['Random', 'ConsistentHash'] ? !has(self.slowStart) : true ",
                           "message": "Currently SlowStart is only supported for RoundRobin and LeastRequest load balancers."
+                        },
+                        {
+                          "rule": "self.type == 'ConsistentHash' ? !has(self.zoneAware) : true ",
+                          "message": "Currently ZoneAware is only supported for LeastRequest, Random, and RoundRobin load balancers."
                         }
                       ]
                     },
@@ -1894,6 +2038,10 @@
                     "retry": {
                       "type": "object",
                       "properties": {
+                        "numAttemptsPerPriority": {
+                          "type": "integer",
+                          "format": "int32"
+                        },
                         "numRetries": {
                           "type": "integer",
                           "format": "int32",
@@ -1908,18 +2056,18 @@
                               "properties": {
                                 "baseInterval": {
                                   "type": "string",
-                                  "format": "duration"
+                                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                 },
                                 "maxInterval": {
                                   "type": "string",
-                                  "format": "duration"
+                                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                 }
                               },
                               "additionalProperties": false
                             },
                             "timeout": {
                               "type": "string",
-                              "format": "duration"
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             }
                           },
                           "additionalProperties": false
@@ -1944,6 +2092,7 @@
                                   "5xx",
                                   "gateway-error",
                                   "reset",
+                                  "reset-before-request",
                                   "connect-failure",
                                   "retriable-4xx",
                                   "refused-stream",
@@ -2034,12 +2183,12 @@
                   "message": "backendRef or backendRefs needs to be set"
                 },
                 {
-                  "rule": "has(self.backendRefs) ? self.backendRefs.all(f, f.kind == 'Service' || f.kind == 'Backend') : true",
-                  "message": "BackendRefs only supports Service and Backend kind."
+                  "rule": "has(self.backendRefs) ? self.backendRefs.all(f, f.kind == 'Service' || f.kind == 'ServiceImport' || f.kind == 'Backend') : true",
+                  "message": "BackendRefs only supports Service, ServiceImport, and Backend kind."
                 },
                 {
-                  "rule": "has(self.backendRefs) ? (self.backendRefs.all(f, f.group == \"\" || f.group == 'gateway.envoyproxy.io')) : true",
-                  "message": "BackendRefs only supports Core and gateway.envoyproxy.io group."
+                  "rule": "has(self.backendRefs) ? (self.backendRefs.all(f, f.group == \"\" || f.group == 'multicluster.x-k8s.io' || f.group == 'gateway.envoyproxy.io')) : true",
+                  "message": "BackendRefs only supports Core, multicluster.x-k8s.io, and gateway.envoyproxy.io groups."
                 }
               ]
             },
@@ -2412,7 +2561,8 @@
                             "type": "object",
                             "properties": {
                               "dnsRefreshRate": {
-                                "type": "string"
+                                "type": "string",
+                                "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                               },
                               "lookupFamily": {
                                 "type": "string",
@@ -2512,6 +2662,12 @@
                                           "minimum": 100
                                         }
                                       },
+                                      "hostname": {
+                                        "type": "string",
+                                        "maxLength": 253,
+                                        "minLength": 1,
+                                        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                                      },
                                       "method": {
                                         "type": "string"
                                       },
@@ -2523,10 +2679,14 @@
                                     },
                                     "additionalProperties": false
                                   },
+                                  "initialJitter": {
+                                    "type": "string",
+                                    "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+                                  },
                                   "interval": {
                                     "type": "string",
-                                    "format": "duration",
-                                    "default": "3s"
+                                    "default": "3s",
+                                    "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                   },
                                   "tcp": {
                                     "type": "object",
@@ -2622,8 +2782,8 @@
                                   },
                                   "timeout": {
                                     "type": "string",
-                                    "format": "duration",
-                                    "default": "1s"
+                                    "default": "1s",
+                                    "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                   },
                                   "type": {
                                     "type": "string",
@@ -2678,8 +2838,8 @@
                                 "properties": {
                                   "baseEjectionTime": {
                                     "type": "string",
-                                    "format": "duration",
-                                    "default": "30s"
+                                    "default": "30s",
+                                    "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                   },
                                   "consecutive5XxErrors": {
                                     "type": "integer",
@@ -2698,8 +2858,8 @@
                                   },
                                   "interval": {
                                     "type": "string",
-                                    "format": "duration",
-                                    "default": "3s"
+                                    "default": "3s",
+                                    "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                   },
                                   "maxEjectionPercent": {
                                     "type": "integer",
@@ -2797,7 +2957,8 @@
                                         "type": "string"
                                       },
                                       "ttl": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                       }
                                     },
                                     "additionalProperties": false
@@ -2842,6 +3003,29 @@
                                   }
                                 ]
                               },
+                              "endpointOverride": {
+                                "type": "object",
+                                "required": [
+                                  "extractFrom"
+                                ],
+                                "properties": {
+                                  "extractFrom": {
+                                    "type": "array",
+                                    "maxItems": 10,
+                                    "minItems": 1,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "header": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
                               "slowStart": {
                                 "type": "object",
                                 "required": [
@@ -2849,7 +3033,8 @@
                                 ],
                                 "properties": {
                                   "window": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                   }
                                 },
                                 "additionalProperties": false
@@ -2862,6 +3047,32 @@
                                   "Random",
                                   "RoundRobin"
                                 ]
+                              },
+                              "zoneAware": {
+                                "type": "object",
+                                "properties": {
+                                  "preferLocal": {
+                                    "type": "object",
+                                    "properties": {
+                                      "force": {
+                                        "type": "object",
+                                        "properties": {
+                                          "minEndpointsInZoneThreshold": {
+                                            "type": "integer",
+                                            "format": "int32"
+                                          }
+                                        },
+                                        "additionalProperties": false
+                                      },
+                                      "minEndpointsThreshold": {
+                                        "type": "integer",
+                                        "format": "int64"
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false,
@@ -2873,6 +3084,10 @@
                               {
                                 "rule": "self.type in ['Random', 'ConsistentHash'] ? !has(self.slowStart) : true ",
                                 "message": "Currently SlowStart is only supported for RoundRobin and LeastRequest load balancers."
+                              },
+                              {
+                                "rule": "self.type == 'ConsistentHash' ? !has(self.zoneAware) : true ",
+                                "message": "Currently ZoneAware is only supported for LeastRequest, Random, and RoundRobin load balancers."
                               }
                             ]
                           },
@@ -2895,6 +3110,10 @@
                           "retry": {
                             "type": "object",
                             "properties": {
+                              "numAttemptsPerPriority": {
+                                "type": "integer",
+                                "format": "int32"
+                              },
                               "numRetries": {
                                 "type": "integer",
                                 "format": "int32",
@@ -2909,18 +3128,18 @@
                                     "properties": {
                                       "baseInterval": {
                                         "type": "string",
-                                        "format": "duration"
+                                        "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                       },
                                       "maxInterval": {
                                         "type": "string",
-                                        "format": "duration"
+                                        "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                       }
                                     },
                                     "additionalProperties": false
                                   },
                                   "timeout": {
                                     "type": "string",
-                                    "format": "duration"
+                                    "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                   }
                                 },
                                 "additionalProperties": false
@@ -2945,6 +3164,7 @@
                                         "5xx",
                                         "gateway-error",
                                         "reset",
+                                        "reset-before-request",
                                         "connect-failure",
                                         "retriable-4xx",
                                         "refused-stream",
@@ -3064,7 +3284,6 @@
         "oidc": {
           "type": "object",
           "required": [
-            "clientID",
             "clientSecret",
             "provider"
           ],
@@ -3072,6 +3291,39 @@
             "clientID": {
               "type": "string",
               "minLength": 1
+            },
+            "clientIDRef": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "group": {
+                  "type": "string",
+                  "default": "",
+                  "maxLength": 253,
+                  "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                },
+                "kind": {
+                  "type": "string",
+                  "default": "Secret",
+                  "maxLength": 63,
+                  "minLength": 1,
+                  "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 253,
+                  "minLength": 1
+                },
+                "namespace": {
+                  "type": "string",
+                  "maxLength": 63,
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                }
+              },
+              "additionalProperties": false
             },
             "clientSecret": {
               "type": "object",
@@ -3106,6 +3358,21 @@
               },
               "additionalProperties": false
             },
+            "cookieConfig": {
+              "type": "object",
+              "properties": {
+                "sameSite": {
+                  "type": "string",
+                  "default": "Strict",
+                  "enum": [
+                    "Lax",
+                    "Strict",
+                    "None"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
             "cookieDomain": {
               "type": "string",
               "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9]))*$"
@@ -3123,16 +3390,64 @@
               "additionalProperties": false
             },
             "defaultRefreshTokenTTL": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
             },
             "defaultTokenTTL": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+            },
+            "denyRedirect": {
+              "type": "object",
+              "required": [
+                "headers"
+              ],
+              "properties": {
+                "headers": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "value"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "type": {
+                        "type": "string",
+                        "default": "Exact",
+                        "enum": [
+                          "Exact",
+                          "Prefix",
+                          "Suffix",
+                          "RegularExpression"
+                        ]
+                      },
+                      "value": {
+                        "type": "string",
+                        "maxLength": 1024,
+                        "minLength": 1
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
             },
             "forwardAccessToken": {
               "type": "boolean"
             },
             "logoutPath": {
               "type": "string"
+            },
+            "passThroughAuthHeader": {
+              "type": "boolean"
             },
             "provider": {
               "type": "object",
@@ -3344,7 +3659,8 @@
                       "type": "object",
                       "properties": {
                         "dnsRefreshRate": {
-                          "type": "string"
+                          "type": "string",
+                          "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                         },
                         "lookupFamily": {
                           "type": "string",
@@ -3444,6 +3760,12 @@
                                     "minimum": 100
                                   }
                                 },
+                                "hostname": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1,
+                                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                                },
                                 "method": {
                                   "type": "string"
                                 },
@@ -3455,10 +3777,14 @@
                               },
                               "additionalProperties": false
                             },
+                            "initialJitter": {
+                              "type": "string",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+                            },
                             "interval": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "3s"
+                              "default": "3s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "tcp": {
                               "type": "object",
@@ -3554,8 +3880,8 @@
                             },
                             "timeout": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "1s"
+                              "default": "1s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "type": {
                               "type": "string",
@@ -3610,8 +3936,8 @@
                           "properties": {
                             "baseEjectionTime": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "30s"
+                              "default": "30s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "consecutive5XxErrors": {
                               "type": "integer",
@@ -3630,8 +3956,8 @@
                             },
                             "interval": {
                               "type": "string",
-                              "format": "duration",
-                              "default": "3s"
+                              "default": "3s",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             },
                             "maxEjectionPercent": {
                               "type": "integer",
@@ -3729,7 +4055,8 @@
                                   "type": "string"
                                 },
                                 "ttl": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                 }
                               },
                               "additionalProperties": false
@@ -3774,6 +4101,29 @@
                             }
                           ]
                         },
+                        "endpointOverride": {
+                          "type": "object",
+                          "required": [
+                            "extractFrom"
+                          ],
+                          "properties": {
+                            "extractFrom": {
+                              "type": "array",
+                              "maxItems": 10,
+                              "minItems": 1,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "header": {
+                                    "type": "string"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "slowStart": {
                           "type": "object",
                           "required": [
@@ -3781,7 +4131,8 @@
                           ],
                           "properties": {
                             "window": {
-                              "type": "string"
+                              "type": "string",
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             }
                           },
                           "additionalProperties": false
@@ -3794,6 +4145,32 @@
                             "Random",
                             "RoundRobin"
                           ]
+                        },
+                        "zoneAware": {
+                          "type": "object",
+                          "properties": {
+                            "preferLocal": {
+                              "type": "object",
+                              "properties": {
+                                "force": {
+                                  "type": "object",
+                                  "properties": {
+                                    "minEndpointsInZoneThreshold": {
+                                      "type": "integer",
+                                      "format": "int32"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "minEndpointsThreshold": {
+                                  "type": "integer",
+                                  "format": "int64"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       },
                       "additionalProperties": false,
@@ -3805,6 +4182,10 @@
                         {
                           "rule": "self.type in ['Random', 'ConsistentHash'] ? !has(self.slowStart) : true ",
                           "message": "Currently SlowStart is only supported for RoundRobin and LeastRequest load balancers."
+                        },
+                        {
+                          "rule": "self.type == 'ConsistentHash' ? !has(self.zoneAware) : true ",
+                          "message": "Currently ZoneAware is only supported for LeastRequest, Random, and RoundRobin load balancers."
                         }
                       ]
                     },
@@ -3827,6 +4208,10 @@
                     "retry": {
                       "type": "object",
                       "properties": {
+                        "numAttemptsPerPriority": {
+                          "type": "integer",
+                          "format": "int32"
+                        },
                         "numRetries": {
                           "type": "integer",
                           "format": "int32",
@@ -3841,18 +4226,18 @@
                               "properties": {
                                 "baseInterval": {
                                   "type": "string",
-                                  "format": "duration"
+                                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                 },
                                 "maxInterval": {
                                   "type": "string",
-                                  "format": "duration"
+                                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                                 }
                               },
                               "additionalProperties": false
                             },
                             "timeout": {
                               "type": "string",
-                              "format": "duration"
+                              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                             }
                           },
                           "additionalProperties": false
@@ -3877,6 +4262,7 @@
                                   "5xx",
                                   "gateway-error",
                                   "reset",
+                                  "reset-before-request",
                                   "connect-failure",
                                   "retriable-4xx",
                                   "refused-stream",
@@ -3950,6 +4336,9 @@
                   },
                   "additionalProperties": false
                 },
+                "endSessionEndpoint": {
+                  "type": "string"
+                },
                 "issuer": {
                   "type": "string",
                   "minLength": 1
@@ -3993,7 +4382,13 @@
               }
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(has(self.clientID) \u0026\u0026 !has(self.clientIDRef)) || (!has(self.clientID) \u0026\u0026 has(self.clientIDRef))",
+              "message": "only one of clientID or clientIDRef must be set"
+            }
+          ]
         },
         "targetRef": {
           "type": "object",
@@ -4143,20 +4538,12 @@
           "message": "this policy can only have a targetRef.kind of Gateway/HTTPRoute/GRPCRoute"
         },
         {
-          "rule": "has(self.targetRef) ? !has(self.targetRef.sectionName) : true",
-          "message": "this policy does not yet support the sectionName field"
-        },
-        {
           "rule": "has(self.targetRefs) ? self.targetRefs.all(ref, ref.group == 'gateway.networking.k8s.io') : true ",
           "message": "this policy can only have a targetRefs[*].group of gateway.networking.k8s.io"
         },
         {
           "rule": "has(self.targetRefs) ? self.targetRefs.all(ref, ref.kind in ['Gateway', 'HTTPRoute', 'GRPCRoute']) : true ",
           "message": "this policy can only have a targetRefs[*].kind of Gateway/HTTPRoute/GRPCRoute"
-        },
-        {
-          "rule": "has(self.targetRefs) ? self.targetRefs.all(ref, !has(ref.sectionName)) : true",
-          "message": "this policy does not yet support the sectionName field"
         },
         {
           "rule": "(has(self.authorization) \u0026\u0026 has(self.authorization.rules) \u0026\u0026 self.authorization.rules.exists(r, has(r.principal.jwt))) ? has(self.jwt) : true",

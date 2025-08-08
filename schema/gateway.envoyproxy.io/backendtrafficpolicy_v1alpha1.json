@@ -142,7 +142,8 @@
           "type": "object",
           "properties": {
             "dnsRefreshRate": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
             },
             "lookupFamily": {
               "type": "string",
@@ -200,7 +201,8 @@
               ],
               "properties": {
                 "fixedDelay": {
-                  "type": "string"
+                  "type": "string",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                 },
                 "percentage": {
                   "type": "number",
@@ -300,6 +302,12 @@
                         "minimum": 100
                       }
                     },
+                    "hostname": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "minLength": 1,
+                      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                    },
                     "method": {
                       "type": "string"
                     },
@@ -311,10 +319,14 @@
                   },
                   "additionalProperties": false
                 },
+                "initialJitter": {
+                  "type": "string",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+                },
                 "interval": {
                   "type": "string",
-                  "format": "duration",
-                  "default": "3s"
+                  "default": "3s",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                 },
                 "tcp": {
                   "type": "object",
@@ -410,8 +422,8 @@
                 },
                 "timeout": {
                   "type": "string",
-                  "format": "duration",
-                  "default": "1s"
+                  "default": "1s",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                 },
                 "type": {
                   "type": "string",
@@ -466,8 +478,8 @@
               "properties": {
                 "baseEjectionTime": {
                   "type": "string",
-                  "format": "duration",
-                  "default": "30s"
+                  "default": "30s",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                 },
                 "consecutive5XxErrors": {
                   "type": "integer",
@@ -486,8 +498,8 @@
                 },
                 "interval": {
                   "type": "string",
-                  "format": "duration",
-                  "default": "3s"
+                  "default": "3s",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                 },
                 "maxEjectionPercent": {
                   "type": "integer",
@@ -565,11 +577,26 @@
               "type"
             ],
             "properties": {
+              "connect": {
+                "type": "object",
+                "properties": {
+                  "terminate": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
               "type": {
                 "type": "string"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "!has(self.connect) || self.type == 'CONNECT'",
+                "message": "The connect configuration is only allowed when the type is CONNECT."
+              }
+            ]
           }
         },
         "loadBalancer": {
@@ -600,7 +627,8 @@
                       "type": "string"
                     },
                     "ttl": {
-                      "type": "string"
+                      "type": "string",
+                      "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                     }
                   },
                   "additionalProperties": false
@@ -645,6 +673,29 @@
                 }
               ]
             },
+            "endpointOverride": {
+              "type": "object",
+              "required": [
+                "extractFrom"
+              ],
+              "properties": {
+                "extractFrom": {
+                  "type": "array",
+                  "maxItems": 10,
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "header": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
             "slowStart": {
               "type": "object",
               "required": [
@@ -652,7 +703,8 @@
               ],
               "properties": {
                 "window": {
-                  "type": "string"
+                  "type": "string",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                 }
               },
               "additionalProperties": false
@@ -665,6 +717,32 @@
                 "Random",
                 "RoundRobin"
               ]
+            },
+            "zoneAware": {
+              "type": "object",
+              "properties": {
+                "preferLocal": {
+                  "type": "object",
+                  "properties": {
+                    "force": {
+                      "type": "object",
+                      "properties": {
+                        "minEndpointsInZoneThreshold": {
+                          "type": "integer",
+                          "format": "int32"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "minEndpointsThreshold": {
+                      "type": "integer",
+                      "format": "int64"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false,
@@ -676,6 +754,10 @@
             {
               "rule": "self.type in ['Random', 'ConsistentHash'] ? !has(self.slowStart) : true ",
               "message": "Currently SlowStart is only supported for RoundRobin and LeastRequest load balancers."
+            },
+            {
+              "rule": "self.type == 'ConsistentHash' ? !has(self.zoneAware) : true ",
+              "message": "Currently ZoneAware is only supported for LeastRequest, Random, and RoundRobin load balancers."
             }
           ]
         },
@@ -892,7 +974,9 @@
                               "Second",
                               "Minute",
                               "Hour",
-                              "Day"
+                              "Day",
+                              "Month",
+                              "Year"
                             ]
                           }
                         },
@@ -1093,7 +1177,9 @@
                               "Second",
                               "Minute",
                               "Hour",
-                              "Day"
+                              "Day",
+                              "Month",
+                              "Year"
                             ]
                           }
                         },
@@ -1155,8 +1241,7 @@
           "items": {
             "type": "object",
             "required": [
-              "match",
-              "response"
+              "match"
             ],
             "properties": {
               "match": {
@@ -1231,6 +1316,85 @@
                         }
                       ]
                     }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "redirect": {
+                "type": "object",
+                "properties": {
+                  "hostname": {
+                    "type": "string",
+                    "maxLength": 253,
+                    "minLength": 1,
+                    "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                  },
+                  "path": {
+                    "type": "object",
+                    "required": [
+                      "type"
+                    ],
+                    "properties": {
+                      "replaceFullPath": {
+                        "type": "string",
+                        "maxLength": 1024
+                      },
+                      "replacePrefixMatch": {
+                        "type": "string",
+                        "maxLength": 1024
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "ReplaceFullPath",
+                          "ReplacePrefixMatch"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "self.type == 'ReplaceFullPath'",
+                        "message": "only ReplaceFullPath is supported for path.type"
+                      },
+                      {
+                        "rule": "self.type == 'ReplaceFullPath' ? has(self.replaceFullPath) : true",
+                        "message": "replaceFullPath must be specified when type is set to 'ReplaceFullPath'"
+                      },
+                      {
+                        "rule": "has(self.replaceFullPath) ? self.type == 'ReplaceFullPath' : true",
+                        "message": "type must be 'ReplaceFullPath' when replaceFullPath is set"
+                      },
+                      {
+                        "rule": "self.type == 'ReplacePrefixMatch' ? has(self.replacePrefixMatch) : true",
+                        "message": "replacePrefixMatch must be specified when type is set to 'ReplacePrefixMatch'"
+                      },
+                      {
+                        "rule": "has(self.replacePrefixMatch) ? self.type == 'ReplacePrefixMatch' : true",
+                        "message": "type must be 'ReplacePrefixMatch' when replacePrefixMatch is set"
+                      }
+                    ]
+                  },
+                  "port": {
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 65535,
+                    "minimum": 1
+                  },
+                  "scheme": {
+                    "type": "string",
+                    "enum": [
+                      "http",
+                      "https"
+                    ]
+                  },
+                  "statusCode": {
+                    "type": "integer",
+                    "default": 302,
+                    "enum": [
+                      301,
+                      302
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -1319,12 +1483,22 @@
                 "additionalProperties": false
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "(has(self.response) \u0026\u0026 !has(self.redirect)) || (!has(self.response) \u0026\u0026 has(self.redirect))",
+                "message": "exactly one of response or redirect must be specified"
+              }
+            ]
           }
         },
         "retry": {
           "type": "object",
           "properties": {
+            "numAttemptsPerPriority": {
+              "type": "integer",
+              "format": "int32"
+            },
             "numRetries": {
               "type": "integer",
               "format": "int32",
@@ -1339,18 +1513,18 @@
                   "properties": {
                     "baseInterval": {
                       "type": "string",
-                      "format": "duration"
+                      "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                     },
                     "maxInterval": {
                       "type": "string",
-                      "format": "duration"
+                      "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                     }
                   },
                   "additionalProperties": false
                 },
                 "timeout": {
                   "type": "string",
-                  "format": "duration"
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                 }
               },
               "additionalProperties": false
@@ -1375,6 +1549,7 @@
                       "5xx",
                       "gateway-error",
                       "reset",
+                      "reset-before-request",
                       "connect-failure",
                       "retriable-4xx",
                       "refused-stream",
