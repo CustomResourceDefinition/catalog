@@ -15,63 +15,27 @@
       "required": [
         "group",
         "names",
+        "scope",
         "versions"
       ],
       "properties": {
-        "claimNames": {
-          "type": "object",
-          "required": [
-            "kind",
-            "plural"
-          ],
-          "properties": {
-            "categories": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "x-kubernetes-list-type": "atomic"
-            },
-            "kind": {
-              "type": "string"
-            },
-            "listKind": {
-              "type": "string"
-            },
-            "plural": {
-              "type": "string"
-            },
-            "shortNames": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "x-kubernetes-list-type": "atomic"
-            },
-            "singular": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "x-kubernetes-validations": [
-            {
-              "rule": "self == oldSelf",
-              "message": "Value is immutable"
-            },
-            {
-              "rule": "self.plural == self.plural.lowerAscii()",
-              "message": "Plural name must be lowercase"
-            },
-            {
-              "rule": "!has(self.singular) || self.singular == self.singular.lowerAscii()",
-              "message": "Singular name must be lowercase"
-            }
-          ]
-        },
-        "connectionSecretKeys": {
+        "connectionDetails": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "required": [
+              "description",
+              "name"
+            ],
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "conversion": {
@@ -136,59 +100,7 @@
               "additionalProperties": false
             }
           },
-          "additionalProperties": false,
-          "x-kubernetes-validations": [
-            {
-              "rule": "self.strategy == 'Webhook' \u0026\u0026 has(self.webhook)",
-              "message": "Webhook configuration is required when conversion strategy is Webhook"
-            }
-          ]
-        },
-        "defaultCompositeDeletePolicy": {
-          "type": "string",
-          "default": "Background",
-          "enum": [
-            "Background",
-            "Foreground"
-          ]
-        },
-        "defaultCompositionRef": {
-          "type": "object",
-          "required": [
-            "name"
-          ],
-          "properties": {
-            "name": {
-              "type": "string"
-            }
-          },
           "additionalProperties": false
-        },
-        "defaultCompositionUpdatePolicy": {
-          "type": "string",
-          "default": "Automatic",
-          "enum": [
-            "Automatic",
-            "Manual"
-          ]
-        },
-        "enforcedCompositionRef": {
-          "type": "object",
-          "required": [
-            "name"
-          ],
-          "properties": {
-            "name": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "x-kubernetes-validations": [
-            {
-              "rule": "self == oldSelf",
-              "message": "Value is immutable"
-            }
-          ]
         },
         "group": {
           "type": "string",
@@ -198,24 +110,6 @@
               "message": "Value is immutable"
             }
           ]
-        },
-        "metadata": {
-          "type": "object",
-          "properties": {
-            "annotations": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "labels": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            }
-          },
-          "additionalProperties": false
         },
         "names": {
           "type": "object",
@@ -267,11 +161,13 @@
             }
           ]
         },
+        "preserveUnknownFields": {
+          "type": "boolean"
+        },
         "scope": {
           "type": "string",
-          "default": "LegacyCluster",
+          "default": "Namespaced",
           "enum": [
-            "LegacyCluster",
             "Namespaced",
             "Cluster"
           ],
@@ -282,14 +178,28 @@
             }
           ]
         },
+        "state": {
+          "type": "string",
+          "default": "Inactive",
+          "enum": [
+            "Active",
+            "Inactive"
+          ],
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == oldSelf || oldSelf != 'Active'",
+              "message": "state cannot be changed once it becomes Active"
+            }
+          ]
+        },
         "versions": {
           "type": "array",
           "items": {
             "type": "object",
             "required": [
               "name",
-              "referenceable",
-              "served"
+              "served",
+              "storage"
             ],
             "properties": {
               "additionalPrinterColumns": {
@@ -323,20 +233,17 @@
                     }
                   },
                   "additionalProperties": false
-                }
+                },
+                "x-kubernetes-list-type": "atomic"
               },
               "deprecated": {
                 "type": "boolean"
               },
               "deprecationWarning": {
-                "type": "string",
-                "maxLength": 256
+                "type": "string"
               },
               "name": {
                 "type": "string"
-              },
-              "referenceable": {
-                "type": "boolean"
               },
               "schema": {
                 "type": "object",
@@ -348,25 +255,63 @@
                 },
                 "additionalProperties": false
               },
+              "selectableFields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "jsonPath"
+                  ],
+                  "properties": {
+                    "jsonPath": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "x-kubernetes-list-type": "atomic"
+              },
               "served": {
                 "type": "boolean"
+              },
+              "storage": {
+                "type": "boolean"
+              },
+              "subresources": {
+                "type": "object",
+                "properties": {
+                  "scale": {
+                    "type": "object",
+                    "required": [
+                      "specReplicasPath",
+                      "statusReplicasPath"
+                    ],
+                    "properties": {
+                      "labelSelectorPath": {
+                        "type": "string"
+                      },
+                      "specReplicasPath": {
+                        "type": "string"
+                      },
+                      "statusReplicasPath": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "status": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "additionalProperties": false
-          }
+          },
+          "x-kubernetes-list-type": "atomic"
         }
       },
-      "additionalProperties": false,
-      "x-kubernetes-validations": [
-        {
-          "rule": "self.scope == 'LegacyCluster' || !has(self.claimNames)",
-          "message": "Only LegacyCluster composite resources can offer claims"
-        },
-        {
-          "rule": "self.scope == 'LegacyCluster' || !has(self.connectionSecretKeys)",
-          "message": "Only LegacyCluster composite resources support connection secrets"
-        }
-      ]
+      "additionalProperties": false
     },
     "status": {
       "type": "object",
@@ -409,44 +354,6 @@
             "type"
           ],
           "x-kubernetes-list-type": "map"
-        },
-        "controllers": {
-          "type": "object",
-          "properties": {
-            "compositeResourceClaimType": {
-              "type": "object",
-              "required": [
-                "apiVersion",
-                "kind"
-              ],
-              "properties": {
-                "apiVersion": {
-                  "type": "string"
-                },
-                "kind": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false
-            },
-            "compositeResourceType": {
-              "type": "object",
-              "required": [
-                "apiVersion",
-                "kind"
-              ],
-              "properties": {
-                "apiVersion": {
-                  "type": "string"
-                },
-                "kind": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "additionalProperties": false
         }
       },
       "additionalProperties": false
