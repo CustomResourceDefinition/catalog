@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 97.87% | 2442 | 8428 | 68 |
+| 97.27% | 2457 | 8428 | 68 |
 
 ### Missing Schemas
 
@@ -110,6 +110,24 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | perconapgcluster | v1 |
 | postgrescluster | v1beta1 |
+
+| resource.streamnative.io | |
+| --- | --- |
+| computeflinkdeployment | v1alpha1 |
+| computeworkspace | v1alpha1 |
+| pulsarconnection | v1alpha1 |
+| pulsarfunction | v1alpha1 |
+| pulsargeoreplication | v1alpha1 |
+| pulsarnamespace | v1alpha1 |
+| pulsarnsisolationpolicy | v1alpha1 |
+| pulsarpackage | v1alpha1 |
+| pulsarpermission | v1alpha1 |
+| pulsarsink | v1alpha1 |
+| pulsarsource | v1alpha1 |
+| pulsartenant | v1alpha1 |
+| pulsartopic | v1alpha1 |
+| secret | v1alpha1 |
+| streamnativecloudconnection | v1alpha1 |
 
 ### Ignored Schemas
 
