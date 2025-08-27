@@ -7,7 +7,7 @@ require (
 	github.com/stretchr/testify v1.11.0
 	golang.org/x/mod v0.27.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.18.5
+	helm.sh/helm/v3 v3.18.6
 	k8s.io/apiextensions-apiserver v0.33.4
 	k8s.io/apimachinery v0.33.4
 	sigs.k8s.io/controller-tools v0.18.0
