@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 97.27% | 2457 | 8441 | 68 |
+| 97.19% | 2459 | 8441 | 68 |
 
 ### Missing Schemas
 
@@ -128,6 +128,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | pulsartopic | v1alpha1 |
 | secret | v1alpha1 |
 | streamnativecloudconnection | v1alpha1 |
+
+| restate.dev | |
+| --- | --- |
+| restatecluster | v1 |
+| restatedeployment | v1beta1 |
 
 ### Ignored Schemas
 
