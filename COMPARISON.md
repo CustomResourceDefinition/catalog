@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 97.19% | 2459 | 8441 | 68 |
+| 96.92% | 2466 | 8441 | 68 |
 
 ### Missing Schemas
 
@@ -76,9 +76,19 @@ This page lists missing CRD validation schemas that are present in alternative c
 | keycloak | v2alpha1 |
 | keycloakrealmimport | v2alpha1 |
 
+| karpenter.azure.com | |
+| --- | --- |
+| aksnodeclass | v1alpha2, v1beta1 |
+
 | keda.sh | |
 | --- | --- |
 | cloudeventsource | v1alpha1 |
+
+| kinda.rocks | |
+| --- | --- |
+| database | v1alpha1, v1beta1 |
+| dbinstance | v1alpha1, v1beta1 |
+| dbuser | v1beta1 |
 
 | kubeflow.org | |
 | --- | --- |
