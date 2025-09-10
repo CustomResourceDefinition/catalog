@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 96.92% | 2466 | 8441 | 68 |
+| 96.92% | 2467 | 8441 | 68 |
 
 ### Missing Schemas
 
