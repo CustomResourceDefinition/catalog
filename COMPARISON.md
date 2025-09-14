@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 96.92% | 2467 | 8448 | 68 |
+| 96.49% | 2479 | 8448 | 68 |
 
 ### Missing Schemas
 
@@ -32,6 +32,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | crd.k8s.amazonaws.com | |
 | --- | --- |
 | eniconfig | v1alpha1 |
+
+| db.atlasgo.io | |
+| --- | --- |
+| atlasmigration | v1alpha1 |
+| atlasschema | v1alpha1 |
 
 | distro.eks.amazonaws.com | |
 | --- | --- |
@@ -116,10 +121,22 @@ This page lists missing CRD validation schemas that are present in alternative c
 | managedcertificate | v1, v1beta1, v1beta2 |
 | networklogging | v1alpha1 |
 
+| nvidia.com | |
+| --- | --- |
+| clusterpolicy | v1 |
+| nvidiadriver | v1alpha1 |
+
 | pg.percona.com | |
 | --- | --- |
 | perconapgcluster | v1 |
 | postgrescluster | v1beta1 |
+
+| piraeus.io | |
+| --- | --- |
+| linstorcluster | v1 |
+| linstornodeconnection | v1 |
+| linstorsatellite | v1 |
+| linstorsatelliteconfiguration | v1 |
 
 | resource.streamnative.io | |
 | --- | --- |
@@ -143,6 +160,12 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | restatecluster | v1 |
 | restatedeployment | v1beta1 |
+
+| secretgenerator.mittwald.de | |
+| --- | --- |
+| basicauth | v1alpha1 |
+| sshkeypair | v1alpha1 |
+| stringsecret | v1alpha1 |
 
 ### Ignored Schemas
 
