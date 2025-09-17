@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 96.49% | 2479 | 8458 | 68 |
+| 97.98% | 2479 | 8514 | 68 |
 
 ### Missing Schemas
 
@@ -32,11 +32,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | crd.k8s.amazonaws.com | |
 | --- | --- |
 | eniconfig | v1alpha1 |
-
-| db.atlasgo.io | |
-| --- | --- |
-| atlasmigration | v1alpha1 |
-| atlasschema | v1alpha1 |
 
 | distro.eks.amazonaws.com | |
 | --- | --- |
@@ -76,24 +71,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | gcpmachine | v1alpha2 |
 | gcpmachinetemplate | v1alpha2 |
 
-| k8s.keycloak.org | |
-| --- | --- |
-| keycloak | v2alpha1 |
-| keycloakrealmimport | v2alpha1 |
-
-| karpenter.azure.com | |
-| --- | --- |
-| aksnodeclass | v1alpha2, v1beta1 |
-
 | keda.sh | |
 | --- | --- |
 | cloudeventsource | v1alpha1 |
-
-| kinda.rocks | |
-| --- | --- |
-| database | v1alpha1, v1beta1 |
-| dbinstance | v1alpha1, v1beta1 |
-| dbuser | v1beta1 |
 
 | kubeflow.org | |
 | --- | --- |
@@ -121,51 +101,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | managedcertificate | v1, v1beta1, v1beta2 |
 | networklogging | v1alpha1 |
 
-| nvidia.com | |
-| --- | --- |
-| clusterpolicy | v1 |
-| nvidiadriver | v1alpha1 |
-
 | pg.percona.com | |
 | --- | --- |
 | perconapgcluster | v1 |
 | postgrescluster | v1beta1 |
-
-| piraeus.io | |
-| --- | --- |
-| linstorcluster | v1 |
-| linstornodeconnection | v1 |
-| linstorsatellite | v1 |
-| linstorsatelliteconfiguration | v1 |
-
-| resource.streamnative.io | |
-| --- | --- |
-| computeflinkdeployment | v1alpha1 |
-| computeworkspace | v1alpha1 |
-| pulsarconnection | v1alpha1 |
-| pulsarfunction | v1alpha1 |
-| pulsargeoreplication | v1alpha1 |
-| pulsarnamespace | v1alpha1 |
-| pulsarnsisolationpolicy | v1alpha1 |
-| pulsarpackage | v1alpha1 |
-| pulsarpermission | v1alpha1 |
-| pulsarsink | v1alpha1 |
-| pulsarsource | v1alpha1 |
-| pulsartenant | v1alpha1 |
-| pulsartopic | v1alpha1 |
-| secret | v1alpha1 |
-| streamnativecloudconnection | v1alpha1 |
-
-| restate.dev | |
-| --- | --- |
-| restatecluster | v1 |
-| restatedeployment | v1beta1 |
-
-| secretgenerator.mittwald.de | |
-| --- | --- |
-| basicauth | v1alpha1 |
-| sshkeypair | v1alpha1 |
-| stringsecret | v1alpha1 |
 
 ### Ignored Schemas
 
