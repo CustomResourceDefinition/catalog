@@ -1,22 +1,28 @@
 {
+  "description": "Cohort defines the Cohorts API.\n\nHierarchical Cohorts (any Cohort which has a parent) are compatible\nwith Fair Sharing as of v0.11. Using these features together in\nV0.9 and V0.10 is unsupported, and results in undefined behavior.",
   "type": "object",
   "properties": {
     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
       "type": "string"
     },
     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
       "type": "string"
     },
     "metadata": {
       "type": "object"
     },
     "spec": {
+      "description": "CohortSpec defines the desired state of Cohort",
       "type": "object",
       "properties": {
         "fairSharing": {
+          "description": "fairSharing defines the properties of the Cohort when\nparticipating in FairSharing. The values are only relevant\nif FairSharing is enabled in the Kueue configuration.",
           "type": "object",
           "properties": {
             "weight": {
+              "description": "weight gives a comparative advantage to this ClusterQueue\nor Cohort when competing for unused resources in the\nCohort.  The share is based on the dominant resource usage\nabove nominal quotas for each resource, divided by the\nweight.  Admission prioritizes scheduling workloads from\nClusterQueues and Cohorts with the lowest share and\npreempting workloads from the ClusterQueues and Cohorts\nwith the highest share.  A zero weight implies infinite\nshare value, meaning that this Node will always be at\ndisadvantage against other ClusterQueues and Cohorts.",
               "default": 1,
               "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
               "anyOf": [
@@ -33,11 +39,13 @@
           "additionalProperties": false
         },
         "parentName": {
+          "description": "ParentName references the name of the Cohort's parent, if\nany. It satisfies one of three cases:\n1) Unset. This Cohort is the root of its Cohort tree.\n2) References a non-existent Cohort. We use default Cohort (no borrowing/lending limits).\n3) References an existent Cohort.\n\nIf a cycle is created, we disable all members of the\nCohort, including ClusterQueues, until the cycle is\nremoved.  We prevent further admission while the cycle\nexists.",
           "type": "string",
           "maxLength": 253,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
         },
         "resourceGroups": {
+          "description": "ResourceGroups describes groupings of Resources and\nFlavors.  Each ResourceGroup defines a list of Resources\nand a list of Flavors which provide quotas for these\nResources. Each Resource and each Flavor may only form part\nof one ResourceGroup.  There may be up to 16 ResourceGroups\nwithin a Cohort.\n\nBorrowingLimit limits how much members of this Cohort\nsubtree can borrow from the parent subtree.\n\nLendingLimit limits how much members of this Cohort subtree\ncan lend to the parent subtree.\n\nBorrowing and Lending limits must only be set when the\nCohort has a parent.  Otherwise, the Cohort create/update\nwill be rejected by the webhook.",
           "type": "array",
           "maxItems": 16,
           "items": {
@@ -48,14 +56,17 @@
             ],
             "properties": {
               "coveredResources": {
+                "description": "coveredResources is the list of resources covered by the flavors in this\ngroup.\nExamples: cpu, memory, vendor.com/gpu.\nThe list cannot be empty and it can contain up to 16 resources.",
                 "type": "array",
                 "maxItems": 16,
                 "minItems": 1,
                 "items": {
+                  "description": "ResourceName is the name identifying various resources in a ResourceList.",
                   "type": "string"
                 }
               },
               "flavors": {
+                "description": "flavors is the list of flavors that provide the resources of this group.\nTypically, different flavors represent different hardware models\n(e.g., gpu models, cpu architectures) or pricing models (on-demand vs spot\ncpus).\nEach flavor MUST list all the resources listed for this group in the same\norder as the .resources field.\nThe list cannot be empty and it can contain up to 16 flavors.",
                 "type": "array",
                 "maxItems": 16,
                 "minItems": 1,
@@ -67,11 +78,13 @@
                   ],
                   "properties": {
                     "name": {
+                      "description": "name of this flavor. The name should match the .metadata.name of a\nResourceFlavor. If a matching ResourceFlavor does not exist, the\nClusterQueue will have an Active condition set to False.",
                       "type": "string",
                       "maxLength": 253,
                       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                     },
                     "resources": {
+                      "description": "resources is the list of quotas for this flavor per resource.\nThere could be up to 16 resources.",
                       "type": "array",
                       "maxItems": 16,
                       "minItems": 1,
@@ -83,6 +96,7 @@
                         ],
                         "properties": {
                           "borrowingLimit": {
+                            "description": "borrowingLimit is the maximum amount of quota for the [flavor, resource]\ncombination that this ClusterQueue is allowed to borrow from the unused\nquota of other ClusterQueues in the same cohort.\nIn total, at a given time, Workloads in a ClusterQueue can consume a\nquantity of quota equal to nominalQuota+borrowingLimit, assuming the other\nClusterQueues in the cohort have enough unused quota.\nIf null, it means that there is no borrowing limit.\nIf not null, it must be non-negative.\nborrowingLimit must be null if spec.cohort is empty.",
                             "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
                             "anyOf": [
                               {
@@ -95,6 +109,7 @@
                             "x-kubernetes-int-or-string": true
                           },
                           "lendingLimit": {
+                            "description": "lendingLimit is the maximum amount of unused quota for the [flavor, resource]\ncombination that this ClusterQueue can lend to other ClusterQueues in the same cohort.\nIn total, at a given time, ClusterQueue reserves for its exclusive use\na quantity of quota equals to nominalQuota - lendingLimit.\nIf null, it means that there is no lending limit, meaning that\nall the nominalQuota can be borrowed by other clusterQueues in the cohort.\nIf not null, it must be non-negative.\nlendingLimit must be null if spec.cohort is empty.\nThis field is in beta stage and is enabled by default.",
                             "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
                             "anyOf": [
                               {
@@ -107,9 +122,11 @@
                             "x-kubernetes-int-or-string": true
                           },
                           "name": {
+                            "description": "name of this resource.",
                             "type": "string"
                           },
                           "nominalQuota": {
+                            "description": "nominalQuota is the quantity of this resource that is available for\nWorkloads admitted by this ClusterQueue at a point in time.\nThe nominalQuota must be non-negative.\nnominalQuota should represent the resources in the cluster available for\nrunning jobs (after discounting resources consumed by system components\nand pods not managed by kueue). In an autoscaled cluster, nominalQuota\nshould account for resources that can be provided by a component such as\nKubernetes cluster-autoscaler.\n\nIf the ClusterQueue belongs to a cohort, the sum of the quotas for each\n(flavor, resource) combination defines the maximum quantity that can be\nallocated by a ClusterQueue in the cohort.",
                             "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
                             "anyOf": [
                               {
@@ -152,15 +169,18 @@
       "additionalProperties": false
     },
     "status": {
+      "description": "CohortStatus defines the observed state of Cohort.",
       "type": "object",
       "properties": {
         "fairSharing": {
+          "description": "fairSharing contains the current state for this Cohort\nwhen participating in Fair Sharing.\nThe is recorded only when Fair Sharing is enabled in the Kueue configuration.",
           "type": "object",
           "required": [
             "weightedShare"
           ],
           "properties": {
             "admissionFairSharingStatus": {
+              "description": "admissionFairSharingStatus represents information relevant to the Admission Fair Sharing",
               "type": "object",
               "required": [
                 "consumedResources",
@@ -168,6 +188,7 @@
               ],
               "properties": {
                 "consumedResources": {
+                  "description": "ConsumedResources represents the aggregated usage of resources over time,\nwith decaying function applied.\nThe value is populated if usage consumption functionality is enabled in Kueue config.",
                   "type": "object",
                   "additionalProperties": {
                     "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
@@ -183,6 +204,7 @@
                   }
                 },
                 "lastUpdate": {
+                  "description": "LastUpdate is the time when share and consumed resources were updated.",
                   "type": "string",
                   "format": "date-time"
                 }
@@ -190,6 +212,7 @@
               "additionalProperties": false
             },
             "weightedShare": {
+              "description": "WeightedShare represents the maximum of the ratios of usage\nabove nominal quota to the lendable resources in the\nCohort, among all the resources provided by the Node, and\ndivided by the weight.  If zero, it means that the usage of\nthe Node is below the nominal quota.  If the Node has a\nweight of zero and is borrowing, this will return\n9223372036854775807, the maximum possible share value.",
               "type": "integer",
               "format": "int64"
             }
