@@ -16,6 +16,10 @@ echo "Verifing $1 ..."
 
 diff /tmp/schema.list /tmp/verified.list
 
+for f in $(find /verified-schema -type f -name "*.json"); do
+    diff "/${f#/verified-}" "$f"
+done
+
 echo
 echo " --- Passed - $1"
 echo

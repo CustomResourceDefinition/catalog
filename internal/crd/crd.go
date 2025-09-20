@@ -174,7 +174,6 @@ func applyDefaults(schema *v1.JSONSchemaProps, skip bool) {
 		schema.AdditionalProperties = &v1.JSONSchemaPropsOrBool{Allows: false}
 	}
 
-	schema.Description = ""
 	if schema.Format == "int-or-string" {
 		schema.Type = ""
 		schema.Format = ""
