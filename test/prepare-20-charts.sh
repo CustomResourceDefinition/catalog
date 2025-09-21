@@ -43,6 +43,16 @@ yq -i '.version = "2.0.0"' /tmp/charts/templated/2.0/Chart.yaml
     yq '.spec.group = "chart.unconditional"' < /app/test/fixtures/test-crd.yaml
 } > /tmp/charts/templated/2.0/templates/crd.yaml
 
+mkdir -p /verified-schema/chart.local /verified-schema/chart.old /verified-schema/chart.conditional /verified-schema/chart.unconditional
+cp /app/test/fixtures/test_v1.json /verified-schema/chart.local/
+cp /app/test/fixtures/test_v1.json /verified-schema/chart.old/
+cp /app/test/fixtures/test_v1.json /verified-schema/chart.conditional/
+cp /app/test/fixtures/test_v1.json /verified-schema/chart.unconditional/
+yq '.spec.group = "chart.local"' < /app/test/fixtures/test-crd.yaml > /verified-schema/chart.local/test.yaml
+yq '.spec.group = "chart.old"' < /app/test/fixtures/test-crd.yaml > /verified-schema/chart.old/test.yaml
+yq '.spec.group = "chart.conditional"' < /app/test/fixtures/test-crd.yaml > /verified-schema/chart.conditional/test.yaml
+yq '.spec.group = "chart.unconditional"' < /app/test/fixtures/test-crd.yaml > /verified-schema/chart.unconditional/test.yaml
+
 cd /repository/http/
 
 helm package /tmp/charts/regular/1.0
