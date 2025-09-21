@@ -68,7 +68,18 @@ func TestHttpGeneratorSchemas(t *testing.T) {
 
 	generator := NewHttpGenerator(config, reader)
 
-	schemas, err := generator.Schemas(version)
+	crds, err := generator.Crds(version)
+	assert.Nil(t, err)
+
+	schemas := make([]crd.CrdSchema, 0)
+	for _, c := range crds {
+		schema, err := c.Schema()
+		if !assert.Nil(t, err) {
+			return
+		}
+		schemas = append(schemas, schema...)
+	}
+
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(schemas))
 	assert.Equal(t, "crd.example.com", schemas[0].Group)
@@ -135,8 +146,18 @@ func TestHttpGeneratorPartialSchemas(t *testing.T) {
 
 	generator := NewHttpGenerator(config, reader)
 
-	schemas, err := generator.Schemas(version)
+	crds, err := generator.Crds(version)
 	assert.Nil(t, err)
+
+	schemas := make([]crd.CrdSchema, 0)
+	for _, c := range crds {
+		schema, err := c.Schema()
+		if !assert.Nil(t, err) {
+			return
+		}
+		schemas = append(schemas, schema...)
+	}
+
 	if !assert.Equal(t, 1, len(schemas)) {
 		return
 	}
@@ -170,7 +191,17 @@ func TestHttpGeneratorNoSchemas(t *testing.T) {
 
 	generator := NewHttpGenerator(config, reader)
 
-	schemas, err := generator.Schemas(version)
+	crds, err := generator.Crds(version)
 	assert.Nil(t, err)
+
+	schemas := make([]crd.CrdSchema, 0)
+	for _, c := range crds {
+		schema, err := c.Schema()
+		if !assert.Nil(t, err) {
+			return
+		}
+		schemas = append(schemas, schema...)
+	}
+
 	assert.Equal(t, 0, len(schemas))
 }

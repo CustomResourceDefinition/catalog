@@ -8,9 +8,11 @@ rm -rf /schema/* &>/dev/null || true
 rm -rf /templates/* &>/dev/null || true
 rm -rf /repository &>/dev/null || true
 rm -rf /verified-schema &>/dev/null || true
+rm -rf /tmp/verified &>/dev/null || true
 
 mkdir -p /verified-schema
 mkdir -p /repository/git
+mkdir -p /tmp/verified/base
 
 echo "done"
 echo

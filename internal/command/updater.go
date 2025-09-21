@@ -15,17 +15,18 @@ import (
 )
 
 type Updater struct {
-	Configuration, Output string
-	Logger                io.Writer
-	flags                 *flag.FlagSet
-	reader                crd.CrdReader
+	Configuration, Schema, Definitions string
+	Logger                             io.Writer
+	flags                              *flag.FlagSet
+	reader                             crd.CrdReader
 }
 
-func NewUpdater(configuration, output string, logger io.Writer, flags *flag.FlagSet) Updater {
+func NewUpdater(configuration, schema, definitions string, logger io.Writer, flags *flag.FlagSet) Updater {
 	return Updater{
 		flags:         flags,
 		Configuration: configuration,
-		Output:        output,
+		Schema:        schema,
+		Definitions:   definitions,
 		Logger:        logger,
 	}
 }
@@ -61,7 +62,7 @@ func (cmd Updater) Run() error {
 	for _, config := range splitConfigurations(configurations) {
 		runtime.GC()
 
-		build, err := generator.NewBuilder(config, reader, tmpDir, cmd.Output, cmd.Logger)
+		build, err := generator.NewBuilder(config, reader, tmpDir, cmd.Schema, cmd.Definitions, cmd.Logger)
 		if err != nil {
 			continue
 		}
@@ -72,12 +73,16 @@ func (cmd Updater) Run() error {
 		}
 	}
 
-	return merge(tmpDir, cmd.Output)
+	return merge(tmpDir, cmd.Schema)
 }
 
 func (cmd Updater) validate() error {
-	if f, err := os.Stat(cmd.Output); err != nil || len(cmd.Output) == 0 || !f.IsDir() {
-		return fmt.Errorf("'%s' is not a valid directory path", cmd.Output)
+	if f, err := os.Stat(cmd.Schema); err != nil || len(cmd.Schema) == 0 || !f.IsDir() {
+		return fmt.Errorf("'%s' is not a valid directory path", cmd.Schema)
+	}
+
+	if f, err := os.Stat(cmd.Definitions); err != nil || len(cmd.Definitions) == 0 || !f.IsDir() {
+		return fmt.Errorf("'%s' is not a valid directory path", cmd.Definitions)
 	}
 
 	if f, err := os.Stat(cmd.Configuration); err != nil || len(cmd.Configuration) == 0 || f.IsDir() {

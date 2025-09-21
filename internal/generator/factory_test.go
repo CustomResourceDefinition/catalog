@@ -33,7 +33,7 @@ func TestBuilderVersionSorting(t *testing.T) {
 		IncludeHead: true,
 	}
 
-	b, err := NewBuilder(config, nil, "-", "-", nil)
+	b, err := NewBuilder(config, nil, "-", "-", "-", nil)
 	assert.Nil(t, err)
 
 	versions, err := b.versions()
@@ -99,7 +99,7 @@ func TestBuilderVersionFiltering(t *testing.T) {
 			VersionSuffix: test.suffix,
 		}
 
-		b, err := NewBuilder(config, nil, "-", "-", nil)
+		b, err := NewBuilder(config, nil, "-", "-", "-", nil)
 		assert.Nil(t, err)
 
 		versions, err := b.versions()
@@ -172,7 +172,7 @@ func TestBuild(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, setupLogger())
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger())
 	assert.Nil(t, err)
 
 	err = builder.Build()
@@ -215,7 +215,7 @@ func TestBuildWithLatestVersion(t *testing.T) {
 	os.MkdirAll(directory, 0775)
 	os.WriteFile(filename, []byte{}, 0664)
 
-	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, setupLogger())
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger())
 	assert.Nil(t, err)
 
 	err = builder.Build()
