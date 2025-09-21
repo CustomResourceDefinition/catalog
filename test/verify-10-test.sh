@@ -22,7 +22,7 @@ done
 
 set +e
 for f in $(find /verified-schema -type f -name "*.yaml"); do
-    if ! diff <(yq -o=json "/${f#/verified-}" | jq -S | yq -P) <(yq -o=json "$f" | jq -S | yq -P); then
+    if ! diff <(yq -o=json "/${f#/verified-}" | jq -S | yq -P) <(yq -o=json "$f" | jq -S | yq -P); then # complex diff for comparison regardless of whitespace and ordering
         echo
         echo
         echo "Failed check on $f"
