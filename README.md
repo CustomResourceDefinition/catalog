@@ -26,7 +26,7 @@ The definition files can be used by tools like [kopium](https://github.com/kube-
 
 Example:
 ```sh
-curl -sSL 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/main/definitions/monitoring.coreos.com/prometheusrules.yaml' \
+curl -sSL 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/main/definitions/monitoring.coreos.com/prometheusrule.yaml' \
     | kopium -Af - > prometheusrule.rs
 ```
 
