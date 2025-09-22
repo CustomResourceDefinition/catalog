@@ -9,6 +9,6 @@ import (
 type Generator interface {
 	Versions() ([]string, error)
 	MetaData(version string) ([]crd.CrdMetaSchema, error)
-	Schemas(version string) ([]crd.CrdSchema, error)
+	Crds(version string) ([]crd.Crd, error)
 	io.Closer
 }

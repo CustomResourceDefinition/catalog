@@ -11,7 +11,6 @@ git init --initial-branch=main
 mkdir crds
 cp /app/test/fixtures/test-crd.yaml crds/crd.yaml
 yq -i '.spec.group = "chart.git"' crds/crd.yaml
-yq -i '.version = "1.0.0"' crds/crd.yaml
 
 mkdir kustomizations
 cp crds/crd.yaml kustomizations/crd.yaml
@@ -21,6 +20,10 @@ echo 'kind: Kustomization'
 echo 'resources:'
 echo '  - crd.yaml'
 } > kustomizations/kustomization.yaml
+
+mkdir -p /verified-schema/chart.git
+cp /app/test/fixtures/test_v1.json /verified-schema/chart.git/
+cp crds/crd.yaml /verified-schema/chart.git/test.yaml
 
 mkdir source
 cp /app/test/fixtures/source/* source

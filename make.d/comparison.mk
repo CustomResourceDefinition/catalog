@@ -5,4 +5,4 @@ comparison: build
 	runner make _comparison
 
 _comparison:
-	build/bin/catalog compare --current /schema --ignore /ignores.yaml --datreeio build/remote/datreeio --out COMPARISON.md
+	build/bin/catalog compare --current /schema --ignore /ignores.yaml --datreeio build/remote/datreeio --out docs/COMPARISON.md

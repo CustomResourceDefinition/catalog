@@ -43,6 +43,16 @@ yq -i '.version = "2.0.0"' /tmp/charts/templated/2.0/Chart.yaml
     yq '.spec.group = "chart.unconditional-oci"' < /app/test/fixtures/test-crd.yaml
 } > /tmp/charts/templated/2.0/templates/crd.yaml
 
+mkdir -p /verified-schema/chart.local-oci /verified-schema/chart.old-oci /verified-schema/chart.conditional-oci /verified-schema/chart.unconditional-oci
+cp /app/test/fixtures/test_v1.json /verified-schema/chart.local-oci/
+cp /app/test/fixtures/test_v1.json /verified-schema/chart.old-oci/
+cp /app/test/fixtures/test_v1.json /verified-schema/chart.conditional-oci/
+cp /app/test/fixtures/test_v1.json /verified-schema/chart.unconditional-oci/
+yq '.spec.group = "chart.local-oci"' < /app/test/fixtures/test-crd.yaml > /verified-schema/chart.local-oci/test.yaml
+yq '.spec.group = "chart.old-oci"' < /app/test/fixtures/test-crd.yaml > /verified-schema/chart.old-oci/test.yaml
+yq '.spec.group = "chart.conditional-oci"' < /app/test/fixtures/test-crd.yaml > /verified-schema/chart.conditional-oci/test.yaml
+yq '.spec.group = "chart.unconditional-oci"' < /app/test/fixtures/test-crd.yaml > /verified-schema/chart.unconditional-oci/test.yaml
+
 cd /tmp/charts
 
 helm package /tmp/charts/regular/1.0

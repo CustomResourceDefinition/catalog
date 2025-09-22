@@ -49,10 +49,20 @@ func (generator *OciGenerator) MetaData(version string) ([]crd.CrdMetaSchema, er
 		return nil, err
 	}
 
-	schemas, err := generator.Schemas(version)
+	crds, err := generator.Crds(version)
 	if err != nil {
 		return nil, err
 	}
+
+	schemas := make([]crd.CrdSchema, 0)
+	for _, c := range crds {
+		schema, err := c.Schema()
+		if err != nil {
+			return nil, err
+		}
+		schemas = append(schemas, schema...)
+	}
+
 	metadata := make([]crd.CrdMetaSchema, len(schemas))
 	for i, s := range schemas {
 		metadata[i] = s.CrdMetaSchema
@@ -60,7 +70,7 @@ func (generator *OciGenerator) MetaData(version string) ([]crd.CrdMetaSchema, er
 	return metadata, nil
 }
 
-func (generator *OciGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
+func (generator *OciGenerator) Crds(version string) ([]crd.Crd, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -93,16 +103,7 @@ func (generator *OciGenerator) Schemas(version string) ([]crd.CrdSchema, error) 
 		return nil, err
 	}
 
-	schemas := make([]crd.CrdSchema, 0)
-	for _, c := range crds {
-		schema, err := c.Schema()
-		if err != nil {
-			return nil, err
-		}
-		schemas = append(schemas, schema...)
-	}
-
-	return schemas, nil
+	return crds, nil
 }
 
 func (generator *OciGenerator) Versions() ([]string, error) {

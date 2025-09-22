@@ -28,10 +28,20 @@ func NewHttpGenerator(config configuration.Configuration, reader crd.CrdReader) 
 }
 
 func (generator *HttpGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
-	schemas, err := generator.Schemas(version)
+	crds, err := generator.Crds(version)
 	if err != nil {
 		return nil, err
 	}
+
+	schemas := make([]crd.CrdSchema, 0)
+	for _, c := range crds {
+		schema, err := c.Schema()
+		if err != nil {
+			return nil, err
+		}
+		schemas = append(schemas, schema...)
+	}
+
 	metadata := make([]crd.CrdMetaSchema, len(schemas))
 	for i, s := range schemas {
 		metadata[i] = s.CrdMetaSchema
@@ -39,7 +49,7 @@ func (generator *HttpGenerator) MetaData(version string) ([]crd.CrdMetaSchema, e
 	return metadata, nil
 }
 
-func (generator *HttpGenerator) Schemas(version string) ([]crd.CrdSchema, error) {
+func (generator *HttpGenerator) Crds(version string) ([]crd.Crd, error) {
 	download, err := resolveDownload(version, generator.config.Downloads)
 	if err != nil {
 		return nil, err
@@ -67,16 +77,7 @@ func (generator *HttpGenerator) Schemas(version string) ([]crd.CrdSchema, error)
 		return nil, err
 	}
 
-	schemas := make([]crd.CrdSchema, 0)
-	for _, c := range crds {
-		schema, err := c.Schema()
-		if err != nil {
-			return nil, err
-		}
-		schemas = append(schemas, schema...)
-	}
-
-	return schemas, nil
+	return crds, nil
 }
 
 func (generator *HttpGenerator) Versions() ([]string, error) {

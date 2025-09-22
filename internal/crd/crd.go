@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	encoder "gopkg.in/yaml.v3"
 	api "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -30,6 +31,7 @@ type crdReader struct {
 
 type Crd struct {
 	Group, Kind string
+	Bytes       []byte
 	definition  *v1.CustomResourceDefinition
 }
 
@@ -106,9 +108,20 @@ func (r *crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 			continue
 		}
 
+		var data map[string]any
+		if err := json.Unmarshal(doc, &data); err == nil {
+			out, err := encoder.Marshal(data)
+			if err != nil {
+				fmt.Fprintf(r.logger, "   failed to convert #%d at %s to yaml\n", index, file)
+				continue
+			}
+			doc = out
+		}
+
 		c := Crd{
 			Group:      strings.ToLower(crd.Spec.Group),
 			Kind:       strings.ToLower(crd.Spec.Names.Kind),
+			Bytes:      doc,
 			definition: crd,
 		}
 
@@ -163,6 +176,10 @@ func (c *Crd) Schema() ([]CrdSchema, error) {
 	}
 
 	return list, nil
+}
+
+func (c *Crd) Filepath() string {
+	return fmt.Sprintf("%s/%s.yaml", c.Group, c.Kind)
 }
 
 func (s *CrdMetaSchema) Filepath() string {

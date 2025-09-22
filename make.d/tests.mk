@@ -47,19 +47,19 @@ _smoke-tests:
 
 	@echo 'Run first smoke test ...'
 	sh build/bin/test-prepare all-versions
-	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema
+	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
 	sh build/bin/test-verify "Happy path works"
 	@printf $(GREEN) "OK"
 
 	@echo 'Run second smoke test ...'
 	sh build/bin/test-prepare only-latest
-	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema
+	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
 	sh build/bin/test-verify "Works using only latest version"
 	@printf $(GREEN) "OK"
 
 test-editorcheck:
 	@echo 'Checking general formatting of all files ...'
-	$(COMPOSE_RUN) editorconfig ec -exclude '^schema/|^\.git/|.DS_Store'
+	$(COMPOSE_RUN) editorconfig ec -exclude '^schema/|^\.git/|.DS_Store|^build/remote/|^definitions/'
 	@printf $(GREEN) "OK"
 
 test-docker:

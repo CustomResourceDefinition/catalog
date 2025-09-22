@@ -16,15 +16,16 @@ import (
 )
 
 type Builder struct {
-	generatedRepository string
-	schemaRepository    string
-	logger              io.Writer
-	config              configuration.Configuration
-	generator           Generator
-	versionFilter       *regexp.Regexp
+	generatedRepository  string
+	schemaRepository     string
+	definitionRepository string
+	logger               io.Writer
+	config               configuration.Configuration
+	generator            Generator
+	versionFilter        *regexp.Regexp
 }
 
-func NewBuilder(config configuration.Configuration, reader crd.CrdReader, generatedRepository, schemaRepository string, logger io.Writer) (*Builder, error) {
+func NewBuilder(config configuration.Configuration, reader crd.CrdReader, generatedRepository, schemaRepository, definitionRepository string, logger io.Writer) (*Builder, error) {
 	generator, err := resolveGenerator(config, reader)
 	if err != nil {
 		return nil, err
@@ -53,12 +54,13 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, genera
 	}
 
 	return &Builder{
-		config:              config,
-		generator:           generator,
-		versionFilter:       re,
-		logger:              logger,
-		schemaRepository:    schemaRepository,
-		generatedRepository: generatedRepository,
+		config:               config,
+		generator:            generator,
+		versionFilter:        re,
+		logger:               logger,
+		schemaRepository:     schemaRepository,
+		generatedRepository:  generatedRepository,
+		definitionRepository: definitionRepository,
 	}, nil
 }
 
@@ -100,10 +102,35 @@ func (builder Builder) Build() error {
 		runtime.GC()
 
 		fmt.Fprintf(logger, " - render version %s.\n", version)
-		schemas, err := builder.generator.Schemas(version)
+		crds, err := builder.generator.Crds(version)
 		if err != nil {
 			fmt.Fprintf(logger, " - - discarded due to error: %s.\n", err.Error())
 			continue
+		}
+
+		schemas := make([]crd.CrdSchema, 0)
+		valid := true
+		for _, c := range crds {
+			schema, err := c.Schema()
+			if err != nil {
+				fmt.Fprintf(logger, " - - discarding due to error: %s.\n", err.Error())
+				valid = false
+			}
+			schemas = append(schemas, schema...)
+		}
+		if !valid {
+			fmt.Fprintf(logger, " - - discarded.\n")
+			continue
+		}
+
+		fmt.Fprintf(logger, " - - rendered %d definitions.\n", len(crds))
+		for _, crd := range crds {
+			file := path.Join(builder.definitionRepository, crd.Filepath())
+			os.MkdirAll(path.Dir(file), 0755)
+			err := os.WriteFile(file, crd.Bytes, 0644)
+			if err != nil {
+				return err
+			}
 		}
 
 		fmt.Fprintf(logger, " - - rendered %d schema.\n", len(schemas))
