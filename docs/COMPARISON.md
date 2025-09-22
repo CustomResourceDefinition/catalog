@@ -9,13 +9,30 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 97.98% | 2479 | 8655 | 68 |
+| 97.36% | 2502 | 8922 | 68 |
 
 ### Missing Schemas
+
+| addon.open-cluster-management.io | |
+| --- | --- |
+| addondeploymentconfig | v1alpha1 |
+| addontemplate | v1alpha1 |
+| clustermanagementaddon | v1alpha1 |
+| managedclusteraddon | v1alpha1 |
 
 | cloud.google.com | |
 | --- | --- |
 | computeclass | v1 |
+
+| cluster.open-cluster-management.io | |
+| --- | --- |
+| addonplacementscore | v1alpha1 |
+| clusterclaim | v1alpha1 |
+| managedcluster | v1 |
+| managedclusterset | v1beta2 |
+| managedclustersetbinding | v1beta2 |
+| placement | v1beta1 |
+| placementdecision | v1beta1 |
 
 | cluster.x-k8s.io | |
 | --- | --- |
@@ -101,10 +118,21 @@ This page lists missing CRD validation schemas that are present in alternative c
 | managedcertificate | v1, v1beta1, v1beta2 |
 | networklogging | v1alpha1 |
 
+| operator.open-cluster-management.io | |
+| --- | --- |
+| clustermanager | v1 |
+| klusterlet | v1 |
+
 | pg.percona.com | |
 | --- | --- |
 | perconapgcluster | v1 |
 | postgrescluster | v1beta1 |
+
+| work.open-cluster-management.io | |
+| --- | --- |
+| appliedmanifestwork | v1 |
+| manifestwork | v1 |
+| manifestworkreplicaset | v1alpha1 |
 
 ### Ignored Schemas
 
