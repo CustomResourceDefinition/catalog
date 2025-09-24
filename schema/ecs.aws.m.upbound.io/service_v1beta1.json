@@ -53,7 +53,7 @@
               "additionalProperties": false
             },
             "availabilityZoneRebalancing": {
-              "description": "ECS automatically redistributes tasks within a service across Availability Zones (AZs) to mitigate the risk of impaired application availability due to underlying infrastructure failures and task lifecycle activities. The valid values are ENABLED and DISABLED. Defaults to DISABLED.",
+              "description": "ECS automatically redistributes tasks within a service across Availability Zones (AZs) to mitigate the risk of impaired application availability due to underlying infrastructure failures and task lifecycle activities. The valid values are ENABLED and DISABLED. When creating a new service, if no value is specified, it defaults to ENABLED if the service is compatible with AvailabilityZoneRebalancing. When updating an existing service, if no value is specified it defaults to the existing service's AvailabilityZoneRebalancing value. If the service never had an AvailabilityZoneRebalancing value set, Amazon ECS treats this as DISABLED.",
               "type": "string"
             },
             "capacityProviderStrategy": {
@@ -181,6 +181,46 @@
                 "rollback": {
                   "description": "Whether to enable Amazon ECS to roll back the service if a service deployment fails. If rollback is enabled, when a service deployment fails, the service is rolled back to the last deployment that completed successfully.",
                   "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "deploymentConfiguration": {
+              "description": "Configuration block for deployment settings. See below.",
+              "type": "object",
+              "properties": {
+                "bakeTimeInMinutes": {
+                  "description": "Number of minutes to wait after a new deployment is fully provisioned before terminating the old deployment. Only used when strategy is set to BLUE_GREEN.",
+                  "type": "string"
+                },
+                "lifecycleHook": {
+                  "description": "Configuration block for lifecycle hooks that are invoked during deployments. See below.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "hookTargetArn": {
+                        "description": "ARN of the Lambda function to invoke for the lifecycle hook.",
+                        "type": "string"
+                      },
+                      "lifecycleStages": {
+                        "description": "Stages during the deployment when the hook should be invoked. Valid values: RECONCILE_SERVICE, PRE_SCALE_UP, POST_SCALE_UP, TEST_TRAFFIC_SHIFT, POST_TEST_TRAFFIC_SHIFT, PRODUCTION_TRAFFIC_SHIFT, POST_PRODUCTION_TRAFFIC_SHIFT.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "roleArn": {
+                        "description": "ARN of the IAM role that grants the service permission to invoke the Lambda function.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "strategy": {
+                  "description": "Type of deployment strategy. Valid values: ROLLING, BLUE_GREEN. Default: ROLLING.",
+                  "type": "string"
                 }
               },
               "additionalProperties": false
@@ -330,6 +370,29 @@
               "items": {
                 "type": "object",
                 "properties": {
+                  "advancedConfiguration": {
+                    "description": "Configuration block for Blue/Green deployment settings. Required when using BLUE_GREEN deployment strategy. See below.",
+                    "type": "object",
+                    "properties": {
+                      "alternateTargetGroupArn": {
+                        "description": "ARN of the alternate target group to use for Blue/Green deployments.",
+                        "type": "string"
+                      },
+                      "productionListenerRule": {
+                        "description": "ARN of the listener rule that routes production traffic.",
+                        "type": "string"
+                      },
+                      "roleArn": {
+                        "description": "ARN of the IAM role that allows ECS to manage the target groups.",
+                        "type": "string"
+                      },
+                      "testListenerRule": {
+                        "description": "ARN of the listener rule that routes test traffic.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "containerName": {
                     "description": "Name of the container to associate with the load balancer (as it appears in a container definition).",
                     "type": "string"
@@ -757,7 +820,7 @@
                     "type": "object",
                     "properties": {
                       "clientAlias": {
-                        "description": "List of client aliases for this Service Connect service. You use these to assign names that can be used by client applications. The maximum number of client aliases that you can have in this list is 1. See below.",
+                        "description": "List of client aliases for this Service Connect service. You use these to assign names that can be used by client applications. For each service block where enabled is true, exactly one client_alias with one port should be specified. See below.",
                         "type": "object",
                         "properties": {
                           "dnsName": {
@@ -767,6 +830,38 @@
                           "port": {
                             "description": "Listening port number for the Service Connect proxy. This port is available inside of all of the tasks within the same namespace.",
                             "type": "number"
+                          },
+                          "testTrafficRules": {
+                            "description": "Configuration block for test traffic routing rules. See below.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "header": {
+                                  "description": "Configuration block for header-based routing rules. See below.",
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "description": "Name of the HTTP header to match.",
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "description": "Configuration block for header value matching criteria. See below.",
+                                      "type": "object",
+                                      "properties": {
+                                        "exact": {
+                                          "description": "Exact string value to match in the header.",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              },
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "additionalProperties": false
@@ -853,6 +948,10 @@
                 }
               },
               "additionalProperties": false
+            },
+            "sigintRollback": {
+              "description": "Whether to enable graceful termination of deployments using SIGINT signals. When enabled, allows customers to safely cancel an in-progress deployment and automatically trigger a rollback to the previous stable state. Defaults to false. Only applicable when using ECS deployment controller and requires wait_for_steady_state = true.",
+              "type": "boolean"
             },
             "tags": {
               "description": "Key-value map of resource tags.",
@@ -1103,7 +1202,7 @@
               "additionalProperties": false
             },
             "availabilityZoneRebalancing": {
-              "description": "ECS automatically redistributes tasks within a service across Availability Zones (AZs) to mitigate the risk of impaired application availability due to underlying infrastructure failures and task lifecycle activities. The valid values are ENABLED and DISABLED. Defaults to DISABLED.",
+              "description": "ECS automatically redistributes tasks within a service across Availability Zones (AZs) to mitigate the risk of impaired application availability due to underlying infrastructure failures and task lifecycle activities. The valid values are ENABLED and DISABLED. When creating a new service, if no value is specified, it defaults to ENABLED if the service is compatible with AvailabilityZoneRebalancing. When updating an existing service, if no value is specified it defaults to the existing service's AvailabilityZoneRebalancing value. If the service never had an AvailabilityZoneRebalancing value set, Amazon ECS treats this as DISABLED.",
               "type": "string"
             },
             "capacityProviderStrategy": {
@@ -1231,6 +1330,46 @@
                 "rollback": {
                   "description": "Whether to enable Amazon ECS to roll back the service if a service deployment fails. If rollback is enabled, when a service deployment fails, the service is rolled back to the last deployment that completed successfully.",
                   "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "deploymentConfiguration": {
+              "description": "Configuration block for deployment settings. See below.",
+              "type": "object",
+              "properties": {
+                "bakeTimeInMinutes": {
+                  "description": "Number of minutes to wait after a new deployment is fully provisioned before terminating the old deployment. Only used when strategy is set to BLUE_GREEN.",
+                  "type": "string"
+                },
+                "lifecycleHook": {
+                  "description": "Configuration block for lifecycle hooks that are invoked during deployments. See below.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "hookTargetArn": {
+                        "description": "ARN of the Lambda function to invoke for the lifecycle hook.",
+                        "type": "string"
+                      },
+                      "lifecycleStages": {
+                        "description": "Stages during the deployment when the hook should be invoked. Valid values: RECONCILE_SERVICE, PRE_SCALE_UP, POST_SCALE_UP, TEST_TRAFFIC_SHIFT, POST_TEST_TRAFFIC_SHIFT, PRODUCTION_TRAFFIC_SHIFT, POST_PRODUCTION_TRAFFIC_SHIFT.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "roleArn": {
+                        "description": "ARN of the IAM role that grants the service permission to invoke the Lambda function.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "strategy": {
+                  "description": "Type of deployment strategy. Valid values: ROLLING, BLUE_GREEN. Default: ROLLING.",
+                  "type": "string"
                 }
               },
               "additionalProperties": false
@@ -1380,6 +1519,29 @@
               "items": {
                 "type": "object",
                 "properties": {
+                  "advancedConfiguration": {
+                    "description": "Configuration block for Blue/Green deployment settings. Required when using BLUE_GREEN deployment strategy. See below.",
+                    "type": "object",
+                    "properties": {
+                      "alternateTargetGroupArn": {
+                        "description": "ARN of the alternate target group to use for Blue/Green deployments.",
+                        "type": "string"
+                      },
+                      "productionListenerRule": {
+                        "description": "ARN of the listener rule that routes production traffic.",
+                        "type": "string"
+                      },
+                      "roleArn": {
+                        "description": "ARN of the IAM role that allows ECS to manage the target groups.",
+                        "type": "string"
+                      },
+                      "testListenerRule": {
+                        "description": "ARN of the listener rule that routes test traffic.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "containerName": {
                     "description": "Name of the container to associate with the load balancer (as it appears in a container definition).",
                     "type": "string"
@@ -1803,7 +1965,7 @@
                     "type": "object",
                     "properties": {
                       "clientAlias": {
-                        "description": "List of client aliases for this Service Connect service. You use these to assign names that can be used by client applications. The maximum number of client aliases that you can have in this list is 1. See below.",
+                        "description": "List of client aliases for this Service Connect service. You use these to assign names that can be used by client applications. For each service block where enabled is true, exactly one client_alias with one port should be specified. See below.",
                         "type": "object",
                         "properties": {
                           "dnsName": {
@@ -1813,6 +1975,38 @@
                           "port": {
                             "description": "Listening port number for the Service Connect proxy. This port is available inside of all of the tasks within the same namespace.",
                             "type": "number"
+                          },
+                          "testTrafficRules": {
+                            "description": "Configuration block for test traffic routing rules. See below.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "header": {
+                                  "description": "Configuration block for header-based routing rules. See below.",
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "description": "Name of the HTTP header to match.",
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "description": "Configuration block for header value matching criteria. See below.",
+                                      "type": "object",
+                                      "properties": {
+                                        "exact": {
+                                          "description": "Exact string value to match in the header.",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              },
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "additionalProperties": false
@@ -1899,6 +2093,10 @@
                 }
               },
               "additionalProperties": false
+            },
+            "sigintRollback": {
+              "description": "Whether to enable graceful termination of deployments using SIGINT signals. When enabled, allows customers to safely cancel an in-progress deployment and automatically trigger a rollback to the previous stable state. Defaults to false. Only applicable when using ECS deployment controller and requires wait_for_steady_state = true.",
+              "type": "boolean"
             },
             "tags": {
               "description": "Key-value map of resource tags.",
@@ -2215,7 +2413,7 @@
               "type": "string"
             },
             "availabilityZoneRebalancing": {
-              "description": "ECS automatically redistributes tasks within a service across Availability Zones (AZs) to mitigate the risk of impaired application availability due to underlying infrastructure failures and task lifecycle activities. The valid values are ENABLED and DISABLED. Defaults to DISABLED.",
+              "description": "ECS automatically redistributes tasks within a service across Availability Zones (AZs) to mitigate the risk of impaired application availability due to underlying infrastructure failures and task lifecycle activities. The valid values are ENABLED and DISABLED. When creating a new service, if no value is specified, it defaults to ENABLED if the service is compatible with AvailabilityZoneRebalancing. When updating an existing service, if no value is specified it defaults to the existing service's AvailabilityZoneRebalancing value. If the service never had an AvailabilityZoneRebalancing value set, Amazon ECS treats this as DISABLED.",
               "type": "string"
             },
             "capacityProviderStrategy": {
@@ -2255,6 +2453,46 @@
                 "rollback": {
                   "description": "Whether to enable Amazon ECS to roll back the service if a service deployment fails. If rollback is enabled, when a service deployment fails, the service is rolled back to the last deployment that completed successfully.",
                   "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "deploymentConfiguration": {
+              "description": "Configuration block for deployment settings. See below.",
+              "type": "object",
+              "properties": {
+                "bakeTimeInMinutes": {
+                  "description": "Number of minutes to wait after a new deployment is fully provisioned before terminating the old deployment. Only used when strategy is set to BLUE_GREEN.",
+                  "type": "string"
+                },
+                "lifecycleHook": {
+                  "description": "Configuration block for lifecycle hooks that are invoked during deployments. See below.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "hookTargetArn": {
+                        "description": "ARN of the Lambda function to invoke for the lifecycle hook.",
+                        "type": "string"
+                      },
+                      "lifecycleStages": {
+                        "description": "Stages during the deployment when the hook should be invoked. Valid values: RECONCILE_SERVICE, PRE_SCALE_UP, POST_SCALE_UP, TEST_TRAFFIC_SHIFT, POST_TEST_TRAFFIC_SHIFT, PRODUCTION_TRAFFIC_SHIFT, POST_PRODUCTION_TRAFFIC_SHIFT.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "roleArn": {
+                        "description": "ARN of the IAM role that grants the service permission to invoke the Lambda function.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "strategy": {
+                  "description": "Type of deployment strategy. Valid values: ROLLING, BLUE_GREEN. Default: ROLLING.",
+                  "type": "string"
                 }
               },
               "additionalProperties": false
@@ -2319,6 +2557,29 @@
               "items": {
                 "type": "object",
                 "properties": {
+                  "advancedConfiguration": {
+                    "description": "Configuration block for Blue/Green deployment settings. Required when using BLUE_GREEN deployment strategy. See below.",
+                    "type": "object",
+                    "properties": {
+                      "alternateTargetGroupArn": {
+                        "description": "ARN of the alternate target group to use for Blue/Green deployments.",
+                        "type": "string"
+                      },
+                      "productionListenerRule": {
+                        "description": "ARN of the listener rule that routes production traffic.",
+                        "type": "string"
+                      },
+                      "roleArn": {
+                        "description": "ARN of the IAM role that allows ECS to manage the target groups.",
+                        "type": "string"
+                      },
+                      "testListenerRule": {
+                        "description": "ARN of the listener rule that routes test traffic.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "containerName": {
                     "description": "Name of the container to associate with the load balancer (as it appears in a container definition).",
                     "type": "string"
@@ -2474,7 +2735,7 @@
                     "type": "object",
                     "properties": {
                       "clientAlias": {
-                        "description": "List of client aliases for this Service Connect service. You use these to assign names that can be used by client applications. The maximum number of client aliases that you can have in this list is 1. See below.",
+                        "description": "List of client aliases for this Service Connect service. You use these to assign names that can be used by client applications. For each service block where enabled is true, exactly one client_alias with one port should be specified. See below.",
                         "type": "object",
                         "properties": {
                           "dnsName": {
@@ -2484,6 +2745,38 @@
                           "port": {
                             "description": "Listening port number for the Service Connect proxy. This port is available inside of all of the tasks within the same namespace.",
                             "type": "number"
+                          },
+                          "testTrafficRules": {
+                            "description": "Configuration block for test traffic routing rules. See below.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "header": {
+                                  "description": "Configuration block for header-based routing rules. See below.",
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "description": "Name of the HTTP header to match.",
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "description": "Configuration block for header value matching criteria. See below.",
+                                      "type": "object",
+                                      "properties": {
+                                        "exact": {
+                                          "description": "Exact string value to match in the header.",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              },
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "additionalProperties": false
@@ -2570,6 +2863,10 @@
                 }
               },
               "additionalProperties": false
+            },
+            "sigintRollback": {
+              "description": "Whether to enable graceful termination of deployments using SIGINT signals. When enabled, allows customers to safely cancel an in-progress deployment and automatically trigger a rollback to the previous stable state. Defaults to false. Only applicable when using ECS deployment controller and requires wait_for_steady_state = true.",
+              "type": "boolean"
             },
             "tags": {
               "description": "Key-value map of resource tags.",
