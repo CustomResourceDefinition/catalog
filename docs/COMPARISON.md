@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 97.36% | 2502 | 8942 | 68 |
+| 97.29% | 2512 | 8943 | 68 |
 
 ### Missing Schemas
 
@@ -127,6 +127,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | perconapgcluster | v1 |
 | postgrescluster | v1beta1 |
+
+| policies.kyverno.io | |
+| --- | --- |
+| policyexception | v2, v2beta1 |
 
 | work.open-cluster-management.io | |
 | --- | --- |
