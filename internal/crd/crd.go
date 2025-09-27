@@ -118,6 +118,15 @@ func (r *crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 			doc = out
 		}
 
+		if crd.Spec.Group == "" {
+			fmt.Fprintf(r.logger, "   empty group declared for %s at %s\n", crd.ObjectMeta.Name, file)
+			continue
+		}
+		if crd.Spec.Names.Kind == "" {
+			fmt.Fprintf(r.logger, "   empty group declared for %s at %s\n", crd.ObjectMeta.Name, file)
+			continue
+		}
+
 		c := Crd{
 			Group:      strings.ToLower(crd.Spec.Group),
 			Kind:       strings.ToLower(crd.Spec.Names.Kind),
