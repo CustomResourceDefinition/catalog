@@ -143,6 +143,11 @@
               },
               "additionalProperties": false
             },
+            "config": {
+              "description": "Configuration for the custom authentication mechanism. Only properties with the `sasl.` and `ssl.keystore.` prefixes are allowed. Specify other options in the regular configuration section of the custom resource.",
+              "type": "object",
+              "x-kubernetes-preserve-unknown-fields": true
+            },
             "connectTimeoutSeconds": {
               "description": "The connect timeout in seconds when connecting to authorization server. If not set, the effective connect timeout is 60 seconds.",
               "type": "integer"
@@ -154,6 +159,10 @@
             "enableMetrics": {
               "description": "Enable or disable OAuth metrics. Default value is `false`.",
               "type": "boolean"
+            },
+            "grantType": {
+              "description": "A custom OAuth grant type to use when authenticating against the authorization server with `clientId` and one of `clientSecret` or `clientAssertion`. The value defaults to `client_credentials` in these cases. This is optional configuration, only used with custom authorization server implementations.",
+              "type": "string"
             },
             "httpRetries": {
               "description": "The maximum number of retries to attempt if an initial HTTP request fails. If not set, the default is to not attempt any retries.",
@@ -212,6 +221,10 @@
                 }
               },
               "additionalProperties": false
+            },
+            "sasl": {
+              "description": "Enable or disable SASL on this authentication mechanism.",
+              "type": "boolean"
             },
             "saslExtensions": {
               "description": "SASL extensions parameters.",
@@ -274,14 +287,15 @@
               "type": "string"
             },
             "type": {
-              "description": "Authentication type. Currently the supported types are `tls`, `scram-sha-256`, `scram-sha-512`, `plain`, and 'oauth'. `scram-sha-256` and `scram-sha-512` types use SASL SCRAM-SHA-256 and SASL SCRAM-SHA-512 Authentication, respectively. `plain` type uses SASL PLAIN Authentication. `oauth` type uses SASL OAUTHBEARER Authentication. The `tls` type uses TLS Client Authentication. The `tls` type is supported only over TLS connections.",
+              "description": "Specifies the authentication type. Supported types are `tls`, `scram-sha-256`, `scram-sha-512`, `plain`, 'oauth', and `custom`. `tls` uses TLS client authentication and is supported only over TLS connections. `scram-sha-256` and `scram-sha-512` use SASL SCRAM-SHA-256 and SASL SCRAM-SHA-512 authentication, respectively. `plain` uses SASL PLAIN authentication. `oauth` uses SASL OAUTHBEARER authentication. `custom` allows you to configure a custom authentication mechanism.",
               "type": "string",
               "enum": [
                 "tls",
                 "scram-sha-256",
                 "scram-sha-512",
                 "plain",
-                "oauth"
+                "oauth",
+                "custom"
               ]
             },
             "username": {
@@ -365,7 +379,7 @@
           "type": "string"
         },
         "jvmOptions": {
-          "description": "**Currently not supported** JVM Options for pods.",
+          "description": "JVM Options for pods.",
           "type": "object",
           "properties": {
             "-XX": {
@@ -489,6 +503,67 @@
             }
           },
           "additionalProperties": false
+        },
+        "metricsConfig": {
+          "description": "Metrics configuration.",
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "description": "Metrics type. The supported types are `jmxPrometheusExporter` and `strimziMetricsReporter`. Type `jmxPrometheusExporter` uses the Prometheus JMX Exporter to expose Kafka JMX metrics in Prometheus format through an HTTP endpoint. Type `strimziMetricsReporter` uses the Strimzi Metrics Reporter to directly expose Kafka metrics in Prometheus format through an HTTP endpoint.",
+              "type": "string",
+              "enum": [
+                "jmxPrometheusExporter",
+                "strimziMetricsReporter"
+              ]
+            },
+            "valueFrom": {
+              "description": "ConfigMap entry where the Prometheus JMX Exporter configuration is stored.",
+              "type": "object",
+              "properties": {
+                "configMapKeyRef": {
+                  "description": "Reference to the key in the ConfigMap containing the configuration.",
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "optional": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "values": {
+              "description": "Configuration values for the Strimzi Metrics Reporter.",
+              "type": "object",
+              "properties": {
+                "allowList": {
+                  "description": "A list of regex patterns to filter the metrics to collect. Should contain at least one element.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type != 'jmxPrometheusExporter' || has(self.valueFrom)",
+              "message": "valueFrom property is required"
+            }
+          ]
         },
         "producer": {
           "description": "Kafka producer related configuration.",
