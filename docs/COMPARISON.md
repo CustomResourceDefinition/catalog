@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 97.29% | 2512 | 8948 | 68 |
+| 97.25% | 2541 | 8948 | 68 |
 
 ### Missing Schemas
 
@@ -19,6 +19,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | addontemplate | v1alpha1 |
 | clustermanagementaddon | v1alpha1 |
 | managedclusteraddon | v1alpha1 |
+
+| autoscaling.cast.ai | |
+| --- | --- |
+| recommendations | v1 |
 
 | cloud.google.com | |
 | --- | --- |
@@ -131,6 +135,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | policies.kyverno.io | |
 | --- | --- |
 | policyexception | v2, v2beta1 |
+
+| talos.dev | |
+| --- | --- |
+| serviceaccount | v1alpha1 |
 
 | work.open-cluster-management.io | |
 | --- | --- |
