@@ -14,7 +14,7 @@
       "type": "object"
     },
     "spec": {
-      "description": "CohortSpec defines the desired state of Cohort",
+      "description": "spec is the specification of the Cohort.",
       "type": "object",
       "properties": {
         "fairSharing": {
@@ -22,7 +22,7 @@
           "type": "object",
           "properties": {
             "weight": {
-              "description": "weight gives a comparative advantage to this ClusterQueue\nor Cohort when competing for unused resources in the\nCohort.  The share is based on the dominant resource usage\nabove nominal quotas for each resource, divided by the\nweight.  Admission prioritizes scheduling workloads from\nClusterQueues and Cohorts with the lowest share and\npreempting workloads from the ClusterQueues and Cohorts\nwith the highest share.  A zero weight implies infinite\nshare value, meaning that this Node will always be at\ndisadvantage against other ClusterQueues and Cohorts.",
+              "description": "weight gives a comparative advantage to this ClusterQueue\nor Cohort when competing for unused resources in the\nCohort.  The share is based on the dominant resource usage\nabove nominal quotas for each resource, divided by the\nweight.  Admission prioritizes scheduling workloads from\nClusterQueues and Cohorts with the lowest share and\npreempting workloads from the ClusterQueues and Cohorts\nwith the highest share.  A zero weight implies infinite\nshare value, meaning that this Node will always be at\ndisadvantage against other ClusterQueues and Cohorts.\nWhen not 0, Weight must be greater than 10^-9.",
               "default": 1,
               "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
               "anyOf": [
@@ -39,13 +39,13 @@
           "additionalProperties": false
         },
         "parentName": {
-          "description": "ParentName references the name of the Cohort's parent, if\nany. It satisfies one of three cases:\n1) Unset. This Cohort is the root of its Cohort tree.\n2) References a non-existent Cohort. We use default Cohort (no borrowing/lending limits).\n3) References an existent Cohort.\n\nIf a cycle is created, we disable all members of the\nCohort, including ClusterQueues, until the cycle is\nremoved.  We prevent further admission while the cycle\nexists.",
+          "description": "parentName references the name of the Cohort's parent, if\nany. It satisfies one of three cases:\n1) Unset. This Cohort is the root of its Cohort tree.\n2) References a non-existent Cohort. We use default Cohort (no borrowing/lending limits).\n3) References an existent Cohort.\n\nIf a cycle is created, we disable all members of the\nCohort, including ClusterQueues, until the cycle is\nremoved.  We prevent further admission while the cycle\nexists.",
           "type": "string",
           "maxLength": 253,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
         },
         "resourceGroups": {
-          "description": "ResourceGroups describes groupings of Resources and\nFlavors.  Each ResourceGroup defines a list of Resources\nand a list of Flavors which provide quotas for these\nResources. Each Resource and each Flavor may only form part\nof one ResourceGroup.  There may be up to 16 ResourceGroups\nwithin a Cohort.\n\nBorrowingLimit limits how much members of this Cohort\nsubtree can borrow from the parent subtree.\n\nLendingLimit limits how much members of this Cohort subtree\ncan lend to the parent subtree.\n\nBorrowing and Lending limits must only be set when the\nCohort has a parent.  Otherwise, the Cohort create/update\nwill be rejected by the webhook.",
+          "description": "resourceGroups describes groupings of Resources and\nFlavors.  Each ResourceGroup defines a list of Resources\nand a list of Flavors which provide quotas for these\nResources. Each Resource and each Flavor may only form part\nof one ResourceGroup.  There may be up to 16 ResourceGroups\nwithin a Cohort.\n\nPlease note that nominalQuota defined at the Cohort level\nrepresents additional resources on top of those defined by\nClusterQueues within the Cohort. The Cohort's nominalQuota\nmay be thought of as a shared pool for the ClusterQueues\nwithin it. Additionally, this quota may also be lent out to\nparent Cohort(s), subject to LendingLimit.\n\nBorrowingLimit limits how much members of this Cohort\nsubtree can borrow from the parent subtree.\n\nLendingLimit limits how much members of this Cohort subtree\ncan lend to the parent subtree.\n\nBorrowing and Lending limits must only be set when the\nCohort has a parent.  Otherwise, the Cohort create/update\nwill be rejected by the webhook.",
           "type": "array",
           "maxItems": 16,
           "items": {
@@ -56,9 +56,9 @@
             ],
             "properties": {
               "coveredResources": {
-                "description": "coveredResources is the list of resources covered by the flavors in this\ngroup.\nExamples: cpu, memory, vendor.com/gpu.\nThe list cannot be empty and it can contain up to 16 resources.",
+                "description": "coveredResources is the list of resources covered by the flavors in this\ngroup.\nExamples: cpu, memory, vendor.com/gpu.\nThe list cannot be empty and it can contain up to 64 resources. With a total\nof up to 256 covered resources across all resource groups in the ClusterQueue.",
                 "type": "array",
-                "maxItems": 16,
+                "maxItems": 64,
                 "minItems": 1,
                 "items": {
                   "description": "ResourceName is the name identifying various resources in a ResourceList.",
@@ -66,9 +66,9 @@
                 }
               },
               "flavors": {
-                "description": "flavors is the list of flavors that provide the resources of this group.\nTypically, different flavors represent different hardware models\n(e.g., gpu models, cpu architectures) or pricing models (on-demand vs spot\ncpus).\nEach flavor MUST list all the resources listed for this group in the same\norder as the .resources field.\nThe list cannot be empty and it can contain up to 16 flavors.",
+                "description": "flavors is the list of flavors that provide the resources of this group.\nTypically, different flavors represent different hardware models\n(e.g., gpu models, cpu architectures) or pricing models (on-demand vs spot\ncpus).\nEach flavor MUST list all the resources listed for this group in the same\norder as the .resources field.\nThe list cannot be empty and it can contain up to 64 flavors, with a max of\n256 total flavors across all resource groups in the ClusterQueue.",
                 "type": "array",
-                "maxItems": 16,
+                "maxItems": 64,
                 "minItems": 1,
                 "items": {
                   "type": "object",
@@ -84,9 +84,9 @@
                       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                     },
                     "resources": {
-                      "description": "resources is the list of quotas for this flavor per resource.\nThere could be up to 16 resources.",
+                      "description": "resources is the list of quotas for this flavor per resource.\nThere could be up to 64 resources.",
                       "type": "array",
-                      "maxItems": 16,
+                      "maxItems": 64,
                       "minItems": 1,
                       "items": {
                         "type": "object",
@@ -169,7 +169,7 @@
       "additionalProperties": false
     },
     "status": {
-      "description": "CohortStatus defines the observed state of Cohort.",
+      "description": "status is the status of the Cohort.",
       "type": "object",
       "properties": {
         "fairSharing": {
@@ -188,7 +188,7 @@
               ],
               "properties": {
                 "consumedResources": {
-                  "description": "ConsumedResources represents the aggregated usage of resources over time,\nwith decaying function applied.\nThe value is populated if usage consumption functionality is enabled in Kueue config.",
+                  "description": "consumedResources represents the aggregated usage of resources over time,\nwith decaying function applied.\nThe value is populated if usage consumption functionality is enabled in Kueue config.",
                   "type": "object",
                   "additionalProperties": {
                     "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
@@ -204,7 +204,7 @@
                   }
                 },
                 "lastUpdate": {
-                  "description": "LastUpdate is the time when share and consumed resources were updated.",
+                  "description": "lastUpdate is the time when share and consumed resources were updated.",
                   "type": "string",
                   "format": "date-time"
                 }
@@ -212,7 +212,7 @@
               "additionalProperties": false
             },
             "weightedShare": {
-              "description": "WeightedShare represents the maximum of the ratios of usage\nabove nominal quota to the lendable resources in the\nCohort, among all the resources provided by the Node, and\ndivided by the weight.  If zero, it means that the usage of\nthe Node is below the nominal quota.  If the Node has a\nweight of zero and is borrowing, this will return\n9223372036854775807, the maximum possible share value.",
+              "description": "weightedShare represents the maximum of the ratios of usage\nabove nominal quota to the lendable resources in the\nCohort, among all the resources provided by the Node, and\ndivided by the weight.  If zero, it means that the usage of\nthe Node is below the nominal quota.  If the Node has a\nweight of zero and is borrowing, this will return\n9223372036854775807, the maximum possible share value.",
               "type": "integer",
               "format": "int64"
             }
