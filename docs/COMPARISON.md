@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 97.25% | 2541 | 8962 | 68 |
+| 97.28% | 2541 | 8964 | 68 |
 
 ### Missing Schemas
 
@@ -68,7 +68,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | gateway.networking.k8s.io | |
 | --- | --- |
 | backendlbpolicy | v1alpha2 |
-| backendtlspolicy | v1alpha3 |
 
 | getambassador.io | |
 | --- | --- |
