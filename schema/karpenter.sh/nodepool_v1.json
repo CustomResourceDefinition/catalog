@@ -63,6 +63,7 @@
                   "reasons": {
                     "description": "Reasons is a list of disruption methods that this budget applies to. If Reasons is not set, this budget applies to all methods.\nOtherwise, this will apply to each reason defined.\nallowed reasons are Underutilized, Empty, and Drifted.",
                     "type": "array",
+                    "maxItems": 50,
                     "items": {
                       "description": "DisruptionReason defines valid reasons for disruption budgets.",
                       "type": "string",
@@ -89,12 +90,12 @@
               ]
             },
             "consolidateAfter": {
-              "description": "ConsolidateAfter is the duration the controller will wait\nbefore attempting to terminate nodes that are underutilized.\nRefer to ConsolidationPolicy for how underutilization is considered.",
+              "description": "ConsolidateAfter is the duration the controller will wait\nbefore attempting to terminate nodes that are underutilized.\nRefer to ConsolidationPolicy for how underutilization is considered.\nWhen replicas is set, ConsolidateAfter is simply ignored",
               "type": "string",
               "pattern": "^(([0-9]+(s|m|h))+|Never)$"
             },
             "consolidationPolicy": {
-              "description": "ConsolidationPolicy describes which nodes Karpenter can disrupt through its consolidation\nalgorithm. This policy defaults to \"WhenEmptyOrUnderutilized\" if not specified",
+              "description": "ConsolidationPolicy describes which nodes Karpenter can disrupt through its consolidation\nalgorithm. This policy defaults to \"WhenEmptyOrUnderutilized\" if not specified\nWhen replicas is set, ConsolidationPolicy is simply ignored",
               "type": "string",
               "default": "WhenEmptyOrUnderutilized",
               "enum": [
@@ -106,7 +107,7 @@
           "additionalProperties": false
         },
         "limits": {
-          "description": "Limits define a set of bounds for provisioning capacity.",
+          "description": "Limits define a set of bounds for provisioning capacity.\nLimits other than limits.nodes is not supported when replicas is set.",
           "type": "object",
           "additionalProperties": {
             "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
@@ -120,6 +121,12 @@
             ],
             "x-kubernetes-int-or-string": true
           }
+        },
+        "replicas": {
+          "description": "Replicas is the desired number of nodes for the NodePool. When specified, the NodePool will\nmaintain this fixed number of replicas rather than scaling based on pod demand.\nWhen replicas is set:\n  - The following fields are ignored:\n      * disruption.consolidationPolicy\n      * disruption.consolidateAfter\n  - Only limits.nodes is supported; other resource limits (e.g., CPU, memory) must not be specified.\n  - Weight is not supported.\nNote: This field is alpha.",
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
         },
         "template": {
           "description": "Template contains the template of possibilities for the provisioning logic to launch a NodeClaim with.\nNodeClaims launched from this NodePool will often be further constrained than the template specifies.",
@@ -426,14 +433,28 @@
           "additionalProperties": false
         },
         "weight": {
-          "description": "Weight is the priority given to the nodepool during scheduling. A higher\nnumerical weight indicates that this nodepool will be ordered\nahead of other nodepools with lower weights. A nodepool with no weight\nwill be treated as if it is a nodepool with a weight of 0.",
+          "description": "Weight is the priority given to the nodepool during scheduling. A higher\nnumerical weight indicates that this nodepool will be ordered\nahead of other nodepools with lower weights. A nodepool with no weight\nwill be treated as if it is a nodepool with a weight of 0.\nWeight is not supported when replicas is set.",
           "type": "integer",
           "format": "int32",
           "maximum": 100,
           "minimum": 1
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "has(self.replicas) == has(oldSelf.replicas)",
+          "message": "Cannot transition NodePool between static (replicas set) and dynamic (replicas unset) provisioning modes"
+        },
+        {
+          "rule": "!has(self.replicas) || (!has(self.limits) || size(self.limits) == 0 || (size(self.limits) == 1 \u0026\u0026 'nodes' in self.limits))",
+          "message": "only 'limits.nodes' is supported on static NodePools"
+        },
+        {
+          "rule": "!has(self.replicas) || !has(self.weight)",
+          "message": "'weight' is not supported on static NodePools"
+        }
+      ]
     },
     "status": {
       "description": "NodePoolStatus defines the observed state of NodePool",
@@ -499,6 +520,12 @@
           "description": "NodeClassObservedGeneration represents the observed nodeClass generation for referenced nodeClass. If this does not match\nthe actual NodeClass Generation, NodeRegistrationHealthy status condition on the NodePool will be reset",
           "type": "integer",
           "format": "int64"
+        },
+        "nodes": {
+          "description": "Nodes is the count of nodes associated with this NodePool",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
         },
         "resources": {
           "description": "Resources is the list of resources that have been provisioned.",
