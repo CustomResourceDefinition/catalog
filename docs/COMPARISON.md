@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 97.21% | 2544 | 8971 | 68 |
+| 95.63% | 2586 | 8971 | 68 |
 
 ### Missing Schemas
 
@@ -24,6 +24,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | recommendations | v1 |
 
+| clone.kubevirt.io | |
+| --- | --- |
+| virtualmachineclone | v1alpha1, v1beta1 |
+
 | cloud.google.com | |
 | --- | --- |
 | computeclass | v1 |
@@ -37,6 +41,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 | managedclustersetbinding | v1beta2 |
 | placement | v1beta1 |
 | placementdecision | v1beta1 |
+
+| cluster.redpanda.com | |
+| --- | --- |
+| redpanda | v1alpha1, v1alpha2 |
+| schema | v1alpha2 |
+| topic | v1alpha1, v1alpha2 |
+| user | v1alpha2 |
 
 | cluster.x-k8s.io | |
 | --- | --- |
@@ -64,6 +75,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
+
+| export.kubevirt.io | |
+| --- | --- |
+| virtualmachineexport | v1alpha1, v1beta1 |
 
 | gateway.networking.k8s.io | |
 | --- | --- |
@@ -96,6 +111,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 | gcpmachine | v1alpha2 |
 | gcpmachinetemplate | v1alpha2 |
 
+| instancetype.kubevirt.io | |
+| --- | --- |
+| virtualmachineclusterinstancetype | v1alpha1, v1alpha2, v1beta1 |
+| virtualmachineclusterpreference | v1alpha1, v1alpha2, v1beta1 |
+| virtualmachineinstancetype | v1alpha1, v1alpha2, v1beta1 |
+| virtualmachinepreference | v1alpha1, v1alpha2, v1beta1 |
+
 | keda.sh | |
 | --- | --- |
 | cloudeventsource | v1alpha1 |
@@ -104,12 +126,25 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | poddefault | v1alpha1 |
 
+| kubevirt.io | |
+| --- | --- |
+| kubevirt | v1, v1alpha3 |
+| virtualmachine | v1, v1alpha3 |
+| virtualmachineinstance | v1, v1alpha3 |
+| virtualmachineinstancemigration | v1, v1alpha3 |
+| virtualmachineinstancepreset | v1, v1alpha3 |
+| virtualmachineinstancereplicaset | v1, v1alpha3 |
+
 | kyverno.io | |
 | --- | --- |
 | clusterephemeralreport | v1 |
 | clusterpolicyreport | v1alpha2 |
 | ephemeralreport | v1 |
 | policyreport | v1alpha2 |
+
+| migrations.kubevirt.io | |
+| --- | --- |
+| migrationpolicy | v1alpha1 |
 
 | monitoring.googleapis.com | |
 | --- | --- |
@@ -139,6 +174,16 @@ This page lists missing CRD validation schemas that are present in alternative c
 | policies.kyverno.io | |
 | --- | --- |
 | policyexception | v2, v2beta1 |
+
+| pool.kubevirt.io | |
+| --- | --- |
+| virtualmachinepool | v1alpha1 |
+
+| snapshot.kubevirt.io | |
+| --- | --- |
+| virtualmachinerestore | v1alpha1, v1beta1 |
+| virtualmachinesnapshot | v1alpha1, v1beta1 |
+| virtualmachinesnapshotcontent | v1alpha1, v1beta1 |
 
 | talos.dev | |
 | --- | --- |
