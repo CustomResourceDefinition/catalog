@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 95.63% | 2586 | 8972 | 68 |
+| 94.98% | 2610 | 8973 | 68 |
 
 ### Missing Schemas
 
@@ -23,6 +23,19 @@ This page lists missing CRD validation schemas that are present in alternative c
 | autoscaling.cast.ai | |
 | --- | --- |
 | recommendations | v1 |
+
+| cdi.kubevirt.io | |
+| --- | --- |
+| cdi | v1alpha1, v1beta1 |
+| cdiconfig | v1beta1 |
+| dataimportcron | v1beta1 |
+| datasource | v1beta1 |
+| datavolume | v1beta1 |
+| objecttransfer | v1beta1 |
+| storageprofile | v1beta1 |
+| volumeclonesource | v1beta1 |
+| volumeimportsource | v1beta1 |
+| volumeuploadsource | v1beta1 |
 
 | clone.kubevirt.io | |
 | --- | --- |
@@ -69,6 +82,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | release | v1alpha1 |
 
+| dynatrace.com | |
+| --- | --- |
+| dynakube | v1alpha5 |
+
 | eks.amazonaws.com | |
 | --- | --- |
 | ingressclassparams | v1 |
@@ -79,6 +96,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | export.kubevirt.io | |
 | --- | --- |
 | virtualmachineexport | v1alpha1, v1beta1 |
+
+| forklift.cdi.kubevirt.io | |
+| --- | --- |
+| openstackvolumepopulator | v1beta1 |
+| ovirtvolumepopulator | v1beta1 |
 
 | gateway.networking.k8s.io | |
 | --- | --- |
@@ -178,6 +200,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 | pool.kubevirt.io | |
 | --- | --- |
 | virtualmachinepool | v1alpha1 |
+
+| secrets.infisical.com | |
+| --- | --- |
+| clustergenerator | v1alpha1 |
+| infisicaldynamicsecret | v1alpha1 |
+| infisicalpushsecret | v1alpha1 |
+| infisicalsecret | v1alpha1 |
 
 | snapshot.kubevirt.io | |
 | --- | --- |

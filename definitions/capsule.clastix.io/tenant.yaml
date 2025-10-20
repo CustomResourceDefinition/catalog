@@ -51,8 +51,16 @@ spec:
               additionalRoleBindings:
                 items:
                   properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     clusterRoleName:
                       type: string
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     subjects:
                       items:
                         properties:
@@ -614,7 +622,7 @@ spec:
       status: {}
   - additionalPrinterColumns:
     - description: The actual state of the Tenant
-      jsonPath: .status.state
+      jsonPath: .status.conditions[?(@.type=="Cordoned")].reason
       name: State
       type: string
     - description: The max amount of Namespaces can be created
@@ -628,6 +636,14 @@ spec:
     - description: Node Selector applied to Pods
       jsonPath: .spec.nodeSelector
       name: Node selector
+      type: string
+    - description: Reconcile Status for the tenant
+      jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - description: Reconcile Message for the tenant
+      jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Status
       type: string
     - description: Age
       jsonPath: .metadata.creationTimestamp
@@ -648,8 +664,16 @@ spec:
               additionalRoleBindings:
                 items:
                   properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     clusterRoleName:
                       type: string
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     subjects:
                       items:
                         properties:
@@ -911,6 +935,9 @@ spec:
                       deniedRegex:
                         type: string
                     type: object
+                  managedMetadataOnly:
+                    default: false
+                    type: boolean
                   quota:
                     format: int32
                     minimum: 1
@@ -1146,6 +1173,10 @@ spec:
               owners:
                 items:
                   properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     clusterRoles:
                       default:
                       - admin
@@ -1159,6 +1190,10 @@ spec:
                       - Group
                       - ServiceAccount
                       type: string
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     name:
                       type: string
                     proxySettings:
@@ -1413,17 +1448,110 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
-            required:
-            - owners
             type: object
           status:
             properties:
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
               namespaces:
                 items:
                   type: string
                 type: array
               size:
                 type: integer
+              spaces:
+                items:
+                  properties:
+                    conditions:
+                      items:
+                        properties:
+                          lastTransitionTime:
+                            format: date-time
+                            type: string
+                          message:
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      type: array
+                    metadata:
+                      properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
+                          type: object
+                      type: object
+                    name:
+                      type: string
+                    uid:
+                      type: string
+                  required:
+                  - conditions
+                  - name
+                  type: object
+                type: array
               state:
                 default: Active
                 enum:
@@ -1431,6 +1559,7 @@ spec:
                 - Active
                 type: string
             required:
+            - conditions
             - size
             - state
             type: object
