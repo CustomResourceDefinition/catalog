@@ -112,7 +112,7 @@ func (generator *HelmGenerator) Versions() ([]string, error) {
 }
 
 func (generator *HelmGenerator) Close() error {
-	return os.Remove(generator.tmpDir)
+	return os.RemoveAll(generator.tmpDir)
 }
 
 func (generator *HelmGenerator) ensureLoaded() error {

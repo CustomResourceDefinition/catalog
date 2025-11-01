@@ -33,7 +33,7 @@ func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader) G
 }
 
 func (generator *GitGenerator) Close() error {
-	return os.Remove(generator.tmpDir)
+	return os.RemoveAll(generator.tmpDir)
 }
 
 func (generator *GitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
