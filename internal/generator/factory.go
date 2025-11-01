@@ -65,6 +65,8 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, genera
 }
 
 func (builder Builder) Build() error {
+	defer builder.generator.Close()
+
 	logger := builder.logger
 
 	fmt.Fprintf(logger, "Producing for %s@%s:\n", builder.config.Name, builder.config.Kind)
@@ -143,8 +145,6 @@ func (builder Builder) Build() error {
 			}
 		}
 	}
-
-	builder.generator.Close()
 
 	return nil
 }

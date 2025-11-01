@@ -41,7 +41,7 @@ func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) G
 }
 
 func (generator *OciGenerator) Close() error {
-	return os.Remove(generator.tmpDir)
+	return os.RemoveAll(generator.tmpDir)
 }
 
 func (generator *OciGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
