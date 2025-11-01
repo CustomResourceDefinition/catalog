@@ -1037,6 +1037,14 @@
                 "Disabled"
               ]
             },
+            "bpfNetworkBootstrap": {
+              "description": "BPFNetworkBootstrap manages the initial networking setup required to configure the BPF dataplane.\nWhen enabled, the operator tries to bootstraps access to the Kubernetes API Server\nby using the Kubernetes service and its associated endpoints.\nThis field should be enabled only if linuxDataplane is set to \"BPF\".\nIf another dataplane is selected, this field must be omitted or explicitly set to Disabled.\nWhen disabled and linuxDataplane is BPF, you must manually provide the Kubernetes API Server\ninformation via the \"kubernetes-service-endpoint\" ConfigMap. It is invalid to use both the ConfigMap\nand have this field set to true at the same time.\nDefault: Disabled",
+              "type": "string",
+              "enum": [
+                "Disabled",
+                "Enabled"
+              ]
+            },
             "containerIPForwarding": {
               "description": "ContainerIPForwarding configures whether ip forwarding will be enabled for containers in the CNI configuration.\nDefault: Disabled",
               "type": "string",
@@ -1122,6 +1130,14 @@
                 },
                 "additionalProperties": false
               }
+            },
+            "kubeProxyManagement": {
+              "description": "KubeProxyManagement controls whether the operator manages the kube-proxy DaemonSet.\nWhen enabled, the operator will manage the DaemonSet by patching it:\nit disables kube-proxy if the dataplane is BPF, or enables it otherwise.\nDefault: Disabled",
+              "type": "string",
+              "enum": [
+                "Disabled",
+                "Enabled"
+              ]
             },
             "linuxDataplane": {
               "description": "LinuxDataplane is used to select the dataplane used for Linux nodes. In particular, it\ncauses the operator to add required mounts and environment variables for the particular dataplane.\nIf not specified, iptables mode is used.\nDefault: Iptables",
@@ -2201,6 +2217,60 @@
                             "additionalProperties": false
                           }
                         },
+                        "dnsConfig": {
+                          "description": "DNSConfig allows customization of the DNS configuration for the calico-node pods.",
+                          "type": "object",
+                          "properties": {
+                            "nameservers": {
+                              "description": "A list of DNS name server IP addresses.\nThis will be appended to the base nameservers generated from DNSPolicy.\nDuplicated nameservers will be removed.",
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "x-kubernetes-list-type": "atomic"
+                            },
+                            "options": {
+                              "description": "A list of DNS resolver options.\nThis will be merged with the base options generated from DNSPolicy.\nDuplicated entries will be removed. Resolution options given in Options\nwill override those that appear in the base DNSPolicy.",
+                              "type": "array",
+                              "items": {
+                                "description": "PodDNSConfigOption defines DNS resolver options of a pod.",
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "description": "Name is this DNS resolver option's name.\nRequired.",
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "description": "Value is this DNS resolver option's value.",
+                                    "type": "string"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "x-kubernetes-list-type": "atomic"
+                            },
+                            "searches": {
+                              "description": "A list of DNS search domains for host-name lookup.\nThis will be appended to the base search paths generated from DNSPolicy.\nDuplicated search paths will be removed.",
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "x-kubernetes-list-type": "atomic"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "dnsPolicy": {
+                          "description": "DNSPolicy is the DNS policy for the calico-node pods.",
+                          "type": "string",
+                          "enum": [
+                            "",
+                            "Default",
+                            "ClusterFirst",
+                            "ClusterFirstWithHostNet",
+                            "None"
+                          ]
+                        },
                         "initContainers": {
                           "description": "InitContainers is a list of calico-node init containers.\nIf specified, this overrides the specified calico-node DaemonSet init containers.\nIf omitted, the calico-node DaemonSet will use its default values for its init containers.",
                           "type": "array",
@@ -2212,15 +2282,16 @@
                             ],
                             "properties": {
                               "name": {
-                                "description": "Name is an enum which identifies the calico-node DaemonSet init container by name.\nSupported values are: install-cni, hostpath-init, flexvol-driver, mount-bpffs, node-certs-key-cert-provisioner, calico-node-prometheus-server-tls-key-cert-provisioner",
+                                "description": "Name is an enum which identifies the calico-node DaemonSet init container by name.\nSupported values are: install-cni, hostpath-init, flexvol-driver, ebpf-bootstrap, node-certs-key-cert-provisioner, calico-node-prometheus-server-tls-key-cert-provisioner, mount-bpffs (deprecated, replaced by ebpf-bootstrap)",
                                 "type": "string",
                                 "enum": [
                                   "install-cni",
                                   "hostpath-init",
                                   "flexvol-driver",
-                                  "mount-bpffs",
+                                  "ebpf-bootstrap",
                                   "node-certs-key-cert-provisioner",
-                                  "calico-node-prometheus-server-tls-key-cert-provisioner"
+                                  "calico-node-prometheus-server-tls-key-cert-provisioner",
+                                  "mount-bpffs"
                                 ]
                               },
                               "resources": {
@@ -3294,13 +3365,12 @@
                             ],
                             "properties": {
                               "name": {
-                                "description": "Name is an enum which identifies the calico-node-windows DaemonSet init container by name.\nSupported values are: install-cni;hostpath-init, flexvol-driver, mount-bpffs, node-certs-key-cert-provisioner, calico-node-windows-prometheus-server-tls-key-cert-provisioner",
+                                "description": "Name is an enum which identifies the calico-node-windows DaemonSet init container by name.\nSupported values are: install-cni;hostpath-init, flexvol-driver, node-certs-key-cert-provisioner, calico-node-windows-prometheus-server-tls-key-cert-provisioner",
                                 "type": "string",
                                 "enum": [
                                   "install-cni",
                                   "hostpath-init",
                                   "flexvol-driver",
-                                  "mount-bpffs",
                                   "node-certs-key-cert-provisioner",
                                   "calico-node-windows-prometheus-server-tls-key-cert-provisioner"
                                 ]
@@ -4417,7 +4487,7 @@
           "additionalProperties": false
         },
         "certificateManagement": {
-          "description": "CertificateManagement configures pods to submit a CertificateSigningRequest to the certificates.k8s.io/v1beta1 API in order\nto obtain TLS certificates. This feature requires that you bring your own CSR signing and approval process, otherwise\npods will be stuck during initialization.",
+          "description": "CertificateManagement configures pods to submit a CertificateSigningRequest to the certificates.k8s.io/v1 API in order\nto obtain TLS certificates. This feature requires that you bring your own CSR signing and approval process, otherwise\npods will be stuck during initialization.",
           "type": "object",
           "required": [
             "caCert",
@@ -4469,6 +4539,14 @@
             "type"
           ],
           "properties": {
+            "binDir": {
+              "description": "BinDir is the path to the CNI binaries directory.\nIf you have changed the installation directory for CNI binaries in the container runtime configuration,\nplease ensure that this field points to the same directory as specified in the container runtime settings.\nDefault directory depends on the KubernetesProvider.\n* For KubernetesProvider GKE, this field defaults to \"/home/kubernetes/bin\".\n* For KubernetesProvider OpenShift, this field defaults to \"/var/lib/cni/bin\".\n* Otherwise, this field defaults to \"/opt/cni/bin\".",
+              "type": "string"
+            },
+            "confDir": {
+              "description": "ConfDir is the path to the CNI config directory.\nIf you have changed the installation directory for CNI configuration in the container runtime configuration,\nplease ensure that this field points to the same directory as specified in the container runtime settings.\nDefault directory depends on the KubernetesProvider.\n* For KubernetesProvider GKE, this field defaults to \"/etc/cni/net.d\".\n* For KubernetesProvider OpenShift, this field defaults to \"/var/run/multus/cni/net.d\".\n* Otherwise, this field defaults to \"/etc/cni/net.d\".",
+              "type": "string"
+            },
             "ipam": {
               "description": "IPAM specifies the pod IP address management that will be used in the Calico or\nCalico Enterprise installation.",
               "type": "object",
@@ -5680,7 +5758,8 @@
             "OpenShift",
             "DockerEnterprise",
             "RKE2",
-            "TKG"
+            "TKG",
+            "Kind"
           ]
         },
         "logging": {
@@ -5809,6 +5888,36 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "tlsCipherSuites": {
+          "description": "TLSCipherSuites defines the cipher suite list that the TLS protocol should use during secure communication.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "This should be a valid TLS cipher suite name.",
+                "type": "string",
+                "enum": [
+                  "TLS_AES_256_GCM_SHA384",
+                  "TLS_CHACHA20_POLY1305_SHA256",
+                  "TLS_AES_128_GCM_SHA256",
+                  "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+                  "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+                  "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+                  "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+                  "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+                  "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+                  "TLS_RSA_WITH_AES_256_GCM_SHA384",
+                  "TLS_RSA_WITH_AES_128_GCM_SHA256",
+                  "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+                  "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+                  "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
+                ]
+              }
+            },
+            "additionalProperties": false
           }
         },
         "typhaAffinity": {
@@ -8298,6 +8407,14 @@
                     "Disabled"
                   ]
                 },
+                "bpfNetworkBootstrap": {
+                  "description": "BPFNetworkBootstrap manages the initial networking setup required to configure the BPF dataplane.\nWhen enabled, the operator tries to bootstraps access to the Kubernetes API Server\nby using the Kubernetes service and its associated endpoints.\nThis field should be enabled only if linuxDataplane is set to \"BPF\".\nIf another dataplane is selected, this field must be omitted or explicitly set to Disabled.\nWhen disabled and linuxDataplane is BPF, you must manually provide the Kubernetes API Server\ninformation via the \"kubernetes-service-endpoint\" ConfigMap. It is invalid to use both the ConfigMap\nand have this field set to true at the same time.\nDefault: Disabled",
+                  "type": "string",
+                  "enum": [
+                    "Disabled",
+                    "Enabled"
+                  ]
+                },
                 "containerIPForwarding": {
                   "description": "ContainerIPForwarding configures whether ip forwarding will be enabled for containers in the CNI configuration.\nDefault: Disabled",
                   "type": "string",
@@ -8383,6 +8500,14 @@
                     },
                     "additionalProperties": false
                   }
+                },
+                "kubeProxyManagement": {
+                  "description": "KubeProxyManagement controls whether the operator manages the kube-proxy DaemonSet.\nWhen enabled, the operator will manage the DaemonSet by patching it:\nit disables kube-proxy if the dataplane is BPF, or enables it otherwise.\nDefault: Disabled",
+                  "type": "string",
+                  "enum": [
+                    "Disabled",
+                    "Enabled"
+                  ]
                 },
                 "linuxDataplane": {
                   "description": "LinuxDataplane is used to select the dataplane used for Linux nodes. In particular, it\ncauses the operator to add required mounts and environment variables for the particular dataplane.\nIf not specified, iptables mode is used.\nDefault: Iptables",
@@ -9462,6 +9587,60 @@
                                 "additionalProperties": false
                               }
                             },
+                            "dnsConfig": {
+                              "description": "DNSConfig allows customization of the DNS configuration for the calico-node pods.",
+                              "type": "object",
+                              "properties": {
+                                "nameservers": {
+                                  "description": "A list of DNS name server IP addresses.\nThis will be appended to the base nameservers generated from DNSPolicy.\nDuplicated nameservers will be removed.",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "x-kubernetes-list-type": "atomic"
+                                },
+                                "options": {
+                                  "description": "A list of DNS resolver options.\nThis will be merged with the base options generated from DNSPolicy.\nDuplicated entries will be removed. Resolution options given in Options\nwill override those that appear in the base DNSPolicy.",
+                                  "type": "array",
+                                  "items": {
+                                    "description": "PodDNSConfigOption defines DNS resolver options of a pod.",
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "description": "Name is this DNS resolver option's name.\nRequired.",
+                                        "type": "string"
+                                      },
+                                      "value": {
+                                        "description": "Value is this DNS resolver option's value.",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  },
+                                  "x-kubernetes-list-type": "atomic"
+                                },
+                                "searches": {
+                                  "description": "A list of DNS search domains for host-name lookup.\nThis will be appended to the base search paths generated from DNSPolicy.\nDuplicated search paths will be removed.",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "x-kubernetes-list-type": "atomic"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "dnsPolicy": {
+                              "description": "DNSPolicy is the DNS policy for the calico-node pods.",
+                              "type": "string",
+                              "enum": [
+                                "",
+                                "Default",
+                                "ClusterFirst",
+                                "ClusterFirstWithHostNet",
+                                "None"
+                              ]
+                            },
                             "initContainers": {
                               "description": "InitContainers is a list of calico-node init containers.\nIf specified, this overrides the specified calico-node DaemonSet init containers.\nIf omitted, the calico-node DaemonSet will use its default values for its init containers.",
                               "type": "array",
@@ -9473,15 +9652,16 @@
                                 ],
                                 "properties": {
                                   "name": {
-                                    "description": "Name is an enum which identifies the calico-node DaemonSet init container by name.\nSupported values are: install-cni, hostpath-init, flexvol-driver, mount-bpffs, node-certs-key-cert-provisioner, calico-node-prometheus-server-tls-key-cert-provisioner",
+                                    "description": "Name is an enum which identifies the calico-node DaemonSet init container by name.\nSupported values are: install-cni, hostpath-init, flexvol-driver, ebpf-bootstrap, node-certs-key-cert-provisioner, calico-node-prometheus-server-tls-key-cert-provisioner, mount-bpffs (deprecated, replaced by ebpf-bootstrap)",
                                     "type": "string",
                                     "enum": [
                                       "install-cni",
                                       "hostpath-init",
                                       "flexvol-driver",
-                                      "mount-bpffs",
+                                      "ebpf-bootstrap",
                                       "node-certs-key-cert-provisioner",
-                                      "calico-node-prometheus-server-tls-key-cert-provisioner"
+                                      "calico-node-prometheus-server-tls-key-cert-provisioner",
+                                      "mount-bpffs"
                                     ]
                                   },
                                   "resources": {
@@ -10555,13 +10735,12 @@
                                 ],
                                 "properties": {
                                   "name": {
-                                    "description": "Name is an enum which identifies the calico-node-windows DaemonSet init container by name.\nSupported values are: install-cni;hostpath-init, flexvol-driver, mount-bpffs, node-certs-key-cert-provisioner, calico-node-windows-prometheus-server-tls-key-cert-provisioner",
+                                    "description": "Name is an enum which identifies the calico-node-windows DaemonSet init container by name.\nSupported values are: install-cni;hostpath-init, flexvol-driver, node-certs-key-cert-provisioner, calico-node-windows-prometheus-server-tls-key-cert-provisioner",
                                     "type": "string",
                                     "enum": [
                                       "install-cni",
                                       "hostpath-init",
                                       "flexvol-driver",
-                                      "mount-bpffs",
                                       "node-certs-key-cert-provisioner",
                                       "calico-node-windows-prometheus-server-tls-key-cert-provisioner"
                                     ]
@@ -11678,7 +11857,7 @@
               "additionalProperties": false
             },
             "certificateManagement": {
-              "description": "CertificateManagement configures pods to submit a CertificateSigningRequest to the certificates.k8s.io/v1beta1 API in order\nto obtain TLS certificates. This feature requires that you bring your own CSR signing and approval process, otherwise\npods will be stuck during initialization.",
+              "description": "CertificateManagement configures pods to submit a CertificateSigningRequest to the certificates.k8s.io/v1 API in order\nto obtain TLS certificates. This feature requires that you bring your own CSR signing and approval process, otherwise\npods will be stuck during initialization.",
               "type": "object",
               "required": [
                 "caCert",
@@ -11730,6 +11909,14 @@
                 "type"
               ],
               "properties": {
+                "binDir": {
+                  "description": "BinDir is the path to the CNI binaries directory.\nIf you have changed the installation directory for CNI binaries in the container runtime configuration,\nplease ensure that this field points to the same directory as specified in the container runtime settings.\nDefault directory depends on the KubernetesProvider.\n* For KubernetesProvider GKE, this field defaults to \"/home/kubernetes/bin\".\n* For KubernetesProvider OpenShift, this field defaults to \"/var/lib/cni/bin\".\n* Otherwise, this field defaults to \"/opt/cni/bin\".",
+                  "type": "string"
+                },
+                "confDir": {
+                  "description": "ConfDir is the path to the CNI config directory.\nIf you have changed the installation directory for CNI configuration in the container runtime configuration,\nplease ensure that this field points to the same directory as specified in the container runtime settings.\nDefault directory depends on the KubernetesProvider.\n* For KubernetesProvider GKE, this field defaults to \"/etc/cni/net.d\".\n* For KubernetesProvider OpenShift, this field defaults to \"/var/run/multus/cni/net.d\".\n* Otherwise, this field defaults to \"/etc/cni/net.d\".",
+                  "type": "string"
+                },
                 "ipam": {
                   "description": "IPAM specifies the pod IP address management that will be used in the Calico or\nCalico Enterprise installation.",
                   "type": "object",
@@ -12941,7 +13128,8 @@
                 "OpenShift",
                 "DockerEnterprise",
                 "RKE2",
-                "TKG"
+                "TKG",
+                "Kind"
               ]
             },
             "logging": {
@@ -13070,6 +13258,36 @@
               "type": "array",
               "items": {
                 "type": "string"
+              }
+            },
+            "tlsCipherSuites": {
+              "description": "TLSCipherSuites defines the cipher suite list that the TLS protocol should use during secure communication.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "This should be a valid TLS cipher suite name.",
+                    "type": "string",
+                    "enum": [
+                      "TLS_AES_256_GCM_SHA384",
+                      "TLS_CHACHA20_POLY1305_SHA256",
+                      "TLS_AES_128_GCM_SHA256",
+                      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+                      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+                      "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+                      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+                      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+                      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+                      "TLS_RSA_WITH_AES_256_GCM_SHA384",
+                      "TLS_RSA_WITH_AES_128_GCM_SHA256",
+                      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+                      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+                      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
+                    ]
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "typhaAffinity": {

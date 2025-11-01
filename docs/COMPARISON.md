@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 94.99% | 2614 | 8973 | 68 |
+| 95.60% | 3070 | 9092 | 68 |
 
 ### Missing Schemas
 
@@ -73,6 +73,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 | controlplane.cluster.x-k8s.io | |
 | --- | --- |
 | taloscontrolplane | v1alpha3 |
+
+| core.openfeature.dev | |
+| --- | --- |
+| featureflag | v1beta1 |
+| featureflagsource | v1beta1 |
+| flagd | v1beta1 |
+| inprocessconfiguration | v1beta1 |
 
 | crd.k8s.amazonaws.com | |
 | --- | --- |
