@@ -9,33 +9,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 95.60% | 3070 | 9094 | 68 |
+| 97.00% | 3070 | 9155 | 68 |
 
 ### Missing Schemas
-
-| addon.open-cluster-management.io | |
-| --- | --- |
-| addondeploymentconfig | v1alpha1 |
-| addontemplate | v1alpha1 |
-| clustermanagementaddon | v1alpha1 |
-| managedclusteraddon | v1alpha1 |
 
 | autoscaling.cast.ai | |
 | --- | --- |
 | recommendations | v1 |
-
-| cdi.kubevirt.io | |
-| --- | --- |
-| cdi | v1alpha1, v1beta1 |
-| cdiconfig | v1beta1 |
-| dataimportcron | v1beta1 |
-| datasource | v1beta1 |
-| datavolume | v1beta1 |
-| objecttransfer | v1beta1 |
-| storageprofile | v1beta1 |
-| volumeclonesource | v1beta1 |
-| volumeimportsource | v1beta1 |
-| volumeuploadsource | v1beta1 |
 
 | clone.kubevirt.io | |
 | --- | --- |
@@ -44,23 +24,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | cloud.google.com | |
 | --- | --- |
 | computeclass | v1 |
-
-| cluster.open-cluster-management.io | |
-| --- | --- |
-| addonplacementscore | v1alpha1 |
-| clusterclaim | v1alpha1 |
-| managedcluster | v1 |
-| managedclusterset | v1beta2 |
-| managedclustersetbinding | v1beta2 |
-| placement | v1beta1 |
-| placementdecision | v1beta1 |
-
-| cluster.redpanda.com | |
-| --- | --- |
-| redpanda | v1alpha1, v1alpha2 |
-| schema | v1alpha2 |
-| topic | v1alpha1, v1alpha2 |
-| user | v1alpha2 |
 
 | cluster.x-k8s.io | |
 | --- | --- |
@@ -73,13 +36,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | controlplane.cluster.x-k8s.io | |
 | --- | --- |
 | taloscontrolplane | v1alpha3 |
-
-| core.openfeature.dev | |
-| --- | --- |
-| featureflag | v1beta1 |
-| featureflagsource | v1beta1 |
-| flagd | v1beta1 |
-| inprocessconfiguration | v1beta1 |
 
 | crd.k8s.amazonaws.com | |
 | --- | --- |
@@ -103,11 +59,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | export.kubevirt.io | |
 | --- | --- |
 | virtualmachineexport | v1alpha1, v1beta1 |
-
-| forklift.cdi.kubevirt.io | |
-| --- | --- |
-| openstackvolumepopulator | v1beta1 |
-| ovirtvolumepopulator | v1beta1 |
 
 | gateway.networking.k8s.io | |
 | --- | --- |
@@ -190,11 +141,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | managedcertificate | v1, v1beta1, v1beta2 |
 | networklogging | v1alpha1 |
 
-| operator.open-cluster-management.io | |
-| --- | --- |
-| clustermanager | v1 |
-| klusterlet | v1 |
-
 | pg.percona.com | |
 | --- | --- |
 | perconapgcluster | v1 |
@@ -208,13 +154,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | virtualmachinepool | v1alpha1 |
 
-| secrets.infisical.com | |
-| --- | --- |
-| clustergenerator | v1alpha1 |
-| infisicaldynamicsecret | v1alpha1 |
-| infisicalpushsecret | v1alpha1 |
-| infisicalsecret | v1alpha1 |
-
 | snapshot.kubevirt.io | |
 | --- | --- |
 | virtualmachinerestore | v1alpha1, v1beta1 |
@@ -224,12 +163,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | talos.dev | |
 | --- | --- |
 | serviceaccount | v1alpha1 |
-
-| work.open-cluster-management.io | |
-| --- | --- |
-| appliedmanifestwork | v1 |
-| manifestwork | v1 |
-| manifestworkreplicaset | v1alpha1 |
 
 ### Ignored Schemas
 
