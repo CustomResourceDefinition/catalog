@@ -25,6 +25,10 @@ endif
 	test -n "$$(docker images -q $(RUNNER))"
 	$(COMPOSE_RUN) runner make _build
 
+ifneq ($(strip $(CI)),)
+	@docker logout ghcr.io
+endif
+
 _build: _clean
 	@mkdir -p build/bin
 	go build -o build/bin/catalog -buildvcs=false -tags $(GO_TAGS)
