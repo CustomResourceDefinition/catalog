@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.24% | 3071 | 9197 | 70 |
+| 98.63% | 3071 | 9235 | 79 |
 
 ### Missing Schemas
 
@@ -52,15 +52,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | backendlbpolicy | v1alpha2 |
 
-| grafana.integreatly.org | |
-| --- | --- |
-| grafana | v1alpha1 |
-
-| helm.cattle.io | |
-| --- | --- |
-| helmchart | v1 |
-| helmchartconfig | v1 |
-
 | helm.toolkit.fluxcd.io | |
 | --- | --- |
 | helmrelease | v1 |
@@ -74,21 +65,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | gcpcluster | v1alpha2 |
 | gcpmachine | v1alpha2 |
 | gcpmachinetemplate | v1alpha2 |
-
-| keda.sh | |
-| --- | --- |
-| cloudeventsource | v1alpha1 |
-
-| kubeflow.org | |
-| --- | --- |
-| poddefault | v1alpha1 |
-
-| kyverno.io | |
-| --- | --- |
-| clusterephemeralreport | v1 |
-| clusterpolicyreport | v1alpha2 |
-| ephemeralreport | v1 |
-| policyreport | v1alpha2 |
 
 | monitoring.googleapis.com | |
 | --- | --- |
@@ -109,14 +85,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | perconapgcluster | v1 |
 | postgrescluster | v1beta1 |
-
-| policies.kyverno.io | |
-| --- | --- |
-| policyexception | v2, v2beta1 |
-
-| talos.dev | |
-| --- | --- |
-| serviceaccount | v1alpha1 |
 
 ### Ignored Schemas
 
@@ -163,6 +131,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | dex.coreos.com | signingkey | v1 |
 | dynatrace.com | dynakube | v1alpha5 |
 | getambassador.io | ratelimit | v1beta2 |
+| grafana.integreatly.org | grafana | v1alpha1 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha2 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha3 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha4 |
@@ -184,14 +153,22 @@ This page lists missing CRD validation schemas that are present in alternative c
 | kafka.strimzi.io | kafkatopiccontrolacls | v1alpha1 |
 | kafka.strimzi.io | kafkatopiccontrolacls | v1beta1 |
 | kafka.strimzi.io | strimzipodset | v1beta2 |
+| keda.sh | cloudeventsource | v1alpha1 |
+| kyverno.io | clusterephemeralreport | v1 |
+| kyverno.io | clusterpolicyreport | v1alpha2 |
+| kyverno.io | ephemeralreport | v1 |
+| kyverno.io | policyreport | v1alpha2 |
 | mysql.presslabs.org | mysqlbackup | v2 |
 | openebs.io | blockdevice | v1alpha1 |
 | openebs.io | blockdeviceclaim | v1alpha1 |
 | openebs.io | diskpool | v1beta1 |
 | openebs.io | diskpool | v1beta2 |
+| policies.kyverno.io | policyexception | v2 |
+| policies.kyverno.io | policyexception | v2beta1 |
 | policy.linkerd.io | httproute | v1 |
 | postgresql.cnpg.io | cluster | v3 |
 | rbacmanager.reactiveops.io | rbacdefinitions | v1alpha1 |
+| talos.dev | serviceaccount | v1alpha1 |
 | templates.kluctl.io | objecthandler | v1alpha1 |
 | uds.dev | exemption | v1alpha1 |
 | uds.dev | package | v1alpha1 |
