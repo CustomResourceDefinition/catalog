@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.63% | 3071 | 9235 | 79 |
+| 98.83% | 3071 | 9240 | 81 |
 
 ### Missing Schemas
 
@@ -48,10 +48,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
 
-| gateway.networking.k8s.io | |
-| --- | --- |
-| backendlbpolicy | v1alpha2 |
-
 | helm.toolkit.fluxcd.io | |
 | --- | --- |
 | helmrelease | v1 |
@@ -78,20 +74,14 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | networking.gke.io | |
 | --- | --- |
-| managedcertificate | v1, v1beta1, v1beta2 |
 | networklogging | v1alpha1 |
-
-| pg.percona.com | |
-| --- | --- |
-| perconapgcluster | v1 |
-| postgrescluster | v1beta1 |
 
 ### Ignored Schemas
 
 <details>
 <summary>Click to show ignored schemas</summary>
 
-| | | |
+| Group | Kind | Version |
 | --- | --- | --- |
 | anywhere.eks.amazonaws.com | cluster | v1alpha3 |
 | anywhere.eks.amazonaws.com | cluster | v1alpha4 |
@@ -163,6 +153,8 @@ This page lists missing CRD validation schemas that are present in alternative c
 | openebs.io | blockdeviceclaim | v1alpha1 |
 | openebs.io | diskpool | v1beta1 |
 | openebs.io | diskpool | v1beta2 |
+| pg.percona.com | perconapgcluster | v1 |
+| pg.percona.com | postgrescluster | v1beta1 |
 | policies.kyverno.io | policyexception | v2 |
 | policies.kyverno.io | policyexception | v2beta1 |
 | policy.linkerd.io | httproute | v1 |
