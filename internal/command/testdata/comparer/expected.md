@@ -26,7 +26,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 <details>
 <summary>Click to show ignored schemas</summary>
 
-| | | |
+| Group | Kind | Version |
 | --- | --- | --- |
 | ignored.tld | kind | v1 |
 | other.tld | ignored | v1 |

@@ -85,7 +85,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 <details>
 <summary>Click to show ignored schemas</summary>
 
-| | | |
+| Group | Kind | Version |
 | --- | --- | --- |
 {{- range .Ignored }}
 | {{ .Group }} | {{ .Kind }} | {{ .Version }} |
