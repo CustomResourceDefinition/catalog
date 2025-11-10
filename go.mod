@@ -11,7 +11,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.34.1
 	k8s.io/apimachinery v0.34.1
 	sigs.k8s.io/controller-tools v0.19.0
-	sigs.k8s.io/kustomize/kyaml v0.20.1
+	sigs.k8s.io/kustomize/kyaml v0.21.0
 )
 
 require (
@@ -92,7 +92,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
@@ -129,7 +128,7 @@ require (
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
-	sigs.k8s.io/kustomize/api v0.20.1
+	sigs.k8s.io/kustomize/api v0.21.0
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
