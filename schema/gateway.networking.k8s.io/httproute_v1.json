@@ -30,7 +30,8 @@
             "maxLength": 253,
             "minLength": 1,
             "pattern": "^(\\*\\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-          }
+          },
+          "x-kubernetes-list-type": "atomic"
         },
         "parentRefs": {
           "description": "ParentRefs references the resources (usually Gateways) that a Route wants\nto be attached to. Note that the referenced parent resource needs to\nallow this for the attachment to be complete. For Gateways, that means\nthe Gateway needs to allow attachment from Routes of this kind and\nnamespace. For Services, that means the Service must either be in the same\nnamespace for a \"producer\" route, or the mesh implementation must support\nand allow \"consumer\" routes for the referenced Service. ReferenceGrant is\nnot applicable for governing ParentRefs to Services - it is not possible to\ncreate a \"producer\" route for a Service in a different namespace from the\nRoute.\n\nThere are two kinds of parent resources with \"Core\" support:\n\n* Gateway (Gateway conformance profile)\n* Service (Mesh conformance profile, ClusterIP Services only)\n\nThis API may be extended in the future to support additional kinds of parent\nresources.\n\nParentRefs must be _distinct_. This means either that:\n\n* They select different objects.  If this is the case, then parentRef\n  entries are distinct. In terms of fields, this means that the\n  multi-part key defined by `group`, `kind`, `namespace`, and `name` must\n  be unique across all parentRef entries in the Route.\n* They do not select different objects, but for each optional field used,\n  each ParentRef that selects the same object must set the same set of\n  optional fields to different values. If one ParentRef sets a\n  combination of optional fields, all must set the same combination.\n\nSome examples:\n\n* If one ParentRef sets `sectionName`, all ParentRefs referencing the\n  same object must also set `sectionName`.\n* If one ParentRef sets `port`, all ParentRefs referencing the same\n  object must also set `port`.\n* If one ParentRef sets `sectionName` and `port`, all ParentRefs\n  referencing the same object must also set `sectionName` and `port`.\n\nIt is possible to separately reference multiple distinct objects that may\nbe collapsed by an implementation. For example, some implementations may\nchoose to merge compatible Gateway Listeners together. If that is the\ncase, the list of routes attached to those resources should also be\nmerged.\n\nNote that for ParentRefs that cross namespace boundaries, there are specific\nrules. Cross-namespace references are only valid if they are explicitly\nallowed by something in the namespace they are referring to. For example,\nGateway has the AllowedRoutes field, and ReferenceGrant provides a\ngeneric way to enable other kinds of cross-namespace reference.",
@@ -88,6 +89,7 @@
             },
             "additionalProperties": false
           },
+          "x-kubernetes-list-type": "atomic",
           "x-kubernetes-validations": [
             {
               "rule": "self.all(p1, self.all(p2, p1.group == p2.group \u0026\u0026 p1.kind == p2.kind \u0026\u0026 p1.name == p2.name \u0026\u0026 (((!has(p1.__namespace__) || p1.__namespace__ == '') \u0026\u0026 (!has(p2.__namespace__) || p2.__namespace__ == '')) || (has(p1.__namespace__) \u0026\u0026 has(p2.__namespace__) \u0026\u0026 p1.__namespace__ == p2.__namespace__ )) ? ((!has(p1.sectionName) || p1.sectionName == '') == (!has(p2.sectionName) || p2.sectionName == '')) : true))",
@@ -646,11 +648,8 @@
                           }
                         ]
                       },
+                      "x-kubernetes-list-type": "atomic",
                       "x-kubernetes-validations": [
-                        {
-                          "rule": "!(self.exists(f, f.type == 'RequestRedirect') \u0026\u0026 self.exists(f, f.type == 'URLRewrite'))",
-                          "message": "May specify either httpRouteFilterRequestRedirect or httpRouteFilterRequestRewrite, but not both"
-                        },
                         {
                           "rule": "!(self.exists(f, f.type == 'RequestRedirect') \u0026\u0026 self.exists(f, f.type == 'URLRewrite'))",
                           "message": "May specify either httpRouteFilterRequestRedirect or httpRouteFilterRequestRewrite, but not both"
@@ -724,7 +723,8 @@
                       "message": "Must have port for Service reference"
                     }
                   ]
-                }
+                },
+                "x-kubernetes-list-type": "atomic"
               },
               "filters": {
                 "description": "Filters define the filters that are applied to requests that match\nthis rule.\n\nWherever possible, implementations SHOULD implement filters in the order\nthey are specified.\n\nImplementations MAY choose to implement this ordering strictly, rejecting\nany combination or order of filters that cannot be supported. If implementations\nchoose a strict interpretation of filter ordering, they MUST clearly document\nthat behavior.\n\nTo reject an invalid combination or order of filters, implementations SHOULD\nconsider the Route Rules with this configuration invalid. If all Route Rules\nin a Route are invalid, the entire Route would be considered invalid. If only\na portion of Route Rules are invalid, implementations MUST set the\n\"PartiallyInvalid\" condition for the Route.\n\nConformance-levels at this level are defined based on the type of filter:\n\n- ALL core filters MUST be supported by all implementations.\n- Implementers are encouraged to support extended filters.\n- Implementation-specific custom filters have no API guarantees across\n  implementations.\n\nSpecifying the same filter multiple times is not supported unless explicitly\nindicated in the filter.\n\nAll filters are expected to be compatible with each other except for the\nURLRewrite and RequestRedirect filters, which may not be combined. If an\nimplementation cannot support other combinations of filters, they must clearly\ndocument that limitation. In cases where incompatible or unsupported\nfilters are specified and cause the `Accepted` condition to be set to status\n`False`, implementations may use the `IncompatibleFilters` reason to specify\nthis configuration error.\n\nSupport: Core",
@@ -1242,6 +1242,7 @@
                     }
                   ]
                 },
+                "x-kubernetes-list-type": "atomic",
                 "x-kubernetes-validations": [
                   {
                     "rule": "!(self.exists(f, f.type == 'RequestRedirect') \u0026\u0026 self.exists(f, f.type == 'URLRewrite'))",
@@ -1455,7 +1456,15 @@
                     }
                   },
                   "additionalProperties": false
-                }
+                },
+                "x-kubernetes-list-type": "atomic"
+              },
+              "name": {
+                "description": "Name is the name of the route rule. This name MUST be unique within a Route if it is set.\n\nSupport: Extended",
+                "type": "string",
+                "maxLength": 253,
+                "minLength": 1,
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
               },
               "timeouts": {
                 "description": "Timeouts defines the timeouts that can be configured for an HTTP request.\n\nSupport: Extended",
@@ -1505,6 +1514,7 @@
               }
             ]
           },
+          "x-kubernetes-list-type": "atomic",
           "x-kubernetes-validations": [
             {
               "rule": "(self.size() \u003e 0 ? self[0].matches.size() : 0) + (self.size() \u003e 1 ? self[1].matches.size() : 0) + (self.size() \u003e 2 ? self[2].matches.size() : 0) + (self.size() \u003e 3 ? self[3].matches.size() : 0) + (self.size() \u003e 4 ? self[4].matches.size() : 0) + (self.size() \u003e 5 ? self[5].matches.size() : 0) + (self.size() \u003e 6 ? self[6].matches.size() : 0) + (self.size() \u003e 7 ? self[7].matches.size() : 0) + (self.size() \u003e 8 ? self[8].matches.size() : 0) + (self.size() \u003e 9 ? self[9].matches.size() : 0) + (self.size() \u003e 10 ? self[10].matches.size() : 0) + (self.size() \u003e 11 ? self[11].matches.size() : 0) + (self.size() \u003e 12 ? self[12].matches.size() : 0) + (self.size() \u003e 13 ? self[13].matches.size() : 0) + (self.size() \u003e 14 ? self[14].matches.size() : 0) + (self.size() \u003e 15 ? self[15].matches.size() : 0) \u003c= 128",
@@ -1530,6 +1540,7 @@
             "description": "RouteParentStatus describes the status of a route with respect to an\nassociated Parent.",
             "type": "object",
             "required": [
+              "conditions",
               "controllerName",
               "parentRef"
             ],
@@ -1657,7 +1668,8 @@
               }
             },
             "additionalProperties": false
-          }
+          },
+          "x-kubernetes-list-type": "atomic"
         }
       },
       "additionalProperties": false
