@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.83% | 3071 | 9250 | 81 |
+| 98.76% | 3073 | 9250 | 81 |
 
 ### Missing Schemas
 
@@ -71,6 +71,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | operatorconfig | v1, v1alpha1 |
 | podmonitoring | v1, v1alpha1 |
 | rules | v1, v1alpha1 |
+
+| nauth.io | |
+| --- | --- |
+| account | v1alpha1 |
+| user | v1alpha1 |
 
 | networking.gke.io | |
 | --- | --- |
