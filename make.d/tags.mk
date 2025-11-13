@@ -1,5 +1,3 @@
-FIRST_GIT_COMMIT_TIMESTAMP = $(shell git log --reverse --format='%at' | head -n 1)
-
 tags:
 	test -d build/remote/kubernetes || exit 1
 
@@ -11,7 +9,7 @@ tags:
 	while IFS='|' read -r TAG TS; do \
 		test -z "$$TAG" && continue; \
 		\
-		test "$$TS" -lt "$(FIRST_GIT_COMMIT_TIMESTAMP)" && continue; \
+		test "$$TS" -lt "$(shell git log --reverse --format='%at' | head -n 1)" && continue; \
 		test "$$TS" -gt "$(shell date +%s)" && continue; \
 		\
 		COMMIT="$$(git rev-list -1 --date=unix --date=format:unix --before="$$TS" HEAD || true)"; \
