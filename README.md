@@ -4,7 +4,7 @@ This repository aggregates hundreds of popular Kubernetes CRDs (`CustomResourceD
 
 The intended purpose with this repository is aid with validation and code generation.
 
-The files in the catalog are checked for updates every 8 hours.
+The catalog are checked for updates every 8 hours, but the catalog is also tagged with kubernetes versions to make the catalog available as it were when a specific version was released.
 
 ## Known use cases
 
@@ -20,13 +20,27 @@ Example:
 kubeconform -schema-location default -schema-location 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/main/schema/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' [MANIFEST]
 ```
 
+Example using the catalog as it were when version 1.33.0 was released:
+
+```sh
+kubeconform -schema-location default -schema-location 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/v1.33.0/schema/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' [MANIFEST]
+```
+
 ### Code generation using kopium
 
 The definition files can be used by tools like [kopium](https://github.com/kube-rs/kopium) to generate Rust data structs.
 
 Example:
+
 ```sh
 curl -sSL 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/main/definitions/monitoring.coreos.com/prometheusrule.yaml' \
+    | kopium -Af - > prometheusrule.rs
+```
+
+Example using the catalog as it were when version 1.33.0 was released:
+
+```sh
+curl -sSL 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/v1.33.0/definitions/monitoring.coreos.com/prometheusrule.yaml' \
     | kopium -Af - > prometheusrule.rs
 ```
 
