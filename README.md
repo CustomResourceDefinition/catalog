@@ -20,10 +20,10 @@ Example:
 kubeconform -schema-location default -schema-location 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/main/schema/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' [MANIFEST]
 ```
 
-Example using the catalog as it were when version 1.33.0 was released:
+Example using the catalog as it were when version 1.33.6 was released:
 
 ```sh
-kubeconform -schema-location default -schema-location 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/v1.33.0/schema/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' [MANIFEST]
+kubeconform -schema-location default -schema-location 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/refs/tags/v1.33.6/schema/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' [MANIFEST]
 ```
 
 ### Code generation using kopium
@@ -37,10 +37,10 @@ curl -sSL 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/ma
     | kopium -Af - > prometheusrule.rs
 ```
 
-Example using the catalog as it were when version 1.33.0 was released:
+Example using the catalog as it were when version 1.33.6 was released:
 
 ```sh
-curl -sSL 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/v1.33.0/definitions/monitoring.coreos.com/prometheusrule.yaml' \
+curl -sSL 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/refs/tags/v1.33.6/definitions/monitoring.coreos.com/prometheusrule.yaml' \
     | kopium -Af - > prometheusrule.rs
 ```
 
