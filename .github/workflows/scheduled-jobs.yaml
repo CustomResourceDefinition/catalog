@@ -70,7 +70,9 @@ jobs:
   report-failures:
     name: Report failures
     runs-on: ubuntu-latest
-    needs: update-schemas
+    needs:
+      - update-schemas
+      - sync-tags
     if: failure() && github.event_name != 'workflow_dispatch'
     permissions:
       contents: read
@@ -85,3 +87,24 @@ jobs:
           assignees: CodeReaper
           body: See the [log](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
           comment: Latest failed runs [log](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+
+  sync-tags:
+    name: Synchronize tags with kubernetes
+    runs-on: ubuntu-latest
+    needs: update-schemas
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY_SCHEDULED_JOBS }}
+
+      - uses: actions/checkout@v5
+        with:
+          repository: kubernetes/kubernetes
+          path: build/remote/kubernetes
+          fetch-depth: 0
+
+      - run: make tags
+
+      - run: git push --tags
