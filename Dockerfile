@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine
+FROM golang:1.25.4-alpine
 
 RUN apk add --no-cache -q make yq-go helm git jq
 RUN mkdir /opt/schemastore && \
