@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.83% | 3073 | 9410 | 81 |
+| 98.83% | 3086 | 9410 | 82 |
 
 ### Missing Schemas
 
@@ -144,6 +144,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | kafka.strimzi.io | kafkatopiccontrolacls | v1beta1 |
 | kafka.strimzi.io | strimzipodset | v1beta2 |
 | keda.sh | cloudeventsource | v1alpha1 |
+| kubeflow.org | mpijob | v2beta1 |
 | kyverno.io | clusterephemeralreport | v1 |
 | kyverno.io | clusterpolicyreport | v1alpha2 |
 | kyverno.io | ephemeralreport | v1 |
