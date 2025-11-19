@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.1
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: scylladbmonitorings.scylla.scylladb.com
 spec:
   group: scylla.scylladb.com
@@ -65,8 +65,102 @@ spec:
                               description: insecureEnableAnonymousAccess allows access to Grafana without authentication.
                               type: boolean
                           type: object
+                        datasources:
+                          description: |-
+                            datasources is a list of Grafana datasources to configure.
+                            It's expected to be set when using Prometheus component in `External` mode.
+                            At most one datasource is allowed for now (only Prometheus is supported).
+                          items:
+                            properties:
+                              name:
+                                default: prometheus
+                                description: |-
+                                  name is the name of the datasource as it will appear in Grafana.
+                                  Only "prometheus" is supported as that's the datasource name expected by the ScyllaDB monitoring stack dashboards.
+                                enum:
+                                  - prometheus
+                                type: string
+                              prometheusOptions:
+                                description: prometheusOptions defines Prometheus-specific options.
+                                properties:
+                                  auth:
+                                    description: auth holds authentication options for connecting to Prometheus.
+                                    properties:
+                                      bearerTokenOptions:
+                                        description: bearerToken holds options for Bearer token authentication.
+                                        properties:
+                                          secretRef:
+                                            description: secretRef is a reference to a key in a Secret holding a Bearer token to use to authenticate with Prometheus.
+                                            properties:
+                                              key:
+                                                description: key within the selected object.
+                                                minLength: 1
+                                                type: string
+                                              name:
+                                                description: name of the selected object.
+                                                minLength: 1
+                                                type: string
+                                            type: object
+                                        type: object
+                                      type:
+                                        default: NoAuthentication
+                                        description: type is the type of authentication to use.
+                                        type: string
+                                    type: object
+                                  tls:
+                                    description: tls holds TLS configuration for connecting to Prometheus over HTTPS.
+                                    properties:
+                                      caCertConfigMapRef:
+                                        description: |-
+                                          caCert is a reference to a key within the CA bundle ConfigMap. The key should hold the CA cert in PEM format.
+                                          When not specified, system CAs are used.
+                                        properties:
+                                          key:
+                                            description: key within the selected object.
+                                            minLength: 1
+                                            type: string
+                                          name:
+                                            description: name of the selected object.
+                                            minLength: 1
+                                            type: string
+                                        type: object
+                                      clientTLSKeyPairSecretRef:
+                                        description: |-
+                                          clientTLSKeyPairSecretRef is a reference to a Secret holding client TLS certificate and key for mTLS authentication.
+                                          It's expected to be a standard Kubernetes TLS Secret with `tls.crt` and `tls.key` keys.
+                                        properties:
+                                          name:
+                                            description: Name of the referent.
+                                            type: string
+                                        type: object
+                                      insecureSkipVerify:
+                                        default: false
+                                        description: insecureSkipVerify controls whether to skip server certificate verification.
+                                        type: boolean
+                                    type: object
+                                type: object
+                              type:
+                                allOf:
+                                  - enum:
+                                      - Prometheus
+                                  - enum:
+                                      - Prometheus
+                                default: Prometheus
+                                description: type is the type of the datasource. Only "prometheus" is supported.
+                                type: string
+                              url:
+                                description: url is the URL of the datasource.
+                                minLength: 1
+                                type: string
+                            type: object
+                          maxItems: 1
+                          type: array
                         exposeOptions:
-                          description: exposeOptions specifies options for exposing Grafana UI.
+                          description: |-
+                            exposeOptions specifies options for exposing Grafana UI.
+
+                            Deprecated: This field will be removed in the next version of the API. Support for it will be removed in the future
+                            versions of the operator. We recommend managing your own Ingress or HTTPRoute resources to expose Grafana if needed.
                           properties:
                             webInterface:
                               description: webInterface specifies expose options for the user web interface.
@@ -635,8 +729,8 @@ spec:
                                     most preferred is the one with the greatest sum of weights, i.e.
                                     for each node that meets all of the scheduling requirements (resource
                                     request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                    compute a sum by iterating through the elements of this field and adding
-                                    "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                    compute a sum by iterating through the elements of this field and subtracting
+                                    "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                     node(s) with the highest sum are the most preferred.
                                   items:
                                     description: The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)
@@ -1015,7 +1109,7 @@ spec:
                                 Claims lists the names of resources, defined in spec.resourceClaims,
                                 that are used by this container.
 
-                                This is an alpha field and requires enabling the
+                                This field depends on the
                                 DynamicResourceAllocation feature gate.
 
                                 This field is immutable. It can only be set for containers.
@@ -1077,7 +1171,11 @@ spec:
                       description: prometheus holds configuration for the prometheus instance, if any.
                       properties:
                         exposeOptions:
-                          description: exposeOptions specifies options for exposing Prometheus UI.
+                          description: |-
+                            exposeOptions specifies options for exposing Prometheus UI.
+
+                            Deprecated: This field will be removed in the next version of the API. Support for it will be removed in the future
+                            versions of the operator. We recommend managing your own Ingress or HTTPRoute resources to expose Prometheus if needed.
                           properties:
                             webInterface:
                               description: webInterface specifies expose options for the user web interface.
@@ -1104,6 +1202,13 @@ spec:
                                   type: object
                               type: object
                           type: object
+                        mode:
+                          default: Managed
+                          description: mode defines the mode of the Prometheus instance.
+                          enum:
+                            - Managed
+                            - External
+                          type: string
                         placement:
                           description: placement describes restrictions for the nodes Prometheus is scheduled on.
                           properties:
@@ -1646,8 +1751,8 @@ spec:
                                     most preferred is the one with the greatest sum of weights, i.e.
                                     for each node that meets all of the scheduling requirements (resource
                                     request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                    compute a sum by iterating through the elements of this field and adding
-                                    "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                    compute a sum by iterating through the elements of this field and subtracting
+                                    "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                     node(s) with the highest sum are the most preferred.
                                   items:
                                     description: The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)
@@ -2026,7 +2131,7 @@ spec:
                                 Claims lists the names of resources, defined in spec.resourceClaims,
                                 that are used by this container.
 
-                                This is an alpha field and requires enabling the
+                                This field depends on the
                                 DynamicResourceAllocation feature gate.
 
                                 This field is immutable. It can only be set for containers.
@@ -2285,15 +2390,13 @@ spec:
                                         volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                                         If specified, the CSI driver will create or update the volume with the attributes defined
                                         in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                                        it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                                        will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                                        If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                                        will be set by the persistentvolume controller if it exists.
+                                        it can be changed after the claim is created. An empty string or nil value indicates that no
+                                        VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                                        this field can be reset to its previous value (including nil) to cancel the modification.
                                         If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                                         set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                         exists.
                                         More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                        (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                       type: string
                                     volumeMode:
                                       description: |-
