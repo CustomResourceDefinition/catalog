@@ -275,7 +275,7 @@
               "type": "string"
             },
             "type": {
-              "description": "Specifies the authentication type. Supported types are `tls`, `scram-sha-256`, `scram-sha-512`, `plain`, 'oauth', and `custom`. `tls` uses TLS client authentication and is supported only over TLS connections. `scram-sha-256` and `scram-sha-512` use SASL SCRAM-SHA-256 and SASL SCRAM-SHA-512 authentication, respectively. `plain` uses SASL PLAIN authentication. `oauth` uses SASL OAUTHBEARER authentication. `custom` allows you to configure a custom authentication mechanism.",
+              "description": "Specifies the authentication type. Supported types are `tls`, `scram-sha-256`, `scram-sha-512`, `plain`, 'oauth', and `custom`. `tls` uses TLS client authentication and is supported only over TLS connections. `scram-sha-256` and `scram-sha-512` use SASL SCRAM-SHA-256 and SASL SCRAM-SHA-512 authentication, respectively. `plain` uses SASL PLAIN authentication. `oauth` uses SASL OAUTHBEARER authentication. `custom` allows you to configure a custom authentication mechanism. As of Strimzi 0.49.0, `oauth` type is deprecated and will be removed in the `v1` API version. Please use `custom` type instead.",
               "type": "string",
               "enum": [
                 "tls",
@@ -313,8 +313,22 @@
                 "type"
               ],
               "properties": {
+                "additionalBuildOptions": {
+                  "description": "Configures additional options to pass to the `build` command of either Kaniko or Buildah (depending on the feature gate setting) when building a new Kafka Connect image. Allowed Kaniko options: --customPlatform, --custom-platform, --insecure, --insecure-pull, --insecure-registry, --log-format, --log-timestamp, --registry-mirror, --reproducible, --single-snapshot, --skip-tls-verify, --skip-tls-verify-pull, --skip-tls-verify-registry, --verbosity, --snapshotMode, --use-new-run, --registry-certificate, --registry-client-cert, --ignore-path. Allowed Buildah `build` options: --authfile, --cert-dir, --creds, --decryption-key, --retry, --retry-delay, --tls-verify. Those options are used only on Kubernetes, where Kaniko and Buildah are available. They are ignored on OpenShift. For more information, see the link:https://github.com/GoogleContainerTools/kaniko[Kaniko GitHub repository^] or the link:https://github.com/containers/buildah/blob/main/docs/buildah-build.1.md[Buildah build document^]. Changing this field does not trigger a rebuild of the Kafka Connect image.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "additionalKanikoOptions": {
                   "description": "Configures additional options which will be passed to the Kaniko executor when building the new Connect image. Allowed options are: --customPlatform, --custom-platform, --insecure, --insecure-pull, --insecure-registry, --log-format, --log-timestamp, --registry-mirror, --reproducible, --single-snapshot, --skip-tls-verify, --skip-tls-verify-pull, --skip-tls-verify-registry, --verbosity, --snapshotMode, --use-new-run, --registry-certificate, --registry-client-cert, --ignore-path. These options will be used only on Kubernetes where the Kaniko executor is used. They will be ignored on OpenShift. The options are described in the link:https://github.com/GoogleContainerTools/kaniko[Kaniko GitHub repository^]. Changing this field does not trigger new build of the Kafka Connect image.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "additionalPushOptions": {
+                  "description": "Configures additional options to pass to the Buildah `push` command when pushing a new Connect image. Allowed options: --authfile, --cert-dir, --creds, --quiet, --retry, --retry-delay, --tls-verify. Those options are used only on Kubernetes, where Buildah is available. They are ignored on OpenShift. For more information, see the link:https://github.com/containers/buildah/blob/main/docs/buildah-push.1.md[Buildah push document^]. Changing this field does not trigger a rebuild of the Kafka Connect image.",
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -478,6 +492,10 @@
           "description": "The Kafka Connect configuration. Properties with the following prefixes cannot be set: ssl., sasl., security., listeners, plugin.path, rest., bootstrap.servers, consumer.interceptor.classes, producer.interceptor.classes, prometheus.metrics.reporter. (with the exception of: ssl.endpoint.identification.algorithm, ssl.cipher.suites, ssl.protocol, ssl.enabled.protocols).",
           "type": "object",
           "x-kubernetes-preserve-unknown-fields": true
+        },
+        "configStorageTopic": {
+          "description": "The name of the Kafka topic where connector configurations are stored.",
+          "type": "string"
         },
         "externalConfiguration": {
           "description": "Pass data from Secrets or ConfigMaps to the Kafka Connect pods and use them to configure connectors.",
@@ -667,6 +685,10 @@
             }
           },
           "additionalProperties": false
+        },
+        "groupId": {
+          "description": "A unique ID that identifies the Connect cluster group.",
+          "type": "string"
         },
         "image": {
           "description": "The container image used for Kafka Connect pods. If no image name is explicitly specified, it is determined based on the `spec.version` configuration. The image names are specifically mapped to corresponding versions in the Cluster Operator configuration.",
@@ -883,6 +905,10 @@
             }
           ]
         },
+        "offsetStorageTopic": {
+          "description": "The name of the Kafka topic where source connector offsets are stored.",
+          "type": "string"
+        },
         "plugins": {
           "description": "List of connector plugins to mount into the `KafkaConnect` pod.",
           "type": "array",
@@ -979,7 +1005,7 @@
           "additionalProperties": false
         },
         "replicas": {
-          "description": "The number of pods in the Kafka Connect group. Defaults to `3`.",
+          "description": "The number of pods in the Kafka Connect group. Required in the `v1` version of the Strimzi API. Defaults to `3` in the `v1beta2` version of the Strimzi API.",
           "type": "integer"
         },
         "resources": {
@@ -1033,6 +1059,10 @@
             }
           },
           "additionalProperties": false
+        },
+        "statusStorageTopic": {
+          "description": "The name of the Kafka topic where connector and task status are stored.",
+          "type": "string"
         },
         "template": {
           "description": "Template for Kafka Connect and Kafka MirrorMaker 2 resources. The template allows users to specify how the `Pods`, `Service`, and other services are generated.",
@@ -2316,19 +2346,16 @@
                         "type": "object",
                         "properties": {
                           "medium": {
-                            "type": "string"
+                            "description": "Medium represents the type of storage medium should back this volume. Valid values are unset or `Memory`. When not set, it will use the node's default medium.",
+                            "type": "string",
+                            "enum": [
+                              "Memory"
+                            ]
                           },
                           "sizeLimit": {
-                            "type": "object",
-                            "properties": {
-                              "amount": {
-                                "type": "string"
-                              },
-                              "format": {
-                                "type": "string"
-                              }
-                            },
-                            "additionalProperties": false
+                            "description": "The total amount of local storage required for this EmptyDir volume (for example 1Gi).",
+                            "type": "string",
+                            "pattern": "^([0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"
                           }
                         },
                         "additionalProperties": false
@@ -4011,19 +4038,16 @@
                         "type": "object",
                         "properties": {
                           "medium": {
-                            "type": "string"
+                            "description": "Medium represents the type of storage medium should back this volume. Valid values are unset or `Memory`. When not set, it will use the node's default medium.",
+                            "type": "string",
+                            "enum": [
+                              "Memory"
+                            ]
                           },
                           "sizeLimit": {
-                            "type": "object",
-                            "properties": {
-                              "amount": {
-                                "type": "string"
-                              },
-                              "format": {
-                                "type": "string"
-                              }
-                            },
-                            "additionalProperties": false
+                            "description": "The total amount of local storage required for this EmptyDir volume (for example 1Gi).",
+                            "type": "string",
+                            "pattern": "^([0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"
                           }
                         },
                         "additionalProperties": false
