@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.83% | 3088 | 9427 | 82 |
+| 97.98% | 3115 | 9427 | 82 |
 
 ### Missing Schemas
 
@@ -28,6 +28,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | machineclass | v1alpha1 |
 | machinedeployment | v1alpha1 |
 | machineset | v1alpha1 |
+
+| compute.coreweave.com | |
+| --- | --- |
+| nodepool | v1alpha1 |
 
 | controlplane.cluster.x-k8s.io | |
 | --- | --- |
@@ -75,6 +79,35 @@ This page lists missing CRD validation schemas that are present in alternative c
 | networking.gke.io | |
 | --- | --- |
 | networklogging | v1alpha1 |
+
+| stunner.l7mp.io | |
+| --- | --- |
+| dataplane | v1, v1alpha1 |
+| gatewayconfig | v1, v1alpha1 |
+| staticservice | v1, v1alpha1 |
+| udproute | v1 |
+
+| trident.netapp.io | |
+| --- | --- |
+| tridentactionmirrorupdate | v1 |
+| tridentactionsnapshotrestore | v1 |
+| tridentbackend | v1 |
+| tridentbackendconfig | v1 |
+| tridentconfigurator | v1 |
+| tridentgroupsnapshot | v1 |
+| tridentmirrorrelationship | v1 |
+| tridentnode | v1 |
+| tridentnoderemediation | v1 |
+| tridentnoderemediationtemplate | v1 |
+| tridentorchestrator | v1 |
+| tridentsnapshot | v1 |
+| tridentsnapshotinfo | v1 |
+| tridentstorageclass | v1 |
+| tridenttransaction | v1 |
+| tridentversion | v1 |
+| tridentvolume | v1 |
+| tridentvolumepublication | v1 |
+| tridentvolumereference | v1 |
 
 ### Ignored Schemas
 
