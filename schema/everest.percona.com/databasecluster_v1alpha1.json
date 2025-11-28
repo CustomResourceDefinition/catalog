@@ -333,6 +333,12 @@
                 "pxc",
                 "postgresql",
                 "psmdb"
+              ],
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self == oldSelf",
+                  "message": ".spec.engine.type cannot be changed"
+                }
               ]
             },
             "userSecretsName": {
@@ -342,6 +348,24 @@
             "version": {
               "description": "Version is the engine version",
               "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "engineFeatures": {
+          "description": "EngineFeatures represents configuration of additional features for the database engine.",
+          "type": "object",
+          "properties": {
+            "psmdb": {
+              "description": "PSMDB represents additional features for the PSMDB engine.",
+              "type": "object",
+              "properties": {
+                "splitHorizonDnsConfigName": {
+                  "description": "SplitHorizonDNSConfigName is the name of a SplitHorizonDNSConfig CR.\nThe SplitHorizonDNSConfig must be created in the same namespace as the DatabaseCluster.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -359,7 +383,7 @@
               "type": "object",
               "properties": {
                 "claims": {
-                  "description": "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
+                  "description": "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis field depends on the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
                   "type": "array",
                   "items": {
                     "description": "ResourceClaim references one entry in PodSpec.ResourceClaims.",
@@ -641,6 +665,54 @@
           "description": "Details provides full status of the upstream cluster as a plain text.",
           "type": "string"
         },
+        "engineFeatures": {
+          "description": "EngineFeaturesStatus represents additional features statuses for the database engine.",
+          "type": "object",
+          "properties": {
+            "psmdb": {
+              "description": "PSMDB represents additional features statuses for the PSMDB engine.",
+              "type": "object",
+              "properties": {
+                "splitHorizon": {
+                  "description": "SplitHorizon status of SplitHorizon feature.",
+                  "type": "object",
+                  "properties": {
+                    "domains": {
+                      "description": "SplitHorizon status of SplitHorizon feature.",
+                      "type": "array",
+                      "items": {
+                        "description": "SplitHorizonDomain defines SplitHorizon domain status (domain -\u003e IPs mapping).",
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "description": "Domain is the SplitHorizon domain name.",
+                            "type": "string"
+                          },
+                          "privateIP": {
+                            "description": "PrivateIP is the private IP address for the domain.",
+                            "type": "string"
+                          },
+                          "publicIP": {
+                            "description": "PublicIP is the public IP address for the domain.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "host": {
+                      "description": "ConnectionURL is the connection URL using SplitHorizon domains.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "hostname": {
           "description": "Hostname is the hostname where the cluster can be reached",
           "type": "string"
@@ -665,7 +737,7 @@
           "format": "int32"
         },
         "recommendedCRVersion": {
-          "description": "RecommendedCRVersion is the recommended version of the CR to use.\nIf set, the CR needs to be updated to this version before upgrading the operator.\nIf unset, the CR is already at the recommended version.",
+          "description": "RecommendedCRVersion indicates the target version that the underlying CR should be updated to.\nWhen this field is set, it means the CR is running an outdated version and requires an update.\nThe following restrictions apply until the CR is updated to the recommended version:\n- The operator cannot be upgraded\n- The database engine version (.spec.engine.version) cannot be modified\nThis field is unset when the CR is already running at the latest recommended version.",
           "type": "string"
         },
         "size": {
@@ -680,5 +752,11 @@
       },
       "additionalProperties": false
     }
-  }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "!has(self.?status.recommendedCRVersion) || self.spec.engine.version == oldSelf.spec.engine.version",
+      "message": "engine version may not be updated when a CRVersion update is pending"
+    }
+  ]
 }
