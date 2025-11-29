@@ -2,7 +2,7 @@
 
 This repository aggregates hundreds of popular Kubernetes CRDs (`CustomResourceDefinition`) including their JSON schema format.
 
-The intended purpose with this repository is aid with validation and code generation.
+The intended purpose with this repository is aid with validation, language servers and code generation.
 
 The catalog are checked for updates every 8 hours, but the catalog is also tagged with kubernetes versions to make the catalog available as it were when a specific version was released.
 
@@ -42,6 +42,39 @@ Example using the catalog as it were when version 1.33.6 was released:
 ```sh
 curl -sSL 'https://raw.githubusercontent.com/CustomResourceDefinition/catalog/refs/tags/v1.33.6/definitions/monitoring.coreos.com/prometheusrule.yaml' \
     | kopium -Af - > prometheusrule.rs
+```
+
+### Language server support
+
+[yaml-language-server](https://github.com/redhat-developer/yaml-language-server) is a language server that can provide its functionality in a number of editors like:
+
+- Visual Studio Code
+- Neovim
+- Vim
+- Emacs
+- ... and more
+
+This language server is in general installed as a plugin into your editor, for instance [YAML for VSCode](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) or [coc.nvim for Vim/Neovim](https://github.com/neoclide/coc.nvim).
+
+This allows for language assistance for specific file with [inline declared schemas](https://github.com/redhat-developer/yaml-language-server?tab=readme-ov-file#using-inlined-schema) like:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/CustomResourceDefinition/catalog/refs/heads/main/schema/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+# ...
+```
+
+or [more broadly](https://github.com/redhat-developer/yaml-language-server?tab=readme-ov-file#more-examples-of-schema-association) with a section in your `.vscode/settings.json`:
+
+```json
+{
+  "yaml.schemas": {
+    "https://raw.githubusercontent.com/CustomResourceDefinition/catalog/refs/heads/main/schema/monitoring.coreos.com/prometheusrule_v1.json": [
+      "prometheus/rules/*.yaml"
+    ]
+  }
+}
 ```
 
 ## Adding missing CRDs
