@@ -1,0 +1,664 @@
+{
+  "description": "Image is the Schema for an ORC resource.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "spec specifies the desired state of the resource.",
+      "type": "object",
+      "required": [
+        "cloudCredentialsRef"
+      ],
+      "properties": {
+        "cloudCredentialsRef": {
+          "description": "cloudCredentialsRef points to a secret containing OpenStack credentials",
+          "type": "object",
+          "required": [
+            "cloudName",
+            "secretName"
+          ],
+          "properties": {
+            "cloudName": {
+              "description": "cloudName specifies the name of the entry in the clouds.yaml file to use.",
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1
+            },
+            "secretName": {
+              "description": "secretName is the name of a secret in the same namespace as the resource being provisioned.\nThe secret must contain a key named `clouds.yaml` which contains an OpenStack clouds.yaml file.\nThe secret may optionally contain a key named `cacert` containing a PEM-encoded CA certificate.",
+              "type": "string",
+              "maxLength": 253,
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "import": {
+          "description": "import refers to an existing OpenStack resource which will be imported instead of\ncreating a new one.",
+          "type": "object",
+          "maxProperties": 1,
+          "minProperties": 1,
+          "properties": {
+            "filter": {
+              "description": "filter contains a resource query which is expected to return a single\nresult. The controller will continue to retry if filter returns no\nresults. If filter returns multiple results the controller will set an\nerror state and will not continue to retry.",
+              "type": "object",
+              "minProperties": 1,
+              "properties": {
+                "name": {
+                  "description": "name specifies the name of a Glance image",
+                  "type": "string",
+                  "maxLength": 255,
+                  "minLength": 1,
+                  "pattern": "^[^,]+$"
+                },
+                "tags": {
+                  "description": "tags is the list of tags on the resource.",
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                  },
+                  "x-kubernetes-list-type": "set"
+                },
+                "visibility": {
+                  "description": "visibility specifies the visibility of a Glance image.",
+                  "type": "string",
+                  "enum": [
+                    "public",
+                    "private",
+                    "shared",
+                    "community"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "id": {
+              "description": "id contains the unique identifier of an existing OpenStack resource. Note\nthat when specifying an import by ID, the resource MUST already exist.\nThe ORC object will enter an error state if the resource does not exist.",
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false
+        },
+        "managedOptions": {
+          "description": "managedOptions specifies options which may be applied to managed objects.",
+          "type": "object",
+          "properties": {
+            "onDelete": {
+              "description": "onDelete specifies the behaviour of the controller when the ORC\nobject is deleted. Options are `delete` - delete the OpenStack resource;\n`detach` - do not delete the OpenStack resource. If not specified, the\ndefault is `delete`.",
+              "type": "string",
+              "default": "delete",
+              "enum": [
+                "delete",
+                "detach"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "managementPolicy": {
+          "description": "managementPolicy defines how ORC will treat the object. Valid values are\n`managed`: ORC will create, update, and delete the resource; `unmanaged`:\nORC will import an existing resource, and will not apply updates to it or\ndelete it.",
+          "type": "string",
+          "default": "managed",
+          "enum": [
+            "managed",
+            "unmanaged"
+          ],
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == oldSelf",
+              "message": "managementPolicy is immutable"
+            }
+          ]
+        },
+        "resource": {
+          "description": "resource specifies the desired state of the resource.\n\nresource may not be specified if the management policy is `unmanaged`.\n\nresource must be specified if the management policy is `managed`.",
+          "type": "object",
+          "properties": {
+            "content": {
+              "description": "content specifies how to obtain the image content.",
+              "type": "object",
+              "required": [
+                "diskFormat",
+                "download"
+              ],
+              "properties": {
+                "containerFormat": {
+                  "description": "containerFormat is the format of the image container.\nqcow2 and raw images do not usually have a container. This is specified as \"bare\", which is also the default.\nPermitted values are ami, ari, aki, bare, compressed, ovf, ova, and docker.",
+                  "type": "string",
+                  "default": "bare",
+                  "enum": [
+                    "ami",
+                    "ari",
+                    "aki",
+                    "bare",
+                    "ovf",
+                    "ova",
+                    "docker",
+                    "compressed"
+                  ]
+                },
+                "diskFormat": {
+                  "description": "diskFormat is the format of the disk image.\nNormal values are \"qcow2\", or \"raw\". Glance may be configured to support others.",
+                  "type": "string",
+                  "enum": [
+                    "ami",
+                    "ari",
+                    "aki",
+                    "vhd",
+                    "vhdx",
+                    "vmdk",
+                    "raw",
+                    "qcow2",
+                    "vdi",
+                    "ploop",
+                    "iso"
+                  ]
+                },
+                "download": {
+                  "description": "download describes how to obtain image data by downloading it from a URL.\nMust be set when creating a managed image.",
+                  "type": "object",
+                  "required": [
+                    "url"
+                  ],
+                  "properties": {
+                    "decompress": {
+                      "description": "decompress specifies that the source data must be decompressed with the\ngiven compression algorithm before being stored. Specifying Decompress\nwill disable the use of Glance's web-download, as web-download cannot\ncurrently deterministically decompress downloaded content.",
+                      "type": "string",
+                      "enum": [
+                        "xz",
+                        "gz",
+                        "bz2"
+                      ]
+                    },
+                    "hash": {
+                      "description": "hash is a hash which will be used to verify downloaded data, i.e.\nbefore any decompression. If not specified, no hash verification will be\nperformed. Specifying a Hash will disable the use of Glance's\nweb-download, as web-download cannot currently deterministically verify\nthe hash of downloaded content.",
+                      "type": "object",
+                      "required": [
+                        "algorithm",
+                        "value"
+                      ],
+                      "properties": {
+                        "algorithm": {
+                          "description": "algorithm is the hash algorithm used to generate value.",
+                          "type": "string",
+                          "enum": [
+                            "md5",
+                            "sha1",
+                            "sha256",
+                            "sha512"
+                          ]
+                        },
+                        "value": {
+                          "description": "value is the hash of the image data using Algorithm. It must be hex encoded using lowercase letters.",
+                          "type": "string",
+                          "maxLength": 1024,
+                          "minLength": 1,
+                          "pattern": "^[0-9a-f]+$"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "x-kubernetes-validations": [
+                        {
+                          "rule": "self == oldSelf",
+                          "message": "hash is immutable"
+                        }
+                      ]
+                    },
+                    "url": {
+                      "description": "url containing image data",
+                      "type": "string",
+                      "format": "uri",
+                      "maxLength": 2048
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self == oldSelf",
+                  "message": "content is immutable"
+                }
+              ]
+            },
+            "name": {
+              "description": "name will be the name of the created Glance image. If not specified, the\nname of the Image object will be used.",
+              "type": "string",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[^,]+$"
+            },
+            "properties": {
+              "description": "properties is metadata available to consumers of the image",
+              "type": "object",
+              "properties": {
+                "architecture": {
+                  "description": "architecture is the CPU architecture that must be supported by the hypervisor.",
+                  "type": "string",
+                  "enum": [
+                    "aarch64",
+                    "alpha",
+                    "armv7l",
+                    "cris",
+                    "i686",
+                    "ia64",
+                    "lm32",
+                    "m68k",
+                    "microblaze",
+                    "microblazeel",
+                    "mips",
+                    "mipsel",
+                    "mips64",
+                    "mips64el",
+                    "openrisc",
+                    "parisc",
+                    "parisc64",
+                    "ppc",
+                    "ppc64",
+                    "ppcemb",
+                    "s390",
+                    "s390x",
+                    "sh4",
+                    "sh4eb",
+                    "sparc",
+                    "sparc64",
+                    "unicore32",
+                    "x86_64",
+                    "xtensa",
+                    "xtensaeb"
+                  ]
+                },
+                "hardware": {
+                  "description": "hardware is a set of properties which control the virtual hardware\ncreated by Nova.",
+                  "type": "object",
+                  "properties": {
+                    "cdromBus": {
+                      "description": "cdromBus specifies the type of disk controller to attach CD-ROM devices to.",
+                      "type": "string",
+                      "enum": [
+                        "scsi",
+                        "virtio",
+                        "uml",
+                        "xen",
+                        "ide",
+                        "usb",
+                        "lxc"
+                      ]
+                    },
+                    "cpuCores": {
+                      "description": "cpuCores is the preferred number of cores to expose to the guest",
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 1
+                    },
+                    "cpuPolicy": {
+                      "description": "cpuPolicy is used to pin the virtual CPUs (vCPUs) of instances to the\nhost's physical CPU cores (pCPUs). Host aggregates should be used to\nseparate these pinned instances from unpinned instances as the latter\nwill not respect the resourcing requirements of the former.\n\nPermitted values are shared (the default), and dedicated.\n\nshared: The guest vCPUs will be allowed to freely float across host\npCPUs, albeit potentially constrained by NUMA policy.\n\ndedicated: The guest vCPUs will be strictly pinned to a set of host\npCPUs. In the absence of an explicit vCPU topology request, the\ndrivers typically expose all vCPUs as sockets with one core and one\nthread. When strict CPU pinning is in effect the guest CPU topology\nwill be setup to match the topology of the CPUs to which it is\npinned. This option implies an overcommit ratio of 1.0. For example,\nif a two vCPU guest is pinned to a single host core with two threads,\nthen the guest will get a topology of one socket, one core, two\nthreads.",
+                      "type": "string",
+                      "enum": [
+                        "shared",
+                        "dedicated"
+                      ]
+                    },
+                    "cpuSockets": {
+                      "description": "cpuSockets is the preferred number of sockets to expose to the guest",
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 1
+                    },
+                    "cpuThreadPolicy": {
+                      "description": "cpuThreadPolicy further refines a CPUPolicy of 'dedicated' by stating\nhow hardware CPU threads in a simultaneous multithreading-based (SMT)\narchitecture be used. SMT-based architectures include Intel\nprocessors with Hyper-Threading technology. In these architectures,\nprocessor cores share a number of components with one or more other\ncores. Cores in such architectures are commonly referred to as\nhardware threads, while the cores that a given core share components\nwith are known as thread siblings.\n\nPermitted values are prefer (the default), isolate, and require.\n\nprefer: The host may or may not have an SMT architecture. Where an\nSMT architecture is present, thread siblings are preferred.\n\nisolate: The host must not have an SMT architecture or must emulate a\nnon-SMT architecture. If the host does not have an SMT architecture,\neach vCPU is placed on a different core as expected. If the host does\nhave an SMT architecture - that is, one or more cores have thread\nsiblings - then each vCPU is placed on a different physical core. No\nvCPUs from other guests are placed on the same core. All but one\nthread sibling on each utilized core is therefore guaranteed to be\nunusable.\n\nrequire: The host must have an SMT architecture. Each vCPU is\nallocated on thread siblings. If the host does not have an SMT\narchitecture, then it is not used. If the host has an SMT\narchitecture, but not enough cores with free thread siblings are\navailable, then scheduling fails.",
+                      "type": "string",
+                      "enum": [
+                        "prefer",
+                        "isolate",
+                        "require"
+                      ]
+                    },
+                    "cpuThreads": {
+                      "description": "cpuThreads is the preferred number of threads to expose to the guest",
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 1
+                    },
+                    "diskBus": {
+                      "description": "diskBus specifies the type of disk controller to attach disk devices to.",
+                      "type": "string",
+                      "enum": [
+                        "scsi",
+                        "virtio",
+                        "uml",
+                        "xen",
+                        "ide",
+                        "usb",
+                        "lxc"
+                      ]
+                    },
+                    "qemuGuestAgent": {
+                      "description": "qemuGuestAgent enables QEMU guest agent.",
+                      "type": "boolean"
+                    },
+                    "rngModel": {
+                      "description": "rngModel adds a random-number generator device to the image’s instances.\nThis image property by itself does not guarantee that a hardware RNG will be used;\nit expresses a preference that may or may not be satisfied depending upon Nova configuration.",
+                      "type": "string",
+                      "maxLength": 255
+                    },
+                    "scsiModel": {
+                      "description": "scsiModel enables the use of VirtIO SCSI (virtio-scsi) to provide\nblock device access for compute instances; by default, instances use\nVirtIO Block (virtio-blk). VirtIO SCSI is a para-virtualized SCSI\ncontroller device that provides improved scalability and performance,\nand supports advanced SCSI hardware.\n\nThe only permitted value is virtio-scsi.",
+                      "type": "string",
+                      "enum": [
+                        "virtio-scsi"
+                      ]
+                    },
+                    "vifModel": {
+                      "description": "vifModel specifies the model of virtual network interface device to use.\n\nPermitted values are e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio,\nand vmxnet3.",
+                      "type": "string",
+                      "enum": [
+                        "e1000",
+                        "e1000e",
+                        "ne2k_pci",
+                        "pcnet",
+                        "rtl8139",
+                        "virtio",
+                        "vmxnet3"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "hypervisorType": {
+                  "description": "hypervisorType is the hypervisor type",
+                  "type": "string",
+                  "enum": [
+                    "hyperv",
+                    "ironic",
+                    "lxc",
+                    "qemu",
+                    "uml",
+                    "vmware",
+                    "xen"
+                  ]
+                },
+                "minDiskGB": {
+                  "description": "minDiskGB is the minimum amount of disk space in GB that is required to boot the image",
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 1
+                },
+                "minMemoryMB": {
+                  "description": "minMemoryMB is the minimum amount of RAM in MB that is required to boot the image.",
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 1
+                },
+                "operatingSystem": {
+                  "description": "operatingSystem is a set of properties that specify and influence the behavior\nof the operating system within the virtual machine.",
+                  "type": "object",
+                  "properties": {
+                    "distro": {
+                      "description": "distro is the common name of the operating system distribution in lowercase.",
+                      "type": "string",
+                      "enum": [
+                        "arch",
+                        "centos",
+                        "debian",
+                        "fedora",
+                        "freebsd",
+                        "gentoo",
+                        "mandrake",
+                        "mandriva",
+                        "mes",
+                        "msdos",
+                        "netbsd",
+                        "netware",
+                        "openbsd",
+                        "opensolaris",
+                        "opensuse",
+                        "rocky",
+                        "rhel",
+                        "sled",
+                        "ubuntu",
+                        "windows"
+                      ]
+                    },
+                    "version": {
+                      "description": "version is the operating system version as specified by the distributor.",
+                      "type": "string",
+                      "maxLength": 255
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self == oldSelf",
+                  "message": "properties is immutable"
+                }
+              ]
+            },
+            "protected": {
+              "description": "protected specifies that the image is protected from deletion.\nIf not specified, the default is false.",
+              "type": "boolean"
+            },
+            "tags": {
+              "description": "tags is a list of tags which will be applied to the image. A tag has a maximum length of 255 characters.",
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              "x-kubernetes-list-type": "set"
+            },
+            "visibility": {
+              "description": "visibility of the image",
+              "type": "string",
+              "enum": [
+                "public",
+                "private",
+                "shared",
+                "community"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "self.managementPolicy == 'managed' ? has(self.resource) : true",
+          "message": "resource must be specified when policy is managed"
+        },
+        {
+          "rule": "self.managementPolicy == 'managed' ? !has(self.__import__) : true",
+          "message": "import may not be specified when policy is managed"
+        },
+        {
+          "rule": "self.managementPolicy == 'unmanaged' ? !has(self.resource) : true",
+          "message": "resource may not be specified when policy is unmanaged"
+        },
+        {
+          "rule": "self.managementPolicy == 'unmanaged' ? has(self.__import__) : true",
+          "message": "import must be specified when policy is unmanaged"
+        },
+        {
+          "rule": "has(self.managedOptions) ? self.managementPolicy == 'managed' : true",
+          "message": "managedOptions may only be provided when policy is managed"
+        },
+        {
+          "rule": "!has(self.__import__) ? has(self.resource.content) : true",
+          "message": "resource content must be specified when not importing"
+        }
+      ]
+    },
+    "status": {
+      "description": "status defines the observed state of the resource.",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "conditions represents the observed status of the object.\nKnown .status.conditions.type are: \"Available\", \"Progressing\"\n\nAvailable represents the availability of the OpenStack resource. If it is\ntrue then the resource is ready for use.\n\nProgressing indicates whether the controller is still attempting to\nreconcile the current state of the OpenStack resource to the desired\nstate. Progressing will be False either because the desired state has\nbeen achieved, or because some terminal error prevents it from ever being\nachieved and the controller is no longer attempting to reconcile. If\nProgressing is True, an observer waiting on the resource should continue\nto wait.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "downloadAttempts": {
+          "description": "downloadAttempts is the number of times the controller has attempted to download the image contents",
+          "type": "integer",
+          "format": "int32"
+        },
+        "id": {
+          "description": "id is the unique identifier of the OpenStack resource.",
+          "type": "string"
+        },
+        "resource": {
+          "description": "resource contains the observed state of the OpenStack resource.",
+          "type": "object",
+          "properties": {
+            "hash": {
+              "description": "hash is the hash of the image data published by Glance. Note that this is\na hash of the data stored internally by Glance, which will have been\ndecompressed and potentially format converted depending on server-side\nconfiguration which is not visible to clients. It is expected that this\nhash will usually differ from the download hash.",
+              "type": "object",
+              "required": [
+                "algorithm",
+                "value"
+              ],
+              "properties": {
+                "algorithm": {
+                  "description": "algorithm is the hash algorithm used to generate value.",
+                  "type": "string",
+                  "enum": [
+                    "md5",
+                    "sha1",
+                    "sha256",
+                    "sha512"
+                  ]
+                },
+                "value": {
+                  "description": "value is the hash of the image data using Algorithm. It must be hex encoded using lowercase letters.",
+                  "type": "string",
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "pattern": "^[0-9a-f]+$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "name": {
+              "description": "name is a Human-readable name for the image. Might not be unique.",
+              "type": "string",
+              "maxLength": 1024
+            },
+            "protected": {
+              "description": "protected specifies that the image is protected from deletion.",
+              "type": "boolean"
+            },
+            "sizeB": {
+              "description": "sizeB is the size of the image data, in bytes",
+              "type": "integer",
+              "format": "int64"
+            },
+            "status": {
+              "description": "status is the image status as reported by Glance",
+              "type": "string",
+              "maxLength": 1024
+            },
+            "tags": {
+              "description": "tags is the list of tags on the resource.",
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "x-kubernetes-list-type": "atomic"
+            },
+            "virtualSizeB": {
+              "description": "virtualSizeB is the size of the disk the image data represents, in bytes",
+              "type": "integer",
+              "format": "int64"
+            },
+            "visibility": {
+              "description": "visibility of the image",
+              "type": "string",
+              "maxLength": 1024
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
