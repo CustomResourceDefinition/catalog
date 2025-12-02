@@ -143,6 +143,36 @@
           },
           "additionalProperties": false
         },
+        "cpuOptions": {
+          "description": "CPUOptions defines CPU-related settings for the instance, including the confidential computing policy.\nWhen omitted, this means no opinion and the AWS platform is left to choose a reasonable default.",
+          "type": "object",
+          "minProperties": 1,
+          "properties": {
+            "confidentialCompute": {
+              "description": "ConfidentialCompute specifies whether confidential computing should be enabled for the instance,\nand, if so, which confidential computing technology to use.\nValid values are: Disabled, AMDEncryptedVirtualizationNestedPaging\nWhen set to Disabled, confidential computing will be disabled for the instance.\nWhen set to AMDEncryptedVirtualizationNestedPaging, AMD SEV-SNP will be used as the confidential computing technology for the instance.\nIn this case, ensure the following conditions are met:\n1) The selected instance type supports AMD SEV-SNP.\n2) The selected AWS region supports AMD SEV-SNP.\n3) The selected AMI supports AMD SEV-SNP.\nMore details can be checked at https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sev-snp.html\nWhen omitted, this means no opinion and the AWS platform is left to choose a reasonable default,\nwhich is subject to change without notice. The current default is Disabled.",
+              "type": "string",
+              "enum": [
+                "Disabled",
+                "AMDEncryptedVirtualizationNestedPaging"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "dynamicHostAllocation": {
+          "description": "DynamicHostAllocation enables automatic allocation of a single dedicated host.\nThis field is mutually exclusive with HostID and always allocates exactly one host.\nCost effectiveness of allocating a single instance on a dedicated host may vary\ndepending on the instance type and the region.",
+          "type": "object",
+          "properties": {
+            "tags": {
+              "description": "Tags to apply to the allocated dedicated host.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "elasticIpPool": {
           "description": "ElasticIPPool is the configuration to allocate Public IPv4 address (Elastic IP/EIP) from user-defined pool.",
           "type": "object",
@@ -170,16 +200,19 @@
           "additionalProperties": false
         },
         "hostAffinity": {
-          "description": "HostAffinity specifies the dedicated host affinity setting for the instance.\nWhen hostAffinity is set to host, an instance started onto a specific host always restarts on the same host if stopped.\nWhen hostAffinity is set to default, and you stop and restart the instance, it can be restarted on any available host.\nWhen HostAffinity is defined, HostID is required.",
+          "description": "HostAffinity specifies the dedicated host affinity setting for the instance.\nWhen HostAffinity is set to host, an instance started onto a specific host always restarts on the same host if stopped.\nWhen HostAffinity is set to default, and you stop and restart the instance, it can be restarted on any available host.\nWhen HostAffinity is defined, HostID is required.",
           "type": "string",
+          "default": "host",
           "enum": [
             "default",
             "host"
           ]
         },
         "hostID": {
-          "description": "HostID specifies the Dedicated Host on which the instance must be started.",
-          "type": "string"
+          "description": "HostID specifies the Dedicated Host on which the instance must be started.\nThis field is mutually exclusive with DynamicHostAllocation.",
+          "type": "string",
+          "maxLength": 19,
+          "pattern": "^h-[0-9a-f]{17}$"
         },
         "iamInstanceProfile": {
           "description": "IAMInstanceProfile is a name of an IAM instance profile to assign to the instance",
@@ -533,7 +566,7 @@
           "additionalProperties": false
         },
         "tenancy": {
-          "description": "Tenancy indicates if instance should run on shared or single-tenant hardware.",
+          "description": "Tenancy indicates if instance should run on shared or single-tenant hardware.\nWhen Tenancy=host, AWS will attempt to find a suitable host from:\n- Preexisting allocated hosts that have auto-placement enabled\n- A specific host ID, if configured\n- Allocating a new dedicated host if DynamicHostAllocation is configured",
           "type": "string",
           "enum": [
             "default",
@@ -641,6 +674,17 @@
             },
             "additionalProperties": false
           }
+        },
+        "dedicatedHost": {
+          "description": "DedicatedHost tracks the dynamically allocated dedicated host.\nThis field is populated when DynamicHostAllocation is used.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "description": "ID tracks the dynamically allocated dedicated host ID.\nThis field is populated when DynamicHostAllocation is used.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         },
         "failureMessage": {
           "description": "FailureMessage will be set in the event that there is a terminal problem\nreconciling the Machine and will contain a more verbose string suitable\nfor logging and human consumption.\n\nThis field should not be set for transitive errors that a controller\nfaces that are expected to be fixed automatically over\ntime (like service outages), but instead indicate that something is\nfundamentally wrong with the Machine's spec or the configuration of\nthe controller, and that manual intervention is required. Examples\nof terminal errors would be invalid combinations of settings in the\nspec, values that are unsupported by the controller, or the\nresponsible controller itself being critically misconfigured.\n\nAny transient errors that occur during the reconciliation of Machines\ncan be added as events to the Machine object and/or logged in the\ncontroller's output.",
