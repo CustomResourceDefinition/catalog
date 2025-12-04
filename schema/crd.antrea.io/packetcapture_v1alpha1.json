@@ -7,31 +7,7 @@
     "spec": {
       "type": "object",
       "required": [
-        "source",
-        "captureConfig",
-        "destination"
-      ],
-      "anyOf": [
-        {
-          "properties": {
-            "source": {
-              "required": [
-                "pod"
-              ]
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "properties": {
-            "destination": {
-              "required": [
-                "pod"
-              ]
-            }
-          },
-          "additionalProperties": false
-        }
+        "captureConfig"
       ],
       "properties": {
         "captureConfig": {
@@ -60,24 +36,26 @@
           },
           "additionalProperties": false
         },
+        "capturePoint": {
+          "type": "string",
+          "enum": [
+            "Source",
+            "Destination"
+          ]
+        },
         "destination": {
           "type": "object",
-          "oneOf": [
-            {
-              "required": [
-                "pod"
-              ]
-            },
-            {
-              "required": [
-                "ip"
-              ]
-            }
-          ],
           "properties": {
             "ip": {
               "type": "string",
-              "format": "ipv4"
+              "oneOf": [
+                {
+                  "format": "ipv4"
+                },
+                {
+                  "format": "ipv6"
+                }
+              ]
             },
             "pod": {
               "type": "object",
@@ -96,7 +74,13 @@
               "additionalProperties": false
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!(has(self.pod) \u0026\u0026 has(self.ip))",
+              "message": "At most one of 'pod' or 'ip' may be set"
+            }
+          ]
         },
         "direction": {
           "type": "string",
@@ -128,7 +112,8 @@
               "type": "string",
               "default": "IPv4",
               "enum": [
-                "IPv4"
+                "IPv4",
+                "IPv6"
               ]
             },
             "protocol": {
@@ -138,6 +123,32 @@
               "type": "object",
               "properties": {
                 "icmp": {
+                  "type": "object",
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "code": {
+                            "type": "integer",
+                            "maximum": 255,
+                            "minimum": 0
+                          },
+                          "type": {
+                            "x-kubernetes-int-or-string": true
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "icmpv6": {
                   "type": "object",
                   "properties": {
                     "messages": {
@@ -221,8 +232,8 @@
               "additionalProperties": false,
               "x-kubernetes-validations": [
                 {
-                  "rule": "(has(self.icmp) ? 1 : 0) + (has(self.udp) ? 1 : 0) + (has(self.tcp) ? 1: 0) \u003c= 1",
-                  "message": "At most one of 'icmp', 'udp', or 'tcp' may be set"
+                  "rule": "(has(self.icmp) ? 1 : 0) + (has(self.icmpv6) ? 1 : 0) + (has(self.udp) ? 1 : 0) + (has(self.tcp) ? 1: 0) \u003c= 1",
+                  "message": "At most one of 'ICMP', 'ICMPv6', 'UDP', or 'TCP' may be set"
                 }
               ]
             }
@@ -231,22 +242,17 @@
         },
         "source": {
           "type": "object",
-          "oneOf": [
-            {
-              "required": [
-                "pod"
-              ]
-            },
-            {
-              "required": [
-                "ip"
-              ]
-            }
-          ],
           "properties": {
             "ip": {
               "type": "string",
-              "format": "ipv4"
+              "oneOf": [
+                {
+                  "format": "ipv4"
+                },
+                {
+                  "format": "ipv6"
+                }
+              ]
             },
             "pod": {
               "type": "object",
@@ -265,7 +271,13 @@
               "additionalProperties": false
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!(has(self.pod) \u0026\u0026 has(self.ip))",
+              "message": "At most one of 'pod' or 'ip' may be set"
+            }
+          ]
         },
         "timeout": {
           "type": "integer",
@@ -274,7 +286,21 @@
           "minimum": 1
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "has(self.source.pod) || has(self.destination.pod)",
+          "message": "At least one of source.pod or destination.pod must be specified."
+        },
+        {
+          "rule": "!(has(self.capturePoint) \u0026\u0026 self.capturePoint == 'Source') || has(self.source.pod)",
+          "message": "source.pod must be set when capturePoint is 'Source'"
+        },
+        {
+          "rule": "!(has(self.capturePoint) \u0026\u0026 self.capturePoint == 'Destination') || has(self.destination.pod)",
+          "message": "destination.pod must be set when capturePoint is 'Destination'"
+        }
+      ]
     },
     "status": {
       "type": "object",
