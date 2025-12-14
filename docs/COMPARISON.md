@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.77% | 3162 | 9564 | 82 |
+| 98.65% | 3175 | 9564 | 82 |
 
 ### Missing Schemas
 
@@ -51,6 +51,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
+
+| eraser.sh | |
+| --- | --- |
+| imagejob | v1, v1alpha1 |
+| imagelist | v1, v1alpha1 |
 
 | helm.toolkit.fluxcd.io | |
 | --- | --- |
