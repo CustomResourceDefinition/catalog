@@ -9,9 +9,17 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.65% | 3175 | 9564 | 82 |
+| 98.55% | 3248 | 9564 | 82 |
 
 ### Missing Schemas
+
+| appgw.ingress.azure.io | |
+| --- | --- |
+| azureapplicationgatewayrewrite | v1beta1 |
+
+| appgw.ingress.k8s.io | |
+| --- | --- |
+| azureingressprohibitedtarget | v1 |
 
 | autoscaling.cast.ai | |
 | --- | --- |
@@ -28,6 +36,14 @@ This page lists missing CRD validation schemas that are present in alternative c
 | machineclass | v1alpha1 |
 | machinedeployment | v1alpha1 |
 | machineset | v1alpha1 |
+
+| collectors.grafana.com | |
+| --- | --- |
+| alloy | v1alpha1 |
+
+| compute.cnrm.cloud.google.com | |
+| --- | --- |
+| computeclass | v1 |
 
 | compute.coreweave.com | |
 | --- | --- |
