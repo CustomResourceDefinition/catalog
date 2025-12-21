@@ -15,13 +15,13 @@ import (
 
 func TestBuilderVersionSorting(t *testing.T) {
 	seedVersions := []string{
-		"2.10.0", "1.0.0", "2.2.0", "2.1.0",
+		"2.10.0", "1.0.0", "2.2.0", "2.1.0", "1.01.01",
 	}
 	bundles := make([]gitBundle, 0)
 	for _, v := range seedVersions {
 		bundles = append(bundles, gitBundle{tag: v, paths: []gitPath{}})
 	}
-	expectedVersions := []string{"head", seedVersions[0], seedVersions[2], seedVersions[3], seedVersions[1]}
+	expectedVersions := []string{"head", seedVersions[0], seedVersions[2], seedVersions[3], seedVersions[4], seedVersions[1]}
 
 	p, err := setupGit(t, bundles)
 	assert.Nil(t, err)
