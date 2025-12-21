@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"slices"
 	"sort"
+	"strconv"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
@@ -47,7 +48,7 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, genera
 		config.Namespace = "namespace"
 	}
 
-	pattern := fmt.Sprintf(`^%s([0-9]{1,}\.[0-9]{1,}\.[0-9]{1,})%s`, config.VersionPrefix, config.VersionSuffix)
+	pattern := fmt.Sprintf(`^%s([0-9]{1,})\.([0-9]{1,})\.([0-9]{1,})%s`, config.VersionPrefix, config.VersionSuffix)
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
@@ -169,10 +170,21 @@ func (builder Builder) versions() ([]string, error) {
 		if filtered[j] == referenceHead {
 			return false
 		}
-
-		return semver.Compare(builder.versionFilter.FindAllStringSubmatch(filtered[i], 1)[0][1], builder.versionFilter.FindAllStringSubmatch(filtered[j], 1)[0][1]) > 0
+		a := normalizeVersion(builder.versionFilter.FindAllStringSubmatch(filtered[i], -1))
+		b := normalizeVersion(builder.versionFilter.FindAllStringSubmatch(filtered[j], -1))
+		return semver.Compare(a, b) > 0
 	})
 	return filtered, nil
+}
+
+func normalizeVersion(matches [][]string) string {
+	ints := make([]int, 3)
+	for i := 1; i <= 3; i++ {
+		n, _ := strconv.Atoi(matches[0][i])
+		ints[i-1] = n
+	}
+
+	return fmt.Sprintf("v%d.%d.%d", ints[0], ints[1], ints[2])
 }
 
 func resolveGenerator(config configuration.Configuration, reader crd.CrdReader) (Generator, error) {
