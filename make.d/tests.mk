@@ -7,6 +7,8 @@ test: build test-docker test-makefile test-editorcheck
 	-v $$(pwd)/build/ephemeral/schema:/schema \
 	-v $$(pwd)/test/configuration.yaml:/app/configuration.yaml:ro \
 	-v $$(pwd)/test:/app/test \
+	-v $$(pwd)/build/tmp:/tmp/ephemeral \
+	-e GOTMPDIR=/tmp/ephemeral \
 	runner make _test
 
 _test: _test-schemas

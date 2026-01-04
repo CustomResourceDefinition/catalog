@@ -30,5 +30,6 @@ ifneq ($(strip $(CI)),)
 endif
 
 _build: _clean
+	@mkdir -p build/tmp
 	@mkdir -p build/bin
 	go build -o build/bin/catalog -buildvcs=false -tags $(GO_TAGS)
