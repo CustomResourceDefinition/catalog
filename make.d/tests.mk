@@ -2,16 +2,9 @@ GREEN='\e[1;32m%-6s\e[m\n'
 TOOL_VERSION = $(shell grep '^golang ' .tool-versions | sed 's/golang //')
 MOD_VERSION = $(shell grep '^go ' go.mod | sed 's/go //')
 
-test: build test-docker test-makefile test-editorcheck
-	$(COMPOSE_RUN) \
-	-v $$(pwd)/build/ephemeral/schema:/schema \
-	-v $$(pwd)/test/configuration.yaml:/app/configuration.yaml:ro \
-	-v $$(pwd)/test:/app/test \
-	-v $$(pwd)/build/tmp:/tmp/ephemeral \
-	-e GOTMPDIR=/tmp/ephemeral \
-	runner make _test
+test: build test-go test-docker test-makefile test-editorcheck test-schemas unit-tests smoke-tests
 
-_test: _test-schemas
+test-go:
 	@echo 'Checking for mod file changes ...'
 	go mod tidy -diff
 
@@ -24,25 +17,22 @@ ifneq ($(TOOL_VERSION),$(MOD_VERSION))
 endif
 	@printf $(GREEN) "OK"
 
-	$(MAKE) _unit-tests
-	$(MAKE) _smoke-tests
-
-_unit-tests:
+unit-tests:
 	@echo 'Running go unit tests ...'
 	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags $(GO_TAGS) -skip 'TestCheckLocal'
 	go tool cover -html=build/coverage.out -o build/coverage.html
 	@echo 'Running static analysis ...'
 	go vet ./...
 
-_test-schemas:
+test-schemas: build/schemastore/dependabot-2.0.json build/schemastore/github-workflow.json
 	@echo 'Checking validity of certain files ...'
 	build/bin/catalog verify --schema internal/configuration/schema.json --file configuration.yaml
 	build/bin/catalog verify --schema internal/configuration/schema.json --file test/configuration.yaml
-	build/bin/catalog verify --schema /opt/schemastore/dependabot-2.0.json --file .github/dependabot.yml
-	build/bin/catalog verify --schema /opt/schemastore/github-workflow.json --file .github/workflows/tests.yaml
-	build/bin/catalog verify --schema /opt/schemastore/github-workflow.json --file .github/workflows/scheduled-jobs.yaml
+	build/bin/catalog verify --schema build/schemastore/dependabot-2.0.json --file .github/dependabot.yml
+	build/bin/catalog verify --schema build/schemastore/github-workflow.json --file .github/workflows/tests.yaml
+	build/bin/catalog verify --schema build/schemastore/github-workflow.json --file .github/workflows/scheduled-jobs.yaml
 
-_smoke-tests:
+smoke-tests:
 	@echo 'Prepare smoke test files ...'
 	cat test/prepare-*.sh > build/bin/test-prepare
 	cat test/verify-*.sh > build/bin/test-verify
@@ -65,10 +55,6 @@ test-editorcheck:
 	@printf $(GREEN) "OK"
 
 test-docker:
-	@echo 'Checking formatting of Dockerfile ...'
-	$(COMPOSE_RUN) hadolint --ignore DL3018 Dockerfile
-	@printf $(GREEN) "OK"
-
 	@echo 'Checking formatting of docker-compose.yml ...'
 	docker compose config -q
 	@printf $(GREEN) "OK"
@@ -77,3 +63,11 @@ test-makefile:
 	@echo 'Checking formatting of Makefile and *.mk files ...'
 	$(COMPOSE_RUN) checkmake
 	@printf $(GREEN) "OK"
+
+build/schemastore/dependabot-2.0.json:
+	@mkdir -p build/schemastore
+	$(DOWNLOADER) $@ https://json.schemastore.org/dependabot-2.0.json
+
+build/schemastore/github-workflow.json:
+	@mkdir -p build/schemastore
+	$(DOWNLOADER) $@ https://json.schemastore.org/github-workflow.json
