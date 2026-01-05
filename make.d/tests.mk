@@ -40,7 +40,7 @@ smoke-tests:
 	@echo 'Run first smoke test ...'
 	sh build/bin/test-prepare all-versions
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
-	sh build/bin/test-verify "Happy path works"
+	sh build/bin/test-verify "Happy path works" build/ephemeral/schema build/pristine/schema
 	@printf $(GREEN) "OK"
 
 	@echo 'Run second smoke test ...'
