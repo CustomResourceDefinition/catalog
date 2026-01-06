@@ -1,3 +1,5 @@
+// cspell:ignore gofmt coverprofile
+
 GREEN='\e[1;32m%-6s\e[m\n'
 TOOL_VERSION = $(shell grep '^golang ' .tool-versions | sed 's/golang //')
 MOD_VERSION = $(shell grep '^go ' go.mod | sed 's/go //')
@@ -36,17 +38,20 @@ smoke-tests:
 	@echo 'Prepare smoke test files ...'
 	cat test/prepare-*.sh > build/bin/test-prepare
 	cat test/verify-*.sh > build/bin/test-verify
+	chmod +x build/bin/test-*
+
+	mkdir -p build/ephemeral/schema build/pristine/schema build/ephemeral/repository
 
 	@echo 'Run first smoke test ...'
-	sh build/bin/test-prepare all-versions
+	build/bin/test-prepare all-versions build/ephemeral/schema build/pristine/schema build/ephemeral/repository
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
-	sh build/bin/test-verify "Happy path works" build/ephemeral/schema build/pristine/schema
+	build/bin/test-verify "Happy path works" build/ephemeral/schema build/pristine/schema
 	@printf $(GREEN) "OK"
 
 	@echo 'Run second smoke test ...'
-	sh build/bin/test-prepare only-latest
+	build/bin/test-prepare only-latest build/ephemeral/schema build/pristine/schema build/ephemeral/repository
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
-	sh build/bin/test-verify "Works using only latest version"
+	build/bin/test-verify "Works using only latest version" build/ephemeral/schema build/pristine/schema
 	@printf $(GREEN) "OK"
 
 test-editorcheck:

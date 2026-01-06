@@ -1,9 +1,13 @@
+#!/usr/bin/env bash
+
 set -e
+
+verified="$3"
 
 echo "Setup test genall source ... "
 
-mkdir -p /verified-schema/source.example.com
-cp /app/test/fixtures/foo_foo.json /verified-schema/source.example.com/
-cp /app/test/fixtures/foo.yaml /verified-schema/source.example.com/foo.yaml
+mkdir -p "$verified/source.example.com"
+cp test/fixtures/foo_foo.json "$verified/source.example.com/"
+cp test/fixtures/foo.yaml "$verified/source.example.com/foo.yaml"
 
 echo
