@@ -40,19 +40,23 @@ smoke-tests:
 	cat test/verify-*.sh > build/bin/test-verify
 	chmod +x build/bin/test-*
 
-	mkdir -p build/ephemeral/schema build/pristine/schema build/ephemeral/repository
+	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
+
+	docker compose up --wait -d registry nginx
 
 	@echo 'Run first smoke test ...'
-	build/bin/test-prepare all-versions build/ephemeral/schema build/pristine/schema build/ephemeral/repository
+	build/bin/test-prepare all-versions build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
-	build/bin/test-verify "Happy path works" build/ephemeral/schema build/pristine/schema
+	build/bin/test-verify "Happy path works" build/ephemeral/schema build/ephemeral/verified
 	@printf $(GREEN) "OK"
 
 	@echo 'Run second smoke test ...'
-	build/bin/test-prepare only-latest build/ephemeral/schema build/pristine/schema build/ephemeral/repository
+	build/bin/test-prepare only-latest build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
-	build/bin/test-verify "Works using only latest version" build/ephemeral/schema build/pristine/schema
+	build/bin/test-verify "Works using only latest version" build/ephemeral/schema build/ephemeral/verified
 	@printf $(GREEN) "OK"
+
+	docker compose down
 
 test-editorcheck:
 	@echo 'Checking general formatting of all files ...'

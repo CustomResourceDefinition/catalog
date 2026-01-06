@@ -16,6 +16,7 @@ rm -rf "${verified:?}" &>/dev/null || true
 
 mkdir -p "$verified"
 mkdir -p "$repository/git"
+mkdir -p "$repository/http"
 
 echo "done"
 echo
