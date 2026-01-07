@@ -1,5 +1,3 @@
-// cspell:ignore gofmt coverprofile
-
 GREEN='\e[1;32m%-6s\e[m\n'
 TOOL_VERSION = $(shell grep '^golang ' .tool-versions | sed 's/golang //')
 MOD_VERSION = $(shell grep '^go ' go.mod | sed 's/go //')
@@ -51,7 +49,7 @@ smoke-tests:
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
 	build/bin/test-verify "Happy path works" build/ephemeral/schema build/ephemeral/verified
 	@printf $(GREEN) "OK"
-	
+
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
 
 	@echo 'Run second smoke test ...'

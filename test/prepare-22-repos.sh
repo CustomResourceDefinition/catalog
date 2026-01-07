@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# cspell:ignore kustomization kustomizations
-
 set -e
 
 verified="$3"
