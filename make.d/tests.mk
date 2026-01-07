@@ -38,6 +38,11 @@ smoke-tests:
 	cat test/verify-*.sh > build/bin/test-verify
 	chmod +x build/bin/test-*
 
+ifneq ($(strip $(CI)),)
+	git config --global user.email "test@runner.local"
+	git config --global user.name "Test Runner"
+endif
+
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -type d -empty -delete
 	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository/http
