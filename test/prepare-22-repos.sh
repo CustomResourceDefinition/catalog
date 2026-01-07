@@ -10,8 +10,8 @@ echo "Setup test git charts ... "
 mkdir -p "$repository/git" &>/dev/null
 cd "$repository/git"
 
-git config --global user.email "test@runner.local"
-git config --global user.name "Test Runner"
+git config --local user.email "test@runner.local"
+git config --local user.name "Test Runner"
 git init --initial-branch=main
 
 mkdir crds
