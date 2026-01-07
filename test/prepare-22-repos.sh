@@ -29,12 +29,12 @@ cp crds/crd.yaml kustomizations/crd.yaml
     echo '  - crd.yaml'
 } >kustomizations/kustomization.yaml
 
-mkdir -p "$verified/chart.git"
-cp "$cwd/test/fixtures/test_v1.json" "$verified/chart.git/"
-cp crds/crd.yaml "$verified/chart.git/test.yaml"
+mkdir -p "$cwd/$verified/chart.git"
+cp "$cwd/test/fixtures/test_v1.json" "$cwd/$verified/chart.git/"
+cp crds/crd.yaml "$cwd/$verified/chart.git/test.yaml"
 
 mkdir source
-cp "$cwd/test/fixtures/source/*" source
+cp "$cwd/test/fixtures/source/"* source
 
 git add crds/crd.yaml
 git add kustomizations
@@ -44,6 +44,11 @@ git tag v1.0.0
 git tag v2.0.0
 git tag v10.0.0
 
+cd - &>/dev/null
+
+git clone --bare "$repository/git" "$repository/http/chart.git"
+cd "$repository/http/chart.git"
+git update-server-info -f
 cd - &>/dev/null
 
 echo

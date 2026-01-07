@@ -24,13 +24,13 @@ diff /tmp/schema.list /tmp/verified.list
 
 # shellcheck disable=SC2044
 for f in $(find "$verified" -type f -name "*.json"); do
-    diff "/${f#/verified-}" "$f"
+    diff "${f#/verified-}" "$f"
 done
 
 set +e
 # shellcheck disable=SC2044
 for f in $(find "$verified" -type f -name "*.yaml"); do
-    if ! diff <(yq -o=json "/${f#/verified-}" | jq -S | yq -P) <(yq -o=json "$f" | jq -S | yq -P); then # complex diff for comparison regardless of whitespace and ordering
+    if ! diff <(yq -o=json "${f#/verified-}" | jq -S | yq -P) <(yq -o=json "$f" | jq -S | yq -P); then # complex diff for comparison regardless of whitespace and ordering
         echo
         echo
         echo "Failed check on $f"

@@ -40,7 +40,8 @@ smoke-tests:
 	cat test/verify-*.sh > build/bin/test-verify
 	chmod +x build/bin/test-*
 
-	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
+	-rm -rf build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
+	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository/http
 
 	docker compose up --wait -d registry nginx
 

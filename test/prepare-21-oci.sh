@@ -67,11 +67,11 @@ helm package /tmp/charts/regular/2.0
 helm package /tmp/charts/templated/1.0
 helm package /tmp/charts/templated/2.0
 
-helm push --plain-http regular-1.0.0.tgz oci://localhost:5000/oci
-helm push --plain-http regular-1.5.0.tgz oci://localhost:5000/oci
-helm push --plain-http regular-2.0.0.tgz oci://localhost:5000/oci
-helm push --plain-http templated-1.0.0.tgz oci://localhost:5000/oci
-helm push --plain-http templated-2.0.0.tgz oci://localhost:5000/oci
+helm push --plain-http regular-1.0.0.tgz oci://registry.127.0.0.1.nip.io:8085/oci
+helm push --plain-http regular-1.5.0.tgz oci://registry.127.0.0.1.nip.io:8085/oci
+helm push --plain-http regular-2.0.0.tgz oci://registry.127.0.0.1.nip.io:8085/oci
+helm push --plain-http templated-1.0.0.tgz oci://registry.127.0.0.1.nip.io:8085/oci
+helm push --plain-http templated-2.0.0.tgz oci://registry.127.0.0.1.nip.io:8085/oci
 
 cd - &>/dev/null
 
