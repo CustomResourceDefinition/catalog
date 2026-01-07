@@ -40,7 +40,8 @@ smoke-tests:
 	cat test/verify-*.sh > build/bin/test-verify
 	chmod +x build/bin/test-*
 
-	-rm -rf build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
+	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
+	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -type d -empty -delete
 	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository/http
 
 	docker compose up --wait -d registry nginx
@@ -50,6 +51,8 @@ smoke-tests:
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
 	build/bin/test-verify "Happy path works" build/ephemeral/schema build/ephemeral/verified
 	@printf $(GREEN) "OK"
+	
+	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
 
 	@echo 'Run second smoke test ...'
 	build/bin/test-prepare only-latest build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository

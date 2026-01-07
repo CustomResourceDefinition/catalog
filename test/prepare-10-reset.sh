@@ -2,11 +2,12 @@
 
 set -e
 
+title="$1"
 schema="$2"
 verified="$3"
 repository="$4"
 
-echo "Reset for a fresh test ... "
+echo "Reset for a fresh test - ${title:?} ... "
 
 helm repo ls -o yaml | yq -r '.[].name' | xargs -I {} helm repo rm {}
 

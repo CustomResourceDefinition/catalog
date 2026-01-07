@@ -3,6 +3,7 @@
 mode="$1"
 schema="$2"
 verified="$3"
+cwd=$(pwd)
 
 echo "Setup known schemas ..."
 
@@ -16,9 +17,9 @@ if [ "$mode" = "only-latest" ]; then
     cd "$verified" || exit 1
     find . -print | while read -r item; do
         if [ -d "$item" ]; then
-            mkdir -p "$schema/$item"
+            mkdir -p "$cwd/$schema/$item"
         elif [ -f "$item" ]; then
-            touch "$schema/$item"
+            touch "$cwd/$schema/$item"
         fi
     done
     cd - || exit 1
