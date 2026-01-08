@@ -2,8 +2,6 @@ GREEN='\e[1;32m%-6s\e[m\n'
 TOOL_VERSION = $(shell grep '^golang ' .tool-versions | sed 's/golang //')
 MOD_VERSION = $(shell grep '^go ' go.mod | sed 's/go //')
 
-GITHUB_WORKSPACE ?= .
-
 test: build test-go test-docker test-makefile test-editorcheck test-schemas unit-tests smoke-tests
 
 test-go:
@@ -45,35 +43,27 @@ ifneq ($(strip $(CI)),)
 	git config --global user.name "Test Runner"
 endif
 
+	@echo 'Run first smoke test ...'
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -type d -empty -delete
 	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository/http
-	touch build/ephemeral/repository/http/.nginx
-
-	GITHUB_WORKSPACE=$(GITHUB_WORKSPACE) docker compose up --quiet-pull --wait -d registry nginx
-
-	@echo 'Run first smoke test ...'
+	docker compose up --quiet-pull --remove-orphans --wait -d registry nginx
 	build/bin/test-prepare all-versions build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
-
-# FIXME: remove debugging
-	find build/ephemeral/repository/http
-	GITHUB_WORKSPACE=$(GITHUB_WORKSPACE) docker compose exec nginx ls -la /usr/share/nginx/html
-	docker compose logs nginx
-	docker compose ps
-
 	build/bin/test-verify "Happy path works" build/ephemeral/schema build/ephemeral/verified
+	docker compose down --remove-orphans
 	@printf $(GREEN) "OK"
-	exit 1
-	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
 
 	@echo 'Run second smoke test ...'
+	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
+	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -type d -empty -delete
+	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository/http
+	docker compose up --quiet-pull --remove-orphans --wait -d registry nginx
 	build/bin/test-prepare only-latest build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
 	build/bin/test-verify "Works using only latest version" build/ephemeral/schema build/ephemeral/verified
-	@printf $(GREEN) "OK"
-
 	docker compose down --remove-orphans
+	@printf $(GREEN) "OK"
 
 test-editorcheck:
 	@echo 'Checking general formatting of all files ...'

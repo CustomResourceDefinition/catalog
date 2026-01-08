@@ -7,16 +7,15 @@ repository="$4"
 cwd=$(pwd)
 
 echo "Setup test git charts ... "
-mkdir -p "$repository/git" &>/dev/null
 cd "$repository/git"
 
 git init --initial-branch=main
 
-mkdir crds
+mkdir -p crds
 cp "$cwd/test/fixtures/test-crd.yaml" crds/crd.yaml
 yq -i '.spec.group = "chart.git"' crds/crd.yaml
 
-mkdir kustomizations
+mkdir -p kustomizations
 cp crds/crd.yaml kustomizations/crd.yaml
 {
     echo 'apiVersion: kustomize.config.k8s.io/v1beta1'
@@ -29,7 +28,7 @@ mkdir -p "$cwd/$verified/chart.git"
 cp "$cwd/test/fixtures/test_v1.json" "$cwd/$verified/chart.git/"
 cp crds/crd.yaml "$cwd/$verified/chart.git/test.yaml"
 
-mkdir source
+mkdir -p source
 cp "$cwd/test/fixtures/source/"* source
 
 git add crds/crd.yaml
