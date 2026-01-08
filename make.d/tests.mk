@@ -58,13 +58,13 @@ endif
 
 # FIXME: remove debugging
 	find build/ephemeral/repository/http
-	GITHUB_WORKSPACE=$(GITHUB_WORKSPACE) docker compose run nginx ls -l /usr/share/nginx/html
+	GITHUB_WORKSPACE=$(GITHUB_WORKSPACE) docker compose exec nginx ls -l /usr/share/nginx/html
 	docker compose logs nginx
 	docker compose ps
 
 	build/bin/test-verify "Happy path works" build/ephemeral/schema build/ephemeral/verified
 	@printf $(GREEN) "OK"
-
+	exit 1
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
 
 	@echo 'Run second smoke test ...'
@@ -73,7 +73,7 @@ endif
 	build/bin/test-verify "Works using only latest version" build/ephemeral/schema build/ephemeral/verified
 	@printf $(GREEN) "OK"
 
-	docker compose down
+	docker compose down --remove-orphans
 
 test-editorcheck:
 	@echo 'Checking general formatting of all files ...'
