@@ -1,22 +1,29 @@
+#!/usr/bin/env bash
+
+mode="$1"
+schema="$2"
+verified="$3"
+cwd=$(pwd)
+
 echo "Setup known schemas ..."
 
-if [ "$1" = "only-latest" ]; then
-    rm -r /verified-schema/chart.conditional
-    rm -r /verified-schema/chart.conditional-oci
-    rm -r /verified-schema/chart.old
-    rm -r /verified-schema/chart.old-oci
-    rm -r /verified-schema/chart.uri1
+if [ "$mode" = "only-latest" ]; then
+    rm -r "$verified/chart.conditional"
+    rm -r "$verified/chart.conditional-oci"
+    rm -r "$verified/chart.old"
+    rm -r "$verified/chart.old-oci"
+    rm -r "$verified/chart.uri1"
 
-    cd /verified-schema
+    cd "$verified" || exit 1
     find . -print | while read -r item; do
         if [ -d "$item" ]; then
-            mkdir -p "/schema/$item"
+            mkdir -p "$cwd/$schema/$item"
         elif [ -f "$item" ]; then
-            touch "/schema/$item"
+            touch "$cwd/$schema/$item"
         fi
     done
-    cd -
+    cd - || exit 1
 fi
 
-echo "  - updated for test '$1'"
+echo "  - updated for test '$mode'"
 echo

@@ -1,4 +1,4 @@
-_check:
+check: build/bin/catalog
 	-find build/ephemeral -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
 	-find build/ephemeral -type d -empty -delete
 	touch build/configuration.yaml
