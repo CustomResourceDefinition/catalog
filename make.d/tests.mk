@@ -47,11 +47,17 @@ endif
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -type d -empty -delete
 	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository/http
 
-	docker compose up --wait -d registry nginx
+	docker compose up --quiet-pull --wait -d registry nginx
 
 	@echo 'Run first smoke test ...'
 	build/bin/test-prepare all-versions build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
+
+# FIXME: remove debugging
+	find build/ephemeral/repository
+	docker compose logs nginx
+	docker compose ps
+
 	build/bin/test-verify "Happy path works" build/ephemeral/schema build/ephemeral/verified
 	@printf $(GREEN) "OK"
 
