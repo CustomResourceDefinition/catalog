@@ -2,6 +2,8 @@ GREEN='\e[1;32m%-6s\e[m\n'
 TOOL_VERSION = $(shell grep '^golang ' .tool-versions | sed 's/golang //')
 MOD_VERSION = $(shell grep '^go ' go.mod | sed 's/go //')
 
+GITHUB_WORKSPACE ?= .
+
 test: build test-go test-docker test-makefile test-editorcheck test-schemas unit-tests smoke-tests
 
 test-go:
@@ -47,7 +49,7 @@ endif
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -type d -empty -delete
 	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository/http
 
-	docker compose up --quiet-pull --wait -d registry nginx
+	GITHUB_WORKSPACE=$(GITHUB_WORKSPACE) docker compose up --quiet-pull --wait -d registry nginx
 
 	@echo 'Run first smoke test ...'
 	build/bin/test-prepare all-versions build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository
