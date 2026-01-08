@@ -58,7 +58,7 @@ endif
 
 # FIXME: remove debugging
 	find build/ephemeral/repository/http
-	GITHUB_WORKSPACE=$(GITHUB_WORKSPACE) docker compose exec nginx ls -l /usr/share/nginx/html
+	GITHUB_WORKSPACE=$(GITHUB_WORKSPACE) docker compose exec nginx ls -la /usr/share/nginx/html
 	docker compose logs nginx
 	docker compose ps
 

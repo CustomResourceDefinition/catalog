@@ -12,8 +12,8 @@ echo "Reset for a fresh test - ${title:?} ... "
 helm repo ls -o yaml | yq -r '.[].name' | xargs -I {} helm repo rm {}
 
 rm -rf "${schema:?}/*" &>/dev/null || true
-rm -rf "${repository:?}" &>/dev/null || true
-rm -rf "${verified:?}" &>/dev/null || true
+rm -rf "${repository:?}/*" &>/dev/null || true
+rm -rf "${verified:?}/*" &>/dev/null || true
 
 mkdir -p "$verified"
 mkdir -p "$repository/git"
