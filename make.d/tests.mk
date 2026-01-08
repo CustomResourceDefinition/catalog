@@ -48,6 +48,7 @@ endif
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -type d -empty -delete
 	mkdir -p build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository/http
+	touch build/ephemeral/repository/http/.nginx
 
 	GITHUB_WORKSPACE=$(GITHUB_WORKSPACE) docker compose up --quiet-pull --wait -d registry nginx
 
@@ -56,7 +57,8 @@ endif
 	HELM_OCI_PLAIN_HTTP=true build/bin/catalog update --configuration test/configuration.yaml --output build/ephemeral/schema --definitions build/ephemeral/schema
 
 # FIXME: remove debugging
-	find build/ephemeral/repository
+	find build/ephemeral/repository/http
+	GITHUB_WORKSPACE=$(GITHUB_WORKSPACE) docker compose run nginx ls -l /usr/share/nginx/html
 	docker compose logs nginx
 	docker compose ps
 
