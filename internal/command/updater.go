@@ -78,7 +78,7 @@ func (cmd Updater) Run() error {
 			return fmt.Errorf("unable to look up free disk space: %w", err)
 		}
 
-		fmt.Fprintf(cmd.Logger, "%s\n", string(out))
+		fmt.Fprintf(cmd.Logger, "%s\n\n", string(out))
 	}
 
 	return merge(tmpDir, cmd.Schema)
