@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"runtime"
 
@@ -71,6 +72,13 @@ func (cmd Updater) Run() error {
 		if err != nil {
 			continue
 		}
+
+		out, err := exec.Command("df", "-h", cmd.Schema).Output()
+		if err != nil {
+			return fmt.Errorf("unable to look up free disk space: %w", err)
+		}
+
+		fmt.Fprintf(cmd.Logger, "%s\n", string(out))
 	}
 
 	return merge(tmpDir, cmd.Schema)
