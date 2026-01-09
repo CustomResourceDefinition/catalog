@@ -9,17 +9,18 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.56% | 3258 | 9604 | 82 |
+| 98.69% | 3288 | 9638 | 82 |
 
 ### Missing Schemas
 
-| appgw.ingress.azure.io | |
+| ais.nvidia.com | |
 | --- | --- |
-| azureapplicationgatewayrewrite | v1beta1 |
+| aistore | v1beta1 |
 
-| appgw.ingress.k8s.io | |
+| apps.projectsveltos.io | |
 | --- | --- |
-| azureingressprohibitedtarget | v1 |
+| cleaner | v1alpha1 |
+| report | v1alpha1 |
 
 | autoscaling.cast.ai | |
 | --- | --- |
@@ -37,10 +38,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | machinedeployment | v1alpha1 |
 | machineset | v1alpha1 |
 
-| collectors.grafana.com | |
-| --- | --- |
-| alloy | v1alpha1 |
-
 | compute.cnrm.cloud.google.com | |
 | --- | --- |
 | computeclass | v1 |
@@ -53,10 +50,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | taloscontrolplane | v1alpha3 |
 
-| crd.k8s.amazonaws.com | |
-| --- | --- |
-| eniconfig | v1alpha1 |
-
 | distro.eks.amazonaws.com | |
 | --- | --- |
 | release | v1alpha1 |
@@ -67,11 +60,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
-
-| eraser.sh | |
-| --- | --- |
-| imagejob | v1, v1alpha1 |
-| imagelist | v1, v1alpha1 |
 
 | helm.toolkit.fluxcd.io | |
 | --- | --- |
@@ -101,10 +89,14 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | networklogging | v1alpha1 |
 
-| trident.netapp.io | |
+| renovate-operator.mogenius.com | |
 | --- | --- |
-| tridentconfigurator | v1 |
-| tridentorchestrator | v1 |
+| renovatejob | v1alpha1 |
+
+| tuppr.home-operations.com | |
+| --- | --- |
+| kubernetesupgrade | v1alpha1 |
+| talosupgrade | v1alpha1 |
 
 ### Ignored Schemas
 

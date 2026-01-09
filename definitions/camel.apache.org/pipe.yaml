@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   labels:
     app: camel-k
   name: pipes.camel.apache.org
@@ -176,6 +176,7 @@ spec:
                     description: the profile needed to run this Integration
                     type: string
                   replicas:
+                    default: 1
                     description: the number of `Pods` needed for the running Integration
                     format: int32
                     type: integer
@@ -309,8 +310,9 @@ spec:
                                       variable present in a Container.
                                     properties:
                                       name:
-                                        description: Name of the environment variable.
-                                          Must be a C_IDENTIFIER.
+                                        description: |-
+                                          Name of the environment variable.
+                                          May consist of any printable ASCII characters except '='.
                                         type: string
                                       value:
                                         description: |-
@@ -367,6 +369,43 @@ spec:
                                                 type: string
                                             required:
                                             - fieldPath
+                                            type: object
+                                            x-kubernetes-map-type: atomic
+                                          fileKeyRef:
+                                            description: |-
+                                              FileKeyRef selects a key of the env file.
+                                              Requires the EnvFiles feature gate to be enabled.
+                                            properties:
+                                              key:
+                                                description: |-
+                                                  The key within the env file. An invalid key will prevent the pod from starting.
+                                                  The keys defined within a source may consist of any printable ASCII characters except '='.
+                                                  During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                                type: string
+                                              optional:
+                                                default: false
+                                                description: |-
+                                                  Specify whether the file or its key must be defined. If the file or key
+                                                  does not exist, then the env var is not published.
+                                                  If optional is set to true and the specified key does not exist,
+                                                  the environment variable will not be set in the Pod's containers.
+
+                                                  If optional is set to false and the specified key does not exist,
+                                                  an error will be returned during Pod creation.
+                                                type: boolean
+                                              path:
+                                                description: |-
+                                                  The path within the volume from which to select the file.
+                                                  Must be relative and may not contain the '..' path or start with '..'.
+                                                type: string
+                                              volumeName:
+                                                description: The name of the volume
+                                                  mount containing the env file.
+                                                type: string
+                                            required:
+                                            - key
+                                            - path
+                                            - volumeName
                                             type: object
                                             x-kubernetes-map-type: atomic
                                           resourceFieldRef:
@@ -432,8 +471,8 @@ spec:
                                 envFrom:
                                   description: |-
                                     List of sources to populate environment variables in the container.
-                                    The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-                                    will be reported as an event when the container is starting. When a key exists in multiple
+                                    The keys defined within a source may consist of any printable ASCII characters except '='.
+                                    When a key exists in multiple
                                     sources, the value associated with the last source will take precedence.
                                     Values defined by an Env with a duplicate key will take precedence.
                                     Cannot be updated.
@@ -460,9 +499,9 @@ spec:
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       prefix:
-                                        description: Optional text to prepend to the
-                                          name of each environment variable. Must
-                                          be a C_IDENTIFIER.
+                                        description: |-
+                                          Optional text to prepend to the name of each environment variable.
+                                          May consist of any printable ASCII characters except '='.
                                         type: string
                                       secretRef:
                                         description: The Secret to select from
@@ -1149,7 +1188,7 @@ spec:
                                         Claims lists the names of resources, defined in spec.resourceClaims,
                                         that are used by this container.
 
-                                        This is an alpha field and requires enabling the
+                                        This field depends on the
                                         DynamicResourceAllocation feature gate.
 
                                         This field is immutable. It can only be set for containers.
@@ -1204,10 +1243,10 @@ spec:
                                 restartPolicy:
                                   description: |-
                                     RestartPolicy defines the restart behavior of individual containers in a pod.
-                                    This field may only be set for init containers, and the only allowed value is "Always".
-                                    For non-init containers or when this field is not specified,
+                                    This overrides the pod-level restart policy. When this field is not specified,
                                     the restart behavior is defined by the Pod's restart policy and the container type.
-                                    Setting the RestartPolicy as "Always" for the init container will have the following effect:
+                                    Additionally, setting the RestartPolicy as "Always" for the init container will
+                                    have the following effect:
                                     this init container will be continually restarted on
                                     exit until all regular containers have terminated. Once all regular
                                     containers have completed, all init containers with restartPolicy "Always"
@@ -1219,6 +1258,59 @@ spec:
                                     init container is started, or after any startupProbe has successfully
                                     completed.
                                   type: string
+                                restartPolicyRules:
+                                  description: |-
+                                    Represents a list of rules to be checked to determine if the
+                                    container should be restarted on exit. The rules are evaluated in
+                                    order. Once a rule matches a container exit condition, the remaining
+                                    rules are ignored. If no rule matches the container exit condition,
+                                    the Container-level restart policy determines the whether the container
+                                    is restarted or not. Constraints on the rules:
+                                    - At most 20 rules are allowed.
+                                    - Rules can have the same action.
+                                    - Identical rules are not forbidden in validations.
+                                    When rules are specified, container MUST set RestartPolicy explicitly
+                                    even it if matches the Pod's RestartPolicy.
+                                  items:
+                                    description: ContainerRestartRule describes how
+                                      a container exit is handled.
+                                    properties:
+                                      action:
+                                        description: |-
+                                          Specifies the action taken on a container exit if the requirements
+                                          are satisfied. The only possible value is "Restart" to restart the
+                                          container.
+                                        type: string
+                                      exitCodes:
+                                        description: Represents the exit codes to
+                                          check on container exits.
+                                        properties:
+                                          operator:
+                                            description: |-
+                                              Represents the relationship between the container exit code(s) and the
+                                              specified values. Possible values are:
+                                              - In: the requirement is satisfied if the container exit code is in the
+                                                set of specified values.
+                                              - NotIn: the requirement is satisfied if the container exit code is
+                                                not in the set of specified values.
+                                            type: string
+                                          values:
+                                            description: |-
+                                              Specifies the set of values to check for container exit codes.
+                                              At most 255 elements are allowed.
+                                            items:
+                                              format: int32
+                                              type: integer
+                                            type: array
+                                            x-kubernetes-list-type: set
+                                        required:
+                                        - operator
+                                        type: object
+                                    required:
+                                    - action
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
                                 securityContext:
                                   description: |-
                                     SecurityContext defines the security options the container should be run with.
@@ -1775,8 +1867,9 @@ spec:
                                       variable present in a Container.
                                     properties:
                                       name:
-                                        description: Name of the environment variable.
-                                          Must be a C_IDENTIFIER.
+                                        description: |-
+                                          Name of the environment variable.
+                                          May consist of any printable ASCII characters except '='.
                                         type: string
                                       value:
                                         description: |-
@@ -1833,6 +1926,43 @@ spec:
                                                 type: string
                                             required:
                                             - fieldPath
+                                            type: object
+                                            x-kubernetes-map-type: atomic
+                                          fileKeyRef:
+                                            description: |-
+                                              FileKeyRef selects a key of the env file.
+                                              Requires the EnvFiles feature gate to be enabled.
+                                            properties:
+                                              key:
+                                                description: |-
+                                                  The key within the env file. An invalid key will prevent the pod from starting.
+                                                  The keys defined within a source may consist of any printable ASCII characters except '='.
+                                                  During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                                type: string
+                                              optional:
+                                                default: false
+                                                description: |-
+                                                  Specify whether the file or its key must be defined. If the file or key
+                                                  does not exist, then the env var is not published.
+                                                  If optional is set to true and the specified key does not exist,
+                                                  the environment variable will not be set in the Pod's containers.
+
+                                                  If optional is set to false and the specified key does not exist,
+                                                  an error will be returned during Pod creation.
+                                                type: boolean
+                                              path:
+                                                description: |-
+                                                  The path within the volume from which to select the file.
+                                                  Must be relative and may not contain the '..' path or start with '..'.
+                                                type: string
+                                              volumeName:
+                                                description: The name of the volume
+                                                  mount containing the env file.
+                                                type: string
+                                            required:
+                                            - key
+                                            - path
+                                            - volumeName
                                             type: object
                                             x-kubernetes-map-type: atomic
                                           resourceFieldRef:
@@ -1898,8 +2028,8 @@ spec:
                                 envFrom:
                                   description: |-
                                     List of sources to populate environment variables in the container.
-                                    The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-                                    will be reported as an event when the container is starting. When a key exists in multiple
+                                    The keys defined within a source may consist of any printable ASCII characters except '='.
+                                    When a key exists in multiple
                                     sources, the value associated with the last source will take precedence.
                                     Values defined by an Env with a duplicate key will take precedence.
                                     Cannot be updated.
@@ -1926,9 +2056,9 @@ spec:
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       prefix:
-                                        description: Optional text to prepend to the
-                                          name of each environment variable. Must
-                                          be a C_IDENTIFIER.
+                                        description: |-
+                                          Optional text to prepend to the name of each environment variable.
+                                          May consist of any printable ASCII characters except '='.
                                         type: string
                                       secretRef:
                                         description: The Secret to select from
@@ -2598,7 +2728,7 @@ spec:
                                         Claims lists the names of resources, defined in spec.resourceClaims,
                                         that are used by this container.
 
-                                        This is an alpha field and requires enabling the
+                                        This field depends on the
                                         DynamicResourceAllocation feature gate.
 
                                         This field is immutable. It can only be set for containers.
@@ -2654,9 +2784,53 @@ spec:
                                   description: |-
                                     Restart policy for the container to manage the restart behavior of each
                                     container within a pod.
-                                    This may only be set for init containers. You cannot set this field on
-                                    ephemeral containers.
+                                    You cannot set this field on ephemeral containers.
                                   type: string
+                                restartPolicyRules:
+                                  description: |-
+                                    Represents a list of rules to be checked to determine if the
+                                    container should be restarted on exit. You cannot set this field on
+                                    ephemeral containers.
+                                  items:
+                                    description: ContainerRestartRule describes how
+                                      a container exit is handled.
+                                    properties:
+                                      action:
+                                        description: |-
+                                          Specifies the action taken on a container exit if the requirements
+                                          are satisfied. The only possible value is "Restart" to restart the
+                                          container.
+                                        type: string
+                                      exitCodes:
+                                        description: Represents the exit codes to
+                                          check on container exits.
+                                        properties:
+                                          operator:
+                                            description: |-
+                                              Represents the relationship between the container exit code(s) and the
+                                              specified values. Possible values are:
+                                              - In: the requirement is satisfied if the container exit code is in the
+                                                set of specified values.
+                                              - NotIn: the requirement is satisfied if the container exit code is
+                                                not in the set of specified values.
+                                            type: string
+                                          values:
+                                            description: |-
+                                              Specifies the set of values to check for container exit codes.
+                                              At most 255 elements are allowed.
+                                            items:
+                                              format: int32
+                                              type: integer
+                                            type: array
+                                            x-kubernetes-list-type: set
+                                        required:
+                                        - operator
+                                        type: object
+                                    required:
+                                    - action
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
                                 securityContext:
                                   description: |-
                                     Optional: SecurityContext defines the security options the ephemeral container should be run with.
@@ -3205,8 +3379,9 @@ spec:
                                       variable present in a Container.
                                     properties:
                                       name:
-                                        description: Name of the environment variable.
-                                          Must be a C_IDENTIFIER.
+                                        description: |-
+                                          Name of the environment variable.
+                                          May consist of any printable ASCII characters except '='.
                                         type: string
                                       value:
                                         description: |-
@@ -3263,6 +3438,43 @@ spec:
                                                 type: string
                                             required:
                                             - fieldPath
+                                            type: object
+                                            x-kubernetes-map-type: atomic
+                                          fileKeyRef:
+                                            description: |-
+                                              FileKeyRef selects a key of the env file.
+                                              Requires the EnvFiles feature gate to be enabled.
+                                            properties:
+                                              key:
+                                                description: |-
+                                                  The key within the env file. An invalid key will prevent the pod from starting.
+                                                  The keys defined within a source may consist of any printable ASCII characters except '='.
+                                                  During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                                type: string
+                                              optional:
+                                                default: false
+                                                description: |-
+                                                  Specify whether the file or its key must be defined. If the file or key
+                                                  does not exist, then the env var is not published.
+                                                  If optional is set to true and the specified key does not exist,
+                                                  the environment variable will not be set in the Pod's containers.
+
+                                                  If optional is set to false and the specified key does not exist,
+                                                  an error will be returned during Pod creation.
+                                                type: boolean
+                                              path:
+                                                description: |-
+                                                  The path within the volume from which to select the file.
+                                                  Must be relative and may not contain the '..' path or start with '..'.
+                                                type: string
+                                              volumeName:
+                                                description: The name of the volume
+                                                  mount containing the env file.
+                                                type: string
+                                            required:
+                                            - key
+                                            - path
+                                            - volumeName
                                             type: object
                                             x-kubernetes-map-type: atomic
                                           resourceFieldRef:
@@ -3328,8 +3540,8 @@ spec:
                                 envFrom:
                                   description: |-
                                     List of sources to populate environment variables in the container.
-                                    The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-                                    will be reported as an event when the container is starting. When a key exists in multiple
+                                    The keys defined within a source may consist of any printable ASCII characters except '='.
+                                    When a key exists in multiple
                                     sources, the value associated with the last source will take precedence.
                                     Values defined by an Env with a duplicate key will take precedence.
                                     Cannot be updated.
@@ -3356,9 +3568,9 @@ spec:
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       prefix:
-                                        description: Optional text to prepend to the
-                                          name of each environment variable. Must
-                                          be a C_IDENTIFIER.
+                                        description: |-
+                                          Optional text to prepend to the name of each environment variable.
+                                          May consist of any printable ASCII characters except '='.
                                         type: string
                                       secretRef:
                                         description: The Secret to select from
@@ -4045,7 +4257,7 @@ spec:
                                         Claims lists the names of resources, defined in spec.resourceClaims,
                                         that are used by this container.
 
-                                        This is an alpha field and requires enabling the
+                                        This field depends on the
                                         DynamicResourceAllocation feature gate.
 
                                         This field is immutable. It can only be set for containers.
@@ -4100,10 +4312,10 @@ spec:
                                 restartPolicy:
                                   description: |-
                                     RestartPolicy defines the restart behavior of individual containers in a pod.
-                                    This field may only be set for init containers, and the only allowed value is "Always".
-                                    For non-init containers or when this field is not specified,
+                                    This overrides the pod-level restart policy. When this field is not specified,
                                     the restart behavior is defined by the Pod's restart policy and the container type.
-                                    Setting the RestartPolicy as "Always" for the init container will have the following effect:
+                                    Additionally, setting the RestartPolicy as "Always" for the init container will
+                                    have the following effect:
                                     this init container will be continually restarted on
                                     exit until all regular containers have terminated. Once all regular
                                     containers have completed, all init containers with restartPolicy "Always"
@@ -4115,6 +4327,59 @@ spec:
                                     init container is started, or after any startupProbe has successfully
                                     completed.
                                   type: string
+                                restartPolicyRules:
+                                  description: |-
+                                    Represents a list of rules to be checked to determine if the
+                                    container should be restarted on exit. The rules are evaluated in
+                                    order. Once a rule matches a container exit condition, the remaining
+                                    rules are ignored. If no rule matches the container exit condition,
+                                    the Container-level restart policy determines the whether the container
+                                    is restarted or not. Constraints on the rules:
+                                    - At most 20 rules are allowed.
+                                    - Rules can have the same action.
+                                    - Identical rules are not forbidden in validations.
+                                    When rules are specified, container MUST set RestartPolicy explicitly
+                                    even it if matches the Pod's RestartPolicy.
+                                  items:
+                                    description: ContainerRestartRule describes how
+                                      a container exit is handled.
+                                    properties:
+                                      action:
+                                        description: |-
+                                          Specifies the action taken on a container exit if the requirements
+                                          are satisfied. The only possible value is "Restart" to restart the
+                                          container.
+                                        type: string
+                                      exitCodes:
+                                        description: Represents the exit codes to
+                                          check on container exits.
+                                        properties:
+                                          operator:
+                                            description: |-
+                                              Represents the relationship between the container exit code(s) and the
+                                              specified values. Possible values are:
+                                              - In: the requirement is satisfied if the container exit code is in the
+                                                set of specified values.
+                                              - NotIn: the requirement is satisfied if the container exit code is
+                                                not in the set of specified values.
+                                            type: string
+                                          values:
+                                            description: |-
+                                              Specifies the set of values to check for container exit codes.
+                                              At most 255 elements are allowed.
+                                            items:
+                                              format: int32
+                                              type: integer
+                                            type: array
+                                            x-kubernetes-list-type: set
+                                        required:
+                                        - operator
+                                        type: object
+                                    required:
+                                    - action
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
                                 securityContext:
                                   description: |-
                                     SecurityContext defines the security options the container should be run with.
@@ -5723,15 +5988,13 @@ spec:
                                                 volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                                                 If specified, the CSI driver will create or update the volume with the attributes defined
                                                 in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                                                it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                                                will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                                                If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                                                will be set by the persistentvolume controller if it exists.
+                                                it can be changed after the claim is created. An empty string or nil value indicates that no
+                                                VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                                                this field can be reset to its previous value (including nil) to cancel the modification.
                                                 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                                                 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                                 exists.
                                                 More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                                (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                               type: string
                                             volumeMode:
                                               description: |-
@@ -5916,12 +6179,10 @@ spec:
                                   description: |-
                                     glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
                                     Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.
-                                    More info: https://examples.k8s.io/volumes/glusterfs/README.md
                                   properties:
                                     endpoints:
-                                      description: |-
-                                        endpoints is the endpoint name that details Glusterfs topology.
-                                        More info: https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod
+                                      description: endpoints is the endpoint name
+                                        that details Glusterfs topology.
                                       type: string
                                     path:
                                       description: |-
@@ -6000,7 +6261,7 @@ spec:
                                   description: |-
                                     iscsi represents an ISCSI Disk resource that is attached to a
                                     kubelet's host machine and then exposed to the pod.
-                                    More info: https://examples.k8s.io/volumes/iscsi/README.md
+                                    More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi
                                   properties:
                                     chapAuthDiscovery:
                                       description: chapAuthDiscovery defines whether
@@ -6434,6 +6695,111 @@ spec:
                                                 type: array
                                                 x-kubernetes-list-type: atomic
                                             type: object
+                                          podCertificate:
+                                            description: |-
+                                              Projects an auto-rotating credential bundle (private key and certificate
+                                              chain) that the pod can use either as a TLS client or server.
+
+                                              Kubelet generates a private key and uses it to send a
+                                              PodCertificateRequest to the named signer.  Once the signer approves the
+                                              request and issues a certificate chain, Kubelet writes the key and
+                                              certificate chain to the pod filesystem.  The pod does not start until
+                                              certificates have been issued for each podCertificate projected volume
+                                              source in its spec.
+
+                                              Kubelet will begin trying to rotate the certificate at the time indicated
+                                              by the signer using the PodCertificateRequest.Status.BeginRefreshAt
+                                              timestamp.
+
+                                              Kubelet can write a single file, indicated by the credentialBundlePath
+                                              field, or separate files, indicated by the keyPath and
+                                              certificateChainPath fields.
+
+                                              The credential bundle is a single file in PEM format.  The first PEM
+                                              entry is the private key (in PKCS#8 format), and the remaining PEM
+                                              entries are the certificate chain issued by the signer (typically,
+                                              signers will return their certificate chain in leaf-to-root order).
+
+                                              Prefer using the credential bundle format, since your application code
+                                              can read it atomically.  If you use keyPath and certificateChainPath,
+                                              your application must make two separate file reads. If these coincide
+                                              with a certificate rotation, it is possible that the private key and leaf
+                                              certificate you read may not correspond to each other.  Your application
+                                              will need to check for this condition, and re-read until they are
+                                              consistent.
+
+                                              The named signer controls chooses the format of the certificate it
+                                              issues; consult the signer implementation's documentation to learn how to
+                                              use the certificates it issues.
+                                            properties:
+                                              certificateChainPath:
+                                                description: |-
+                                                  Write the certificate chain at this path in the projected volume.
+
+                                                  Most applications should use credentialBundlePath.  When using keyPath
+                                                  and certificateChainPath, your application needs to check that the key
+                                                  and leaf certificate are consistent, because it is possible to read the
+                                                  files mid-rotation.
+                                                type: string
+                                              credentialBundlePath:
+                                                description: |-
+                                                  Write the credential bundle at this path in the projected volume.
+
+                                                  The credential bundle is a single file that contains multiple PEM blocks.
+                                                  The first PEM block is a PRIVATE KEY block, containing a PKCS#8 private
+                                                  key.
+
+                                                  The remaining blocks are CERTIFICATE blocks, containing the issued
+                                                  certificate chain from the signer (leaf and any intermediates).
+
+                                                  Using credentialBundlePath lets your Pod's application code make a single
+                                                  atomic read that retrieves a consistent key and certificate chain.  If you
+                                                  project them to separate files, your application code will need to
+                                                  additionally check that the leaf certificate was issued to the key.
+                                                type: string
+                                              keyPath:
+                                                description: |-
+                                                  Write the key at this path in the projected volume.
+
+                                                  Most applications should use credentialBundlePath.  When using keyPath
+                                                  and certificateChainPath, your application needs to check that the key
+                                                  and leaf certificate are consistent, because it is possible to read the
+                                                  files mid-rotation.
+                                                type: string
+                                              keyType:
+                                                description: |-
+                                                  The type of keypair Kubelet will generate for the pod.
+
+                                                  Valid values are "RSA3072", "RSA4096", "ECDSAP256", "ECDSAP384",
+                                                  "ECDSAP521", and "ED25519".
+                                                type: string
+                                              maxExpirationSeconds:
+                                                description: |-
+                                                  maxExpirationSeconds is the maximum lifetime permitted for the
+                                                  certificate.
+
+                                                  Kubelet copies this value verbatim into the PodCertificateRequests it
+                                                  generates for this projection.
+
+                                                  If omitted, kube-apiserver will set it to 86400(24 hours). kube-apiserver
+                                                  will reject values shorter than 3600 (1 hour).  The maximum allowable
+                                                  value is 7862400 (91 days).
+
+                                                  The signer implementation is then free to issue a certificate with any
+                                                  lifetime *shorter* than MaxExpirationSeconds, but no shorter than 3600
+                                                  seconds (1 hour).  This constraint is enforced by kube-apiserver.
+                                                  `kubernetes.io` signers will never issue certificates with a lifetime
+                                                  longer than 24 hours.
+                                                format: int32
+                                                type: integer
+                                              signerName:
+                                                description: Kubelet's generated CSRs
+                                                  will be addressed to this signer.
+                                                type: string
+                                            required:
+                                            - keyType
+                                            - signerName
+                                            type: object
                                           secret:
                                             description: secret information about
                                               the secret data to project
@@ -6571,7 +6937,6 @@ spec:
                                   description: |-
                                     rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
                                     Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.
-                                    More info: https://examples.k8s.io/volumes/rbd/README.md
                                   properties:
                                     fsType:
                                       description: |-
@@ -6865,7 +7230,7 @@ spec:
                     description: the traits needed to run this Integration
                     properties:
                       3scale:
-                        description: 'Deprecated: for backward compatibility.'
+                        description: 'Deprecated: no longer in use.'
                         properties:
                           configuration:
                             description: TraitConfiguration parameters configuration
@@ -6880,7 +7245,7 @@ spec:
                             an addon trait.
                           type: object
                           x-kubernetes-preserve-unknown-fields: true
-                        description: The extension point with addon traits
+                        description: 'Deprecated: no longer in use.'
                         type: object
                       affinity:
                         description: The configuration of Affinity trait
@@ -7304,8 +7669,9 @@ spec:
                             description: 'Deprecated: no longer in use.'
                             type: boolean
                           kind:
-                            description: Allows to explicitly select the desired deployment
-                              kind between `deployment`, `cron-job` or `knative-service`
+                            description: |-
+                              Deprecated: this feature will be removed in future releases.
+                              Allows to explicitly select the desired deployment kind between `deployment`, `cron-job` or `knative-service`
                               when creating the resources for running the integration.
                             enum:
                             - deployment
@@ -7313,10 +7679,7 @@ spec:
                             - knative-service
                             type: string
                           useSSA:
-                            description: |-
-                              Deprecated: won't be able to enforce client side update in the future.
-                              Use server-side apply to update the owned resources (default `true`).
-                              Note that it automatically falls back to client-side patching, if SSA is not available, e.g., on old Kubernetes clusters.
+                            description: 'Deprecated: no longer in use.'
                             type: boolean
                         type: object
                       deployment:
@@ -7440,6 +7803,71 @@ spec:
                               All traits share this common property.
                             type: boolean
                         type: object
+                      gitops:
+                        description: The configuration of GitOps trait
+                        properties:
+                          branch:
+                            description: the git branch to check out.
+                            type: string
+                          branchPush:
+                            description: the git branch to push to. If omitted, the
+                              operator will push to a new branch named as `cicd/release-candidate-<datetime>`.
+                            type: string
+                          commit:
+                            description: the git commit (full SHA) to check out.
+                            type: string
+                          committerEmail:
+                            default: camel-k-operator@apache.org
+                            description: The email used to commit the GitOps changes
+                              (default `camel-k-operator@apache.org`).
+                            type: string
+                          committerName:
+                            default: Camel K Operator
+                            description: The name used to commit the GitOps changes
+                              (default `Camel K Operator`).
+                            type: string
+                          configuration:
+                            description: |-
+                              Legacy trait configuration parameters.
+                              Deprecated: for backward compatibility.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          enabled:
+                            description: Can be used to enable or disable a trait.
+                              All traits share this common property.
+                            type: boolean
+                          integrationDirectory:
+                            default: integrations
+                            description: The root path where to store Kustomize overlays
+                              (default `integrations`).
+                            type: string
+                          overlays:
+                            default:
+                            - dev
+                            - stag
+                            - prod
+                            description: a list of overlays to provide (default {"dev","stag","prod"}).
+                            items:
+                              type: string
+                            type: array
+                          overwriteOverlay:
+                            default: false
+                            description: a flag (default, false) to overwrite any
+                              existing overlay.
+                            type: boolean
+                          secret:
+                            description: the Kubernetes secret where the Git token
+                              is stored. The operator will pick up the first secret
+                              key only, whichever the name it is.
+                            type: string
+                          tag:
+                            description: the git tag to check out.
+                            type: string
+                          url:
+                            description: the URL of the repository where the project
+                              is stored.
+                            type: string
+                        type: object
                       health:
                         description: The configuration of Health trait
                         properties:
@@ -7465,6 +7893,10 @@ spec:
                             type: integer
                           livenessPeriod:
                             description: How often to perform the liveness probe.
+                            format: int32
+                            type: integer
+                          livenessPort:
+                            description: The liveness port to use (default 8080).
                             format: int32
                             type: integer
                           livenessProbe:
@@ -7503,6 +7935,10 @@ spec:
                             description: How often to perform the readiness probe.
                             format: int32
                             type: integer
+                          readinessPort:
+                            description: The readiness port to use (default 8080).
+                            format: int32
+                            type: integer
                           readinessProbe:
                             description: The readiness probe path to use (default
                               provided by the Catalog runtime used).
@@ -7537,6 +7973,10 @@ spec:
                             type: integer
                           startupPeriod:
                             description: How often to perform the startup probe.
+                            format: int32
+                            type: integer
+                          startupPort:
+                            description: The startup port to use (default 8080).
                             format: int32
                             type: integer
                           startupProbe:
@@ -7676,7 +8116,9 @@ spec:
                             type: boolean
                         type: object
                       jolokia:
-                        description: The configuration of Jolokia trait
+                        description: |-
+                          The configuration of Jolokia trait
+                          Deprecated: use jvm.agent instead.
                         properties:
                           CACert:
                             description: |-
@@ -7752,6 +8194,21 @@ spec:
                             items:
                               type: string
                             type: array
+                          caCert:
+                            description: |-
+                              Path to a PEM-encoded CA certificate file.
+                              Example: "/etc/camel/conf.d/_secrets/my-ca/ca.crt"
+                            type: string
+                          caCertMountPath:
+                            description: |-
+                              The path where the generated truststore will be mounted.
+                              Default: "/etc/camel/conf.d/_truststore"
+                            type: string
+                          caCertPassword:
+                            description: |-
+                              Required when caCert is set. Path to a file containing the truststore password.
+                              Example: "/etc/camel/conf.d/_secrets/truststore-pass/password"
+                            type: string
                           classpath:
                             description: Additional JVM classpath (use `Linux` classpath
                               separator)
@@ -7820,14 +8277,89 @@ spec:
                             type: string
                         type: object
                       keda:
-                        description: 'Deprecated: for backward compatibility.'
+                        description: The configuration of Keda trait
                         properties:
+                          auto:
+                            description: Automatically discover KEDA triggers from
+                              Camel component URIs.
+                            type: boolean
+                          autoMetadata:
+                            additionalProperties:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            description: |-
+                              Additional metadata to merge into auto-discovered triggers. Keys are trigger types (e.g., "kafka"),
+                              values are maps of metadata key-value pairs to merge (e.g., {"lagThreshold": "10"}).
+                            type: object
                           configuration:
-                            description: TraitConfiguration parameters configuration
+                            description: |-
+                              Legacy trait configuration parameters.
+                              Deprecated: for backward compatibility.
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
-                        required:
-                        - configuration
+                          cooldownPeriod:
+                            description: The wait period between the last active trigger
+                              reported and scaling the resource back to 0.
+                            format: int32
+                            type: integer
+                          enabled:
+                            description: Can be used to enable or disable a trait.
+                              All traits share this common property.
+                            type: boolean
+                          idleReplicaCount:
+                            description: Enabling this property allows KEDA to scale
+                              the resource down to the specified number of replicas.
+                            format: int32
+                            type: integer
+                          maxReplicaCount:
+                            description: Maximum number of replicas.
+                            format: int32
+                            type: integer
+                          minReplicaCount:
+                            description: Minimum number of replicas.
+                            format: int32
+                            type: integer
+                          pollingInterval:
+                            description: Interval (seconds) to check each trigger
+                              on.
+                            format: int32
+                            type: integer
+                          triggers:
+                            description: |-
+                              Definition of triggers according to the KEDA format. Each trigger must contain `type` field corresponding
+                              to the name of a KEDA autoscaler and a key/value map named `metadata` containing specific trigger options
+                              and optionally a mapping of secrets, used by Keda operator to poll resources according to the autoscaler type.
+                            items:
+                              properties:
+                                metadata:
+                                  additionalProperties:
+                                    type: string
+                                  description: The trigger metadata (see Keda documentation
+                                    to learn how to fill for each type).
+                                  type: object
+                                secrets:
+                                  description: The secrets mapping to use. Keda allows
+                                    the possibility to use values coming from different
+                                    secrets.
+                                  items:
+                                    properties:
+                                      mapping:
+                                        additionalProperties:
+                                          type: string
+                                        description: The mapping to use for this secret
+                                          (eg, `database-secret-key:keda-secret-key`)
+                                        type: object
+                                      name:
+                                        description: The name of the secret to use.
+                                        type: string
+                                    type: object
+                                  type: array
+                                type:
+                                  description: The autoscaler type.
+                                  type: string
+                              type: object
+                            type: array
                         type: object
                       knative:
                         description: The configuration of Knative trait
@@ -8143,7 +8675,9 @@ spec:
                             type: array
                         type: object
                       openapi:
-                        description: The configuration of OpenAPI trait
+                        description: |-
+                          The configuration of OpenAPI trait
+                          Deprecated: no longer in use.
                         properties:
                           configmaps:
                             description: The configmaps holding the spec of the OpenAPI
@@ -8215,9 +8749,7 @@ spec:
                         description: The configuration of Platform trait
                         properties:
                           auto:
-                            description: |-
-                              To automatically detect from the environment if a default platform can be created (it will be created on OpenShift or when a registry address is set).
-                              Deprecated: Platform is auto generated by the operator install procedure - maintained for backward compatibility
+                            description: 'Deprecated: no longer in use.'
                             type: boolean
                           configuration:
                             description: |-
@@ -8226,21 +8758,19 @@ spec:
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
                           createDefault:
-                            description: |-
-                              To create a default (empty) platform when the platform is missing.
-                              Deprecated: Platform is auto generated by the operator install procedure - maintained for backward compatibility
+                            description: 'Deprecated: no longer in use.'
                             type: boolean
                           enabled:
                             description: 'Deprecated: no longer in use.'
                             type: boolean
                           global:
-                            description: |-
-                              Indicates if the platform should be created globally in the case of global operator (default true).
-                              Deprecated: Platform is auto generated by the operator install procedure - maintained for backward compatibility
+                            description: 'Deprecated: no longer in use.'
                             type: boolean
                         type: object
                       pod:
-                        description: The configuration of Pod trait
+                        description: |-
+                          The configuration of Pod trait
+                          Deprecated: use init-containers instead.
                         properties:
                           configuration:
                             description: |-
@@ -8376,7 +8906,9 @@ spec:
                             type: boolean
                         type: object
                       route:
-                        description: The configuration of Route trait
+                        description: |-
+                          The configuration of Route trait
+                          Deprecated: use ingress instead.
                         properties:
                           annotations:
                             additionalProperties:
@@ -8576,7 +9108,7 @@ spec:
                             type: array
                         type: object
                       strimzi:
-                        description: 'Deprecated: for backward compatibility.'
+                        description: 'Deprecated: no longer in use.'
                         properties:
                           configuration:
                             description: TraitConfiguration parameters configuration
@@ -8644,7 +9176,7 @@ spec:
                             type: array
                         type: object
                       tracing:
-                        description: 'Deprecated: for backward compatibility.'
+                        description: 'Deprecated: no longer in use.'
                         properties:
                           configuration:
                             description: TraitConfiguration parameters configuration
@@ -8656,6 +9188,7 @@ spec:
                     type: object
                 type: object
               replicas:
+                default: 1
                 description: Replicas is the number of desired replicas for the Pipe
                 format: int32
                 type: integer
@@ -8883,6 +9416,1957 @@ spec:
                       type: string
                   type: object
                 type: array
+              traits:
+                description: the traits needed to customize the depending Integration
+                properties:
+                  3scale:
+                    description: 'Deprecated: no longer in use.'
+                    properties:
+                      configuration:
+                        description: TraitConfiguration parameters configuration
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                    - configuration
+                    type: object
+                  addons:
+                    additionalProperties:
+                      description: AddonTrait represents the configuration of an addon
+                        trait.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    description: 'Deprecated: no longer in use.'
+                    type: object
+                  affinity:
+                    description: The configuration of Affinity trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      nodeAffinityLabels:
+                        description: Defines a set of nodes the integration pod(s)
+                          are eligible to be scheduled on, based on labels on the
+                          node.
+                        items:
+                          type: string
+                        type: array
+                      podAffinity:
+                        description: Always co-locates multiple replicas of the integration
+                          in the same node (default `false`).
+                        type: boolean
+                      podAffinityLabels:
+                        description: |-
+                          Defines a set of pods (namely those matching the label selector, relative to the given namespace) that the
+                          integration pod(s) should be co-located with.
+                        items:
+                          type: string
+                        type: array
+                      podAntiAffinity:
+                        description: Never co-locates multiple replicas of the integration
+                          in the same node (default `false`).
+                        type: boolean
+                      podAntiAffinityLabels:
+                        description: |-
+                          Defines a set of pods (namely those matching the label selector, relative to the given namespace) that the
+                          integration pod(s) should not be co-located with.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  builder:
+                    description: The configuration of Builder trait
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: When using `pod` strategy, annotation to use
+                          for the builder pod.
+                        type: object
+                      baseImage:
+                        description: |-
+                          Specify a base image. In order to have the application working properly it must be a container image which has a Java JDK
+                          installed and ready to use on path (ie `/usr/bin/java`).
+                        type: string
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      incrementalImageBuild:
+                        description: Use the incremental image build option, to reuse
+                          existing containers (default `true`)
+                        type: boolean
+                      limitCPU:
+                        description: |-
+                          When using `pod` strategy, the maximum amount of CPU required by the pod builder.
+                          Deprecated: use TasksRequestCPU instead with task name `builder`.
+                        type: string
+                      limitMemory:
+                        description: |-
+                          When using `pod` strategy, the maximum amount of memory required by the pod builder.
+                          Deprecated: use TasksRequestCPU instead with task name `builder`.
+                        type: string
+                      mavenProfiles:
+                        description: |-
+                          A list of references pointing to configmaps/secrets that contains a maven profile.
+                          This configmap/secret is a resource of the IntegrationKit created, therefore it needs to be present in the namespace where the operator is going to create the IntegrationKit.
+                          The content of the maven profile is expected to be a text containing a valid maven profile starting with `<profile>` and ending with `</profile>` that will be integrated as an inline profile in the POM.
+                          Syntax: [configmap|secret]:name[/key], where name represents the resource name, key optionally represents the resource key to be filtered (default key value = profile.xml).
+                        items:
+                          type: string
+                        type: array
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        description: Defines a set of nodes the builder pod is eligible
+                          to be scheduled on, based on labels on the node.
+                        type: object
+                      orderStrategy:
+                        description: The build order strategy to use, either `dependencies`,
+                          `fifo` or `sequential` (default is the platform default)
+                        enum:
+                        - dependencies
+                        - fifo
+                        - sequential
+                        type: string
+                      platforms:
+                        description: The list of manifest platforms to use to build
+                          a container image (default `linux/amd64`).
+                        items:
+                          type: string
+                        type: array
+                      properties:
+                        description: A list of properties to be provided to the build
+                          task
+                        items:
+                          type: string
+                        type: array
+                      requestCPU:
+                        description: |-
+                          When using `pod` strategy, the minimum amount of CPU required by the pod builder.
+                          Deprecated: use TasksRequestCPU instead with task name `builder`.
+                        type: string
+                      requestMemory:
+                        description: |-
+                          When using `pod` strategy, the minimum amount of memory required by the pod builder.
+                          Deprecated: use TasksRequestCPU instead with task name `builder`.
+                        type: string
+                      strategy:
+                        description: The strategy to use, either `pod` or `routine`
+                          (default `routine`)
+                        enum:
+                        - pod
+                        - routine
+                        type: string
+                      tasks:
+                        description: A list of tasks to be executed (available only
+                          when using `pod` strategy) with format `<name>;<container-image>;<container-command>`.
+                        items:
+                          type: string
+                        type: array
+                      tasksFilter:
+                        description: |-
+                          A list of tasks sorted by the order of execution in a csv format, ie, `<taskName1>,<taskName2>,...`.
+                          Mind that you must include also the operator tasks (`builder`, `quarkus-native`, `package`, `jib`, `s2i`)
+                          if you need to execute them. Useful only with `pod` strategy.
+                        type: string
+                      tasksLimitCPU:
+                        description: A list of limit cpu configuration for the specific
+                          task with format `<task-name>:<limit-cpu-conf>`.
+                        items:
+                          type: string
+                        type: array
+                      tasksLimitMemory:
+                        description: A list of limit memory configuration for the
+                          specific task with format `<task-name>:<limit-memory-conf>`.
+                        items:
+                          type: string
+                        type: array
+                      tasksRequestCPU:
+                        description: A list of request cpu configuration for the specific
+                          task with format `<task-name>:<request-cpu-conf>`.
+                        items:
+                          type: string
+                        type: array
+                      tasksRequestMemory:
+                        description: A list of request memory configuration for the
+                          specific task with format `<task-name>:<request-memory-conf>`.
+                        items:
+                          type: string
+                        type: array
+                      verbose:
+                        description: |-
+                          Enable verbose logging on build components that support it (e.g. Kaniko build pod).
+                          Deprecated no longer in use
+                        type: boolean
+                    type: object
+                  camel:
+                    description: The configuration of Camel trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      properties:
+                        description: A list of properties to be provided to the Integration
+                          runtime
+                        items:
+                          type: string
+                        type: array
+                      runtimeProvider:
+                        description: The runtime provider to use for the integration.
+                          (Default, Camel K Runtime).
+                        enum:
+                        - quarkus
+                        - plain-quarkus
+                        type: string
+                      runtimeVersion:
+                        description: |-
+                          The runtime version to use for the integration. It overrides the default version set in the Integration Platform.
+                          You can use a fixed version (for example "3.2.3") or a semantic version (for example "3.x") which will try to resolve
+                          to the best matching Catalog existing on the cluster (Default, the one provided by the operator version).
+                        type: string
+                    type: object
+                  container:
+                    description: The configuration of Container trait
+                    properties:
+                      allowPrivilegeEscalation:
+                        description: Security Context AllowPrivilegeEscalation configuration
+                          (default false).
+                        type: boolean
+                      auto:
+                        description: To automatically enable the trait
+                        type: boolean
+                      capabilitiesAdd:
+                        description: Security Context Capabilities Add configuration
+                          (default none).
+                        items:
+                          description: Capability represent POSIX capabilities type
+                          type: string
+                        type: array
+                      capabilitiesDrop:
+                        description: Security Context Capabilities Drop configuration
+                          (default ALL).
+                        items:
+                          description: Capability represent POSIX capabilities type
+                          type: string
+                        type: array
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      expose:
+                        description: Can be used to enable/disable http exposure via
+                          kubernetes Service.
+                        type: boolean
+                      image:
+                        description: |-
+                          The main container image to use for the Integration. When using this parameter the operator will create a synthetic IntegrationKit which
+                          won't be able to execute traits requiring CamelCatalog. If the container image you're using is coming from an IntegrationKit, use instead
+                          Integration `.spec.integrationKit` parameter. If you're moving the Integration across environments, you will also need to create an "external" IntegrationKit.
+                        type: string
+                      imagePullPolicy:
+                        description: 'The pull policy: Always|Never|IfNotPresent'
+                        enum:
+                        - Always
+                        - Never
+                        - IfNotPresent
+                        type: string
+                      limitCPU:
+                        description: The maximum amount of CPU to be provided (default
+                          500 millicores).
+                        type: string
+                      limitMemory:
+                        description: The maximum amount of memory to be provided (default
+                          512 Mi).
+                        type: string
+                      name:
+                        description: The main container name. It's named `integration`
+                          by default.
+                        type: string
+                      port:
+                        description: To configure a different http port exposed by
+                          the container (default `8080`).
+                        format: int32
+                        type: integer
+                      portName:
+                        description: |-
+                          To configure a different http port name for the port exposed by the container.
+                          It defaults to `http` only when the `expose` parameter is true.
+                        type: string
+                      ports:
+                        description: |-
+                          List of container ports available in the container (syntax: <port-name>;<port-number>[;port-protocol]).
+                          When omitted, `port-protocol` (admitted values `TCP`, `UDP` or `SCTP`) is `TCP`.
+                          Don't use this for the primary http managed port (for which case you need to use `portName` and `port`).
+                          Don't use in Knative based environments.
+                        items:
+                          type: string
+                        type: array
+                      requestCPU:
+                        description: The minimum amount of CPU required (default 125
+                          millicores).
+                        type: string
+                      requestMemory:
+                        description: The minimum amount of memory required (default
+                          128 Mi).
+                        type: string
+                      runAsNonRoot:
+                        description: Security Context RunAsNonRoot configuration (default
+                          false).
+                        type: boolean
+                      runAsUser:
+                        description: 'Security Context RunAsUser configuration (default
+                          none): this value is automatically retrieved in Openshift
+                          clusters when not explicitly set.'
+                        format: int64
+                        type: integer
+                      seccompProfileType:
+                        description: Security Context SeccompProfileType configuration
+                          (default RuntimeDefault).
+                        enum:
+                        - Unconfined
+                        - RuntimeDefault
+                        type: string
+                      servicePort:
+                        description: To configure under which service port the http
+                          container port is to be exposed (default `80`).
+                        format: int32
+                        type: integer
+                      servicePortName:
+                        description: To configure under which service port name the
+                          http container port is to be exposed (default `http`).
+                        type: string
+                    type: object
+                  cron:
+                    description: The configuration of Cron trait
+                    properties:
+                      activeDeadlineSeconds:
+                        description: |-
+                          Specifies the duration in seconds, relative to the start time, that the job
+                          may be continuously active before it is considered to be failed.
+                          It defaults to 60s.
+                        format: int64
+                        type: integer
+                      auto:
+                        description: |-
+                          Automatically deploy the integration as CronJob when all routes are
+                          either starting from a periodic consumer (only `cron`, `timer` and `quartz` are supported) or a passive consumer (e.g. `direct` is a passive consumer).
+
+                          It's required that all periodic consumers have the same period, and it can be expressed as cron schedule (e.g. `1m` can be expressed as `0/1 * * * *`,
+                          while `35m` or `50s` cannot).
+                        type: boolean
+                      backoffLimit:
+                        description: |-
+                          Specifies the number of retries before marking the job failed.
+                          It defaults to 2.
+                        format: int32
+                        type: integer
+                      components:
+                        description: |-
+                          A comma separated list of the Camel components that need to be customized in order for them to work when the schedule is triggered externally by Kubernetes.
+                          Supported components are currently: `cron`, `timer` and `quartz`.
+                        type: string
+                      concurrencyPolicy:
+                        description: |-
+                          Specifies how to treat concurrent executions of a Job.
+                          Valid values are:
+                          - "Allow": allows CronJobs to run concurrently;
+                          - "Forbid" (default): forbids concurrent runs, skipping next run if previous run hasn't finished yet;
+                          - "Replace": cancels currently running job and replaces it with a new one
+                        enum:
+                        - Allow
+                        - Forbid
+                        - Replace
+                        type: string
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      fallback:
+                        description: |-
+                          Use the default Camel implementation of the `cron` endpoint (`quartz`) instead of trying to materialize the integration
+                          as Kubernetes CronJob.
+                        type: boolean
+                      schedule:
+                        description: |-
+                          The CronJob schedule for the whole integration. If multiple routes are declared, they must have the same schedule for this
+                          mechanism to work correctly.
+                        type: string
+                      startingDeadlineSeconds:
+                        description: |-
+                          Optional deadline in seconds for starting the job if it misses scheduled
+                          time for any reason.  Missed jobs executions will be counted as failed ones.
+                        format: int64
+                        type: integer
+                      timeZone:
+                        description: The timezone that the CronJob will run on
+                        type: string
+                    type: object
+                  dependencies:
+                    description: The configuration of Dependencies trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                    type: object
+                  deployer:
+                    description: The configuration of Deployer trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      kind:
+                        description: |-
+                          Deprecated: this feature will be removed in future releases.
+                          Allows to explicitly select the desired deployment kind between `deployment`, `cron-job` or `knative-service`
+                          when creating the resources for running the integration.
+                        enum:
+                        - deployment
+                        - cron-job
+                        - knative-service
+                        type: string
+                      useSSA:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                    type: object
+                  deployment:
+                    description: The configuration of Deployment trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      progressDeadlineSeconds:
+                        description: |-
+                          The maximum time in seconds for the deployment to make progress before it
+                          is considered to be failed. It defaults to `60s`.
+                        format: int32
+                        type: integer
+                      rollingUpdateMaxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: |-
+                          The maximum number of pods that can be scheduled above the desired number of
+                          pods.
+                          Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
+                          This can not be 0 if MaxUnavailable is 0.
+                          Absolute number is calculated from percentage by rounding up.
+                          Defaults to `25%`.
+                        x-kubernetes-int-or-string: true
+                      rollingUpdateMaxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: |-
+                          The maximum number of pods that can be unavailable during the update.
+                          Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
+                          Absolute number is calculated from percentage by rounding down.
+                          This can not be 0 if MaxSurge is 0.
+                          Defaults to `25%`.
+                        x-kubernetes-int-or-string: true
+                      strategy:
+                        description: The deployment strategy to use to replace existing
+                          pods with new ones.
+                        enum:
+                        - Recreate
+                        - RollingUpdate
+                        type: string
+                    type: object
+                  environment:
+                    description: The configuration of Environment trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      containerMeta:
+                        description: Enables injection of `NAMESPACE` and `POD_NAME`
+                          environment variables (default `true`)
+                        type: boolean
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      httpProxy:
+                        description: Propagates the `HTTP_PROXY`, `HTTPS_PROXY` and
+                          `NO_PROXY` environment variables (default `true`)
+                        type: boolean
+                      vars:
+                        description: |-
+                          A list of environment variables to be added to the integration container.
+                          The syntax is either VAR=VALUE or VAR=[configmap|secret]:name/key, where name represents the resource name,
+                          and key represents the resource key to be mapped as and environment variable.
+                          These take precedence over any previously defined environment variables.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  error-handler:
+                    description: |-
+                      The configuration of Error Handler trait
+                      Deprecated: no longer in use.
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      ref:
+                        description: The error handler ref name provided or found
+                          in application properties
+                        type: string
+                    type: object
+                  gc:
+                    description: The configuration of GC trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      discoveryCache:
+                        description: |-
+                          Discovery client cache to be used, either `disabled`, `disk` or `memory` (default `memory`).
+                          Deprecated: no longer in use.
+                        enum:
+                        - disabled
+                        - disk
+                        - memory
+                        type: string
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                    type: object
+                  gitops:
+                    description: The configuration of GitOps trait
+                    properties:
+                      branch:
+                        description: the git branch to check out.
+                        type: string
+                      branchPush:
+                        description: the git branch to push to. If omitted, the operator
+                          will push to a new branch named as `cicd/release-candidate-<datetime>`.
+                        type: string
+                      commit:
+                        description: the git commit (full SHA) to check out.
+                        type: string
+                      committerEmail:
+                        default: camel-k-operator@apache.org
+                        description: The email used to commit the GitOps changes (default
+                          `camel-k-operator@apache.org`).
+                        type: string
+                      committerName:
+                        default: Camel K Operator
+                        description: The name used to commit the GitOps changes (default
+                          `Camel K Operator`).
+                        type: string
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      integrationDirectory:
+                        default: integrations
+                        description: The root path where to store Kustomize overlays
+                          (default `integrations`).
+                        type: string
+                      overlays:
+                        default:
+                        - dev
+                        - stag
+                        - prod
+                        description: a list of overlays to provide (default {"dev","stag","prod"}).
+                        items:
+                          type: string
+                        type: array
+                      overwriteOverlay:
+                        default: false
+                        description: a flag (default, false) to overwrite any existing
+                          overlay.
+                        type: boolean
+                      secret:
+                        description: the Kubernetes secret where the Git token is
+                          stored. The operator will pick up the first secret key only,
+                          whichever the name it is.
+                        type: string
+                      tag:
+                        description: the git tag to check out.
+                        type: string
+                      url:
+                        description: the URL of the repository where the project is
+                          stored.
+                        type: string
+                    type: object
+                  health:
+                    description: The configuration of Health trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      livenessFailureThreshold:
+                        description: Minimum consecutive failures for the liveness
+                          probe to be considered failed after having succeeded.
+                        format: int32
+                        type: integer
+                      livenessInitialDelay:
+                        description: Number of seconds after the container has started
+                          before the liveness probe is initiated.
+                        format: int32
+                        type: integer
+                      livenessPeriod:
+                        description: How often to perform the liveness probe.
+                        format: int32
+                        type: integer
+                      livenessPort:
+                        description: The liveness port to use (default 8080).
+                        format: int32
+                        type: integer
+                      livenessProbe:
+                        description: The liveness probe path to use (default provided
+                          by the Catalog runtime used).
+                        type: string
+                      livenessProbeEnabled:
+                        description: Configures the liveness probe for the integration
+                          container (default `false`).
+                        type: boolean
+                      livenessScheme:
+                        description: Scheme to use when connecting to the liveness
+                          probe (default `HTTP`).
+                        type: string
+                      livenessSuccessThreshold:
+                        description: Minimum consecutive successes for the liveness
+                          probe to be considered successful after having failed.
+                        format: int32
+                        type: integer
+                      livenessTimeout:
+                        description: Number of seconds after which the liveness probe
+                          times out.
+                        format: int32
+                        type: integer
+                      readinessFailureThreshold:
+                        description: Minimum consecutive failures for the readiness
+                          probe to be considered failed after having succeeded.
+                        format: int32
+                        type: integer
+                      readinessInitialDelay:
+                        description: Number of seconds after the container has started
+                          before the readiness probe is initiated.
+                        format: int32
+                        type: integer
+                      readinessPeriod:
+                        description: How often to perform the readiness probe.
+                        format: int32
+                        type: integer
+                      readinessPort:
+                        description: The readiness port to use (default 8080).
+                        format: int32
+                        type: integer
+                      readinessProbe:
+                        description: The readiness probe path to use (default provided
+                          by the Catalog runtime used).
+                        type: string
+                      readinessProbeEnabled:
+                        description: Configures the readiness probe for the integration
+                          container (default `true`).
+                        type: boolean
+                      readinessScheme:
+                        description: Scheme to use when connecting to the readiness
+                          probe (default `HTTP`).
+                        type: string
+                      readinessSuccessThreshold:
+                        description: Minimum consecutive successes for the readiness
+                          probe to be considered successful after having failed.
+                        format: int32
+                        type: integer
+                      readinessTimeout:
+                        description: Number of seconds after which the readiness probe
+                          times out.
+                        format: int32
+                        type: integer
+                      startupFailureThreshold:
+                        description: Minimum consecutive failures for the startup
+                          probe to be considered failed after having succeeded.
+                        format: int32
+                        type: integer
+                      startupInitialDelay:
+                        description: Number of seconds after the container has started
+                          before the startup probe is initiated.
+                        format: int32
+                        type: integer
+                      startupPeriod:
+                        description: How often to perform the startup probe.
+                        format: int32
+                        type: integer
+                      startupPort:
+                        description: The startup port to use (default 8080).
+                        format: int32
+                        type: integer
+                      startupProbe:
+                        description: The startup probe path to use (default provided
+                          by the Catalog runtime used).
+                        type: string
+                      startupProbeEnabled:
+                        description: Configures the startup probe for the integration
+                          container (default `false`).
+                        type: boolean
+                      startupScheme:
+                        description: Scheme to use when connecting to the startup
+                          probe (default `HTTP`).
+                        type: string
+                      startupSuccessThreshold:
+                        description: Minimum consecutive successes for the startup
+                          probe to be considered successful after having failed.
+                        format: int32
+                        type: integer
+                      startupTimeout:
+                        description: Number of seconds after which the startup probe
+                          times out.
+                        format: int32
+                        type: integer
+                    type: object
+                  ingress:
+                    description: The configuration of Ingress trait
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          The annotations added to the ingress.
+                          This can be used to set controller specific annotations, e.g., when using the NGINX Ingress controller:
+                          See https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md
+                        type: object
+                      auto:
+                        description: To automatically add an ingress whenever the
+                          integration uses an HTTP endpoint consumer.
+                        type: boolean
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      host:
+                        description: To configure the host exposed by the ingress.
+                        type: string
+                      ingressClassName:
+                        description: |-
+                          The Ingress class name as defined by the Ingress spec
+                          See https://kubernetes.io/docs/concepts/services-networking/ingress/
+                        type: string
+                      path:
+                        description: |-
+                          To configure the path exposed by the ingress (default `/`).
+                          Deprecated: In favor of `paths` - left for backward compatibility.
+                        type: string
+                      pathType:
+                        description: |-
+                          To configure the path type exposed by the ingress.
+                          One of `Exact`, `Prefix`, `ImplementationSpecific` (default to `Prefix`).
+                        enum:
+                        - Exact
+                        - Prefix
+                        - ImplementationSpecific
+                        type: string
+                      paths:
+                        description: To configure the paths exposed by the ingress
+                          (default `['/']`).
+                        items:
+                          type: string
+                        type: array
+                      tlsHosts:
+                        description: To configure tls hosts
+                        items:
+                          type: string
+                        type: array
+                      tlsSecretName:
+                        description: To configure tls secret name
+                        type: string
+                    type: object
+                  init-containers:
+                    description: The configuration of Init Containers trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      initTasks:
+                        description: A list of init tasks to be executed with format
+                          `<name>;<container-image>;<container-command>`.
+                        items:
+                          type: string
+                        type: array
+                      sideCarTasks:
+                        description: A list of sidecar tasks to be executed with format
+                          `<name>;<container-image>;<container-command>`.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  istio:
+                    description: The configuration of Istio trait
+                    properties:
+                      allow:
+                        description: Configures a (comma-separated) list of CIDR subnets
+                          that should not be intercepted by the Istio proxy (`10.0.0.0/8,172.16.0.0/12,192.168.0.0/16`
+                          by default).
+                        type: string
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      inject:
+                        description: Forces the value for labels `sidecar.istio.io/inject`.
+                          By default the label is set to `true` on deployment and
+                          not set on Knative Service.
+                        type: boolean
+                    type: object
+                  jolokia:
+                    description: |-
+                      The configuration of Jolokia trait
+                      Deprecated: use jvm.agent instead.
+                    properties:
+                      CACert:
+                        description: |-
+                          The PEM encoded CA certification file path, used to verify client certificates,
+                          applicable when `protocol` is `https` and `use-ssl-client-authentication` is `true`
+                          (default `/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt` for OpenShift).
+                        type: string
+                      clientPrincipal:
+                        description: |-
+                          The principal(s) which must be given in a client certificate to allow access to the Jolokia endpoint,
+                          applicable when `protocol` is `https` and `use-ssl-client-authentication` is `true`
+                          (default `clientPrincipal=cn=system:master-proxy`, `cn=hawtio-online.hawtio.svc` and `cn=fuse-console.fuse.svc` for OpenShift).
+                        items:
+                          type: string
+                        type: array
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      discoveryEnabled:
+                        description: Listen for multicast requests (default `false`)
+                        type: boolean
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      extendedClientCheck:
+                        description: |-
+                          Mandate the client certificate contains a client flag in the extended key usage section,
+                          applicable when `protocol` is `https` and `use-ssl-client-authentication` is `true`
+                          (default `true` for OpenShift).
+                        type: boolean
+                      host:
+                        description: |-
+                          The Host address to which the Jolokia agent should bind to. If `"\*"` or `"0.0.0.0"` is given,
+                          the servers binds to every network interface (default `"*"`).
+                        type: string
+                      options:
+                        description: |-
+                          A list of additional Jolokia options as defined
+                          in https://jolokia.org/reference/html/agents.html#agent-jvm-config[JVM agent configuration options]
+                        items:
+                          type: string
+                        type: array
+                      password:
+                        description: The password used for authentication, applicable
+                          when the `user` option is set.
+                        type: string
+                      port:
+                        description: The Jolokia endpoint port (default `8778`).
+                        format: int32
+                        type: integer
+                      protocol:
+                        description: The protocol to use, either `http` or `https`
+                          (default `https` for OpenShift)
+                        type: string
+                      useSSLClientAuthentication:
+                        description: Whether client certificates should be used for
+                          authentication (default `true` for OpenShift).
+                        type: boolean
+                      user:
+                        description: The user to be used for authentication
+                        type: string
+                    type: object
+                  jvm:
+                    description: The configuration of JVM trait
+                    properties:
+                      agents:
+                        description: A list of JVM agents to download and execute
+                          with format `<agent-name>;<agent-url>[;<jvm-agent-options>]`.
+                        items:
+                          type: string
+                        type: array
+                      caCert:
+                        description: |-
+                          Path to a PEM-encoded CA certificate file.
+                          Example: "/etc/camel/conf.d/_secrets/my-ca/ca.crt"
+                        type: string
+                      caCertMountPath:
+                        description: |-
+                          The path where the generated truststore will be mounted.
+                          Default: "/etc/camel/conf.d/_truststore"
+                        type: string
+                      caCertPassword:
+                        description: |-
+                          Required when caCert is set. Path to a file containing the truststore password.
+                          Example: "/etc/camel/conf.d/_secrets/truststore-pass/password"
+                        type: string
+                      classpath:
+                        description: Additional JVM classpath (use `Linux` classpath
+                          separator)
+                        type: string
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      debug:
+                        description: Activates remote debugging, so that a debugger
+                          can be attached to the JVM, e.g., using port-forwarding
+                        type: boolean
+                      debugAddress:
+                        description: Transport address at which to listen for the
+                          newly launched JVM (default `*:5005`)
+                        type: string
+                      debugSuspend:
+                        description: Suspends the target JVM immediately before the
+                          main class is loaded
+                        type: boolean
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      jar:
+                        description: The Jar dependency which will run the application.
+                          Leave it empty for managed Integrations.
+                        type: string
+                      options:
+                        description: A list of JVM options
+                        items:
+                          type: string
+                        type: array
+                      printCommand:
+                        description: |-
+                          Prints the command used the start the JVM in the container logs (default `true`)
+                          Deprecated: no longer in use.
+                        type: boolean
+                    type: object
+                  kamelets:
+                    description: The configuration of Kamelets trait
+                    properties:
+                      auto:
+                        description: Automatically inject all referenced Kamelets
+                          and their default configuration (enabled by default)
+                        type: boolean
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      list:
+                        description: Comma separated list of Kamelet names to load
+                          into the current integration
+                        type: string
+                      mountPoint:
+                        description: The directory where the application mounts and
+                          reads Kamelet spec (default `/etc/camel/kamelets`)
+                        type: string
+                    type: object
+                  keda:
+                    description: The configuration of Keda trait
+                    properties:
+                      auto:
+                        description: Automatically discover KEDA triggers from Camel
+                          component URIs.
+                        type: boolean
+                      autoMetadata:
+                        additionalProperties:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        description: |-
+                          Additional metadata to merge into auto-discovered triggers. Keys are trigger types (e.g., "kafka"),
+                          values are maps of metadata key-value pairs to merge (e.g., {"lagThreshold": "10"}).
+                        type: object
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      cooldownPeriod:
+                        description: The wait period between the last active trigger
+                          reported and scaling the resource back to 0.
+                        format: int32
+                        type: integer
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      idleReplicaCount:
+                        description: Enabling this property allows KEDA to scale the
+                          resource down to the specified number of replicas.
+                        format: int32
+                        type: integer
+                      maxReplicaCount:
+                        description: Maximum number of replicas.
+                        format: int32
+                        type: integer
+                      minReplicaCount:
+                        description: Minimum number of replicas.
+                        format: int32
+                        type: integer
+                      pollingInterval:
+                        description: Interval (seconds) to check each trigger on.
+                        format: int32
+                        type: integer
+                      triggers:
+                        description: |-
+                          Definition of triggers according to the KEDA format. Each trigger must contain `type` field corresponding
+                          to the name of a KEDA autoscaler and a key/value map named `metadata` containing specific trigger options
+                          and optionally a mapping of secrets, used by Keda operator to poll resources according to the autoscaler type.
+                        items:
+                          properties:
+                            metadata:
+                              additionalProperties:
+                                type: string
+                              description: The trigger metadata (see Keda documentation
+                                to learn how to fill for each type).
+                              type: object
+                            secrets:
+                              description: The secrets mapping to use. Keda allows
+                                the possibility to use values coming from different
+                                secrets.
+                              items:
+                                properties:
+                                  mapping:
+                                    additionalProperties:
+                                      type: string
+                                    description: The mapping to use for this secret
+                                      (eg, `database-secret-key:keda-secret-key`)
+                                    type: object
+                                  name:
+                                    description: The name of the secret to use.
+                                    type: string
+                                type: object
+                              type: array
+                            type:
+                              description: The autoscaler type.
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  knative:
+                    description: The configuration of Knative trait
+                    properties:
+                      auto:
+                        description: Enable automatic discovery of all trait properties.
+                        type: boolean
+                      channelSinks:
+                        description: |-
+                          List of channels used as destination of integration routes.
+                          Can contain simple channel names or full Camel URIs.
+                        items:
+                          type: string
+                        type: array
+                      channelSources:
+                        description: |-
+                          List of channels used as source of integration routes.
+                          Can contain simple channel names or full Camel URIs.
+                        items:
+                          type: string
+                        type: array
+                      config:
+                        description: Can be used to inject a Knative complete configuration
+                          in JSON format.
+                        type: string
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      endpointSinks:
+                        description: |-
+                          List of endpoints used as destination of integration routes.
+                          Can contain simple endpoint names or full Camel URIs.
+                        items:
+                          type: string
+                        type: array
+                      endpointSources:
+                        description: List of channels used as source of integration
+                          routes.
+                        items:
+                          type: string
+                        type: array
+                      eventSinks:
+                        description: |-
+                          List of event types that the integration will produce.
+                          Can contain simple event types or full Camel URIs (to use a specific broker).
+                        items:
+                          type: string
+                        type: array
+                      eventSources:
+                        description: |-
+                          List of event types that the integration will be subscribed to.
+                          Can contain simple event types or full Camel URIs (to use a specific broker different from "default").
+                        items:
+                          type: string
+                        type: array
+                      filterEventType:
+                        description: |-
+                          Enables the default filtering for the Knative trigger using the event type
+                          If this is true, the created Knative trigger uses the event type as a filter on the event stream when no other filter criteria is given. (default: true)
+                        type: boolean
+                      filterSourceChannels:
+                        description: |-
+                          Enables filtering on events based on the header "ce-knativehistory". Since this header has been removed in newer versions of
+                          Knative, filtering is disabled by default.
+                        type: boolean
+                      filters:
+                        description: |-
+                          Sets filter attributes on the event stream (such as event type, source, subject and so on).
+                          A list of key-value pairs that represent filter attributes and its values.
+                          The syntax is KEY=VALUE, e.g., `source="my.source"`.
+                          Filter attributes get set on the Knative trigger that is being created as part of this integration.
+                        items:
+                          type: string
+                        type: array
+                      namespaceLabel:
+                        description: |-
+                          Enables the camel-k-operator to set the "bindings.knative.dev/include=true" label to the namespace
+                          As Knative requires this label to perform injection of K_SINK URL into the service.
+                          If this is false, the integration pod may start and fail, read the SinkBinding Knative documentation. (default: true)
+                        type: boolean
+                      sinkBinding:
+                        description: |-
+                          Allows binding the integration to a sink via a Knative SinkBinding resource.
+                          This can be used when the integration targets a single sink.
+                          It's enabled by default when the integration targets a single sink
+                          (except when the integration is owned by a Knative source).
+                        type: boolean
+                    type: object
+                  knative-service:
+                    description: The configuration of Knative Service trait
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          The annotations added to route.
+                          This can be used to set knative service specific annotations
+                          CLI usage example: -t "knative-service.annotations.'haproxy.router.openshift.io/balance'=true"
+                        type: object
+                      auto:
+                        description: |-
+                          Automatically deploy the integration as Knative service when all conditions hold:
+
+                          * Integration is using the Knative profile
+                          * All routes are either starting from an HTTP based consumer or a passive consumer (e.g. `direct` is a passive consumer)
+                        type: boolean
+                      autoscalingMetric:
+                        description: |-
+                          Configures the Knative autoscaling metric property (e.g. to set `concurrency` based or `cpu` based autoscaling).
+
+                          Refer to the Knative documentation for more information.
+                        type: string
+                      autoscalingTarget:
+                        description: |-
+                          Sets the allowed concurrency level or CPU percentage (depending on the autoscaling metric) for each Pod.
+
+                          Refer to the Knative documentation for more information.
+                        type: integer
+                      class:
+                        description: |-
+                          Configures the Knative autoscaling class property (e.g. to set `hpa.autoscaling.knative.dev` or `kpa.autoscaling.knative.dev` autoscaling).
+
+                          Refer to the Knative documentation for more information.
+                        enum:
+                        - kpa.autoscaling.knative.dev
+                        - hpa.autoscaling.knative.dev
+                        type: string
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      maxScale:
+                        description: |-
+                          An upper bound for the number of Pods that can be running in parallel for the integration.
+                          Knative has its own cap value that depends on the installation.
+
+                          Refer to the Knative documentation for more information.
+                        type: integer
+                      minScale:
+                        description: |-
+                          The minimum number of Pods that should be running at any time for the integration. It's **zero** by default, meaning that
+                          the integration is scaled down to zero when not used for a configured amount of time.
+
+                          Refer to the Knative documentation for more information.
+                        type: integer
+                      rolloutDuration:
+                        description: |-
+                          Enables to gradually shift traffic to the latest Revision and sets the rollout duration.
+                          It's disabled by default and must be expressed as a Golang `time.Duration` string representation,
+                          rounded to a second precision.
+                        type: string
+                      timeoutSeconds:
+                        description: |-
+                          The maximum duration in seconds that the request instance is allowed to respond to a request.
+                          This field propagates to the integration pod's terminationGracePeriodSeconds
+
+                          Refer to the Knative documentation for more information.
+                        format: int64
+                        type: integer
+                      visibility:
+                        description: |-
+                          Setting `cluster-local`, Knative service becomes a private service.
+                          Specifically, this option applies the `networking.knative.dev/visibility` label to Knative service.
+
+                          Refer to the Knative documentation for more information.
+                        enum:
+                        - cluster-local
+                        type: string
+                    type: object
+                  logging:
+                    description: The configuration of Logging trait
+                    properties:
+                      color:
+                        description: Colorize the log output
+                        type: boolean
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      format:
+                        description: Logs message format
+                        type: string
+                      json:
+                        description: Output the logs in JSON
+                        type: boolean
+                      jsonPrettyPrint:
+                        description: Enable "pretty printing" of the JSON logs
+                        type: boolean
+                      level:
+                        description: Adjust the logging level (defaults to `INFO`)
+                        enum:
+                        - FATAL
+                        - WARN
+                        - INFO
+                        - DEBUG
+                        - TRACE
+                        type: string
+                    type: object
+                  master:
+                    description: The configuration of Master trait
+                    properties:
+                      auto:
+                        description: Enables automatic configuration of the trait.
+                        type: boolean
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      includeDelegateDependencies:
+                        description: |-
+                          When this flag is active, the operator analyzes the source code to add dependencies required by delegate endpoints.
+                          E.g. when using `master:lockname:timer`, then `camel:timer` is automatically added to the set of dependencies.
+                          It's enabled by default.
+                        type: boolean
+                      labelKey:
+                        description: Label that will be used to identify all pods
+                          contending the lock. Defaults to "camel.apache.org/integration".
+                        type: string
+                      labelValue:
+                        description: Label value that will be used to identify all
+                          pods contending the lock. Defaults to the integration name.
+                        type: string
+                      resourceName:
+                        description: |-
+                          Name of the configmap that will be used to store the lock. Defaults to "<integration-name>-lock".
+                          Name of the configmap/lease resource that will be used to store the lock. Defaults to "<integration-name>-lock".
+                        type: string
+                      resourceType:
+                        description: Type of Kubernetes resource to use for locking
+                          ("ConfigMap" or "Lease"). Defaults to "Lease".
+                        type: string
+                    type: object
+                  mount:
+                    description: The configuration of Mount trait
+                    properties:
+                      configs:
+                        description: |-
+                          A list of configuration pointing to configmap/secret.
+                          The configuration are expected to be UTF-8 resources as they are processed by runtime Camel Context and tried to be parsed as property files.
+                          They are also made available on the classpath in order to ease their usage directly from the Route.
+                          Syntax: [configmap|secret]:name[/key], where name represents the resource name and key optionally represents the resource key to be filtered
+                        items:
+                          type: string
+                        type: array
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      emptyDirs:
+                        description: |-
+                          A list of EmptyDir volumes to be mounted. An optional size limit may be configured (default 500Mi).
+                          Syntax: name:/container/path[:sizeLimit]
+                        items:
+                          type: string
+                        type: array
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      hotReload:
+                        description: |-
+                          Enable "hot reload" when a secret/configmap mounted is edited (default `false`). The configmap/secret must be
+                          marked with `camel.apache.org/integration` label to be taken in account. The resource will be watched for any kind change, also for
+                          changes in metadata.
+                        type: boolean
+                      resources:
+                        description: |-
+                          A list of resources (text or binary content) pointing to configmap/secret.
+                          The resources are expected to be any resource type (text or binary content).
+                          The destination path can be either a default location or any path specified by the user.
+                          Syntax: [configmap|secret]:name[/key][@path], where name represents the resource name, key optionally represents the resource key to be filtered and path represents the destination path
+                        items:
+                          type: string
+                        type: array
+                      scanKameletsImplicitLabelSecrets:
+                        description: 'Deprecated: no longer available since version
+                          2.5.'
+                        type: boolean
+                      volumes:
+                        description: |-
+                          A list of Persistent Volume Claims to be mounted. Syntax: [pvcname:/container/path]. If the PVC is not found, the Integration fails.
+                          You can use the syntax [pvcname:/container/path:size:accessMode<:storageClass>] to create a dynamic PVC based on the Storage Class provided
+                          or the default cluster Storage Class. However, if the PVC exists, the operator would mount it.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  openapi:
+                    description: |-
+                      The configuration of OpenAPI trait
+                      Deprecated: no longer in use.
+                    properties:
+                      configmaps:
+                        description: The configmaps holding the spec of the OpenAPI
+                          (compatible with > 3.0 spec only).
+                        items:
+                          type: string
+                        type: array
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                    type: object
+                  owner:
+                    description: The configuration of Owner trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      targetAnnotations:
+                        description: The set of annotations to be transferred
+                        items:
+                          type: string
+                        type: array
+                      targetLabels:
+                        description: The set of labels to be transferred
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  pdb:
+                    description: The configuration of PDB trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      maxUnavailable:
+                        description: |-
+                          The number of pods for the Integration that can be unavailable after an eviction.
+                          It can be either an absolute number or a percentage (default `1` if `min-available` is also not set).
+                          Only one of `max-unavailable` and `min-available` can be specified.
+                        type: string
+                      minAvailable:
+                        description: |-
+                          The number of pods for the Integration that must still be available after an eviction.
+                          It can be either an absolute number or a percentage.
+                          Only one of `min-available` and `max-unavailable` can be specified.
+                        type: string
+                    type: object
+                  platform:
+                    description: The configuration of Platform trait
+                    properties:
+                      auto:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      createDefault:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      global:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                    type: object
+                  pod:
+                    description: |-
+                      The configuration of Pod trait
+                      Deprecated: use init-containers instead.
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                    type: object
+                  prometheus:
+                    description: The configuration of Prometheus trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      podMonitor:
+                        description: Whether a `PodMonitor` resource is created (default
+                          `true`).
+                        type: boolean
+                      podMonitorLabels:
+                        description: The `PodMonitor` resource labels, applicable
+                          when `pod-monitor` is `true`.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  pull-secret:
+                    description: The configuration of Pull Secret trait
+                    properties:
+                      auto:
+                        description: Automatically configures the platform registry
+                          secret on the pod if it is of type `kubernetes.io/dockerconfigjson`.
+                        type: boolean
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      imagePullerDelegation:
+                        description: When using a global operator with a shared platform,
+                          this enables delegation of the `system:image-puller` cluster
+                          role on the operator namespace to the integration service
+                          account.
+                        type: boolean
+                      secretName:
+                        description: The pull secret name to set on the Pod. If left
+                          empty this is automatically taken from the `IntegrationPlatform`
+                          registry configuration.
+                        type: string
+                    type: object
+                  quarkus:
+                    description: The configuration of Quarkus trait
+                    properties:
+                      buildMode:
+                        description: |-
+                          The Quarkus mode to run: either `jvm` or `native` (default `jvm`).
+                          In case both `jvm` and `native` are specified, two `IntegrationKit` resources are created,
+                          with the `native` kit having precedence over the `jvm` one once ready.
+                        items:
+                          description: QuarkusMode is the type of Quarkus build packaging.
+                          enum:
+                          - jvm
+                          - native
+                          type: string
+                        type: array
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      nativeBaseImage:
+                        description: The base image to use when running a native build
+                          (default `quay.io/quarkus/quarkus-micro-image:2.0`)
+                        type: string
+                      nativeBuilderImage:
+                        description: The image containing the tooling required for
+                          a native build (by default it will use the one provided
+                          in the runtime catalog)
+                        type: string
+                      packageTypes:
+                        description: |-
+                          The Quarkus package types, `fast-jar` or `native` (default `fast-jar`).
+                          In case both `fast-jar` and `native` are specified, two `IntegrationKit` resources are created,
+                          with the native kit having precedence over the `fast-jar` one once ready.
+                          The order influences the resolution of the current kit for the integration.
+                          The kit corresponding to the first package type will be assigned to the
+                          integration in case no existing kit that matches the integration exists.
+                          Deprecated: use `build-mode` instead.
+                        items:
+                          description: |-
+                            QuarkusPackageType is the type of Quarkus build packaging.
+                            Deprecated: use `QuarkusMode` instead.
+                          enum:
+                          - fast-jar
+                          - native
+                          type: string
+                        type: array
+                    type: object
+                  registry:
+                    description: |-
+                      The configuration of Registry trait (support removed since version 2.5.0).
+                      Deprecated: use jvm trait or read documentation.
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                    type: object
+                  route:
+                    description: |-
+                      The configuration of Route trait
+                      Deprecated: use ingress instead.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          The annotations added to route.
+                          This can be used to set route specific annotations
+                          For annotations options see https://docs.openshift.com/container-platform/3.11/architecture/networking/routes.html#route-specific-annotations
+                          CLI usage example: -t "route.annotations.'haproxy.router.openshift.io/balance'=true"
+                        type: object
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      host:
+                        description: To configure the host exposed by the route.
+                        type: string
+                      tlsCACertificate:
+                        description: |-
+                          The TLS CA certificate contents.
+
+                          Refer to the OpenShift route documentation for additional information.
+                        type: string
+                      tlsCACertificateSecret:
+                        description: |-
+                          The secret name and key reference to the TLS CA certificate. The format is "secret-name[/key-name]", the value represents the secret name, if there is only one key in the secret it will be read, otherwise you can set a key name separated with a "/".
+
+                          Refer to the OpenShift route documentation for additional information.
+                        type: string
+                      tlsCertificate:
+                        description: |-
+                          The TLS certificate contents.
+
+                          Refer to the OpenShift route documentation for additional information.
+                        type: string
+                      tlsCertificateSecret:
+                        description: |-
+                          The secret name and key reference to the TLS certificate. The format is "secret-name[/key-name]", the value represents the secret name, if there is only one key in the secret it will be read, otherwise you can set a key name separated with a "/".
+
+                          Refer to the OpenShift route documentation for additional information.
+                        type: string
+                      tlsDestinationCACertificate:
+                        description: |-
+                          The destination CA certificate provides the contents of the ca certificate of the final destination.  When using reencrypt
+                          termination this file should be provided in order to have routers use it for health checks on the secure connection.
+                          If this field is not specified, the router may provide its own destination CA and perform hostname validation using
+                          the short service name (service.namespace.svc), which allows infrastructure generated certificates to automatically
+                          verify.
+
+                          Refer to the OpenShift route documentation for additional information.
+                        type: string
+                      tlsDestinationCACertificateSecret:
+                        description: |-
+                          The secret name and key reference to the destination CA certificate. The format is "secret-name[/key-name]", the value represents the secret name, if there is only one key in the secret it will be read, otherwise you can set a key name separated with a "/".
+
+                          Refer to the OpenShift route documentation for additional information.
+                        type: string
+                      tlsInsecureEdgeTerminationPolicy:
+                        description: |-
+                          To configure how to deal with insecure traffic, e.g. `Allow`, `Disable` or `Redirect` traffic.
+
+                          Refer to the OpenShift route documentation for additional information.
+                        enum:
+                        - None
+                        - Allow
+                        - Redirect
+                        type: string
+                      tlsKey:
+                        description: |-
+                          The TLS certificate key contents.
+
+                          Refer to the OpenShift route documentation for additional information.
+                        type: string
+                      tlsKeySecret:
+                        description: |-
+                          The secret name and key reference to the TLS certificate key. The format is "secret-name[/key-name]", the value represents the secret name, if there is only one key in the secret it will be read, otherwise you can set a key name separated with a "/".
+
+                          Refer to the OpenShift route documentation for additional information.
+                        type: string
+                      tlsTermination:
+                        description: |-
+                          The TLS termination type, like `edge`, `passthrough` or `reencrypt`.
+
+                          Refer to the OpenShift route documentation for additional information.
+                        enum:
+                        - edge
+                        - reencrypt
+                        - passthrough
+                        type: string
+                    type: object
+                  security-context:
+                    description: The configuration of Security Context trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: 'Deprecated: no longer in use.'
+                        type: boolean
+                      runAsNonRoot:
+                        description: Security Context RunAsNonRoot configuration (default
+                          false).
+                        type: boolean
+                      runAsUser:
+                        description: 'Security Context RunAsUser configuration (default
+                          none): this value is automatically retrieved in Openshift
+                          clusters when not explicitly set.'
+                        format: int64
+                        type: integer
+                      seccompProfileType:
+                        description: Security Context SeccompProfileType configuration
+                          (default RuntimeDefault).
+                        enum:
+                        - Unconfined
+                        - RuntimeDefault
+                        type: string
+                    type: object
+                  service:
+                    description: The configuration of Service trait
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: The annotations added to the Service object.
+                        type: object
+                      auto:
+                        description: To automatically detect from the code if a Service
+                          needs to be created.
+                        type: boolean
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: The labels added to the Service object.
+                        type: object
+                      nodePort:
+                        description: |-
+                          Enable Service to be exposed as NodePort (default `false`).
+                          Deprecated: Use service type instead.
+                        type: boolean
+                      ports:
+                        description: |-
+                          List of container ports available in the container to expose
+                          (syntax: <port-name>;<port-number>;<container-port-number>[;<port-protocol]).
+                          When omitted, `port-protocol` (admitted values `TCP`, `UDP` or `SCTP`) is `TCP`.
+                          Don't use this for the primary http managed port (which is managed by container trait).
+                          Don't use in Knative based environments.
+                        items:
+                          type: string
+                        type: array
+                      type:
+                        description: The type of service to be used, either 'ClusterIP',
+                          'NodePort' or 'LoadBalancer'.
+                        enum:
+                        - ClusterIP
+                        - NodePort
+                        - LoadBalancer
+                        type: string
+                    type: object
+                  service-binding:
+                    description: |-
+                      The configuration of Service Binding trait
+                      Deprecated: no longer in use.
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      services:
+                        description: List of Services in the form [[apigroup/]version:]kind:[namespace/]name
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  strimzi:
+                    description: 'Deprecated: no longer in use.'
+                    properties:
+                      configuration:
+                        description: TraitConfiguration parameters configuration
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                    - configuration
+                    type: object
+                  telemetry:
+                    description: The configuration of Telemetry trait
+                    properties:
+                      auto:
+                        description: Enables automatic configuration of the trait,
+                          including automatic discovery of the telemetry endpoint.
+                        type: boolean
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      endpoint:
+                        description: The target endpoint of the Telemetry service
+                          (automatically discovered by default)
+                        type: string
+                      sampler:
+                        description: The sampler of the telemetry used for tracing
+                          (default "on")
+                        type: string
+                      sampler-parent-based:
+                        description: The sampler of the telemetry used for tracing
+                          is parent based (default "true")
+                        type: boolean
+                      sampler-ratio:
+                        description: The sampler ratio of the telemetry used for tracing
+                        type: string
+                      serviceName:
+                        description: The name of the service that publishes telemetry
+                          data (defaults to the integration name)
+                        type: string
+                    type: object
+                  toleration:
+                    description: The configuration of Toleration trait
+                    properties:
+                      configuration:
+                        description: |-
+                          Legacy trait configuration parameters.
+                          Deprecated: for backward compatibility.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      enabled:
+                        description: Can be used to enable or disable a trait. All
+                          traits share this common property.
+                        type: boolean
+                      taints:
+                        description: The list of taints to tolerate, in the form `Key[=Value]:Effect[:Seconds]`
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  tracing:
+                    description: 'Deprecated: no longer in use.'
+                    properties:
+                      configuration:
+                        description: TraitConfiguration parameters configuration
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                    - configuration
+                    type: object
+                type: object
             type: object
           status:
             description: the status of a Pipe
