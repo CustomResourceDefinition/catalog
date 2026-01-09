@@ -67,7 +67,7 @@ endif
 
 test-editorcheck:
 	@echo 'Checking general formatting of all files ...'
-	$(COMPOSE_RUN) editorconfig ec -exclude '^schema/|^\.git/|.DS_Store|^build/remote/|^definitions/'
+	$(COMPOSE_RUN) editorconfig ec -exclude '^schema/|^\.git/|.DS_Store|^build/|^definitions/'
 	@printf $(GREEN) "OK"
 
 test-docker:
