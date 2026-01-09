@@ -9,18 +9,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.69% | 3288 | 9638 | 82 |
+| 98.87% | 3288 | 9646 | 82 |
 
 ### Missing Schemas
-
-| ais.nvidia.com | |
-| --- | --- |
-| aistore | v1beta1 |
-
-| apps.projectsveltos.io | |
-| --- | --- |
-| cleaner | v1alpha1 |
-| report | v1alpha1 |
 
 | autoscaling.cast.ai | |
 | --- | --- |
@@ -88,15 +79,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | networking.gke.io | |
 | --- | --- |
 | networklogging | v1alpha1 |
-
-| renovate-operator.mogenius.com | |
-| --- | --- |
-| renovatejob | v1alpha1 |
-
-| tuppr.home-operations.com | |
-| --- | --- |
-| kubernetesupgrade | v1alpha1 |
-| talosupgrade | v1alpha1 |
 
 ### Ignored Schemas
 
