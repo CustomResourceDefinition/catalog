@@ -238,6 +238,67 @@
                 },
                 "additionalProperties": false
               },
+              "jwtValidationConfig": {
+                "description": "Information for a jwt-validation action",
+                "type": "object",
+                "required": [
+                  "issuer",
+                  "jwksEndpoint"
+                ],
+                "properties": {
+                  "additionalClaims": {
+                    "description": "Any additional claims in the JWT that should be validated",
+                    "type": "array",
+                    "items": {
+                      "description": "JwtValidationActionAdditionalClaim Information about an additional claim to validate.",
+                      "type": "object",
+                      "required": [
+                        "format",
+                        "name",
+                        "values"
+                      ],
+                      "properties": {
+                        "format": {
+                          "description": "The format of the claim value(s)",
+                          "type": "string",
+                          "enum": [
+                            "single-string",
+                            "string-array",
+                            "space-separated-values"
+                          ]
+                        },
+                        "name": {
+                          "description": "The name of the claim. You can't specify exp, iss, nbf, or iat because we validate them by default.",
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "values": {
+                          "description": "The claim values. The maximum size of the list is 10. Each value can be up to 256 characters in length.\nIf the format is space-separated-values, the values can't include spaces.",
+                          "type": "array",
+                          "maxItems": 10,
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 256
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "issuer": {
+                    "description": "The issuer of the JWT. The maximum length is 256 characters.",
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "jwksEndpoint": {
+                    "description": "The JSON Web Key Set (JWKS) endpoint. This endpoint contains JSON Web Keys (JWK) that are used to validate signatures from the provider.\nThis must be a full URL, including the HTTPS protocol, the domain, and the path. The maximum length is 256 characters.",
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                },
+                "additionalProperties": false
+              },
               "redirectConfig": {
                 "description": "Information for a redirect action",
                 "type": "object",
@@ -258,7 +319,8 @@
                   "fixed-response",
                   "redirect",
                   "authenticate-cognito",
-                  "authenticate-oidc"
+                  "authenticate-oidc",
+                  "jwt-validation"
                 ]
               }
             },
@@ -283,6 +345,10 @@
               {
                 "rule": "has(self.type) \u0026\u0026 self.type == 'authenticate-oidc' ? has(self.authenticateOIDCConfig) : !has(self.authenticateOIDCConfig)",
                 "message": "authenticateOIDCConfig must be specified only when type is 'authenticate-oidc'"
+              },
+              {
+                "rule": "has(self.type) \u0026\u0026 self.type == 'jwt-validation' ? has(self.jwtValidationConfig) : !has(self.jwtValidationConfig)",
+                "message": "jwtValidationConfig must be specified only when type is 'jwt-validation'"
               }
             ]
           }
@@ -355,12 +421,12 @@
           "message": "At least one action must be specified if actions field is present"
         },
         {
-          "rule": "!has(self.actions) || self.actions.all(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito' || a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')",
-          "message": "Only forward, redirect, authenticate-oidc, authenticate-cognito, and fixed-response action types are supported"
+          "rule": "!has(self.actions) || self.actions.all(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito' || a.type == 'jwt-validation' || a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')",
+          "message": "Only forward, redirect, authenticate-oidc, authenticate-cognito, jwt-validation, and fixed-response action types are supported"
         },
         {
-          "rule": "!has(self.actions) || size(self.actions.filter(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito')) \u003c= 1",
-          "message": "At most one authentication action (either authenticate-oidc or authenticate-cognito) can be specified"
+          "rule": "!has(self.actions) || size(self.actions.filter(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito' || a.type == 'jwt-validation')) \u003c= 1",
+          "message": "At most one pre-routing action (authenticate-oidc, authenticate-cognito, or jwt-validation) can be specified"
         },
         {
           "rule": "!has(self.actions) || size(self.actions.filter(a, a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')) \u003c= 1",
