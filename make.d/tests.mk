@@ -43,6 +43,8 @@ ifneq ($(strip $(CI)),)
 	git config --global user.name "Test Runner"
 endif
 
+	docker compose down --remove-orphans
+
 	@echo 'Run first smoke test ...'
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -not -name ".gitignore" -and -not -name ".gitkeep" -type f -delete
 	-find build/ephemeral/schema build/ephemeral/verified build/ephemeral/repository -type d -empty -delete
