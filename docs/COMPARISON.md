@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.83% | 3334 | 9734 | 82 |
+| 98.86% | 3334 | 9735 | 82 |
 
 ### Missing Schemas
 
@@ -83,10 +83,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | networking.gke.io | |
 | --- | --- |
 | networklogging | v1alpha1 |
-
-| operator.h3poteto.dev | |
-| --- | --- |
-| endpointgroupbinding | v1alpha1 |
 
 ### Ignored Schemas
 
