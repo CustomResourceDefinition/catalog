@@ -9,13 +9,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.86% | 3334 | 9735 | 82 |
+| 98.89% | 3334 | 9735 | 83 |
 
 ### Missing Schemas
-
-| autoscaling.cast.ai | |
-| --- | --- |
-| recommendations | v1 |
 
 | cloud.google.com | |
 | --- | --- |
@@ -117,6 +113,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | anywhere.eks.amazonaws.com | dockermachinetemplate | v1alpha3 |
 | anywhere.eks.amazonaws.com | dockermachinetemplate | v1alpha4 |
 | anywhere.eks.amazonaws.com | dockermachinetemplate | v1beta1 |
+| autoscaling.cast.ai | recommendations | v1 |
 | dex.coreos.com | authcode | v1 |
 | dex.coreos.com | authrequest | v1 |
 | dex.coreos.com | connector | v1 |
