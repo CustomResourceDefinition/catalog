@@ -5117,6 +5117,14 @@
           },
           "additionalProperties": false
         },
+        "podManagementPolicy": {
+          "description": "podManagementPolicy defines the policy for creating/deleting pods when\nscaling up and down.\n\nUnlike the default StatefulSet behavior, the default policy is\n`Parallel` to avoid manual intervention in case a pod gets stuck during\na rollout.\n\nNote that updating this value implies the recreation of the StatefulSet\nwhich incurs a service outage.",
+          "type": "string",
+          "enum": [
+            "OrderedReady",
+            "Parallel"
+          ]
+        },
         "podMetadata": {
           "description": "podMetadata defines labels and annotations which are propagated to the Prometheus pods.\n\nThe following items are reserved and cannot be overridden:\n* \"prometheus\" label, set to the name of the Prometheus object.\n* \"app.kubernetes.io/instance\" label, set to the name of the Prometheus object.\n* \"app.kubernetes.io/managed-by\" label, set to \"prometheus-operator\".\n* \"app.kubernetes.io/name\" label, set to \"prometheus\".\n* \"app.kubernetes.io/version\" label, set to the Prometheus version.\n* \"operator.prometheus.io/name\" label, set to the name of the Prometheus object.\n* \"operator.prometheus.io/shard\" label, set to the shard number of the Prometheus object.\n* \"kubectl.kubernetes.io/default-container\" annotation, set to \"prometheus\".",
           "type": "object",
@@ -6178,7 +6186,7 @@
                     ]
                   },
                   "managedIdentity": {
-                    "description": "managedIdentity defines the Azure User-assigned Managed identity.\nCannot be set at the same time as `oauth` or `sdk`.",
+                    "description": "managedIdentity defines the Azure User-assigned Managed identity.\nCannot be set at the same time as `oauth`, `sdk` or `workloadIdentity`.",
                     "type": "object",
                     "properties": {
                       "clientId": {
@@ -6190,7 +6198,7 @@
                     "additionalProperties": false
                   },
                   "oauth": {
-                    "description": "oauth defines the oauth config that is being used to authenticate.\nCannot be set at the same time as `managedIdentity` or `sdk`.\n\nIt requires Prometheus \u003e= v2.48.0 or Thanos \u003e= v0.31.0.",
+                    "description": "oauth defines the oauth config that is being used to authenticate.\nCannot be set at the same time as `managedIdentity`, `sdk` or `workloadIdentity`.\n\nIt requires Prometheus \u003e= v2.48.0 or Thanos \u003e= v0.31.0.",
                     "type": "object",
                     "required": [
                       "clientId",
@@ -6236,14 +6244,40 @@
                     },
                     "additionalProperties": false
                   },
+                  "scope": {
+                    "description": "scope is the custom OAuth 2.0 scope to request when acquiring tokens.\nIt requires Prometheus \u003e= 3.9.0. Currently not supported by Thanos.",
+                    "type": "string",
+                    "pattern": "^[\\w\\s:/.\\\\-]+$"
+                  },
                   "sdk": {
-                    "description": "sdk defines the Azure SDK config that is being used to authenticate.\nSee https://learn.microsoft.com/en-us/azure/developer/go/azure-sdk-authentication\nCannot be set at the same time as `oauth` or `managedIdentity`.\n\nIt requires Prometheus \u003e= v2.52.0 or Thanos \u003e= v0.36.0.",
+                    "description": "sdk defines the Azure SDK config that is being used to authenticate.\nSee https://learn.microsoft.com/en-us/azure/developer/go/azure-sdk-authentication\nCannot be set at the same time as `oauth`, `managedIdentity` or `workloadIdentity`.\n\nIt requires Prometheus \u003e= v2.52.0 or Thanos \u003e= v0.36.0.",
                     "type": "object",
                     "properties": {
                       "tenantId": {
                         "description": "tenantId defines the tenant ID of the azure active directory application that is being used to authenticate.",
                         "type": "string",
                         "pattern": "^[0-9a-zA-Z-.]+$"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "workloadIdentity": {
+                    "description": "workloadIdentity defines the Azure Workload Identity authentication.\nCannot be set at the same time as `oauth`, `managedIdentity`, or `sdk`.\n\nIt requires Prometheus \u003e= 3.7.0. Currently not supported by Thanos.",
+                    "type": "object",
+                    "required": [
+                      "clientId",
+                      "tenantId"
+                    ],
+                    "properties": {
+                      "clientId": {
+                        "description": "clientId is the clientID of the Azure Active Directory application.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "tenantId": {
+                        "description": "tenantId is the tenant ID of the Azure Active Directory application.",
+                        "type": "string",
+                        "minLength": 1
                       }
                     },
                     "additionalProperties": false
@@ -7887,6 +7921,10 @@
           "default": "30s",
           "pattern": "^(0|(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?(([0-9]+)ms)?)$"
         },
+        "scrapeNativeHistograms": {
+          "description": "scrapeNativeHistograms defines whether to enable scraping of native histograms.\nIt requires Prometheus \u003e= v3.8.0.",
+          "type": "boolean"
+        },
         "scrapeProtocols": {
           "description": "scrapeProtocols defines the protocols to negotiate during a scrape. It tells clients the\nprotocols supported by Prometheus in order of preference (from most to least preferred).\n\nIf unset, Prometheus uses its default value.\n\nIt requires Prometheus \u003e= v2.49.0.\n\n`PrometheusText1.0.0` requires Prometheus \u003e= v3.0.0.",
           "type": "array",
@@ -9389,18 +9427,21 @@
           ],
           "properties": {
             "clientType": {
-              "description": "clientType defines the client used to export the traces. Supported values are `http` or `grpc`.",
+              "description": "clientType defines the client used to export the traces. Supported values are `HTTP` and `GRPC`.",
               "type": "string",
               "enum": [
                 "http",
-                "grpc"
+                "grpc",
+                "HTTP",
+                "GRPC"
               ]
             },
             "compression": {
-              "description": "compression key for supported compression types. The only supported value is `gzip`.",
+              "description": "compression key for supported compression types. The only supported value is `Gzip`.",
               "type": "string",
               "enum": [
-                "gzip"
+                "gzip",
+                "Gzip"
               ]
             },
             "endpoint": {
@@ -9632,6 +9673,49 @@
             }
           },
           "additionalProperties": false
+        },
+        "updateStrategy": {
+          "description": "updateStrategy indicates the strategy that will be employed to update\nPods in the StatefulSet when a revision is made to statefulset's Pod\nTemplate.\n\nThe default strategy is RollingUpdate.",
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "rollingUpdate": {
+              "description": "rollingUpdate is used to communicate parameters when type is RollingUpdate.",
+              "type": "object",
+              "properties": {
+                "maxUnavailable": {
+                  "description": "maxUnavailable is the maximum number of pods that can be unavailable\nduring the update. The value can be an absolute number (ex: 5) or a\npercentage of desired pods (ex: 10%). Absolute number is calculated from\npercentage by rounding up. This can not be 0.  Defaults to 1. This field\nis alpha-level and is only honored by servers that enable the\nMaxUnavailableStatefulSet feature. The field applies to all pods in the\nrange 0 to Replicas-1.  That means if there is any unavailable pod in\nthe range 0 to Replicas-1, it will be counted towards MaxUnavailable.",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "x-kubernetes-int-or-string": true
+                }
+              },
+              "additionalProperties": false
+            },
+            "type": {
+              "description": "type indicates the type of the StatefulSetUpdateStrategy.\n\nDefault is RollingUpdate.",
+              "type": "string",
+              "enum": [
+                "OnDelete",
+                "RollingUpdate"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!(self.type != 'RollingUpdate' \u0026\u0026 has(self.rollingUpdate))",
+              "message": "rollingUpdate requires type to be RollingUpdate"
+            }
+          ]
         },
         "version": {
           "description": "version of Prometheus being deployed. The operator uses this information\nto generate the Prometheus StatefulSet + configuration files.\n\nIf not specified, the operator assumes the latest upstream version of\nPrometheus available at the time when the version of the operator was\nreleased.",
