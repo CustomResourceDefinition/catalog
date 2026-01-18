@@ -10,57 +10,122 @@ on:
       - schema/**
       - definitions/**
       - docs/COMPARISON.md
-  workflow_dispatch:
-    inputs:
-      reset:
-        description: Space-separated paths to remove from schema before running an update
-        default: ""
-        type: string
+  workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  update-schemas:
-    name: Update schemas
-    runs-on: ubuntu-latest
+  configuration-chunks:
+    name: Split configuration
     if: github.repository == 'CustomResourceDefinition/catalog' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            build
+            configuration.yaml
+            Makefile
+            make.d
+
+      - run: make config-chunks
+        env:
+          CHUNK_SIZE: 100
+
+      - run: mv build/configuration_*.yml .
+
+      - run: |
+          {
+            printf "matrix="
+            echo configuration*.yml | tr ' ' "\n" | jq -Rsc 'split("\n")[:-1]'
+          } | tee -a $GITHUB_OUTPUT
+        id: matrix
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: configurations
+          path: configuration_*.yml
+          retention-days: 1
+
+  update:
+    name: Create patch files
+    needs: configuration-chunks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        file: ${{ fromJSON(needs.configuration-chunks.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Golang cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - run: make update
+        env:
+          CONFIGURATION: ${{ matrix.file }}
+
+      - run: git diff schema definitions | tee ${{ matrix.file }}.patch
+
+      - uses: actions/upload-artifact@v5
+        with:
+          path: ${{ matrix.file }}.patch
+          retention-days: 1
+
+  commit:
+    name: Update files
+    needs: update
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
     steps:
       - uses: actions/checkout@v6
         with:
           ssh-key: ${{ secrets.DEPLOY_KEY_SCHEDULED_JOBS }}
 
-      - name: Optionally remove paths
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.reset != ''
-        run: |
-          cd schema
-          rm -rf ${{ github.event.inputs.reset }} || true
-          cd -
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
 
-          cd definitions
-          rm -rf ${{ github.event.inputs.reset }} || true
-          cd -
-
-      - run: make update
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REF: ${{ github.ref }}
+      - name: Setup Golang cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - uses: actions/checkout@v6
         with:
           repository: datreeio/CRDs-catalog
           path: build/remote/datreeio
 
+      - uses: actions/download-artifact@v6
+        with:
+          merge-multiple: true
+
+      - run: git apply --allow-empty *.patch
+
       - run: make comparison
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REF: ${{ github.ref }}
+
+      - if: github.ref != 'refs/heads/main'
+        run: git diff --stat
 
       - uses: EndBug/add-and-commit@v9
         name: Publish changes
@@ -76,7 +141,7 @@ jobs:
     name: Report failures
     runs-on: ubuntu-latest
     needs:
-      - update-schemas
+      - commit
       - sync-tags
     if: failure() && github.event_name != 'workflow_dispatch'
     permissions:
@@ -96,7 +161,7 @@ jobs:
   sync-tags:
     name: Synchronize tags with kubernetes
     runs-on: ubuntu-latest
-    needs: update-schemas
+    needs: commit
     permissions:
       contents: write
     steps:
