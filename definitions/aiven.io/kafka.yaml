@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: kafkas.aiven.io
 spec:
   group: aiven.io
@@ -256,6 +256,22 @@ spec:
                         Allow access to read Kafka topic messages in the
                         Aiven Console and REST API.
                       type: boolean
+                    backup_interval_hours:
+                      description:
+                        Interval in hours between automatic backups. Minimum
+                        value is 3 hours. Must be a divisor of 24 (3, 4, 6, 8, 12, 24).
+                        (Applicable to ACU plans only)
+                      maximum: 24
+                      minimum: 3
+                      type: integer
+                    backup_retention_days:
+                      description:
+                        Number of days to retain automatic backups. Backups
+                        older than this value will be automatically deleted. (Applicable
+                        to ACU plans only)
+                      maximum: 30
+                      minimum: 1
+                      type: integer
                     custom_domain:
                       description:
                         Serve the web frontend using a custom CNAME pointing
@@ -505,7 +521,9 @@ spec:
                         log_retention_hours:
                           description:
                             "The number of hours to keep a log file before
-                            deleting it (Default: 168 hours (1 week))"
+                            deleting it. Use -1 for unlimited retention or 1 or higher.
+                            Setting 0 is invalid and prevents Kafka from starting. (Default:
+                            168 hours, or 1 week)"
                           maximum: 2147483647
                           minimum: -1
                           type: integer
@@ -954,9 +972,6 @@ spec:
                         enabled:
                           description: Whether to enable the Diskless functionality
                           type: boolean
-                          x-kubernetes-validations:
-                            - message: Value is immutable
-                              rule: self == oldSelf
                       required:
                         - enabled
                       type: object
@@ -1082,11 +1097,18 @@ spec:
                       type: object
                     kafka_version:
                       description: |-
-                        Available versions: `3.7`, `3.8`, `3.9`, `4.0`. Newer versions may also be available.
+                        Available versions: `3.7`, `3.8`, `3.9`, `4.0`, `4.1`. Newer versions may also be available.
                         Kafka major version. Deprecated values: `3.7`
                       type: string
+                    letsencrypt_sasl:
+                      description:
+                        "Use a Let's Encrypt certificate authority (CA)
+                        for Kafka SASL authentication. (Default: False)"
+                      type: boolean
                     letsencrypt_sasl_privatelink:
-                      description: Use Letsencrypt CA for Kafka SASL via Privatelink
+                      description:
+                        "Use a Let's Encrypt certificate authority (CA)
+                        for Kafka SASL authentication via Privatelink. (Default: False)"
                       type: boolean
                     private_access:
                       description:
@@ -1184,6 +1206,13 @@ spec:
                             VPC or another type of private network
                           type: boolean
                       type: object
+                    sasl_oauthbearer_allowed_urls:
+                      description:
+                        List of allowed URLs for SASL OAUTHBEARER authentication.
+                        Only HTTPS URLs are allowed for security reasons.
+                      items:
+                        type: string
+                      type: array
                     schema_registry:
                       description: Enable Schema-Registry service
                       type: boolean
@@ -1295,16 +1324,8 @@ spec:
                     of a service state
                   items:
                     description:
-                      "Condition contains details for one aspect of the current
-                      state of this API Resource.\n---\nThis struct is intended for
-                      direct use as an array at the field path .status.conditions.  For
-                      example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                      observations of a foo's current state.\n\t    // Known .status.conditions.type
-                      are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                      +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                      \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                      patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                      \   // other fields\n\t}"
+                      Condition contains details for one aspect of the current
+                      state of this API Resource.
                     properties:
                       lastTransitionTime:
                         description: |-
@@ -1345,12 +1366,7 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: |-
-                          type of condition in CamelCase or in foo.example.com/CamelCase.
-                          ---
-                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                          useful (see .node.status.conditions), the ability to deconflict is important.
-                          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
