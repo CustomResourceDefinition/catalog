@@ -196,7 +196,7 @@ func (s *CrdMetaSchema) Filepath() string {
 }
 
 func applyDefaults(schema *v1.JSONSchemaProps, skip bool) {
-	if !skip && len(schema.Properties) > 0 && schema.AdditionalProperties == nil {
+	if !skip && schema.Type == "object" && len(schema.Properties) > 0 && schema.AdditionalProperties == nil {
 		schema.AdditionalProperties = &v1.JSONSchemaPropsOrBool{Allows: false}
 	}
 
