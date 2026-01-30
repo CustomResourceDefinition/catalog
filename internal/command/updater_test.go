@@ -184,7 +184,7 @@ func assertDirectories(t *testing.T, a, b string) {
 // Test is skipped during unit testing and meant for step-debugging a local check
 func TestCheckLocal(t *testing.T) {
 	output := "../../build/ephemeral/schema"
-	config := "../../test/configuration.yaml"
+	config := "../../build/configuration.yaml"
 	updater := NewUpdater(config, output, output, nil, nil)
 
 	err := updater.Run()
