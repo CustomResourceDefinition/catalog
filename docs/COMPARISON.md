@@ -9,13 +9,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.86% | 3342 | 9776 | 83 |
+| 98.89% | 3342 | 9777 | 83 |
 
 ### Missing Schemas
-
-| argocd-image-updater.argoproj.io | |
-| --- | --- |
-| imageupdater | v1alpha1 |
 
 | cloud.google.com | |
 | --- | --- |
