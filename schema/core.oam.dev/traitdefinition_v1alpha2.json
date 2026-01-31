@@ -16,12 +16,16 @@
     "spec": {
       "description": "A TraitDefinitionSpec defines the desired state of a TraitDefinition.",
       "type": "object",
-      "required": [
-        "definitionRef"
-      ],
       "properties": {
         "appliesToWorkloads": {
           "description": "AppliesToWorkloads specifies the list of workload kinds this trait applies to. Workload kinds are specified in kind.group/version format, e.g. server.core.oam.dev/v1alpha2. Traits that omit this field apply to all workload kinds.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conflictsWith": {
+          "description": "ConflictsWith specifies the list of traits(CRD name, Definition name, CRD group) which could not apply to the same workloads with this trait. Traits that omit this field can work with any other traits. Example rules: \"service\" # Trait definition name \"services.k8s.io\" # API resource/crd name \"*.networking.k8s.io\" # API group \"labelSelector:foo=bar\" # label selector labelSelector format: https://pkg.go.dev/k8s.io/apimachinery/pkg/labels#Parse",
           "type": "array",
           "items": {
             "type": "string"
@@ -36,6 +40,305 @@
           "properties": {
             "name": {
               "description": "Name of the referenced CustomResourceDefinition.",
+              "type": "string"
+            },
+            "version": {
+              "description": "Version indicate which version should be used if CRD has multiple versions by default it will use the first one if not specified",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "extension": {
+          "description": "Extension is used for extension needs by OAM platform builders",
+          "type": "object",
+          "x-kubernetes-preserve-unknown-fields": true
+        },
+        "podDisruptive": {
+          "description": "PodDisruptive specifies whether using the trait will cause the pod to restart or not.",
+          "type": "boolean"
+        },
+        "revisionEnabled": {
+          "description": "Revision indicates whether a trait is aware of component revision",
+          "type": "boolean"
+        },
+        "schematic": {
+          "description": "Schematic defines the data format and template of the encapsulation of the trait",
+          "type": "object",
+          "properties": {
+            "cue": {
+              "description": "CUE defines the encapsulation in CUE format",
+              "type": "object",
+              "required": [
+                "template"
+              ],
+              "properties": {
+                "template": {
+                  "description": "Template defines the abstraction template data of the capability, it will replace the old CUE template in extension field. Template is a required field if CUE is defined in Capability Definition.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "helm": {
+              "description": "A Helm represents resources used by a Helm module",
+              "type": "object",
+              "required": [
+                "release",
+                "repository"
+              ],
+              "properties": {
+                "release": {
+                  "description": "Release records a Helm release used by a Helm module workload.",
+                  "type": "object",
+                  "x-kubernetes-preserve-unknown-fields": true
+                },
+                "repository": {
+                  "description": "HelmRelease records a Helm repository used by a Helm module workload.",
+                  "type": "object",
+                  "x-kubernetes-preserve-unknown-fields": true
+                }
+              },
+              "additionalProperties": false
+            },
+            "kube": {
+              "description": "Kube defines the encapsulation in raw Kubernetes resource format",
+              "type": "object",
+              "required": [
+                "template"
+              ],
+              "properties": {
+                "parameters": {
+                  "description": "Parameters defines configurable parameters",
+                  "type": "array",
+                  "items": {
+                    "description": "A KubeParameter defines a configurable parameter of a component.",
+                    "type": "object",
+                    "required": [
+                      "fieldPaths",
+                      "name",
+                      "type"
+                    ],
+                    "properties": {
+                      "description": {
+                        "description": "Description of this parameter.",
+                        "type": "string"
+                      },
+                      "fieldPaths": {
+                        "description": "FieldPaths specifies an array of fields within this workload that will be overwritten by the value of this parameter. \tAll fields must be of the same type. Fields are specified as JSON field paths without a leading dot, for example 'spec.replicas'.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "name": {
+                        "description": "Name of this parameter",
+                        "type": "string"
+                      },
+                      "required": {
+                        "description": "Required specifies whether or not a value for this parameter must be supplied when authoring an Application.",
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "type": {
+                        "description": "ValueType indicates the type of the parameter value, and only supports basic data types: string, number, boolean.",
+                        "type": "string",
+                        "enum": [
+                          "string",
+                          "number",
+                          "boolean"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "template": {
+                  "description": "Template defines the raw Kubernetes resource",
+                  "type": "object",
+                  "x-kubernetes-preserve-unknown-fields": true
+                }
+              },
+              "additionalProperties": false
+            },
+            "terraform": {
+              "description": "Terraform is the struct to describe cloud resources managed by Hashicorp Terraform",
+              "type": "object",
+              "required": [
+                "configuration"
+              ],
+              "properties": {
+                "configuration": {
+                  "description": "Configuration is Terraform Configuration",
+                  "type": "string"
+                },
+                "customRegion": {
+                  "description": "Region is cloud provider's region. It will override the region in the region field of ProviderReference",
+                  "type": "string"
+                },
+                "deleteResource": {
+                  "description": "DeleteResource will determine whether provisioned cloud resources will be deleted when CR is deleted",
+                  "type": "boolean",
+                  "default": true
+                },
+                "gitCredentialsSecretReference": {
+                  "description": "GitCredentialsSecretReference specifies the reference to the secret containing the git credentials",
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "name is unique within a namespace to reference a secret resource.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "namespace defines the space within which the secret name must be unique.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-map-type": "atomic"
+                },
+                "path": {
+                  "description": "Path is the sub-directory of remote git repository. It's valid when remote is set",
+                  "type": "string"
+                },
+                "providerRef": {
+                  "description": "ProviderReference specifies the reference to Provider",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name of the referenced object.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace of the referenced object.",
+                      "type": "string",
+                      "default": "default"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "type": {
+                  "description": "Type specifies which Terraform configuration it is, HCL or JSON syntax",
+                  "type": "string",
+                  "default": "hcl",
+                  "enum": [
+                    "hcl",
+                    "json",
+                    "remote"
+                  ]
+                },
+                "writeConnectionSecretToRef": {
+                  "description": "WriteConnectionSecretToReference specifies the namespace and name of a Secret to which any connection details for this managed resource should be written. Connection details frequently include the endpoint, username, and password required to connect to the managed resource.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name of the secret.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace of the secret.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "status": {
+          "description": "Status defines the custom health policy and status message for trait",
+          "type": "object",
+          "properties": {
+            "customStatus": {
+              "description": "CustomStatus defines the custom status message that could display to user",
+              "type": "string"
+            },
+            "healthPolicy": {
+              "description": "HealthPolicy defines the health check policy for the abstraction",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "workloadRefPath": {
+          "description": "WorkloadRefPath indicates where/if a trait accepts a workloadRef object",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "TraitDefinitionStatus is the status of TraitDefinition",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions of the resource.",
+          "type": "array",
+          "items": {
+            "description": "A Condition that may apply to a resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "LastTransitionTime is the last time this condition transitioned from one status to another.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "A Message containing details about this condition's last transition from one status to another, if any.",
+                "type": "string"
+              },
+              "reason": {
+                "description": "A Reason for this condition's last transition from one status to another.",
+                "type": "string"
+              },
+              "status": {
+                "description": "Status of this condition; is it currently True, False, or Unknown?",
+                "type": "string"
+              },
+              "type": {
+                "description": "Type of this condition. At most one of each condition type may apply to a resource at any point in time.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "configMapRef": {
+          "description": "ConfigMapRef refer to a ConfigMap which contains OpenAPI V3 JSON schema of Component parameters.",
+          "type": "string"
+        },
+        "latestRevision": {
+          "description": "LatestRevision of the trait definition",
+          "type": "object",
+          "required": [
+            "name",
+            "revision"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "revisionHash": {
+              "description": "RevisionHash record the hash value of the spec of ApplicationRevision object.",
               "type": "string"
             }
           },
