@@ -3,11 +3,11 @@
   "type": "object",
   "properties": {
     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
       "type": "string"
     },
     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
       "type": "string"
     },
     "metadata": {
@@ -17,6 +17,37 @@
       "description": "WorkflowSpec defines the desired state of Workflow.",
       "type": "object",
       "properties": {
+        "bootOptions": {
+          "description": "BootOptions are options that control the booting of Hardware.",
+          "type": "object",
+          "properties": {
+            "bootMode": {
+              "description": "BootMode is the type of booting that will be done.",
+              "type": "string",
+              "enum": [
+                "netboot",
+                "iso"
+              ]
+            },
+            "isoURL": {
+              "description": "ISOURL is the URL of the ISO that will be one-time booted. When this field is set, the controller will create a job.bmc.tinkerbell.org object\nfor getting the associated hardware into a CDROM booting state.\nA HardwareRef that contains a spec.BmcRef must be provided.",
+              "type": "string",
+              "format": "url"
+            },
+            "toggleAllowNetboot": {
+              "description": "ToggleAllowNetboot indicates whether the controller should toggle the field in the associated hardware for allowing PXE booting.\nThis will be enabled before a Workflow is executed and disabled after the Workflow has completed successfully.\nA HardwareRef must be provided.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "hardwareMap": {
+          "description": "A mapping of template devices to hadware mac addresses.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "hardwareRef": {
           "description": "Name of the Hardware associated with this workflow.",
           "type": "string"
@@ -29,52 +60,176 @@
       "additionalProperties": false
     },
     "status": {
-      "description": "WorkflowStatus defines the observed state of Workflow.",
+      "description": "WorkflowStatus defines the observed state of a Workflow.",
       "type": "object",
       "properties": {
-        "actions": {
-          "description": "Actions are the actions for this Workflow.",
+        "bootOptions": {
+          "description": "BootOptions holds the state of any boot options.",
+          "type": "object",
+          "properties": {
+            "allowNetboot": {
+              "description": "AllowNetboot holds the state of the the controller's interactions with the allowPXE field in a Hardware object.",
+              "type": "object",
+              "properties": {
+                "toggledFalse": {
+                  "type": "boolean"
+                },
+                "toggledTrue": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "jobs": {
+              "description": "Jobs holds the state of any job.bmc.tinkerbell.org objects created.",
+              "type": "object",
+              "additionalProperties": {
+                "description": "JobStatus holds the state of a specific job.bmc.tinkerbell.org object created.",
+                "type": "object",
+                "properties": {
+                  "complete": {
+                    "description": "Complete indicates whether the created job.bmc.tinkerbell.org has reported its conditions as complete.",
+                    "type": "boolean"
+                  },
+                  "existingJobDeleted": {
+                    "description": "ExistingJobDeleted indicates whether any existing job.bmc.tinkerbell.org was deleted.\nThe name of each job.bmc.tinkerbell.org object created by the controller is the same, so only one can exist at a time.\nUsing the same name was chosen so that there is only ever 1 job.bmc.tinkerbell.org per Hardware/Machine.bmc.tinkerbell.org.\nThis makes clean up easier and we dont just orphan jobs every time.",
+                    "type": "boolean"
+                  },
+                  "uid": {
+                    "description": "UID is the UID of the job.bmc.tinkerbell.org object associated with this workflow.\nThis is used to uniquely identify the job.bmc.tinkerbell.org object, as\nall objects for a specific Hardware/Machine.bmc.tinkerbell.org are created with the same name.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "conditions": {
+          "description": "Conditions are the latest available observations of an object's current state.",
           "type": "array",
           "items": {
-            "description": "Action represents a workflow action.",
+            "description": "JobCondition describes current state of a job.",
             "type": "object",
+            "required": [
+              "status",
+              "type"
+            ],
             "properties": {
-              "command": {
+              "message": {
+                "description": "Message is a human readable message indicating details about last transition.",
+                "type": "string"
+              },
+              "reason": {
+                "description": "Reason is a (brief) reason for the condition's last transition.",
+                "type": "string"
+              },
+              "status": {
+                "description": "Status of the condition, one of True, False, Unknown.",
+                "type": "string"
+              },
+              "time": {
+                "description": "Time when the condition was created.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "description": "Type of job condition, Complete or Failed.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
+        "currentAction": {
+          "description": "CurrentAction is the action that is currently in the running state.",
+          "type": "string"
+        },
+        "globalTimeout": {
+          "description": "GlobalTimeout represents the max execution time.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "state": {
+          "description": "State is the current overall state of the Workflow.",
+          "type": "string"
+        },
+        "tasks": {
+          "description": "Tasks are the tasks to be run by the worker(s).",
+          "type": "array",
+          "items": {
+            "description": "Task represents a series of actions to be completed by a worker.",
+            "type": "object",
+            "required": [
+              "actions",
+              "name",
+              "worker"
+            ],
+            "properties": {
+              "actions": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "description": "Action represents a workflow action.",
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "environment": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "image": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "pid": {
+                      "type": "string"
+                    },
+                    "seconds": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "volumes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "environment": {
-                "type": "array",
-                "items": {
+                "type": "object",
+                "additionalProperties": {
                   "type": "string"
                 }
-              },
-              "image": {
-                "type": "string"
               },
               "name": {
                 "type": "string"
-              },
-              "on_failure": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "on_timeout": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "task_name": {
-                "type": "string"
-              },
-              "timeout": {
-                "type": "integer",
-                "format": "int64"
               },
               "volumes": {
                 "type": "array",
@@ -82,57 +237,15 @@
                   "type": "string"
                 }
               },
-              "worker_id": {
+              "worker": {
                 "type": "string"
               }
             },
             "additionalProperties": false
           }
         },
-        "data": {
-          "description": "Data is the populated Workflow Data in Tinkerbell.",
-          "type": "string"
-        },
-        "events": {
-          "description": "Events are events for this Workflow.",
-          "type": "array",
-          "items": {
-            "description": "Event represents a workflow event.",
-            "type": "object",
-            "properties": {
-              "action_name": {
-                "type": "string"
-              },
-              "action_status": {
-                "type": "string"
-              },
-              "created_at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "message": {
-                "type": "string"
-              },
-              "seconds": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "task_name": {
-                "type": "string"
-              },
-              "worker_id": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          }
-        },
-        "metadata": {
-          "description": "Metadata is the metadata stored in Tinkerbell.",
-          "type": "string"
-        },
-        "state": {
-          "description": "State is the state of the workflow in Tinkerbell.",
+        "templateRending": {
+          "description": "TemplateRendering indicates whether the template was rendered successfully.\nPossible values are \"successful\" or \"failed\" or \"unknown\".",
           "type": "string"
         }
       },
