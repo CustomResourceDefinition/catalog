@@ -206,7 +206,7 @@
                     "type": "string"
                   },
                   "volumeAttributesClassName": {
-                    "description": "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string value means that no VolumeAttributesClass\nwill be applied to the claim but it's not allowed to reset this field to empty string once it is set.\nIf unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass\nwill be set by the persistentvolume controller if it exists.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/\n(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).",
+                    "description": "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string or nil value indicates that no\nVolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,\nthis field can be reset to its previous value (including nil) to cancel the modification.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/",
                     "type": "string"
                   },
                   "volumeMode": {
@@ -319,11 +319,11 @@
                     "x-kubernetes-list-type": "map"
                   },
                   "currentVolumeAttributesClassName": {
-                    "description": "currentVolumeAttributesClassName is the current name of the VolumeAttributesClass the PVC is using.\nWhen unset, there is no VolumeAttributeClass applied to this PersistentVolumeClaim\nThis is a beta field and requires enabling VolumeAttributesClass feature (off by default).",
+                    "description": "currentVolumeAttributesClassName is the current name of the VolumeAttributesClass the PVC is using.\nWhen unset, there is no VolumeAttributeClass applied to this PersistentVolumeClaim",
                     "type": "string"
                   },
                   "modifyVolumeStatus": {
-                    "description": "ModifyVolumeStatus represents the status object of ControllerModifyVolume operation.\nWhen this is unset, there is no ModifyVolume operation being attempted.\nThis is a beta field and requires enabling VolumeAttributesClass feature (off by default).",
+                    "description": "ModifyVolumeStatus represents the status object of ControllerModifyVolume operation.\nWhen this is unset, there is no ModifyVolume operation being attempted.",
                     "type": "object",
                     "required": [
                       "status"
@@ -417,6 +417,30 @@
           "description": "ConfigRawYaml - raw configuration for alertmanager,\nit helps it to start without secret.\npriority -\u003e hardcoded ConfigRaw -\u003e ConfigRaw, provided by user -\u003e ConfigSecret.",
           "type": "string"
         },
+        "configReloadAuthKeySecret": {
+          "description": "ConfigReloadAuthKeySecret defines optional secret reference authKey for /-/reload API requests.\nGiven secret reference will be added to the application and vm-config-reloader as volume\navailable since v0.57.0 version",
+          "type": "object",
+          "required": [
+            "key"
+          ],
+          "properties": {
+            "key": {
+              "description": "The key of the secret to select from.  Must be a valid secret key.",
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+              "type": "string",
+              "default": ""
+            },
+            "optional": {
+              "description": "Specify whether the Secret or its key must be defined",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-map-type": "atomic"
+        },
         "configReloaderExtraArgs": {
           "description": "ConfigReloaderExtraArgs that will be passed to  VMAuths config-reloader container\nfor example resyncInterval: \"30s\"",
           "type": "object",
@@ -424,8 +448,12 @@
             "type": "string"
           }
         },
+        "configReloaderImage": {
+          "description": "ConfigReloaderImage defines image:tag for config-reloader container",
+          "type": "string"
+        },
         "configReloaderImageTag": {
-          "description": "ConfigReloaderImageTag defines image:tag for config-reloader container",
+          "description": "ConfigReloaderImageTag defines image:tag for config-reloader container\nDeprecated: use configReloaderImage instead",
           "type": "string"
         },
         "configReloaderResources": {
@@ -433,7 +461,7 @@
           "type": "object",
           "properties": {
             "claims": {
-              "description": "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
+              "description": "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis field depends on the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
               "type": "array",
               "items": {
                 "description": "ResourceClaim references one entry in PodSpec.ResourceClaims.",
@@ -561,7 +589,7 @@
           "type": "boolean"
         },
         "disableNamespaceMatcher": {
-          "description": "DisableNamespaceMatcher disables top route namespace label matcher for VMAlertmanagerConfig\nIt may be useful if alert doesn't have namespace label for some reason",
+          "description": "DisableNamespaceMatcher disables adding top route label matcher \"namespace = \u003cVMAlertmanagerConfig.namespace\u003e\" for VMAlertmanagerConfig\nIt may be useful if alert doesn't have namespace label for some reason",
           "type": "boolean"
         },
         "disableRouteContinueEnforce": {
@@ -622,6 +650,10 @@
           "description": "DNSPolicy sets DNS policy for the pod",
           "type": "string"
         },
+        "enforcedNamespaceLabel": {
+          "description": "EnforcedNamespaceLabel defines the namespace label key for top route matcher for VMAlertmanagerConfig\nDefault is \"namespace\"",
+          "type": "string"
+        },
         "enforcedTopRouteMatchers": {
           "description": "EnforcedTopRouteMatchers defines label matchers to be added for the top route\nof VMAlertmanagerConfig\nIt allows to make some set of labels required for alerts.\nhttps://prometheus.io/docs/alerting/latest/configuration/#matcher",
           "type": "array",
@@ -651,7 +683,7 @@
             ],
             "properties": {
               "name": {
-                "description": "Name of the environment variable. Must be a C_IDENTIFIER.",
+                "description": "Name of the environment variable.\nMay consist of any printable ASCII characters except '='.",
                 "type": "string"
               },
               "value": {
@@ -661,6 +693,55 @@
             },
             "additionalProperties": false,
             "x-kubernetes-preserve-unknown-fields": true
+          }
+        },
+        "extraEnvsFrom": {
+          "description": "ExtraEnvsFrom defines source of env variables for the application container\ncould either be secret or configmap",
+          "type": "array",
+          "items": {
+            "description": "EnvFromSource represents the source of a set of ConfigMaps or Secrets",
+            "type": "object",
+            "properties": {
+              "configMapRef": {
+                "description": "The ConfigMap to select from",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                    "type": "string",
+                    "default": ""
+                  },
+                  "optional": {
+                    "description": "Specify whether the ConfigMap must be defined",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-map-type": "atomic"
+              },
+              "prefix": {
+                "description": "Optional text to prepend to the name of each environment variable.\nMay consist of any printable ASCII characters except '='.",
+                "type": "string"
+              },
+              "secretRef": {
+                "description": "The Secret to select from",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                    "type": "string",
+                    "default": ""
+                  },
+                  "optional": {
+                    "description": "Specify whether the Secret must be defined",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-map-type": "atomic"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "gossipConfig": {
@@ -1078,6 +1159,21 @@
           "description": "Paused If set to true all actions on the underlying managed objects are not\ngoing to be performed, except for delete actions.",
           "type": "boolean"
         },
+        "persistentVolumeClaimRetentionPolicy": {
+          "description": "PersistentVolumeClaimRetentionPolicy allows configuration of PVC retention policy",
+          "type": "object",
+          "properties": {
+            "whenDeleted": {
+              "description": "WhenDeleted specifies what happens to PVCs created from StatefulSet\nVolumeClaimTemplates when the StatefulSet is deleted. The default policy\nof `Retain` causes PVCs to not be affected by StatefulSet deletion. The\n`Delete` policy causes those PVCs to be deleted.",
+              "type": "string"
+            },
+            "whenScaled": {
+              "description": "WhenScaled specifies what happens to PVCs created from StatefulSet\nVolumeClaimTemplates when the StatefulSet is scaled down. The default\npolicy of `Retain` causes PVCs to not be affected by a scaledown. The\n`Delete` policy causes the associated PVCs for any excess pods above\nthe replica count to be deleted.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
         "podDisruptionBudget": {
           "description": "PodDisruptionBudget created by operator",
           "type": "object",
@@ -1112,6 +1208,14 @@
               "additionalProperties": {
                 "type": "string"
               }
+            },
+            "unhealthyPodEvictionPolicy": {
+              "description": "UnhealthyPodEvictionPolicy defines the criteria for when unhealthy pods\n\nValid policies are IfHealthyBudget and AlwaysAllow.\nIf no policy is specified, the default behavior will be used,\nwhich corresponds to the IfHealthyBudget policy.\nAvailable from operator v0.64.0",
+              "type": "string",
+              "enum": [
+                "IfHealthyBudget",
+                "AlwaysAllow"
+              ]
             }
           },
           "additionalProperties": false
@@ -1186,7 +1290,7 @@
           "type": "object",
           "properties": {
             "claims": {
-              "description": "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
+              "description": "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis field depends on the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
               "type": "array",
               "items": {
                 "description": "ResourceClaim references one entry in PodSpec.ResourceClaims.",
@@ -1382,7 +1486,7 @@
               "additionalProperties": false
             },
             "volumeClaimTemplate": {
-              "description": "A PVC spec to be used by the VMAlertManager StatefulSets.",
+              "description": "A PVC spec to be used by the StatefulSets/Deployments.",
               "type": "object",
               "properties": {
                 "apiVersion": {
@@ -1572,7 +1676,7 @@
                       "type": "string"
                     },
                     "volumeAttributesClassName": {
-                      "description": "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string value means that no VolumeAttributesClass\nwill be applied to the claim but it's not allowed to reset this field to empty string once it is set.\nIf unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass\nwill be set by the persistentvolume controller if it exists.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/\n(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).",
+                      "description": "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string or nil value indicates that no\nVolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,\nthis field can be reset to its previous value (including nil) to cancel the modification.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/",
                       "type": "string"
                     },
                     "volumeMode": {
@@ -1685,11 +1789,11 @@
                       "x-kubernetes-list-type": "map"
                     },
                     "currentVolumeAttributesClassName": {
-                      "description": "currentVolumeAttributesClassName is the current name of the VolumeAttributesClass the PVC is using.\nWhen unset, there is no VolumeAttributeClass applied to this PersistentVolumeClaim\nThis is a beta field and requires enabling VolumeAttributesClass feature (off by default).",
+                      "description": "currentVolumeAttributesClassName is the current name of the VolumeAttributesClass the PVC is using.\nWhen unset, there is no VolumeAttributeClass applied to this PersistentVolumeClaim",
                       "type": "string"
                     },
                     "modifyVolumeStatus": {
-                      "description": "ModifyVolumeStatus represents the status object of ControllerModifyVolume operation.\nWhen this is unset, there is no ModifyVolume operation being attempted.\nThis is a beta field and requires enabling VolumeAttributesClass feature (off by default).",
+                      "description": "ModifyVolumeStatus represents the status object of ControllerModifyVolume operation.\nWhen this is unset, there is no ModifyVolume operation being attempted.",
                       "type": "object",
                       "required": [
                         "status"
@@ -1803,7 +1907,7 @@
           "type": "boolean"
         },
         "useVMConfigReloader": {
-          "description": "UseVMConfigReloader replaces prometheus-like config-reloader\nwith vm one. It uses secrets watch instead of file watch\nwhich greatly increases speed of config updates",
+          "description": "UseVMConfigReloader replaces prometheus-like config-reloader\nwith vm one. It uses secrets watch instead of file watch\nwhich greatly increases speed of config updates\nRemoved since v0.67.0: this property is ignored and no longer needed",
           "type": "boolean"
         },
         "volumeMounts": {

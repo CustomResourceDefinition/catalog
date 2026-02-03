@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: vmsingles.operator.victoriametrics.com
 spec:
   group: operator.victoriametrics.com
@@ -149,7 +149,9 @@ spec:
                     a Container.
                   properties:
                     name:
-                      description: Name of the environment variable. Must be a C_IDENTIFIER.
+                      description: |-
+                        Name of the environment variable.
+                        May consist of any printable ASCII characters except '='.
                       type: string
                     value:
                       description: |-
@@ -167,6 +169,55 @@ spec:
                   - name
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
+                type: array
+              extraEnvsFrom:
+                description: |-
+                  ExtraEnvsFrom defines source of env variables for the application container
+                  could either be secret or configmap
+                items:
+                  description: EnvFromSource represents the source of a set of ConfigMaps
+                    or Secrets
+                  properties:
+                    configMapRef:
+                      description: The ConfigMap to select from
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                        optional:
+                          description: Specify whether the ConfigMap must be defined
+                          type: boolean
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    prefix:
+                      description: |-
+                        Optional text to prepend to the name of each environment variable.
+                        May consist of any printable ASCII characters except '='.
+                      type: string
+                    secretRef:
+                      description: The Secret to select from
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                        optional:
+                          description: Specify whether the Secret must be defined
+                          type: boolean
+                      type: object
+                      x-kubernetes-map-type: atomic
+                  type: object
                 type: array
               host_aliases:
                 description: |-
@@ -290,14 +341,14 @@ spec:
                 description: |-
                   License allows to configure license key to be used for enterprise features.
                   Using license key is supported starting from VictoriaMetrics v1.94.0.
-                  See [here](https://docs.victoriametrics.com/enterprise)
+                  See [here](https://docs.victoriametrics.com/victoriametrics/enterprise/)
                 properties:
                   forceOffline:
                     description: Enforce offline verification of the license key.
                     type: boolean
                   key:
                     description: |-
-                      Enterprise license key. This flag is available only in [VictoriaMetrics enterprise](https://docs.victoriametrics.com/enterprise).
+                      Enterprise license key. This flag is available only in [VictoriaMetrics enterprise](https://docs.victoriametrics.com/victoriametrics/enterprise/).
                       To request a trial license, [go to](https://victoriametrics.com/products/enterprise/trial)
                     type: string
                   keyRef:
@@ -466,7 +517,7 @@ spec:
                       Claims lists the names of resources, defined in spec.resourceClaims,
                       that are used by this container.
 
-                      This is an alpha field and requires enabling the
+                      This field depends on the
                       DynamicResourceAllocation feature gate.
 
                       This field is immutable. It can only be set for containers.
@@ -519,10 +570,11 @@ spec:
                 type: object
               retentionPeriod:
                 description: |-
-                  RetentionPeriod for the stored metrics
-                  Note VictoriaMetrics has data/ and indexdb/ folders
-                  metrics from data/ removed eventually as soon as partition leaves retention period
-                  reverse index data at indexdb rotates once at the half of configured [retention period](https://docs.victoriametrics.com/Single-server-VictoriaMetrics/#retention)
+                  RetentionPeriod defines how long to retain stored metrics, specified as a duration (e.g., "1d", "1w", "1m").
+                  Data with timestamps outside the RetentionPeriod is automatically deleted. The minimum allowed value is 1d, or 24h.
+                  The default value is 1 (one month).
+                  See [retention](https://docs.victoriametrics.com/victoriametrics/single-server-victoriametrics/#retention) docs for details.
+                pattern: ^[0-9]+(h|d|w|y)?$
                 type: string
               revisionHistoryLimitCount:
                 description: |-
@@ -798,15 +850,13 @@ spec:
                       volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                       If specified, the CSI driver will create or update the volume with the attributes defined
                       in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                      it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                      will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                      If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                      will be set by the persistentvolume controller if it exists.
+                      it can be changed after the claim is created. An empty string or nil value indicates that no
+                      VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                      this field can be reset to its previous value (including nil) to cancel the modification.
                       If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                       set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                       exists.
                       More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                      (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                     type: string
                   volumeMode:
                     description: |-
@@ -903,6 +953,10 @@ spec:
                   ignoreFirstIntervals:
                     description: IgnoreFirstIntervals instructs to ignore first interval
                     type: integer
+                  ignoreFirstSampleInterval:
+                    description: IgnoreFirstSampleInterval sets interval for total
+                      and prometheus_total during which first samples will be ignored
+                    type: string
                   ignoreOldSamples:
                     description: IgnoreOldSamples instructs to ignore samples with
                       old timestamps outside the current aggregation interval.
@@ -955,6 +1009,11 @@ spec:
                           description: IgnoreOldSamples instructs to ignore samples
                             with old timestamps outside the current aggregation interval.
                           type: boolean
+                        ignoreFirstSampleInterval:
+                          description: IgnoreFirstSampleInterval sets interval for
+                            total and prometheus_total during which first samples
+                            will be ignored
+                          type: string
                         input_relabel_configs:
                           description: |-
                             InputRelabelConfigs is an optional relabeling rules, which are applied on the input
@@ -962,7 +1021,7 @@ spec:
                           items:
                             description: |-
                               RelabelConfig allows dynamic rewriting of the label set
-                              More info: https://docs.victoriametrics.com/#relabeling
+                              More info: https://docs.victoriametrics.com/victoriametrics/#relabeling
                             properties:
                               action:
                                 description: Action to perform based on regex matching.
@@ -991,7 +1050,7 @@ spec:
                                 description: |-
                                   Regular expression against which the extracted value is matched. Default is '(.*)'
                                   victoriaMetrics supports multiline regex joined with |
-                                  https://docs.victoriametrics.com/vmagent/#relabeling-enhancements
+                                  https://docs.victoriametrics.com/victoriametrics/vmagent/#relabeling-enhancements
                                 x-kubernetes-preserve-unknown-fields: true
                               replacement:
                                 description: |-
@@ -1006,7 +1065,7 @@ spec:
                                 description: |-
                                   UnderScoreSourceLabels - additional form of source labels source_labels
                                   for compatibility with original relabel config.
-                                  if set  both sourceLabels and source_labels, sourceLabels has priority.
+                                  if set both sourceLabels and source_labels, sourceLabels has priority.
                                   for details https://github.com/VictoriaMetrics/operator/issues/131
                                 items:
                                   type: string
@@ -1023,7 +1082,7 @@ spec:
                                 description: |-
                                   UnderScoreTargetLabel - additional form of target label - target_label
                                   for compatibility with original relabel config.
-                                  if set  both targetLabel and target_label, targetLabel has priority.
+                                  if set both targetLabel and target_label, targetLabel has priority.
                                   for details https://github.com/VictoriaMetrics/operator/issues/131
                                 type: string
                               targetLabel:
@@ -1058,7 +1117,7 @@ spec:
                           items:
                             description: |-
                               RelabelConfig allows dynamic rewriting of the label set
-                              More info: https://docs.victoriametrics.com/#relabeling
+                              More info: https://docs.victoriametrics.com/victoriametrics/#relabeling
                             properties:
                               action:
                                 description: Action to perform based on regex matching.
@@ -1087,7 +1146,7 @@ spec:
                                 description: |-
                                   Regular expression against which the extracted value is matched. Default is '(.*)'
                                   victoriaMetrics supports multiline regex joined with |
-                                  https://docs.victoriametrics.com/vmagent/#relabeling-enhancements
+                                  https://docs.victoriametrics.com/victoriametrics/vmagent/#relabeling-enhancements
                                 x-kubernetes-preserve-unknown-fields: true
                               replacement:
                                 description: |-
@@ -1102,7 +1161,7 @@ spec:
                                 description: |-
                                   UnderScoreSourceLabels - additional form of source labels source_labels
                                   for compatibility with original relabel config.
-                                  if set  both sourceLabels and source_labels, sourceLabels has priority.
+                                  if set both sourceLabels and source_labels, sourceLabels has priority.
                                   for details https://github.com/VictoriaMetrics/operator/issues/131
                                 items:
                                   type: string
@@ -1119,7 +1178,7 @@ spec:
                                 description: |-
                                   UnderScoreTargetLabel - additional form of target label - target_label
                                   for compatibility with original relabel config.
-                                  if set  both targetLabel and target_label, targetLabel has priority.
+                                  if set both targetLabel and target_label, targetLabel has priority.
                                   for details https://github.com/VictoriaMetrics/operator/issues/131
                                 type: string
                               targetLabel:
@@ -1257,6 +1316,7 @@ spec:
                       AcceptEULA accepts enterprise feature usage, must be set to true.
                       otherwise backupmanager cannot be added to single/cluster version.
                       https://victoriametrics.com/legal/esa/
+                      Deprecated: use license.key or license.keyRef instead
                     type: boolean
                   concurrency:
                     description: Defines number of concurrent workers. Higher concurrency
@@ -1325,8 +1385,9 @@ spec:
                         in a Container.
                       properties:
                         name:
-                          description: Name of the environment variable. Must be a
-                            C_IDENTIFIER.
+                          description: |-
+                            Name of the environment variable.
+                            May consist of any printable ASCII characters except '='.
                           type: string
                         value:
                           description: |-
@@ -1384,6 +1445,43 @@ spec:
                               - fieldPath
                               type: object
                               x-kubernetes-map-type: atomic
+                            fileKeyRef:
+                              description: |-
+                                FileKeyRef selects a key of the env file.
+                                Requires the EnvFiles feature gate to be enabled.
+                              properties:
+                                key:
+                                  description: |-
+                                    The key within the env file. An invalid key will prevent the pod from starting.
+                                    The keys defined within a source may consist of any printable ASCII characters except '='.
+                                    During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                  type: string
+                                optional:
+                                  default: false
+                                  description: |-
+                                    Specify whether the file or its key must be defined. If the file or key
+                                    does not exist, then the env var is not published.
+                                    If optional is set to true and the specified key does not exist,
+                                    the environment variable will not be set in the Pod's containers.
+
+                                    If optional is set to false and the specified key does not exist,
+                                    an error will be returned during Pod creation.
+                                  type: boolean
+                                path:
+                                  description: |-
+                                    The path within the volume from which to select the file.
+                                    Must be relative and may not contain the '..' path or start with '..'.
+                                  type: string
+                                volumeName:
+                                  description: The name of the volume mount containing
+                                    the env file.
+                                  type: string
+                              required:
+                              - key
+                              - path
+                              - volumeName
+                              type: object
+                              x-kubernetes-map-type: atomic
                             resourceFieldRef:
                               description: |-
                                 Selects a resource of the container: only resources limits and requests
@@ -1438,6 +1536,55 @@ spec:
                       - name
                       type: object
                     type: array
+                  extraEnvsFrom:
+                    description: |-
+                      ExtraEnvsFrom defines source of env variables for the application container
+                      could either be secret or configmap
+                    items:
+                      description: EnvFromSource represents the source of a set of
+                        ConfigMaps or Secrets
+                      properties:
+                        configMapRef:
+                          description: The ConfigMap to select from
+                          properties:
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the ConfigMap must be defined
+                              type: boolean
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        prefix:
+                          description: |-
+                            Optional text to prepend to the name of each environment variable.
+                            May consist of any printable ASCII characters except '='.
+                          type: string
+                        secretRef:
+                          description: The Secret to select from
+                          properties:
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the Secret must be defined
+                              type: boolean
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                    type: array
                   image:
                     description: Image - docker image settings for VMBackuper
                     properties:
@@ -1482,7 +1629,7 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-                          This is an alpha field and requires enabling the
+                          This field depends on the
                           DynamicResourceAllocation feature gate.
 
                           This field is immutable. It can only be set for containers.
@@ -1536,7 +1683,7 @@ spec:
                   restore:
                     description: |-
                       Restore Allows to enable restore options for pod
-                      Read [more](https://docs.victoriametrics.com/vmbackupmanager#restore-commands)
+                      Read [more](https://docs.victoriametrics.com/victoriametrics/vmbackupmanager/#restore-commands)
                     properties:
                       onStart:
                         description: OnStart defines configuration for restore on
@@ -1700,8 +1847,6 @@ spec:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
                 type: array
-            required:
-            - retentionPeriod
             type: object
           status:
             description: VMSingleStatus defines the observed state of VMSingle
@@ -1777,10 +1922,6 @@ spec:
                 type: integer
               reason:
                 description: Reason defines human readable error reason
-                type: string
-              singleStatus:
-                description: LegacyStatus is deprecated and will be removed at v0.52.0
-                  version
                 type: string
               updateStatus:
                 description: UpdateStatus defines a status for update rollout
