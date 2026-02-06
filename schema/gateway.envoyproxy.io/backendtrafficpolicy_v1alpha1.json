@@ -99,6 +99,26 @@
                 "description": "The configuration for GZIP compressor.",
                 "type": "object"
               },
+              "minContentLength": {
+                "description": "MinContentLength defines the minimum response size in bytes to apply compression.\nResponses smaller than this threshold will not be compressed.\nMust be at least 30 bytes as enforced by Envoy Proxy.\nNote that when the suffix is not provided, the value is interpreted as bytes.\nDefault: 30 bytes",
+                "allOf": [
+                  {
+                    "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
+                  },
+                  {
+                    "pattern": "^[1-9]+[0-9]*([EPTGMK]i|[EPTGMk])?$"
+                  }
+                ],
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "x-kubernetes-int-or-string": true
+              },
               "type": {
                 "description": "CompressorType defines the compressor type to use for compression.",
                 "type": "string",
@@ -117,7 +137,7 @@
           }
         },
         "compressor": {
-          "description": "The compressor config for the http streams.\nThis provides more granular control over compression configuration.",
+          "description": "The compressor config for the http streams.\nThis provides more granular control over compression configuration.\nOrder matters: The first compressor in the list is preferred when q-values in Accept-Encoding are equal.",
           "type": "array",
           "items": {
             "description": "Compression defines the config of enabling compression.\nThis can help reduce the bandwidth at the expense of higher CPU.",
@@ -133,6 +153,26 @@
               "gzip": {
                 "description": "The configuration for GZIP compressor.",
                 "type": "object"
+              },
+              "minContentLength": {
+                "description": "MinContentLength defines the minimum response size in bytes to apply compression.\nResponses smaller than this threshold will not be compressed.\nMust be at least 30 bytes as enforced by Envoy Proxy.\nNote that when the suffix is not provided, the value is interpreted as bytes.\nDefault: 30 bytes",
+                "allOf": [
+                  {
+                    "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
+                  },
+                  {
+                    "pattern": "^[1-9]+[0-9]*([EPTGMK]i|[EPTGMk])?$"
+                  }
+                ],
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "x-kubernetes-int-or-string": true
               },
               "type": {
                 "description": "CompressorType defines the compressor type to use for compression.",
@@ -816,6 +856,24 @@
                     "additionalProperties": false
                   }
                 },
+                "queryParams": {
+                  "description": "QueryParams configures the query parameter hash policy when the consistent hash type is set to QueryParams.",
+                  "type": "array",
+                  "items": {
+                    "description": "QueryParam defines the query parameter name hashing configuration for consistent hash based\nload balancing.",
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "description": "Name of the query param to hash.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
                 "tableSize": {
                   "description": "The table size for consistent hashing, must be prime number limited to 5000011.",
                   "type": "integer",
@@ -825,13 +883,14 @@
                   "minimum": 2
                 },
                 "type": {
-                  "description": "ConsistentHashType defines the type of input to hash on. Valid Type values are\n\"SourceIP\",\n\"Header\",\n\"Headers\",\n\"Cookie\".",
+                  "description": "ConsistentHashType defines the type of input to hash on. Valid Type values are\n\"SourceIP\",\n\"Header\",\n\"Headers\",\n\"Cookie\".\n\"QueryParams\".",
                   "type": "string",
                   "enum": [
                     "SourceIP",
                     "Header",
                     "Headers",
-                    "Cookie"
+                    "Cookie",
+                    "QueryParams"
                   ]
                 }
               },
@@ -848,6 +907,10 @@
                 {
                   "rule": "self.type == 'Cookie' ? has(self.cookie) : !has(self.cookie)",
                   "message": "If consistent hash type is cookie, the cookie field must be set."
+                },
+                {
+                  "rule": "self.type == 'QueryParams' ? has(self.queryParams) : !has(self.queryParams)",
+                  "message": "If consistent hash type is queryParams, the queryParams field must be set."
                 }
               ]
             },
@@ -1007,7 +1070,7 @@
                         "type": "array",
                         "maxItems": 8,
                         "items": {
-                          "description": "RateLimitSelectCondition specifies the attributes within the traffic flow that can\nbe used to select a subset of clients to be ratelimited.\nAll the individual conditions must hold True for the overall condition to hold True.\nAnd, at least one of headers or methods or path or sourceCIDR condition must be specified.",
+                          "description": "RateLimitSelectCondition specifies the attributes within the traffic flow that can\nbe used to select a subset of clients to be ratelimited.\nAll the individual conditions must hold True for the overall condition to hold True.\nAnd, at least one of headers or methods or path or sourceCIDR or queryParams condition must be specified.",
                           "type": "object",
                           "properties": {
                             "headers": {
@@ -1116,6 +1179,47 @@
                               },
                               "additionalProperties": false
                             },
+                            "queryParams": {
+                              "description": "QueryParams is a list of query parameters to match. Multiple query parameter values are ANDed together,\nmeaning, a request MUST match all the specified query parameters.",
+                              "type": "array",
+                              "maxItems": 16,
+                              "items": {
+                                "description": "QueryParamMatch defines the match attributes within the query parameters of the request.",
+                                "type": "object",
+                                "required": [
+                                  "name"
+                                ],
+                                "properties": {
+                                  "invert": {
+                                    "description": "Invert specifies whether the value match result will be inverted.\nDo not set this field when Type=\"Distinct\", implying matching on any/all unique\nvalues within the query parameter.",
+                                    "type": "boolean",
+                                    "default": false
+                                  },
+                                  "name": {
+                                    "description": "Name of the query parameter.",
+                                    "type": "string",
+                                    "maxLength": 256,
+                                    "minLength": 1
+                                  },
+                                  "type": {
+                                    "description": "Type specifies how to match against the value of the query parameter.",
+                                    "type": "string",
+                                    "default": "Exact",
+                                    "enum": [
+                                      "Exact",
+                                      "RegularExpression",
+                                      "Distinct"
+                                    ]
+                                  },
+                                  "value": {
+                                    "description": "Value of the query parameter.\nDo not set this field when Type=\"Distinct\", implying matching on any/all unique\nvalues within the query parameter.",
+                                    "type": "string",
+                                    "maxLength": 1024
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
                             "sourceCIDR": {
                               "description": "SourceCIDR is the client IP Address range to match on.",
                               "type": "object",
@@ -1144,8 +1248,8 @@
                           "additionalProperties": false,
                           "x-kubernetes-validations": [
                             {
-                              "rule": "has(self.headers) || has(self.methods) || has(self.path) || has(self.sourceCIDR)",
-                              "message": "at least one of headers, methods, path or sourceCIDR must be specified"
+                              "rule": "has(self.headers) || has(self.methods) || has(self.path) || has(self.sourceCIDR) || has(self.queryParams)",
+                              "message": "at least one of headers, methods, path, sourceCIDR or queryParams must be specified"
                             }
                           ]
                         }
@@ -1278,6 +1382,10 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      "shadowMode": {
+                        "description": "ShadowMode indicates whether this rate-limit rule runs in shadow mode.\nWhen enabled, all rate-limiting operations are performed (cache lookups,\ncounter updates, telemetry generation), but the outcome is never enforced.\nThe request always succeeds, even if the configured limit is exceeded.\n\nOnly supported for Global Rate Limits.",
+                        "type": "boolean"
                       },
                       "shared": {
                         "description": "Shared determines whether this rate limit rule applies across all the policy targets.\nIf set to true, the rule is treated as a common bucket and is shared across all policy targets (xRoutes).\nDefault: false.",
@@ -1310,7 +1418,7 @@
                         "type": "array",
                         "maxItems": 8,
                         "items": {
-                          "description": "RateLimitSelectCondition specifies the attributes within the traffic flow that can\nbe used to select a subset of clients to be ratelimited.\nAll the individual conditions must hold True for the overall condition to hold True.\nAnd, at least one of headers or methods or path or sourceCIDR condition must be specified.",
+                          "description": "RateLimitSelectCondition specifies the attributes within the traffic flow that can\nbe used to select a subset of clients to be ratelimited.\nAll the individual conditions must hold True for the overall condition to hold True.\nAnd, at least one of headers or methods or path or sourceCIDR or queryParams condition must be specified.",
                           "type": "object",
                           "properties": {
                             "headers": {
@@ -1419,6 +1527,47 @@
                               },
                               "additionalProperties": false
                             },
+                            "queryParams": {
+                              "description": "QueryParams is a list of query parameters to match. Multiple query parameter values are ANDed together,\nmeaning, a request MUST match all the specified query parameters.",
+                              "type": "array",
+                              "maxItems": 16,
+                              "items": {
+                                "description": "QueryParamMatch defines the match attributes within the query parameters of the request.",
+                                "type": "object",
+                                "required": [
+                                  "name"
+                                ],
+                                "properties": {
+                                  "invert": {
+                                    "description": "Invert specifies whether the value match result will be inverted.\nDo not set this field when Type=\"Distinct\", implying matching on any/all unique\nvalues within the query parameter.",
+                                    "type": "boolean",
+                                    "default": false
+                                  },
+                                  "name": {
+                                    "description": "Name of the query parameter.",
+                                    "type": "string",
+                                    "maxLength": 256,
+                                    "minLength": 1
+                                  },
+                                  "type": {
+                                    "description": "Type specifies how to match against the value of the query parameter.",
+                                    "type": "string",
+                                    "default": "Exact",
+                                    "enum": [
+                                      "Exact",
+                                      "RegularExpression",
+                                      "Distinct"
+                                    ]
+                                  },
+                                  "value": {
+                                    "description": "Value of the query parameter.\nDo not set this field when Type=\"Distinct\", implying matching on any/all unique\nvalues within the query parameter.",
+                                    "type": "string",
+                                    "maxLength": 1024
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
                             "sourceCIDR": {
                               "description": "SourceCIDR is the client IP Address range to match on.",
                               "type": "object",
@@ -1447,8 +1596,8 @@
                           "additionalProperties": false,
                           "x-kubernetes-validations": [
                             {
-                              "rule": "has(self.headers) || has(self.methods) || has(self.path) || has(self.sourceCIDR)",
-                              "message": "at least one of headers, methods, path or sourceCIDR must be specified"
+                              "rule": "has(self.headers) || has(self.methods) || has(self.path) || has(self.sourceCIDR) || has(self.queryParams)",
+                              "message": "at least one of headers, methods, path, sourceCIDR or queryParams must be specified"
                             }
                           ]
                         }
@@ -1582,6 +1731,10 @@
                         },
                         "additionalProperties": false
                       },
+                      "shadowMode": {
+                        "description": "ShadowMode indicates whether this rate-limit rule runs in shadow mode.\nWhen enabled, all rate-limiting operations are performed (cache lookups,\ncounter updates, telemetry generation), but the outcome is never enforced.\nThe request always succeeds, even if the configured limit is exceeded.\n\nOnly supported for Global Rate Limits.",
+                        "type": "boolean"
+                      },
                       "shared": {
                         "description": "Shared determines whether this rate limit rule applies across all the policy targets.\nIf set to true, the rule is treated as a common bucket and is shared across all policy targets (xRoutes).\nDefault: false.",
                         "type": "boolean"
@@ -1593,6 +1746,10 @@
                     {
                       "rule": "self.all(foo, !has(foo.cost) || !has(foo.cost.response))",
                       "message": "response cost is not supported for Local Rate Limits"
+                    },
+                    {
+                      "rule": "self.all(foo, !has(foo.shadowMode))",
+                      "message": "shadow mode is not supported for Local Rate Limits"
                     }
                   ]
                 }
@@ -2096,6 +2253,10 @@
           },
           "additionalProperties": false
         },
+        "routingType": {
+          "description": "RoutingType can be set to \"Service\" to use the Service Cluster IP for routing to the backend,\nor it can be set to \"Endpoint\" to use Endpoint routing.\nWhen specified, this overrides the EnvoyProxy-level setting for the relevant targeRefs.\nIf not specified, the EnvoyProxy-level setting is used.",
+          "type": "string"
+        },
         "targetRef": {
           "description": "TargetRef is the name of the resource this policy is being attached to.\nThis policy and the TargetRef MUST be in the same namespace for this\nPolicy to have effect\n\nDeprecated: use targetRefs/targetSelectors instead",
           "type": "object",
@@ -2274,12 +2435,23 @@
           "description": "Telemetry configures the telemetry settings for the policy target (Gateway or xRoute).\nThis will override the telemetry settings in the EnvoyProxy resource.",
           "type": "object",
           "properties": {
+            "metrics": {
+              "description": "Metrics defines metrics configuration for the backend or Route.",
+              "type": "object",
+              "properties": {
+                "routeStatName": {
+                  "description": "RouteStatName defines the value of the Route stat_prefix, determining how the route stats are named.\nFor more details, see envoy docs: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#config-route-v3-route\nThe supported operators for this pattern are:\n%ROUTE_NAME%: name of Gateway API xRoute resource\n%ROUTE_NAMESPACE%: namespace of Gateway API xRoute resource\n%ROUTE_KIND%: kind of Gateway API xRoute resource\nExample: %ROUTE_KIND%/%ROUTE_NAMESPACE%/%ROUTE_NAME% =\u003e httproute/my-ns/my-route\nDisabled by default.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
             "tracing": {
-              "description": "Tracing configures the tracing settings for the backend or HTTPRoute.",
+              "description": "Tracing configures the tracing settings for the backend or HTTPRoute.\n\nThis takes precedence over EnvoyProxy tracing when set.",
               "type": "object",
               "properties": {
                 "customTags": {
-                  "description": "CustomTags defines the custom tags to add to each span.\nIf provider is kubernetes, pod name and namespace are added by default.",
+                  "description": "CustomTags defines the custom tags to add to each span.\nIf provider is kubernetes, pod name and namespace are added by default.\n\nDeprecated: Use Tags instead.",
                   "type": "object",
                   "additionalProperties": {
                     "type": "object",
@@ -2348,7 +2520,7 @@
                   }
                 },
                 "samplingFraction": {
-                  "description": "SamplingFraction represents the fraction of requests that should be\nselected for tracing if no prior sampling decision has been made.\n\nThis will take precedence over sampling fraction on EnvoyProxy if set.",
+                  "description": "SamplingFraction represents the fraction of requests that should be\nselected for tracing if no prior sampling decision has been made.",
                   "type": "object",
                   "required": [
                     "numerator"
@@ -2373,6 +2545,32 @@
                       "message": "numerator must be less than or equal to denominator"
                     }
                   ]
+                },
+                "spanName": {
+                  "description": "SpanName defines the name of the span which will be used for tracing.\nEnvoy [command operators](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#command-operators) may be used in the value.\nThe [format string documentation](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#config-access-log-format-strings) provides more information.\n\nIf not set, the span name is provider specific.\ne.g. Datadog use `ingress` as the default client span name,\nand `router \u003cUPSTREAM_CLUSTER\u003e egress` as the server span name.",
+                  "type": "object",
+                  "required": [
+                    "client",
+                    "server"
+                  ],
+                  "properties": {
+                    "client": {
+                      "description": "Client defines operation name of the span which will be used for tracing.",
+                      "type": "string"
+                    },
+                    "server": {
+                      "description": "Server defines the operation name of the upstream span which will be used for tracing.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "tags": {
+                  "description": "Tags defines the custom tags to add to each span.\nEnvoy [command operators](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#command-operators) may be used in the value.\nThe [format string documentation](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#config-access-log-format-strings) provides more information.\nIf provider is kubernetes, pod name and namespace are added by default.\n\nSame keys take precedence over CustomTags.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
                 }
               },
               "additionalProperties": false
