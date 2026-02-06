@@ -9,14 +9,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.81% | 3352 | 9815 | 83 |
+| 98.87% | 3352 | 9817 | 83 |
 
 ### Missing Schemas
-
-| clickhouse.com | |
-| --- | --- |
-| clickhousecluster | v1alpha1 |
-| keepercluster | v1alpha1 |
 
 | cloud.google.com | |
 | --- | --- |
