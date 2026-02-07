@@ -29,12 +29,11 @@
             "description": "ApplicationRef contains various criteria by which to include applications for managing by image updater",
             "type": "object",
             "required": [
-              "images",
               "namePattern"
             ],
             "properties": {
               "commonUpdateSettings": {
-                "description": "CommonUpdateSettings overrides the global CommonUpdateSettings for applications\nmatched by this selector.",
+                "description": "CommonUpdateSettings overrides the global CommonUpdateSettings for applications\nmatched by this selector.\nThis field is ignored when UseAnnotations is true.",
                 "type": "object",
                 "properties": {
                   "allowTags": {
@@ -75,9 +74,8 @@
                 "additionalProperties": false
               },
               "images": {
-                "description": "Images contains a list of configurations that how images should be updated.\nThese rules apply to applications selected by namePattern in ApplicationRefs, and each\nimage can override global/ApplicationRef settings.",
+                "description": "Images contains a list of configurations that how images should be updated.\nThese rules apply to applications selected by namePattern in ApplicationRefs, and each\nimage can override global/ApplicationRef settings.\nThis field is ignored when UseAnnotations is true.",
                 "type": "array",
-                "minItems": 1,
                 "items": {
                   "description": "ImageConfig defines how a specific container image should be discovered, updated,\nand how those updates should be reflected in application manifests.",
                   "type": "object",
@@ -143,21 +141,17 @@
                         "helm": {
                           "description": "Helm specifies update parameters if the target manifest is managed by Helm\nand updates are to be made to Helm values files.",
                           "type": "object",
-                          "required": [
-                            "name",
-                            "tag"
-                          ],
                           "properties": {
                             "name": {
-                              "description": "Name is the dot-separated path to the Helm key for the image repository/name part.\nExample: \"image.repository\", \"frontend.deployment.image.name\".\nThis field is required if the Helm target is used.",
+                              "description": "Name is the dot-separated path to the Helm key for the image repository/name part.\nExample: \"image.repository\", \"frontend.deployment.image.name\".\nIf neither spec nor name/tag are set, defaults to \"image.name\".\nIf spec is set, this field is ignored.",
                               "type": "string"
                             },
                             "spec": {
-                              "description": "Spec is an optional dot-separated path to a Helm key where the full image string\n(e.g., \"image/name:1.0\") should be written.\nUse this if your Helm chart expects the entire image reference in a single field,\nrather than separate name/tag fields. If this is set, other Helm parameter-related\noptions will be ignored.",
+                              "description": "Spec is the dot-separated path to a Helm key where the full image string\n(e.g., \"image/name:1.0\") should be written.\nUse this if your Helm chart expects the entire image reference in a single field,\nrather than separate name/tag fields. If this is set, name and tag will be ignored.",
                               "type": "string"
                             },
                             "tag": {
-                              "description": "Tag is the dot-separated path to the Helm key for the image tag part.\nExample: \"image.tag\", \"frontend.deployment.image.version\".\nThis field is required if the Helm target is used.",
+                              "description": "Tag is the dot-separated path to the Helm key for the image tag part.\nExample: \"image.tag\", \"frontend.deployment.image.version\".\nIf neither spec nor name/tag are set, defaults to \"image.tag\".\nIf spec is set, this field is ignored.",
                               "type": "string"
                             }
                           },
@@ -245,8 +239,13 @@
                 "description": "NamePattern indicates the glob pattern for application name",
                 "type": "string"
               },
+              "useAnnotations": {
+                "description": "UseAnnotations When true, read image configuration from Application's\nargocd-image-updater.argoproj.io/* annotations instead of\nrequiring explicit Images[] configuration in this CR.\nWhen this field is set to true, only namePattern and labelSelectors are used for\napplication selection. All other fields (CommonUpdateSettings, WriteBackConfig, Images)\nare ignored.",
+                "type": "boolean",
+                "default": false
+              },
               "writeBackConfig": {
-                "description": "WriteBackConfig overrides the global WriteBackConfig settings for applications\nmatched by this selector.",
+                "description": "WriteBackConfig overrides the global WriteBackConfig settings for applications\nmatched by this selector.\nThis field is ignored when UseAnnotations is true.",
                 "type": "object",
                 "required": [
                   "method"
@@ -281,7 +280,13 @@
                 "additionalProperties": false
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "!(has(self.useAnnotations) \u0026\u0026 self.useAnnotations == true) ? (has(self.images) \u0026\u0026 size(self.images) \u003e 0) : true",
+                "message": "Either useAnnotations must be true, or images must be provided with at least one item"
+              }
+            ]
           },
           "x-kubernetes-list-map-keys": [
             "namePattern"
