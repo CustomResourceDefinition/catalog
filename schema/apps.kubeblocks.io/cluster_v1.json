@@ -513,7 +513,7 @@
                           ]
                         },
                         "timeoutSeconds": {
-                          "description": "Specifies the maximum duration in seconds that the Action is allowed to run.\n\n\nIf the Action does not complete within this time frame, it will be terminated.\n\n\nThis field cannot be updated.",
+                          "description": "Specifies the maximum duration in seconds that the Action is allowed to run.\n\n\nBehavior based on the value:\n- Positive (\u003e 0): The action will be terminated after this many seconds. The maximum allowed value is 60.\n- Zero (= 0): The timeout is managed by the system, defaulting to 30 seconds typically.\n- Negative (\u003c 0): No timeout is applied; the action runs until the command completes.\n\n\nThis field cannot be updated.",
                           "type": "integer",
                           "format": "int32",
                           "default": 0
@@ -2052,7 +2052,7 @@
                 "description": "Specifies the Component's name.\nIt's part of the Service DNS name and must comply with the IANA service naming rule.\nThe name is optional when ClusterComponentSpec is used as a template (e.g., in `clusterSharding`),\nbut required otherwise.",
                 "type": "string",
                 "maxLength": 22,
-                "pattern": "^[a-z]([a-z0-9\\-]*[a-z0-9])?$"
+                "pattern": "^$|^[a-z]([a-z0-9-]*[a-z0-9])?$"
               },
               "offlineInstances": {
                 "description": "Specifies the names of instances to be transitioned to offline status.\n\n\nMarking an instance as offline results in the following:\n\n\n1. The associated Pod is stopped, and its PersistentVolumeClaim (PVC) is retained for potential\n   future reuse or data recovery, but it is no longer actively used.\n2. The ordinal number assigned to this instance is preserved, ensuring it remains unique\n   and avoiding conflicts with new instances.\n\n\nSetting instances to offline allows for a controlled scale-in process, preserving their data and maintaining\nordinal consistency within the Cluster.",
@@ -2098,6 +2098,15 @@
               },
               "podUpdatePolicy": {
                 "description": "PodUpdatePolicy indicates how pods should be updated\n\n\n- `StrictInPlace` indicates that only allows in-place upgrades.\nAny attempt to modify other fields will be rejected.\n- `PreferInPlace` indicates that we will first attempt an in-place upgrade of the Pod.\nIf that fails, it will fall back to the ReCreate, where pod will be recreated.\nDefault value is \"PreferInPlace\"",
+                "type": "string",
+                "default": "PreferInPlace",
+                "enum": [
+                  "StrictInPlace",
+                  "PreferInPlace"
+                ]
+              },
+              "podUpgradePolicy": {
+                "description": "PodUpgradePolicy indicates how pods should be updated when the component is upgraded.\n\n\nIf not specified, the value of PodUpdatePolicy will be used.",
                 "type": "string",
                 "enum": [
                   "StrictInPlace",
@@ -3304,8 +3313,7 @@
                       "description": "Refers to the secret from which data will be copied to create the new account.\n\n\nFor user-specified passwords, the maximum length is limited to 64 bytes.\n\n\nThis field is immutable once set.",
                       "type": "object",
                       "required": [
-                        "name",
-                        "namespace"
+                        "name"
                       ],
                       "properties": {
                         "name": {
@@ -3313,7 +3321,7 @@
                           "type": "string"
                         },
                         "namespace": {
-                          "description": "The namespace where the secret is located.",
+                          "description": "The namespace where the secret is located.\n\n\nIf not specified, the secret is assumed to be in the same namespace as the cluster.",
                           "type": "string"
                         },
                         "password": {
@@ -3333,7 +3341,7 @@
                 "type": "boolean"
               },
               "volumeClaimTemplates": {
-                "description": "Specifies a list of PersistentVolumeClaim templates that represent the storage requirements for the Component.\nEach template specifies the desired characteristics of a persistent volume, such as storage class,\nsize, and access modes.\nThese templates are used to dynamically provision persistent volumes for the Component.",
+                "description": "Specifies a list of PersistentVolumeClaim templates that represent the storage requirements for the Component.\n\n\nEach template defines the desired characteristics of a persistent volume, such as storage class,\nsize, and access modes, used for dynamic provisioning.\n\n\nPVC Adoption Mechanism:\nKubeBlocks supports adopting existing PVCs (static provisioning) if they meet the following criteria\nbefore the Cluster is created:\n1. Naming: The PVC name must follow the KubeBlocks naming convention:\n   $(vct-name)-$(pod-name) (e.g., \"data-mycluster-mysql-0\").\n2. Labeling: The PVC must carry the label \"app.kubernetes.io/managed-by=kubeblocks\".\n3. Ownership: The PVC must not have any existing controller reference.\n\n\nIf these conditions are met, KubeBlocks will automatically take over the PVCs and\nset the Component (or its controlled resources) as the owner/controller reference.",
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -6040,6 +6048,7 @@
             "type": "object",
             "required": [
               "name",
+              "shards",
               "template"
             ],
             "properties": {
@@ -6486,7 +6495,7 @@
                               ]
                             },
                             "timeoutSeconds": {
-                              "description": "Specifies the maximum duration in seconds that the Action is allowed to run.\n\n\nIf the Action does not complete within this time frame, it will be terminated.\n\n\nThis field cannot be updated.",
+                              "description": "Specifies the maximum duration in seconds that the Action is allowed to run.\n\n\nBehavior based on the value:\n- Positive (\u003e 0): The action will be terminated after this many seconds. The maximum allowed value is 60.\n- Zero (= 0): The timeout is managed by the system, defaulting to 30 seconds typically.\n- Negative (\u003c 0): No timeout is applied; the action runs until the command completes.\n\n\nThis field cannot be updated.",
                               "type": "integer",
                               "format": "int32",
                               "default": 0
@@ -8025,7 +8034,7 @@
                     "description": "Specifies the Component's name.\nIt's part of the Service DNS name and must comply with the IANA service naming rule.\nThe name is optional when ClusterComponentSpec is used as a template (e.g., in `clusterSharding`),\nbut required otherwise.",
                     "type": "string",
                     "maxLength": 22,
-                    "pattern": "^[a-z]([a-z0-9\\-]*[a-z0-9])?$"
+                    "pattern": "^$|^[a-z]([a-z0-9-]*[a-z0-9])?$"
                   },
                   "offlineInstances": {
                     "description": "Specifies the names of instances to be transitioned to offline status.\n\n\nMarking an instance as offline results in the following:\n\n\n1. The associated Pod is stopped, and its PersistentVolumeClaim (PVC) is retained for potential\n   future reuse or data recovery, but it is no longer actively used.\n2. The ordinal number assigned to this instance is preserved, ensuring it remains unique\n   and avoiding conflicts with new instances.\n\n\nSetting instances to offline allows for a controlled scale-in process, preserving their data and maintaining\nordinal consistency within the Cluster.",
@@ -8071,6 +8080,15 @@
                   },
                   "podUpdatePolicy": {
                     "description": "PodUpdatePolicy indicates how pods should be updated\n\n\n- `StrictInPlace` indicates that only allows in-place upgrades.\nAny attempt to modify other fields will be rejected.\n- `PreferInPlace` indicates that we will first attempt an in-place upgrade of the Pod.\nIf that fails, it will fall back to the ReCreate, where pod will be recreated.\nDefault value is \"PreferInPlace\"",
+                    "type": "string",
+                    "default": "PreferInPlace",
+                    "enum": [
+                      "StrictInPlace",
+                      "PreferInPlace"
+                    ]
+                  },
+                  "podUpgradePolicy": {
+                    "description": "PodUpgradePolicy indicates how pods should be updated when the component is upgraded.\n\n\nIf not specified, the value of PodUpdatePolicy will be used.",
                     "type": "string",
                     "enum": [
                       "StrictInPlace",
@@ -9277,8 +9295,7 @@
                           "description": "Refers to the secret from which data will be copied to create the new account.\n\n\nFor user-specified passwords, the maximum length is limited to 64 bytes.\n\n\nThis field is immutable once set.",
                           "type": "object",
                           "required": [
-                            "name",
-                            "namespace"
+                            "name"
                           ],
                           "properties": {
                             "name": {
@@ -9286,7 +9303,7 @@
                               "type": "string"
                             },
                             "namespace": {
-                              "description": "The namespace where the secret is located.",
+                              "description": "The namespace where the secret is located.\n\n\nIf not specified, the secret is assumed to be in the same namespace as the cluster.",
                               "type": "string"
                             },
                             "password": {
@@ -9306,7 +9323,7 @@
                     "type": "boolean"
                   },
                   "volumeClaimTemplates": {
-                    "description": "Specifies a list of PersistentVolumeClaim templates that represent the storage requirements for the Component.\nEach template specifies the desired characteristics of a persistent volume, such as storage class,\nsize, and access modes.\nThese templates are used to dynamically provision persistent volumes for the Component.",
+                    "description": "Specifies a list of PersistentVolumeClaim templates that represent the storage requirements for the Component.\n\n\nEach template defines the desired characteristics of a persistent volume, such as storage class,\nsize, and access modes, used for dynamic provisioning.\n\n\nPVC Adoption Mechanism:\nKubeBlocks supports adopting existing PVCs (static provisioning) if they meet the following criteria\nbefore the Cluster is created:\n1. Naming: The PVC name must follow the KubeBlocks naming convention:\n   $(vct-name)-$(pod-name) (e.g., \"data-mycluster-mysql-0\").\n2. Labeling: The PVC must carry the label \"app.kubernetes.io/managed-by=kubeblocks\".\n3. Ownership: The PVC must not have any existing controller reference.\n\n\nIf these conditions are met, KubeBlocks will automatically take over the PVCs and\nset the Component (or its controlled resources) as the owner/controller reference.",
                     "type": "array",
                     "items": {
                       "type": "object",

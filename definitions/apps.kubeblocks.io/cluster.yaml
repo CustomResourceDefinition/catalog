@@ -729,7 +729,10 @@ spec:
                                   Specifies the maximum duration in seconds that the Action is allowed to run.
 
 
-                                  If the Action does not complete within this time frame, it will be terminated.
+                                  Behavior based on the value:
+                                  - Positive (> 0): The action will be terminated after this many seconds. The maximum allowed value is 60.
+                                  - Zero (= 0): The timeout is managed by the system, defaulting to 30 seconds typically.
+                                  - Negative (< 0): No timeout is applied; the action runs until the command completes.
 
 
                                   This field cannot be updated.
@@ -2536,7 +2539,7 @@ spec:
                         The name is optional when ClusterComponentSpec is used as a template (e.g., in `clusterSharding`),
                         but required otherwise.
                       maxLength: 22
-                      pattern: ^[a-z]([a-z0-9\-]*[a-z0-9])?$
+                      pattern: ^$|^[a-z]([a-z0-9-]*[a-z0-9])?$
                       type: string
                     offlineInstances:
                       description: |-
@@ -2595,6 +2598,7 @@ spec:
                           type: string
                       type: object
                     podUpdatePolicy:
+                      default: PreferInPlace
                       description: |-
                         PodUpdatePolicy indicates how pods should be updated
 
@@ -2604,6 +2608,16 @@ spec:
                         - `PreferInPlace` indicates that we will first attempt an in-place upgrade of the Pod.
                         If that fails, it will fall back to the ReCreate, where pod will be recreated.
                         Default value is "PreferInPlace"
+                      enum:
+                      - StrictInPlace
+                      - PreferInPlace
+                      type: string
+                    podUpgradePolicy:
+                      description: |-
+                        PodUpgradePolicy indicates how pods should be updated when the component is upgraded.
+
+
+                        If not specified, the value of PodUpdatePolicy will be used.
                       enum:
                       - StrictInPlace
                       - PreferInPlace
@@ -4155,7 +4169,11 @@ spec:
                                 description: The unique identifier of the secret.
                                 type: string
                               namespace:
-                                description: The namespace where the secret is located.
+                                description: |-
+                                  The namespace where the secret is located.
+
+
+                                  If not specified, the secret is assumed to be in the same namespace as the cluster.
                                 type: string
                               password:
                                 default: password
@@ -4164,7 +4182,6 @@ spec:
                                 type: string
                             required:
                             - name
-                            - namespace
                             type: object
                         required:
                         - name
@@ -4183,9 +4200,23 @@ spec:
                     volumeClaimTemplates:
                       description: |-
                         Specifies a list of PersistentVolumeClaim templates that represent the storage requirements for the Component.
-                        Each template specifies the desired characteristics of a persistent volume, such as storage class,
-                        size, and access modes.
-                        These templates are used to dynamically provision persistent volumes for the Component.
+
+
+                        Each template defines the desired characteristics of a persistent volume, such as storage class,
+                        size, and access modes, used for dynamic provisioning.
+
+
+                        PVC Adoption Mechanism:
+                        KubeBlocks supports adopting existing PVCs (static provisioning) if they meet the following criteria
+                        before the Cluster is created:
+                        1. Naming: The PVC name must follow the KubeBlocks naming convention:
+                           $(vct-name)-$(pod-name) (e.g., "data-mycluster-mysql-0").
+                        2. Labeling: The PVC must carry the label "app.kubernetes.io/managed-by=kubeblocks".
+                        3. Ownership: The PVC must not have any existing controller reference.
+
+
+                        If these conditions are met, KubeBlocks will automatically take over the PVCs and
+                        set the Component (or its controlled resources) as the owner/controller reference.
                       items:
                         properties:
                           annotations:
@@ -8207,7 +8238,10 @@ spec:
                                       Specifies the maximum duration in seconds that the Action is allowed to run.
 
 
-                                      If the Action does not complete within this time frame, it will be terminated.
+                                      Behavior based on the value:
+                                      - Positive (> 0): The action will be terminated after this many seconds. The maximum allowed value is 60.
+                                      - Zero (= 0): The timeout is managed by the system, defaulting to 30 seconds typically.
+                                      - Negative (< 0): No timeout is applied; the action runs until the command completes.
 
 
                                       This field cannot be updated.
@@ -10036,7 +10070,7 @@ spec:
                             The name is optional when ClusterComponentSpec is used as a template (e.g., in `clusterSharding`),
                             but required otherwise.
                           maxLength: 22
-                          pattern: ^[a-z]([a-z0-9\-]*[a-z0-9])?$
+                          pattern: ^$|^[a-z]([a-z0-9-]*[a-z0-9])?$
                           type: string
                         offlineInstances:
                           description: |-
@@ -10095,6 +10129,7 @@ spec:
                               type: string
                           type: object
                         podUpdatePolicy:
+                          default: PreferInPlace
                           description: |-
                             PodUpdatePolicy indicates how pods should be updated
 
@@ -10104,6 +10139,16 @@ spec:
                             - `PreferInPlace` indicates that we will first attempt an in-place upgrade of the Pod.
                             If that fails, it will fall back to the ReCreate, where pod will be recreated.
                             Default value is "PreferInPlace"
+                          enum:
+                          - StrictInPlace
+                          - PreferInPlace
+                          type: string
+                        podUpgradePolicy:
+                          description: |-
+                            PodUpgradePolicy indicates how pods should be updated when the component is upgraded.
+
+
+                            If not specified, the value of PodUpdatePolicy will be used.
                           enum:
                           - StrictInPlace
                           - PreferInPlace
@@ -11667,8 +11712,11 @@ spec:
                                     description: The unique identifier of the secret.
                                     type: string
                                   namespace:
-                                    description: The namespace where the secret is
-                                      located.
+                                    description: |-
+                                      The namespace where the secret is located.
+
+
+                                      If not specified, the secret is assumed to be in the same namespace as the cluster.
                                     type: string
                                   password:
                                     default: password
@@ -11677,7 +11725,6 @@ spec:
                                     type: string
                                 required:
                                 - name
-                                - namespace
                                 type: object
                             required:
                             - name
@@ -11696,9 +11743,23 @@ spec:
                         volumeClaimTemplates:
                           description: |-
                             Specifies a list of PersistentVolumeClaim templates that represent the storage requirements for the Component.
-                            Each template specifies the desired characteristics of a persistent volume, such as storage class,
-                            size, and access modes.
-                            These templates are used to dynamically provision persistent volumes for the Component.
+
+
+                            Each template defines the desired characteristics of a persistent volume, such as storage class,
+                            size, and access modes, used for dynamic provisioning.
+
+
+                            PVC Adoption Mechanism:
+                            KubeBlocks supports adopting existing PVCs (static provisioning) if they meet the following criteria
+                            before the Cluster is created:
+                            1. Naming: The PVC name must follow the KubeBlocks naming convention:
+                               $(vct-name)-$(pod-name) (e.g., "data-mycluster-mysql-0").
+                            2. Labeling: The PVC must carry the label "app.kubernetes.io/managed-by=kubeblocks".
+                            3. Ownership: The PVC must not have any existing controller reference.
+
+
+                            If these conditions are met, KubeBlocks will automatically take over the PVCs and
+                            set the Component (or its controlled resources) as the owner/controller reference.
                           items:
                             properties:
                               annotations:
@@ -13530,6 +13591,7 @@ spec:
                       type: object
                   required:
                   - name
+                  - shards
                   - template
                   type: object
                 maxItems: 128
