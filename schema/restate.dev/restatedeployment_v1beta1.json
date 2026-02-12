@@ -11,19 +11,68 @@
       "type": "object",
       "required": [
         "restate",
-        "selector",
         "template"
       ],
       "properties": {
+        "deploymentMode": {
+          "description": "Deployment mode: replicaset (default) or knative.\nThis field is immutable after creation.",
+          "type": "string",
+          "enum": [
+            "replicaset",
+            "knative"
+          ],
+          "nullable": true,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == oldSelf",
+              "message": "deploymentMode is immutable after creation"
+            }
+          ]
+        },
+        "knative": {
+          "description": "Knative-specific configuration.\nWhen specified, enables Knative Serving mode.",
+          "type": "object",
+          "properties": {
+            "maxScale": {
+              "description": "Maximum number of replicas (default: unlimited)",
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "nullable": true
+            },
+            "minScale": {
+              "description": "Minimum number of replicas (default: 0 for scale-to-zero)",
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "nullable": true
+            },
+            "tag": {
+              "description": "Deployment tag - determines Restate deployment identity.\n\nA Restate deployment is a specific, versioned instance of your service code.\nEach deployment is immutable: once registered with Restate, its endpoint and\nidentity (deployment ID) must not change.\n\nThe tag acts as a stable label that groups multiple Knative Revisions under\na single Restate deployment:\n- **Same tag**: In-place updates create new Knative Revisions within the same\n  Restate deployment (no new registration)\n- **Changed tag**: Creates a new Restate deployment with a new deployment ID\n  (versioned update)\n- **No tag specified**: Uses template hash as tag, causing every template change\n  to create a new Restate deployment\n\nThe tag must be a valid DNS-1035 label: a lowercase RFC 1123 label that consists of\nlower case alphanumeric characters or '-', and must start and end with an alphanumeric\ncharacter (e.g. 'my-name',  or '123-abc', regex used for validation is\n'[a-z]([-a-z0-9]*[a-z0-9])?').\n\nExample: tag \"v1-0\" → Configuration \"my-service-v1-0\" → Restate deployment \"dp_abc123\"\n         Multiple Knative Revisions (00001, 00002, ...) all serve this deployment.",
+              "type": "string",
+              "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+              "nullable": true
+            },
+            "target": {
+              "description": "Target concurrent requests per replica (default: 100)",
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "nullable": true
+            }
+          },
+          "additionalProperties": false,
+          "nullable": true
+        },
         "minReadySeconds": {
-          "description": "Minimum number of seconds for which a newly created pod should be ready.",
+          "description": "Minimum number of seconds for which a newly created pod should be ready.\nOnly used in ReplicaSet mode.",
           "type": "integer",
           "format": "int32",
           "minimum": 0,
           "nullable": true
         },
         "replicas": {
-          "description": "Number of desired pods. Defaults to 1.",
+          "description": "Number of desired pods. Defaults to 1.\nOnly used in ReplicaSet mode.",
           "type": "integer",
           "format": "int32",
           "default": 1,
@@ -123,14 +172,14 @@
           "additionalProperties": false
         },
         "revisionHistoryLimit": {
-          "description": "The number of old ReplicaSets to retain to allow rollback. Defaults to 10.",
+          "description": "The number of old ReplicaSets to retain to allow rollback. Defaults to 10.\nOnly used in ReplicaSet mode.",
           "type": "integer",
           "format": "int32",
           "default": 10,
           "minimum": 0
         },
         "selector": {
-          "description": "Label selector for pods. Must match the pod template's labels.",
+          "description": "Label selector for pods. Must match the pod template's labels.\nOnly used in ReplicaSet mode.",
           "type": "object",
           "properties": {
             "matchExpressions": {
@@ -208,7 +257,7 @@
               "nullable": true
             },
             "spec": {
-              "description": "Specification of the desired behavior of the pod. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status.\nThe contents of this field are passed through directly from the operator to the created ReplicaSet and are not validated.",
+              "description": "Specification of the desired behavior of the pod. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status.\n\nThe contents of this field are passed through directly from the operator to the created workload:\n- **ReplicaSet mode**: Passed to the ReplicaSet's pod template spec.\n- **Knative mode**: Passed to the Configuration's revision template spec. This supports standard PodSpec fields (containers, serviceAccountName, volumes, etc.) as well as Knative-specific fields (timeoutSeconds, containerConcurrency, etc.).",
               "x-kubernetes-preserve-unknown-fields": true
             }
           },
@@ -231,7 +280,7 @@
           "nullable": true
         },
         "collisionCount": {
-          "description": "Count of hash collisions for the RestateDeployment. The controller uses this field as a collision avoidance mechanism when it needs to create the name for the newest ReplicaSet.",
+          "description": "Count of hash collisions for the RestateDeployment. The controller uses this field as a collision avoidance mechanism when it needs to create the name for the newest ReplicaSet or Configuration.",
           "type": "integer",
           "format": "int32",
           "nullable": true
@@ -274,6 +323,45 @@
             },
             "additionalProperties": false
           },
+          "nullable": true
+        },
+        "deploymentId": {
+          "description": "Restate deployment ID for the current tag",
+          "type": "string",
+          "nullable": true
+        },
+        "desiredReplicas": {
+          "description": "Desired number of replicas.\n- For ReplicaSet mode: reflects spec.replicas\n- For Knative mode: reflects revision.status.desired_replicas from latest revision",
+          "type": "integer",
+          "format": "int32",
+          "nullable": true
+        },
+        "knative": {
+          "description": "Knative-specific status",
+          "type": "object",
+          "properties": {
+            "configurationName": {
+              "description": "Name of the active Configuration for the current tag",
+              "type": "string",
+              "nullable": true
+            },
+            "latestRevision": {
+              "description": "Latest ready revision name for the current Configuration",
+              "type": "string",
+              "nullable": true
+            },
+            "routeName": {
+              "description": "Name of the active Route for the current tag",
+              "type": "string",
+              "nullable": true
+            },
+            "url": {
+              "description": "Default URL for the current deployment",
+              "type": "string",
+              "nullable": true
+            }
+          },
+          "additionalProperties": false,
           "nullable": true
         },
         "labelSelector": {
