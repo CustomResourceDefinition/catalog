@@ -1,5 +1,5 @@
 {
-  "description": "Repository is the Schema for the Repositories API",
+  "description": "RepositoryCreationTemplate is the Schema for the RepositoryCreationTemplates API",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -14,14 +14,50 @@
       "type": "object"
     },
     "spec": {
-      "description": "RepositorySpec defines the desired state of Repository.\n\nAn object representing a repository.",
+      "description": "RepositoryCreationTemplateSpec defines the desired state of RepositoryCreationTemplate.\n\nThe details of the repository creation template associated with the request.",
       "type": "object",
       "required": [
-        "name"
+        "appliedFor",
+        "prefix"
       ],
       "properties": {
+        "appliedFor": {
+          "description": "A list of enumerable strings representing the Amazon ECR repository creation\nscenarios that this template will apply towards. The two supported scenarios\nare PULL_THROUGH_CACHE and REPLICATION",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "customRoleARN": {
+          "description": "The ARN of the role to be assumed by Amazon ECR. This role must be in the\nsame account as the registry that you are configuring. Amazon ECR will assume\nyour supplied role when the customRoleArn is specified. When this field isn't\nspecified, Amazon ECR will use the service-linked role for the repository\ncreation template.",
+          "type": "string"
+        },
+        "customRoleRef": {
+          "description": "AWSResourceReferenceWrapper provides a wrapper around *AWSResourceReference\ntype to provide more user friendly syntax for references using 'from' field\nEx:\nAPIIDRef:\n\n\tfrom:\n\t  name: my-api",
+          "type": "object",
+          "properties": {
+            "from": {
+              "description": "AWSResourceReference provides all the values necessary to reference another\nk8s resource for finding the identifier(Id/ARN/Name)",
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "namespace": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "description": {
+          "description": "A description for the repository creation template.",
+          "type": "string"
+        },
         "encryptionConfiguration": {
-          "description": "The encryption configuration for the repository. This determines how the\ncontents of your repository are encrypted at rest.",
+          "description": "The encryption configuration to use for repositories created using the template.",
           "type": "object",
           "properties": {
             "encryptionType": {
@@ -33,22 +69,12 @@
           },
           "additionalProperties": false
         },
-        "imageScanningConfiguration": {
-          "description": "The imageScanningConfiguration parameter is being deprecated, in favor of\nspecifying the image scanning configuration at the registry level. For more\ninformation, see PutRegistryScanningConfiguration.\n\nThe image scanning configuration for the repository. This determines whether\nimages are scanned for known vulnerabilities after being pushed to the repository.",
-          "type": "object",
-          "properties": {
-            "scanOnPush": {
-              "type": "boolean"
-            }
-          },
-          "additionalProperties": false
-        },
         "imageTagMutability": {
           "description": "The tag mutability setting for the repository. If this parameter is omitted,\nthe default setting of MUTABLE will be used which will allow image tags to\nbe overwritten. If IMMUTABLE is specified, all image tags within the repository\nwill be immutable which will prevent them from being overwritten.",
           "type": "string"
         },
         "imageTagMutabilityExclusionFilters": {
-          "description": "A list of filters that specify which image tags should be excluded from the\nrepository's image tag mutability setting.",
+          "description": "A list of filters that specify which image tags should be excluded from the\nrepository creation template's image tag mutability setting.",
           "type": "array",
           "items": {
             "description": "A filter that specifies which image tags should be excluded from the repository's\nimage tag mutability setting.",
@@ -65,23 +91,25 @@
           }
         },
         "lifecyclePolicy": {
-          "description": "The JSON repository policy text to apply to the repository.",
+          "description": "The lifecycle policy to use for repositories created using the template.",
           "type": "string"
         },
-        "name": {
-          "description": "The name to use for the repository. The repository name may be specified\non its own (such as nginx-web-app) or it can be prepended with a namespace\nto group the repository into a category (such as project-a/nginx-web-app).\n\nThe repository name must start with a letter and can only contain lowercase\nletters, numbers, hyphens, underscores, and forward slashes.\n\nRegex Pattern: `^(?:[a-z0-9]+(?:[._-][a-z0-9]+)*/)*[a-z0-9]+(?:[._-][a-z0-9]+)*$`",
+        "prefix": {
+          "description": "The repository namespace prefix to associate with the template. All repositories\ncreated using this namespace prefix will have the settings defined in this\ntemplate applied. For example, a prefix of prod would apply to all repositories\nbeginning with prod/. Similarly, a prefix of prod/team would apply to all\nrepositories beginning with prod/team/.\n\nTo apply a template to all repositories in your registry that don't have\nan associated creation template, you can use ROOT as the prefix.\n\nThere is always an assumed / applied to the end of the prefix. If you specify\necr-public as the prefix, Amazon ECR treats that as ecr-public/. When using\na pull through cache rule, the repository prefix you specify during rule\ncreation is what you should specify as your repository creation template\nprefix as well.\n\nRegex Pattern: `^((?:[a-z0-9]+(?:[._-][a-z0-9]+)*/)*[a-z0-9]+(?:[._-][a-z0-9]+)*/?|ROOT)$`",
+          "type": "string",
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == oldSelf",
+              "message": "Value is immutable once set"
+            }
+          ]
+        },
+        "repositoryPolicy": {
+          "description": "The repository policy to apply to repositories created using the template.\nA repository policy is a permissions policy associated with a repository\nto control access permissions.",
           "type": "string"
         },
-        "policy": {
-          "description": "The JSON repository policy text to apply to the repository. For more information,\nsee Amazon ECR repository policies (https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-policy-examples.html)\nin the Amazon Elastic Container Registry User Guide.",
-          "type": "string"
-        },
-        "registryID": {
-          "description": "The Amazon Web Services account ID associated with the registry to create\nthe repository. If you do not specify a registry, the default registry is\nassumed.\n\nRegex Pattern: `^[0-9]{12}$`",
-          "type": "string"
-        },
-        "tags": {
-          "description": "The metadata that you apply to the repository to help you categorize and\norganize them. Each tag consists of a key and an optional value, both of\nwhich you define. Tag keys can have a maximum character length of 128 characters,\nand tag values can have a maximum length of 256 characters.",
+        "resourceTags": {
+          "description": "The metadata to apply to the repository to help you categorize and organize.\nEach tag consists of a key and an optional value, both of which you define.\nTag keys can have a maximum character length of 128 characters, and tag values\ncan have a maximum length of 256 characters.",
           "type": "array",
           "items": {
             "description": "The metadata to apply to a resource to help you categorize and organize them.\nEach tag consists of a key and a value, both of which you define. Tag keys\ncan have a maximum character length of 128 characters, and tag values can\nhave a maximum length of 256 characters.",
@@ -101,7 +129,7 @@
       "additionalProperties": false
     },
     "status": {
-      "description": "RepositoryStatus defines the observed state of Repository",
+      "description": "RepositoryCreationTemplateStatus defines the observed state of RepositoryCreationTemplate",
       "type": "object",
       "properties": {
         "ackResourceMetadata": {
@@ -164,13 +192,14 @@
           }
         },
         "createdAt": {
-          "description": "The date and time, in JavaScript date format, when the repository was created.",
+          "description": "The date and time, in JavaScript date format, when the repository creation\ntemplate was created.",
           "type": "string",
           "format": "date-time"
         },
-        "repositoryURI": {
-          "description": "The URI for the repository. You can use this URI for container image push\nand pull operations.",
-          "type": "string"
+        "updatedAt": {
+          "description": "The date and time, in JavaScript date format, when the repository creation\ntemplate was last updated.",
+          "type": "string",
+          "format": "date-time"
         }
       },
       "additionalProperties": false
