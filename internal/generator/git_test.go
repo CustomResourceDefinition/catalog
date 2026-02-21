@@ -42,7 +42,6 @@ func TestGitGeneratorVersionsCombinesTagsAndBranches(t *testing.T) {
 
 	generator := NewGitGenerator(config, nil)
 	defer generator.Close()
-	defer generator.Close()
 
 	versions, err := generator.Versions()
 	assert.Nil(t, err)

@@ -166,11 +166,11 @@ func (builder Builder) versions() ([]string, error) {
 	}
 
 	sort.Slice(filtered, func(i, j int) bool {
-		keyI, errI := builder.generator.VersionSortKey(filtered[i])
-		keyJ, errJ := builder.generator.VersionSortKey(filtered[j])
+		keyA, errA := builder.generator.VersionSortKey(filtered[i])
+		keyB, errB := builder.generator.VersionSortKey(filtered[j])
 
-		if errI == nil && errJ == nil && keyI != 0 && keyJ != 0 && keyI != keyJ {
-			return keyI > keyJ
+		if errA == nil && errB == nil && keyA != 0 && keyB != 0 && keyA != keyB {
+			return keyA > keyB
 		}
 
 		a := normalizeVersion(builder.versionFilter.FindAllStringSubmatch(filtered[i], -1))

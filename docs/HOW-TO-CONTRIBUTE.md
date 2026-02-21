@@ -24,7 +24,7 @@ To add CRDs for [ArgoCD](https://github.com/argoproj/argo-cd) you should apply t
   kind: helm
   name: argo
   repository: https://argoproj.github.io/argo-helm
-  # versionPattern: # regex pattern with capture group for semver major.minor.patch (default: ^v?([0-9]+\.[0-9]+\.[0-9]+)$)
+  # versionPattern: # regex pattern with capture group for semver major.minor.patch - default: `^v?([0-9]+\.[0-9]+\.[0-9]+)$`
 ```
 
 > [!NOTE]  
@@ -55,7 +55,7 @@ To add CRDs for [eks-anywhere](https://github.com/aws/eks-anywhere) you should a
     - config/crd
   name: eks-anywhere
   repository: https://github.com/aws/eks-anywhere
-  # versionPattern: # regex pattern with capture group for semver major.minor.patch (default: ^([0-9]+\.[0-9]+\.[0-9]+)$)
+  # versionPattern: # regex pattern with capture group for semver major.minor.patch - default: `^([0-9]+\.[0-9]+\.[0-9]+)$`
   # searchPaths: # paths to recursively find yaml files in (non-CRDs are discarded)
   #   - crds
   # genPaths: # paths to recursively find go files to generate CRDs from
@@ -82,7 +82,7 @@ To add CRDs for [CrunchyData/postgres-operator](https://github.com/CrunchyData/p
 - kind: helm-oci
   name: crunchydata-pgo
   repository: oci://registry.developers.crunchydata.com/crunchydata/pgo
-  # versionPattern: # regex pattern with capture group for semver major.minor.patch (default: ^v?([0-9]+\.[0-9]+\.[0-9]+)$)
+  # versionPattern: # regex pattern with capture group for semver major.minor.patch - default: `^v?([0-9]+\.[0-9]+\.[0-9]+)$`
 ```
 
 ## Uris

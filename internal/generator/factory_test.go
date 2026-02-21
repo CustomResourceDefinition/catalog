@@ -86,12 +86,12 @@ func TestBuilderVersionFiltering(t *testing.T) {
 		{
 			versions:         []string{"main", "v1.0", "master"},
 			expectedVersions: []string{"main", "master"},
-			pattern:          `^((main|master))$`,
+			pattern:          `^(main|master)$`,
 		},
 		{
 			versions:         []string{"main", "v1.0.0", "2.0.0", "master"},
 			expectedVersions: []string{"2.0.0", "main", "master"},
-			pattern:          `^(([0-9]+\.[0-9]+\.[0-9]+)|(main|master))$`,
+			pattern:          `^([0-9]+\.[0-9]+\.[0-9]+)|(main|master)$`,
 		},
 	}
 
