@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
@@ -32,23 +33,15 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, genera
 		return nil, err
 	}
 
-	if len(config.VersionPrefix) == 0 {
-		if config.Kind == configuration.Helm || config.Kind == configuration.HelmOci {
-			config.VersionPrefix = "v?"
-		} else {
-			config.VersionPrefix = ""
-		}
-	}
-
-	if len(config.VersionSuffix) == 0 {
-		config.VersionSuffix = "$"
-	}
-
 	if len(config.Namespace) == 0 {
 		config.Namespace = "namespace"
 	}
 
-	pattern := fmt.Sprintf(`^%s([0-9]{1,})\.([0-9]{1,})\.([0-9]{1,})%s`, config.VersionPrefix, config.VersionSuffix)
+	pattern := defaultVersionPattern(config.Kind)
+	if len(config.VersionPattern) > 0 {
+		pattern = config.VersionPattern
+	}
+
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
@@ -63,6 +56,15 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, genera
 		generatedRepository:  generatedRepository,
 		definitionRepository: definitionRepository,
 	}, nil
+}
+
+func defaultVersionPattern(kind configuration.Kind) string {
+	switch kind {
+	case configuration.Helm, configuration.HelmOci:
+		return `^v?([0-9]+\.[0-9]+\.[0-9]+)$`
+	default:
+		return `^([0-9]+\.[0-9]+\.[0-9]+)$`
+	}
 }
 
 func (builder Builder) Build() error {
@@ -158,18 +160,19 @@ func (builder Builder) versions() ([]string, error) {
 
 	filtered := make([]string, 0)
 	for _, v := range versions {
-		if builder.versionFilter.MatchString(v) || v == referenceHead {
+		if builder.versionFilter.MatchString(v) {
 			filtered = append(filtered, v)
 		}
 	}
 
 	sort.Slice(filtered, func(i, j int) bool {
-		if filtered[i] == referenceHead {
-			return true
+		keyA, errA := builder.generator.VersionSortKey(filtered[i])
+		keyB, errB := builder.generator.VersionSortKey(filtered[j])
+
+		if errA == nil && errB == nil && keyA != 0 && keyB != 0 && keyA != keyB {
+			return keyA > keyB
 		}
-		if filtered[j] == referenceHead {
-			return false
-		}
+
 		a := normalizeVersion(builder.versionFilter.FindAllStringSubmatch(filtered[i], -1))
 		b := normalizeVersion(builder.versionFilter.FindAllStringSubmatch(filtered[j], -1))
 		return semver.Compare(a, b) > 0
@@ -178,10 +181,20 @@ func (builder Builder) versions() ([]string, error) {
 }
 
 func normalizeVersion(matches [][]string) string {
+	if len(matches) == 0 || len(matches[0]) < 2 {
+		return "v0.0.0"
+	}
+
+	version := matches[0][1]
+	parts := strings.Split(version, ".")
+	if len(parts) < 3 {
+		return "v0.0.0"
+	}
+
 	ints := make([]int, 3)
-	for i := 1; i <= 3; i++ {
-		n, _ := strconv.Atoi(matches[0][i])
-		ints[i-1] = n
+	for i := range 3 {
+		n, _ := strconv.Atoi(parts[i])
+		ints[i] = n
 	}
 
 	return fmt.Sprintf("v%d.%d.%d", ints[0], ints[1], ints[2])

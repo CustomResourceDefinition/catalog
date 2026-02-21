@@ -44,6 +44,10 @@ func (generator *OciGenerator) Close() error {
 	return os.RemoveAll(generator.tmpDir)
 }
 
+func (generator *OciGenerator) VersionSortKey(version string) (int64, error) {
+	return 0, nil
+}
+
 func (generator *OciGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err

@@ -115,6 +115,10 @@ func (generator *HelmGenerator) Close() error {
 	return os.RemoveAll(generator.tmpDir)
 }
 
+func (generator *HelmGenerator) VersionSortKey(version string) (int64, error) {
+	return 0, nil
+}
+
 func (generator *HelmGenerator) ensureLoaded() error {
 	if len(generator.tmpDir) != 0 {
 		return nil

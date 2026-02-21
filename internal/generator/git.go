@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -21,9 +22,8 @@ type GitGenerator struct {
 	reader         crd.CrdReader
 	tmpDir, gitDir string
 	tags           []string
+	branches       []string
 }
-
-const referenceHead = "head"
 
 func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
 	return &GitGenerator{
@@ -34,6 +34,27 @@ func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader) G
 
 func (generator *GitGenerator) Close() error {
 	return os.RemoveAll(generator.tmpDir)
+}
+
+func (generator *GitGenerator) VersionSortKey(version string) (int64, error) {
+	if err := generator.ensureLoaded(); err != nil {
+		return 0, err
+	}
+
+	out, err := exec.Command("git", "--git-dir", generator.gitDir, "log", "-1", "--format=%ct", version).Output() // tag
+	if err != nil {
+		out, err = exec.Command("git", "--git-dir", generator.gitDir, "log", "-1", "--format=%ct", fmt.Sprintf("origin/%s", version)).Output() // branch
+		if err != nil {
+			return 0, fmt.Errorf("unable to get commit date for '%s': %w", version, err)
+		}
+	}
+
+	ts, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unable to parse commit date for '%s': %w", version, err)
+	}
+
+	return ts, nil
 }
 
 func (generator *GitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
@@ -73,10 +94,6 @@ func (generator *GitGenerator) Crds(version string) ([]crd.Crd, error) {
 			return nil, err
 		}
 		version = versions[0]
-	}
-
-	if version == referenceHead {
-		version = "HEAD"
 	}
 
 	err := exec.Command("git", "--git-dir", generator.gitDir, "--work-tree", generator.tmpDir, "checkout", "--force", version).Run()
@@ -145,7 +162,10 @@ func (generator *GitGenerator) Versions() ([]string, error) {
 		return nil, err
 	}
 
-	return generator.tags, nil
+	versions := make([]string, 0, len(generator.tags)+len(generator.branches))
+	versions = append(versions, generator.tags...)
+	versions = append(versions, generator.branches...)
+	return versions, nil
 }
 
 func (generator *GitGenerator) ensureLoaded() error {
@@ -171,13 +191,33 @@ func (generator *GitGenerator) ensureLoaded() error {
 		return fmt.Errorf("unable to list tags: %w", err)
 	}
 
-	tags := make([]string, 0)
-	if generator.config.IncludeHead {
-		tags = append(tags, referenceHead)
+	tags := strings.Split(strings.TrimSpace(string(out)), "\n")
+
+	out, err = exec.Command("git", "--git-dir", gitDir, "for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes").Output()
+	if err != nil {
+		return fmt.Errorf("unable to list branches: %w", err)
 	}
-	tags = append(tags, strings.Split(strings.TrimSpace(string(out)), "\n")...)
+
+	branchList := strings.Split(strings.TrimSpace(string(out)), "\n")
+	branches := make([]string, 0, len(branchList))
+	seen := make(map[string]bool)
+	for _, b := range branchList {
+		if after, ok := strings.CutPrefix(b, "origin/"); ok {
+			b = after
+		}
+
+		if b == "" || b == "HEAD" || b == "origin" {
+			continue
+		}
+
+		if !seen[b] {
+			seen[b] = true
+			branches = append(branches, b)
+		}
+	}
 
 	generator.tags = tags
+	generator.branches = branches
 	generator.gitDir = gitDir
 	generator.tmpDir = tmpDir
 

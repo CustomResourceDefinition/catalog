@@ -193,8 +193,9 @@ func setupOciServer(t *testing.T, chart ociChart) (mockServer, func()) {
 }
 
 type gitBundle struct {
-	tag   string
-	paths []gitPath
+	tag    string
+	branch string
+	paths  []gitPath
 }
 
 type gitPath struct {
@@ -226,7 +227,19 @@ func setupGit(t *testing.T, bundles []gitBundle) (*string, error) {
 		return nil, fmt.Errorf("unable to commit: %w", err)
 	}
 
+	err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "branch", "-m", "master", "main").Run()
+	if err != nil {
+		return nil, fmt.Errorf("unable to rename default branch: %w", err)
+	}
+
 	for _, bundle := range bundles {
+		if bundle.branch != "" {
+			err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "checkout", "-b", bundle.branch).Run()
+			if err != nil {
+				return nil, fmt.Errorf("unable to create branch %s: %w", bundle.branch, err)
+			}
+		}
+
 		for _, p := range bundle.paths {
 			directory := path.Join(tmpDir, path.Dir(p.path))
 
@@ -254,9 +267,11 @@ func setupGit(t *testing.T, bundles []gitBundle) (*string, error) {
 			}
 		}
 
-		err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "tag", bundle.tag).Run()
-		if err != nil {
-			return nil, fmt.Errorf("unable to commit: %w", err)
+		if bundle.tag != "" {
+			err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "tag", bundle.tag).Run()
+			if err != nil {
+				return nil, fmt.Errorf("unable to commit: %w", err)
+			}
 		}
 	}
 

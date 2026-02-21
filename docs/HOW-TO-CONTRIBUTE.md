@@ -1,16 +1,16 @@
 # How to contribute CRDs
 
-You need to create a pull request with changes to the sources list using the methods below:
+You need to create a pull request with changes to the sources list using the methods (prepared in order of preference) below:
 
-* [Helm charts](#helm-charts) - the preferred method
-* [Git](#git)
-* [OCI charts](#oci-charts)
-* [Uris](#uris) - when everything else fails
+- [Helm charts](#helm-charts)
+- [OCI charts](#oci-charts)
+- [Git](#git)
+- [Uris](#uris) - when everything else fails
 
 We prefer using the [Helm charts](#helm-charts) method to avoid issues like needing to specify each release version with CRD changes or version history being unavailable.
 
 > [!IMPORTANT]  
-> Please keep the `configuration.yaml` sorted by name.  
+> Please keep the `configuration.yaml` sorted by name.
 
 We encourage you to look through the [COMPARISON.md](COMPARISON.md), if you would like to help add relevant missing schemas.
 
@@ -24,14 +24,15 @@ To add CRDs for [ArgoCD](https://github.com/argoproj/argo-cd) you should apply t
   kind: helm
   name: argo
   repository: https://argoproj.github.io/argo-helm
+  # versionPattern: # regex pattern with capture group for semver major.minor.patch - default: `^v?([0-9]+\.[0-9]+\.[0-9]+)$`
 ```
 
 > [!NOTE]  
 > Each `repository` should only be listed once in the file, if possible.  
-> The `name` of a repository should be the name given by the developers, if possible.  
+> The `name` of a repository should be the name given by the developers, if possible.
 
 > [!IMPORTANT]  
-> Always add the repository that the developers publish to directly and avoid aggregated helm chart repositories like Truechart etc.  
+> Always add the repository that the developers publish to directly and avoid aggregated helm chart repositories like Truechart etc.
 
 If the above example already exists when you are trying to add [Argo Rollouts](https://github.com/argoproj/argo-rollouts). You should only add another chart entry to the existing repository entry, so the repository entry looks like the following.
 
@@ -54,14 +55,24 @@ To add CRDs for [eks-anywhere](https://github.com/aws/eks-anywhere) you should a
     - config/crd
   name: eks-anywhere
   repository: https://github.com/aws/eks-anywhere
-  versionPrefix: v # by default only major.minor.patch tags are used, but a prefix can be set
-  # versionSuffix: # regex matching end of versions, by default matching $
-  # includeHead: true # by default the head branch is ignored and only published tags are used
+  # versionPattern: # regex pattern with capture group for semver major.minor.patch - default: `^([0-9]+\.[0-9]+\.[0-9]+)$`
   # searchPaths: # paths to recursively find yaml files in (non-CRDs are discarded)
   #   - crds
   # genPaths: # paths to recursively find go files to generate CRDs from
   #   - api
 ```
+
+The `versionPattern` is a regex that must contain a capture group for the semver major.minor.patch version.
+
+Examples:
+
+- Match v-prefixed tags: `^v([0-9]+\.[0-9]+\.[0-9]+)$`
+- Match tags with custom prefix: `^prefix-([0-9]+\.[0-9]+\.[0-9]+)$`
+- Match tags with pre-release suffixes: `^v([0-9]+\.[0-9]+\.[0-9]+-.*)$`
+- Match versioned tags and branches: `^(([0-9]+\.[0-9]+\.[0-9]+)|(main|master))$`
+- Match branches only: `^((main|master))$`
+
+Git sources are sorted by commit date (most recent first), not by semver.
 
 ## OCI charts
 
@@ -71,6 +82,7 @@ To add CRDs for [CrunchyData/postgres-operator](https://github.com/CrunchyData/p
 - kind: helm-oci
   name: crunchydata-pgo
   repository: oci://registry.developers.crunchydata.com/crunchydata/pgo
+  # versionPattern: # regex pattern with capture group for semver major.minor.patch - default: `^v?([0-9]+\.[0-9]+\.[0-9]+)$`
 ```
 
 ## Uris
@@ -90,14 +102,14 @@ To add CRDs for version 1.0.0 of the fictional Custom tool you should apply the 
 ```
 
 > [!NOTE]  
-> Each `name` should only be listed once in the file.  
+> Each `name` should only be listed once in the file.
 
 ### `apiGroups`
 
 This entry should contain a complete list of unique value specified in the CRDs under the yaml path `.spec.group`.
 
 > [!IMPORTANT]  
-> You should only ever append to this list.  
+> You should only ever append to this list.
 
 ### `crds`
 

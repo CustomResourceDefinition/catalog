@@ -26,7 +26,6 @@ type Configuration struct {
 	Downloads      []ConfigurationDownload `yaml:"crds"`
 	Entries        []string                `yaml:"entries"`
 	GenPaths       []string                `yaml:"genPaths"`
-	IncludeHead    bool                    `yaml:"includeHead"`
 	Kind           Kind                    `yaml:"kind"`
 	KustomizePaths []string                `yaml:"kustomizationPaths"`
 	Name           string                  `yaml:"name"`
@@ -34,8 +33,7 @@ type Configuration struct {
 	Repository     string                  `yaml:"repository"`
 	SearchPaths    []string                `yaml:"searchPaths"`
 	Values         []ConfigurationValues   `yaml:"valuesFiles"`
-	VersionPrefix  string                  `yaml:"versionPrefix"`
-	VersionSuffix  string                  `yaml:"versionSuffix"`
+	VersionPattern string                  `yaml:"versionPattern"`
 }
 
 type ConfigurationDownload struct {

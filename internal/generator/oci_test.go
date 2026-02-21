@@ -26,6 +26,7 @@ func TestOciGeneratorVersions(t *testing.T) {
 	}
 
 	generator := NewOciGenerator(config, nil)
+	defer generator.Close()
 
 	versions, err := generator.Versions()
 	assert.Nil(t, err)
@@ -50,6 +51,7 @@ func TestOciGeneratorUnknownVersion(t *testing.T) {
 	}
 
 	generator := NewOciGenerator(config, nil)
+	defer generator.Close()
 
 	metadata, err := generator.MetaData("4.5.6")
 	assert.Nil(t, metadata)
@@ -77,6 +79,7 @@ func TestOciGeneratorMetadata(t *testing.T) {
 	assert.Nil(t, err)
 
 	generator := NewOciGenerator(config, reader)
+	defer generator.Close()
 
 	metadata, err := generator.MetaData("")
 	assert.Nil(t, err)
@@ -84,4 +87,26 @@ func TestOciGeneratorMetadata(t *testing.T) {
 	assert.Equal(t, "onepassword.com", metadata[0].Group)
 	assert.Equal(t, "onepassworditem", metadata[0].Kind)
 	assert.Equal(t, "v1", metadata[0].Version)
+}
+
+func TestOciGeneratorHasInertSortingKeys(t *testing.T) {
+	config := configuration.Configuration{
+		Name:       "oci",
+		Kind:       configuration.HelmOci,
+		Repository: fmt.Sprintf("%s%s", "http://localhost", "/helm/connect"),
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	generator := NewOciGenerator(config, reader)
+	defer generator.Close()
+
+	versions := []string{"0.0.0", "1.0.0", "3.2.1", "999.999.999"}
+
+	for _, version := range versions {
+		key, err := generator.VersionSortKey(version)
+		assert.Nil(t, err)
+		assert.Equal(t, key, int64(0))
+	}
 }
