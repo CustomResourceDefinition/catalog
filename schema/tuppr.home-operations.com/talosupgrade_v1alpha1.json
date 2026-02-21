@@ -17,6 +17,33 @@
       "description": "TalosUpgradeSpec defines the desired state of TalosUpgrade",
       "type": "object",
       "properties": {
+        "drain": {
+          "description": "Drain configuration for the node prior to upgrade",
+          "type": "object",
+          "properties": {
+            "deleteLocalData": {
+              "description": "DeleteLocalData causes the drain to continue even if there are pods using emptyDir\n(local data that will be deleted when the node is drained).",
+              "type": "boolean"
+            },
+            "disableEviction": {
+              "description": "DisableEviction forces drain to use delete, even if eviction is supported.",
+              "type": "boolean"
+            },
+            "force": {
+              "description": "Force continues even if there are pods that do not declare a controller.",
+              "type": "boolean"
+            },
+            "ignoreDaemonSets": {
+              "description": "IgnoreDaemonSets ignores DaemonSet-managed pods.",
+              "type": "boolean"
+            },
+            "skipWaitForDeleteTimeout": {
+              "description": "SkipWaitForDeleteTimeout specifies that if a pod DeletionTimestamp is older than N seconds,\nskip waiting for the pod. Seconds must be greater than 0 to skip.",
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
         "healthChecks": {
           "description": "HealthChecks defines a list of CEL-based health checks to perform before each node upgrade",
           "type": "array",
@@ -62,6 +89,89 @@
             },
             "additionalProperties": false
           }
+        },
+        "maintenance": {
+          "description": "Maintenance configuration behavior for upgrade operations",
+          "type": "object",
+          "properties": {
+            "windows": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "duration",
+                  "start"
+                ],
+                "properties": {
+                  "duration": {
+                    "description": "How long the window stays open (e.g., \"4h\", \"2h30m\")",
+                    "type": "string",
+                    "pattern": "^([0-9]+[smh])+$"
+                  },
+                  "start": {
+                    "description": "Cron expression (5-field): minute hour day-of-month month day-of-week",
+                    "type": "string",
+                    "minLength": 9
+                  },
+                  "timezone": {
+                    "description": "IANA timezone (e.g., \"UTC\", \"Europe/Paris\")",
+                    "type": "string",
+                    "default": "UTC"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "nodeSelector": {
+          "description": "NodeSelector defines which nodes should be included in this upgrade.",
+          "type": "object",
+          "properties": {
+            "matchExpressions": {
+              "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+              "type": "array",
+              "items": {
+                "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                "type": "object",
+                "required": [
+                  "key",
+                  "operator"
+                ],
+                "properties": {
+                  "key": {
+                    "description": "key is the label key that the selector applies to.",
+                    "type": "string"
+                  },
+                  "operator": {
+                    "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                    "type": "string"
+                  },
+                  "values": {
+                    "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "x-kubernetes-list-type": "atomic"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-list-type": "atomic"
+            },
+            "matchLabels": {
+              "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-map-type": "atomic"
         },
         "policy": {
           "description": "Policy configures upgrade behavior",
@@ -215,6 +325,11 @@
           "description": "Message provides details about the current state",
           "type": "string"
         },
+        "nextMaintenanceWindow": {
+          "description": "NextMaintenanceWindow reflect the next time a maintenance can happen",
+          "type": "string",
+          "format": "date-time"
+        },
         "observedGeneration": {
           "description": "ObservedGeneration reflects the generation of the most recently observed spec",
           "type": "integer",
@@ -223,11 +338,30 @@
         "phase": {
           "description": "Phase represents the current phase of the upgrade",
           "type": "string",
-          "enum": [
-            "Pending",
-            "InProgress",
-            "Completed",
-            "Failed"
+          "allOf": [
+            {
+              "enum": [
+                "Pending",
+                "HealthChecking",
+                "Draining",
+                "Upgrading",
+                "Rebooting",
+                "Completed",
+                "Failed",
+                "MaintenanceWindow"
+              ]
+            },
+            {
+              "enum": [
+                "Pending",
+                "HealthChecking",
+                "Draining",
+                "Upgrading",
+                "Rebooting",
+                "Completed",
+                "Failed"
+              ]
+            }
           ]
         }
       },

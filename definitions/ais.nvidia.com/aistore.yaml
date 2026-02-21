@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.20.0
   name: aistores.ais.nvidia.com
 spec:
   group: ais.nvidia.com
@@ -1255,9 +1255,10 @@ spec:
                         operator:
                           description: |-
                             Operator represents a key's relationship to the value.
-                            Valid operators are Exists and Equal. Defaults to Equal.
+                            Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                             Exists is equivalent to wildcard for value, so that a pod can
                             tolerate all taints of a particular category.
+                            Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                           type: string
                         tolerationSeconds:
                           description: |-
@@ -1934,12 +1935,89 @@ spec:
                   The ConfigMap must contain a key named "ca.crt" with the CA bundle in PEM format.
                 minLength: 1
                 type: string
+              logSidecar:
+                description: LogSidecar defines the details for a logging sidecar
+                  container deployed within each AIS pod
+                properties:
+                  image:
+                    description: Image defines the image to use for the sidecar container
+                      in the AIS pod
+                    minLength: 1
+                    type: string
+                  resources:
+                    description: |-
+                      Resources specifies resource requirements for the sidecar container in the AIS pod
+                      Setting requests equal to limits gives the pod Guaranteed QoS, protecting it from eviction.
+                      If not specified, the sidecar runs with no resource constraints (BestEffort for that container).
+                    properties:
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims,
+                          that are used by this container.
+
+                          This field depends on the
+                          DynamicResourceAllocation feature gate.
+
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: |-
+                                Name must match the name of one entry in pod.spec.resourceClaims of
+                                the Pod where this field is used. It makes that resource available
+                                inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Limits describes the maximum amount of compute resources allowed.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Requests describes the minimum amount of compute resources required.
+                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                    type: object
+                required:
+                - image
+                type: object
               logSidecarImage:
-                description: Container image used for `ais-logs` container.
+                description: |-
+                  Deprecated: Use logSidecar.image
+                  Container image used for `ais-logs` container.
                 minLength: 1
                 type: string
               logSidecarResources:
                 description: |-
+                  Deprecated: Use logSidecar.resources
                   LogSidecarResources specifies resource requirements for the ais-logs sidecar container.
                   Setting requests equal to limits gives the pod Guaranteed QoS, protecting it from eviction.
                   If not specified, the sidecar runs with no resource constraints (BestEffort for that container).
@@ -3672,9 +3750,10 @@ spec:
                         operator:
                           description: |-
                             Operator represents a key's relationship to the value.
-                            Valid operators are Exists and Equal. Defaults to Equal.
+                            Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                             Exists is equivalent to wildcard for value, so that a pod can
                             tolerate all taints of a particular category.
+                            Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                           type: string
                         tolerationSeconds:
                           description: |-
@@ -5485,9 +5564,10 @@ spec:
                         operator:
                           description: |-
                             Operator represents a key's relationship to the value.
-                            Valid operators are Exists and Equal. Defaults to Equal.
+                            Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                             Exists is equivalent to wildcard for value, so that a pod can
                             tolerate all taints of a particular category.
+                            Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                           type: string
                         tolerationSeconds:
                           description: |-
@@ -5511,13 +5591,69 @@ spec:
                 - portPublic
                 - servicePort
                 type: object
+              tls:
+                description: TLS configures TLS certificate provisioning
+                properties:
+                  certificate:
+                    description: Certificate configures cert-manager certificate generation
+                    properties:
+                      additionalDNSNames:
+                        description: AdditionalDNSNames are extra DNS names to include
+                          in the certificate
+                        items:
+                          type: string
+                        type: array
+                      duration:
+                        description: 'Duration is the lifetime of the certificate
+                          (default: 8760h = 1 year)'
+                        type: string
+                      issuerRef:
+                        description: IssuerRef references a cert-manager issuer
+                        properties:
+                          kind:
+                            default: ClusterIssuer
+                            description: 'Kind is Issuer or ClusterIssuer (default:
+                              ClusterIssuer)'
+                            enum:
+                            - Issuer
+                            - ClusterIssuer
+                            type: string
+                          name:
+                            description: Name of the issuer
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      mode:
+                        default: secret
+                        description: 'Mode specifies how certificates are delivered:
+                          "secret" (default) or "csi"'
+                        enum:
+                        - secret
+                        - csi
+                        type: string
+                      renewBefore:
+                        description: 'RenewBefore is when to start renewing (default:
+                          720h = 30 days before expiry)'
+                        type: string
+                    required:
+                    - issuerRef
+                    type: object
+                  secretName:
+                    description: SecretName references an existing TLS secret
+                    type: string
+                type: object
+                x-kubernetes-validations:
+                - message: 'specify only one: secretName or certificate'
+                  rule: '[has(self.secretName), has(self.certificate)].filter(x, x).size()
+                    <= 1'
               tlsCertManagerIssuerName:
-                description: Name of Cert Manager CSI Issuer used for getting the
-                  cert/key
+                description: 'Deprecated: Use spec.tls.certificate with mode: csi
+                  instead'
                 type: string
               tlsCertificate:
-                description: TLSCertificate configures automatic TLS certificate generation
-                  via cert-manager
+                description: 'Deprecated: Use spec.tls.certificate instead'
                 properties:
                   additionalDNSNames:
                     description: AdditionalDNSNames are extra DNS names to include
@@ -5530,22 +5666,30 @@ spec:
                       8760h = 1 year)'
                     type: string
                   issuerRef:
-                    description: IssuerRef references a cert-manager Issuer or ClusterIssuer
+                    description: IssuerRef references a cert-manager issuer
                     properties:
                       kind:
                         default: ClusterIssuer
-                        description: Kind of the issuer (Issuer or ClusterIssuer)
+                        description: 'Kind is Issuer or ClusterIssuer (default: ClusterIssuer)'
                         enum:
                         - Issuer
                         - ClusterIssuer
                         type: string
                       name:
-                        description: Name of the cert-manager Issuer or ClusterIssuer
+                        description: Name of the issuer
                         minLength: 1
                         type: string
                     required:
                     - name
                     type: object
+                  mode:
+                    default: secret
+                    description: 'Mode specifies how certificates are delivered: "secret"
+                      (default) or "csi"'
+                    enum:
+                    - secret
+                    - csi
+                    type: string
                   renewBefore:
                     description: 'RenewBefore is when to start renewing (default:
                       720h = 30 days before expiry)'
@@ -5554,7 +5698,7 @@ spec:
                 - issuerRef
                 type: object
               tlsSecretName:
-                description: Secret name containing TLS cert/key
+                description: 'Deprecated: Use spec.tls.secretName instead'
                 type: string
               tracingTokenSecretName:
                 description: Secret name containing OTEL trace-exporter token.
@@ -5570,9 +5714,9 @@ spec:
             - message: Invalid cluster size, it is either not specified or value is
                 not valid
               rule: (has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)
-            - message: 'specify only one: tlsCertificate, tlsCertManagerIssuerName,
+            - message: 'specify only one TLS option: tls, tlsCertificate, tlsCertManagerIssuerName,
                 or tlsSecretName'
-              rule: '[has(self.tlsCertificate), has(self.tlsCertManagerIssuerName),
+              rule: '[has(self.tls), has(self.tlsCertificate), has(self.tlsCertManagerIssuerName),
                 has(self.tlsSecretName)].filter(x, x).size() <= 1'
           status:
             description: AIStoreStatus defines the observed state of AIStore
