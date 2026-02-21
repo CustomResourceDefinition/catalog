@@ -3,6 +3,7 @@ package configuration
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -116,4 +117,21 @@ func TestResolvingConfigurationValues(t *testing.T) {
 	v, err = c.ValuesFile("2.0.1")
 	assert.Nil(t, err)
 	assert.Equal(t, v, map[string]any{"output": 2})
+}
+
+func TestVersionPatternsAreValidRegex(t *testing.T) {
+	f, err := os.Open("../../configuration.yaml")
+	assert.Nil(t, err)
+	defer f.Close()
+
+	conf, err := UnmarshalConfigurations(f)
+	assert.Nil(t, err)
+	assert.NotNil(t, conf)
+
+	for _, c := range conf {
+		if c.VersionPattern != "" {
+			_, err := regexp.Compile(c.VersionPattern)
+			assert.Nil(t, err, "invalid regex for '%s': %s", c.Name, c.VersionPattern)
+		}
+	}
 }
