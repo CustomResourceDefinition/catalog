@@ -21,6 +21,7 @@ func TestHttpGeneratorVersions(t *testing.T) {
 	}
 
 	generator := NewHttpGenerator(config, nil)
+	defer generator.Close()
 
 	versions, err := generator.Versions()
 	assert.Nil(t, err)
@@ -67,6 +68,7 @@ func TestHttpGeneratorSchemas(t *testing.T) {
 	assert.Nil(t, err)
 
 	generator := NewHttpGenerator(config, reader)
+	defer generator.Close()
 
 	crds, err := generator.Crds(version)
 	assert.Nil(t, err)
@@ -110,6 +112,7 @@ func TestHttpGeneratorMetadata(t *testing.T) {
 	assert.Nil(t, err)
 
 	generator := NewHttpGenerator(config, reader)
+	defer generator.Close()
 
 	metadata, err := generator.MetaData(version)
 	assert.Nil(t, err)
@@ -145,6 +148,7 @@ func TestHttpGeneratorPartialSchemas(t *testing.T) {
 	assert.Nil(t, err)
 
 	generator := NewHttpGenerator(config, reader)
+	defer generator.Close()
 
 	crds, err := generator.Crds(version)
 	assert.Nil(t, err)
@@ -190,6 +194,7 @@ func TestHttpGeneratorNoSchemas(t *testing.T) {
 	assert.Nil(t, err)
 
 	generator := NewHttpGenerator(config, reader)
+	defer generator.Close()
 
 	crds, err := generator.Crds(version)
 	assert.Nil(t, err)
@@ -204,4 +209,24 @@ func TestHttpGeneratorNoSchemas(t *testing.T) {
 	}
 
 	assert.Equal(t, 0, len(schemas))
+}
+
+func TestHttpGeneratorHasInertSortingKeys(t *testing.T) {
+	config := configuration.Configuration{
+		Kind: configuration.Http,
+		Downloads: []configuration.ConfigurationDownload{
+			{Version: "1.0.0"},
+		},
+	}
+
+	generator := NewHttpGenerator(config, nil)
+	defer generator.Close()
+
+	versions := []string{"0.0.0", "1.0.0", "3.2.1", "999.999.999"}
+
+	for _, version := range versions {
+		key, err := generator.VersionSortKey(version)
+		assert.Nil(t, err)
+		assert.Equal(t, key, int64(0))
+	}
 }

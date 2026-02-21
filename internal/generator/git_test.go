@@ -42,6 +42,7 @@ func TestGitGeneratorVersionsCombinesTagsAndBranches(t *testing.T) {
 
 	generator := NewGitGenerator(config, nil)
 	defer generator.Close()
+	defer generator.Close()
 
 	versions, err := generator.Versions()
 	assert.Nil(t, err)
@@ -69,6 +70,7 @@ func TestGitGeneratorUnknownVersion(t *testing.T) {
 	}
 
 	generator := NewGitGenerator(config, nil)
+	defer generator.Close()
 
 	metadata, err := generator.MetaData("4.5.6")
 	assert.Nil(t, metadata)
@@ -102,6 +104,7 @@ func TestGitGeneratorMetadataForRegularFile(t *testing.T) {
 	assert.Nil(t, err)
 
 	generator := NewGitGenerator(config, reader)
+	defer generator.Close()
 
 	metadata, err := generator.MetaData("")
 	assert.Nil(t, err)
@@ -146,6 +149,7 @@ func TestGitGeneratorMetadataForKustomizeFile(t *testing.T) {
 	assert.Nil(t, err)
 
 	generator := NewGitGenerator(config, reader)
+	defer generator.Close()
 
 	metadata, err := generator.MetaData("")
 	assert.Nil(t, err)
@@ -190,6 +194,7 @@ func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
 	assert.Nil(t, err)
 
 	generator := NewGitGenerator(config, reader)
+	defer generator.Close()
 
 	metadata, err := generator.MetaData("")
 	assert.Nil(t, err)
@@ -223,6 +228,7 @@ func TestGitGeneratorVersionSortKeyForBranch(t *testing.T) {
 	}
 
 	generator := NewGitGenerator(config, nil)
+	defer generator.Close()
 
 	key, err := generator.VersionSortKey("main")
 	assert.Nil(t, err)
@@ -231,8 +237,6 @@ func TestGitGeneratorVersionSortKeyForBranch(t *testing.T) {
 	key, err = generator.VersionSortKey("develop")
 	assert.Nil(t, err)
 	assert.Greater(t, key, int64(0))
-
-	generator.Close()
 }
 
 func TestGitGeneratorCloneFailure(t *testing.T) {
@@ -242,6 +246,7 @@ func TestGitGeneratorCloneFailure(t *testing.T) {
 	}
 
 	generator := NewGitGenerator(config, nil)
+	defer generator.Close()
 
 	_, err := generator.Versions()
 	assert.NotNil(t, err)
@@ -271,12 +276,11 @@ func TestGitGeneratorCheckoutFailure(t *testing.T) {
 	}
 
 	generator := NewGitGenerator(config, nil)
+	defer generator.Close()
 
 	_, err = generator.Crds("nonexistent-branch-tag")
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to checkout")
-
-	generator.Close()
 }
 
 func TestGitGeneratorClose(t *testing.T) {
@@ -302,6 +306,7 @@ func TestGitGeneratorClose(t *testing.T) {
 	}
 
 	generator := NewGitGenerator(config, nil)
+	defer generator.Close()
 
 	versions, err := generator.Versions()
 	assert.Nil(t, err)
