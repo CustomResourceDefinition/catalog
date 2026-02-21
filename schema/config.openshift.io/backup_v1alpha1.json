@@ -1,0 +1,103 @@
+{
+  "description": "Backup provides configuration for performing backups of the openshift cluster.\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "spec holds user settable values for configuration",
+      "type": "object",
+      "required": [
+        "etcd"
+      ],
+      "properties": {
+        "etcd": {
+          "description": "etcd specifies the configuration for periodic backups of the etcd cluster",
+          "type": "object",
+          "properties": {
+            "pvcName": {
+              "description": "pvcName specifies the name of the PersistentVolumeClaim (PVC) which binds a PersistentVolume where the\netcd backup files would be saved\nThe PVC itself must always be created in the \"openshift-etcd\" namespace\nIf the PVC is left unspecified \"\" then the platform will choose a reasonable default location to save the backup.\nIn the future this would be backups saved across the control-plane master nodes.",
+              "type": "string"
+            },
+            "retentionPolicy": {
+              "description": "retentionPolicy defines the retention policy for retaining and deleting existing backups.",
+              "type": "object",
+              "required": [
+                "retentionType"
+              ],
+              "properties": {
+                "retentionNumber": {
+                  "description": "retentionNumber configures the retention policy based on the number of backups",
+                  "type": "object",
+                  "required": [
+                    "maxNumberOfBackups"
+                  ],
+                  "properties": {
+                    "maxNumberOfBackups": {
+                      "description": "maxNumberOfBackups defines the maximum number of backups to retain.\nIf the existing number of backups saved is equal to MaxNumberOfBackups then\nthe oldest backup will be removed before a new backup is initiated.",
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "retentionSize": {
+                  "description": "retentionSize configures the retention policy based on the size of backups",
+                  "type": "object",
+                  "required": [
+                    "maxSizeOfBackupsGb"
+                  ],
+                  "properties": {
+                    "maxSizeOfBackupsGb": {
+                      "description": "maxSizeOfBackupsGb defines the total size in GB of backups to retain.\nIf the current total size backups exceeds MaxSizeOfBackupsGb then\nthe oldest backup will be removed before a new backup is initiated.",
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "retentionType": {
+                  "description": "retentionType sets the type of retention policy.\nCurrently, the only valid policies are retention by number of backups (RetentionNumber), by the size of backups (RetentionSize). More policies or types may be added in the future.\nEmpty string means no opinion and the platform is left to choose a reasonable default which is subject to change without notice.\nThe current default is RetentionNumber with 15 backups kept.",
+                  "type": "string",
+                  "enum": [
+                    "RetentionNumber",
+                    "RetentionSize"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "schedule": {
+              "description": "schedule defines the recurring backup schedule in Cron format\nevery 2 hours: 0 */2 * * *\nevery day at 3am: 0 3 * * *\nEmpty string means no opinion and the platform is left to choose a reasonable default which is subject to change without notice.\nThe current default is \"no backups\", but will change in the future.",
+              "type": "string",
+              "pattern": "^(@(annually|yearly|monthly|weekly|daily|hourly))|(\\*|(?:\\*|(?:[0-9]|(?:[1-5][0-9])))\\/(?:[0-9]|(?:[1-5][0-9]))|(?:[0-9]|(?:[1-5][0-9]))(?:(?:\\-[0-9]|\\-(?:[1-5][0-9]))?|(?:\\,(?:[0-9]|(?:[1-5][0-9])))*)) (\\*|(?:\\*|(?:\\*|(?:[0-9]|1[0-9]|2[0-3])))\\/(?:[0-9]|1[0-9]|2[0-3])|(?:[0-9]|1[0-9]|2[0-3])(?:(?:\\-(?:[0-9]|1[0-9]|2[0-3]))?|(?:\\,(?:[0-9]|1[0-9]|2[0-3]))*)) (\\*|(?:[1-9]|(?:[12][0-9])|3[01])(?:(?:\\-(?:[1-9]|(?:[12][0-9])|3[01]))?|(?:\\,(?:[1-9]|(?:[12][0-9])|3[01]))*)) (\\*|(?:[1-9]|1[012]|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:\\-(?:[1-9]|1[012]|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?|(?:\\,(?:[1-9]|1[012]|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))*)) (\\*|(?:[0-6]|SUN|MON|TUE|WED|THU|FRI|SAT)(?:(?:\\-(?:[0-6]|SUN|MON|TUE|WED|THU|FRI|SAT))?|(?:\\,(?:[0-6]|SUN|MON|TUE|WED|THU|FRI|SAT))*))$"
+            },
+            "timeZone": {
+              "description": "The time zone name for the given schedule, see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.\nIf not specified, this will default to the time zone of the kube-controller-manager process.\nSee https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#time-zones",
+              "type": "string",
+              "pattern": "^([A-Za-z_]+([+-]*0)*|[A-Za-z_]+(\\/[A-Za-z_]+){1,2})(\\/GMT[+-]\\d{1,2})?$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "status holds observed values from the cluster. They may not be overridden.",
+      "type": "object"
+    }
+  }
+}

@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.66% | 3428 | 9825 | 83 |
+| 98.72% | 3428 | 9881 | 83 |
 
 ### Missing Schemas
 
@@ -85,11 +85,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | networklogging | v1alpha1 |
 | servicefunctionchain | v1 |
 | trafficselector | v1 |
-
-| projectcalico.org | |
-| --- | --- |
-| ipamblock | v3 |
-| ipamhandle | v3 |
 
 | secret-sync.gke.io | |
 | --- | --- |

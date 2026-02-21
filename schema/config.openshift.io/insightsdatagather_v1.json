@@ -1,0 +1,205 @@
+{
+  "description": "InsightsDataGather provides data gather configuration options for the Insights Operator.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "spec holds user settable values for configuration",
+      "type": "object",
+      "required": [
+        "gatherConfig"
+      ],
+      "properties": {
+        "gatherConfig": {
+          "description": "gatherConfig is a required spec attribute that includes all the configuration options related to gathering of the Insights data and its uploading to the ingress.",
+          "type": "object",
+          "required": [
+            "gatherers"
+          ],
+          "properties": {
+            "dataPolicy": {
+              "description": "dataPolicy is an optional list of DataPolicyOptions that allows user to enable additional obfuscation of the Insights archive data.\nIt may not exceed 2 items and must not contain duplicates.\nValid values are ObfuscateNetworking and WorkloadNames.\nWhen set to ObfuscateNetworking the IP addresses and the cluster domain name are obfuscated.\nWhen set to WorkloadNames, the gathered data about cluster resources will not contain the workload names for your deployments. Resources UIDs will be used instead.\nWhen omitted no obfuscation is applied.",
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 1,
+              "items": {
+                "description": "DataPolicyOption declares valid data policy options",
+                "type": "string",
+                "enum": [
+                  "ObfuscateNetworking",
+                  "WorkloadNames"
+                ]
+              },
+              "x-kubernetes-list-type": "atomic",
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(x, self.exists_one(y, x == y))",
+                  "message": "dataPolicy items must be unique"
+                }
+              ]
+            },
+            "gatherers": {
+              "description": "gatherers is a required field that specifies the configuration of the gatherers.",
+              "type": "object",
+              "required": [
+                "mode"
+              ],
+              "properties": {
+                "custom": {
+                  "description": "custom provides gathering configuration.\nIt is required when mode is Custom, and forbidden otherwise.\nCustom configuration allows user to disable only a subset of gatherers.\nGatherers that are not explicitly disabled in custom configuration will run.",
+                  "type": "object",
+                  "required": [
+                    "configs"
+                  ],
+                  "properties": {
+                    "configs": {
+                      "description": "configs is a required list of gatherers configurations that can be used to enable or disable specific gatherers.\nIt may not exceed 100 items and each gatherer can be present only once.\nIt is possible to disable an entire set of gatherers while allowing a specific function within that set.\nThe particular gatherers IDs can be found at https://github.com/openshift/insights-operator/blob/master/docs/gathered-data.md.\nRun the following command to get the names of last active gatherers:\n\"oc get insightsoperators.operator.openshift.io cluster -o json | jq '.status.gatherStatus.gatherers[].name'\"",
+                      "type": "array",
+                      "maxItems": 100,
+                      "minItems": 1,
+                      "items": {
+                        "description": "GathererConfig allows to configure specific gatherers",
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "state"
+                        ],
+                        "properties": {
+                          "name": {
+                            "description": "name is the required name of a specific gatherer.\nIt may not exceed 256 characters.\nThe format for a gatherer name is: {gatherer}/{function} where the function is optional.\nGatherer consists of a lowercase letters only that may include underscores (_).\nFunction consists of a lowercase letters only that may include underscores (_) and is separated from the gatherer by a forward slash (/).\nThe particular gatherers can be found at https://github.com/openshift/insights-operator/blob/master/docs/gathered-data.md.\nRun the following command to get the names of last active gatherers:\n\"oc get insightsoperators.operator.openshift.io cluster -o json | jq '.status.gatherStatus.gatherers[].name'\"",
+                            "type": "string",
+                            "maxLength": 256,
+                            "minLength": 1,
+                            "x-kubernetes-validations": [
+                              {
+                                "rule": "self.matches(\"^[a-z]+[_a-z]*[a-z]([/a-z][_a-z]*)?[a-z]$\")",
+                                "message": "gatherer name must be in the format of {gatherer}/{function} where the gatherer and function are lowercase letters only that may include underscores (_) and are separated by a forward slash (/) if the function is provided"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "description": "state is a required field that allows you to configure specific gatherer. Valid values are \"Enabled\" and \"Disabled\".\nWhen set to Enabled the gatherer will run.\nWhen set to Disabled the gatherer will not run.",
+                            "type": "string",
+                            "enum": [
+                              "Enabled",
+                              "Disabled"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "x-kubernetes-list-map-keys": [
+                        "name"
+                      ],
+                      "x-kubernetes-list-type": "map"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "mode": {
+                  "description": "mode is a required field that specifies the mode for gatherers. Allowed values are All, None, and Custom.\nWhen set to All, all gatherers will run and gather data.\nWhen set to None, all gatherers will be disabled and no data will be gathered.\nWhen set to Custom, the custom configuration from the custom field will be applied.",
+                  "type": "string",
+                  "enum": [
+                    "All",
+                    "None",
+                    "Custom"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "has(self.mode) \u0026\u0026 self.mode == 'Custom' ?  has(self.custom) : !has(self.custom)",
+                  "message": "custom is required when mode is Custom, and forbidden otherwise"
+                }
+              ]
+            },
+            "storage": {
+              "description": "storage is an optional field that allows user to define persistent storage for gathering jobs to store the Insights data archive.\nIf omitted, the gathering job will use ephemeral storage.",
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "persistentVolume": {
+                  "description": "persistentVolume is an optional field that specifies the PersistentVolume that will be used to store the Insights data archive.\nThe PersistentVolume must be created in the openshift-insights namespace.",
+                  "type": "object",
+                  "required": [
+                    "claim"
+                  ],
+                  "properties": {
+                    "claim": {
+                      "description": "claim is a required field that specifies the configuration of the PersistentVolumeClaim that will be used to store the Insights data archive.\nThe PersistentVolumeClaim must be created in the openshift-insights namespace.",
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "description": "name is the name of the PersistentVolumeClaim that will be used to store the Insights data archive.\nIt is a string that follows the DNS1123 subdomain format.\nIt must be at most 253 characters in length, and must consist only of lower case alphanumeric characters, '-' and '.', and must start and end with an alphanumeric character.",
+                          "type": "string",
+                          "maxLength": 253,
+                          "minLength": 1,
+                          "x-kubernetes-validations": [
+                            {
+                              "rule": "!format.dns1123Subdomain().validate(self).hasValue()",
+                              "message": "a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character."
+                            }
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "mountPath": {
+                      "description": "mountPath is an optional field specifying the directory where the PVC will be mounted inside the Insights data gathering Pod.\nWhen omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.\nThe current default mount path is /var/lib/insights-operator\nThe path may not exceed 1024 characters and must not contain a colon.",
+                      "type": "string",
+                      "maxLength": 1024,
+                      "minLength": 1,
+                      "x-kubernetes-validations": [
+                        {
+                          "rule": "!self.contains(':')",
+                          "message": "mountPath must not contain a colon"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "type": {
+                  "description": "type is a required field that specifies the type of storage that will be used to store the Insights data archive.\nValid values are \"PersistentVolume\" and \"Ephemeral\".\nWhen set to Ephemeral, the Insights data archive is stored in the ephemeral storage of the gathering job.\nWhen set to PersistentVolume, the Insights data archive is stored in the PersistentVolume that is defined by the persistentVolume field.",
+                  "type": "string",
+                  "enum": [
+                    "PersistentVolume",
+                    "Ephemeral"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "has(self.type) \u0026\u0026 self.type == 'PersistentVolume' ?  has(self.persistentVolume) : !has(self.persistentVolume)",
+                  "message": "persistentVolume is required when type is PersistentVolume, and forbidden otherwise"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
