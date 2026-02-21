@@ -21,16 +21,16 @@ func TestBuilderVersionSorting(t *testing.T) {
 	for _, v := range seedVersions {
 		bundles = append(bundles, gitBundle{tag: v, paths: []gitPath{}})
 	}
-	expectedVersions := []string{"head", seedVersions[0], seedVersions[2], seedVersions[3], seedVersions[4], seedVersions[1]}
+	expectedVersions := []string{seedVersions[0], seedVersions[2], seedVersions[3], seedVersions[4], seedVersions[1]}
 
 	p, err := setupGit(t, bundles)
 	assert.Nil(t, err)
 	assert.NotNil(t, p)
 
 	config := configuration.Configuration{
-		Kind:        configuration.Git,
-		Repository:  fmt.Sprintf("file://%s", *p),
-		IncludeHead: true,
+		Kind:           configuration.Git,
+		Repository:     fmt.Sprintf("file://%s", *p),
+		VersionPattern: `^([0-9]+\.[0-9]+\.[0-9]+)$`,
 	}
 
 	b, err := NewBuilder(config, nil, "-", "-", "-", nil)
@@ -45,7 +45,7 @@ func TestBuilderVersionSorting(t *testing.T) {
 type testScenario struct {
 	versions         []string
 	expectedVersions []string
-	prefix, suffix   string
+	pattern          string
 }
 
 func TestBuilderVersionFiltering(t *testing.T) {
@@ -61,29 +61,27 @@ func TestBuilderVersionFiltering(t *testing.T) {
 		{
 			versions:         []string{"v2.0.0", "v1.3.0", "v1.0.0"},
 			expectedVersions: []string{"v2.0.0", "v1.3.0", "v1.0.0"},
-			prefix:           "v",
+			pattern:          `^v([0-9]+\.[0-9]+\.[0-9]+)$`,
 		},
 		{
 			versions:         []string{"2.0.0", "v1.3.0", "v1.0.0"},
 			expectedVersions: []string{"2.0.0", "v1.3.0", "v1.0.0"},
-			prefix:           "v?",
+			pattern:          `^v?([0-9]+\.[0-9]+\.[0-9]+)$`,
 		},
 		{
 			versions:         []string{"2.0.0", "v1.3.0v", "v1.0.0"},
 			expectedVersions: []string{"2.0.0", "v1.0.0"},
-			prefix:           "v?",
-			suffix:           "",
+			pattern:          `^v?([0-9]+\.[0-9]+\.[0-9]+)$`,
 		},
 		{
 			versions:         []string{"2.0.0-2", "1.3.0-1892", "1.0.0-01"},
 			expectedVersions: []string{"2.0.0-2", "1.3.0-1892", "1.0.0-01"},
-			suffix:           `\-\d*`,
+			pattern:          `^([0-9]+\.[0-9]+\.[0-9]+-\d+)$`,
 		},
 		{
 			versions:         []string{"v1.33.2+k0s.0"},
 			expectedVersions: []string{"v1.33.2+k0s.0"},
-			prefix:           "v",
-			suffix:           `\+k0s\.`,
+			pattern:          `^v([0-9]+\.[0-9]+\.[0-9]+\+k0s\.0)$`,
 		},
 	}
 
@@ -93,10 +91,9 @@ func TestBuilderVersionFiltering(t *testing.T) {
 			downloads = append(downloads, configuration.ConfigurationDownload{Version: v})
 		}
 		config := configuration.Configuration{
-			Kind:          configuration.Http,
-			Downloads:     downloads,
-			VersionPrefix: test.prefix,
-			VersionSuffix: test.suffix,
+			Kind:           configuration.Http,
+			Downloads:      downloads,
+			VersionPattern: test.pattern,
 		}
 
 		b, err := NewBuilder(config, nil, "-", "-", "-", nil)

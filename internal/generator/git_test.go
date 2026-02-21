@@ -183,10 +183,10 @@ func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
 	assert.NotNil(t, p)
 
 	config := configuration.Configuration{
-		Kind:        configuration.Git,
-		Repository:  fmt.Sprintf("file://%s", *p),
-		GenPaths:    []string{"./api/..."},
-		IncludeHead: true,
+		Kind:           configuration.Git,
+		Repository:     fmt.Sprintf("file://%s", *p),
+		GenPaths:       []string{"./api/..."},
+		VersionPattern: `^v([0-9]+\.[0-9]+\.[0-9]+)$`,
 	}
 
 	reader, err := crd.NewCrdReader(setupLogger())

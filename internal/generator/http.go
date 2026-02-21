@@ -94,6 +94,10 @@ func (generator *HttpGenerator) Close() error {
 	return nil
 }
 
+func (generator *HttpGenerator) VersionSortKey(version string) (int64, error) {
+	return 0, nil
+}
+
 func (generator *HttpGenerator) read(resp *http.Response) ([]byte, error) {
 	defer resp.Body.Close()
 
