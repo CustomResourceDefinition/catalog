@@ -37,7 +37,8 @@ func TestGitGeneratorVersions(t *testing.T) {
 
 	versions, err := generator.Versions()
 	assert.Nil(t, err)
-	assert.Equal(t, []string{expectedVersion}, versions)
+	assert.Contains(t, versions, expectedVersion)
+	assert.Contains(t, versions, "master")
 }
 
 func TestGitGeneratorUnknownVersion(t *testing.T) {

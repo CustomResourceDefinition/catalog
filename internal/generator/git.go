@@ -22,6 +22,7 @@ type GitGenerator struct {
 	reader         crd.CrdReader
 	tmpDir, gitDir string
 	tags           []string
+	branches       []string
 }
 
 func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
@@ -158,7 +159,10 @@ func (generator *GitGenerator) Versions() ([]string, error) {
 		return nil, err
 	}
 
-	return generator.tags, nil
+	versions := make([]string, 0, len(generator.tags)+len(generator.branches))
+	versions = append(versions, generator.tags...)
+	versions = append(versions, generator.branches...)
+	return versions, nil
 }
 
 func (generator *GitGenerator) ensureLoaded() error {
@@ -186,7 +190,31 @@ func (generator *GitGenerator) ensureLoaded() error {
 
 	tags := strings.Split(strings.TrimSpace(string(out)), "\n")
 
+	out, err = exec.Command("git", "--git-dir", gitDir, "for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes").Output()
+	if err != nil {
+		return fmt.Errorf("unable to list branches: %w", err)
+	}
+
+	branchList := strings.Split(strings.TrimSpace(string(out)), "\n")
+	branches := make([]string, 0, len(branchList))
+	seen := make(map[string]bool)
+	for _, b := range branchList {
+		if after, ok := strings.CutPrefix(b, "origin/"); ok {
+			b = after
+		}
+
+		if b == "" || b == "HEAD" || b == "origin" {
+			continue
+		}
+
+		if !seen[b] {
+			seen[b] = true
+			branches = append(branches, b)
+		}
+	}
+
 	generator.tags = tags
+	generator.branches = branches
 	generator.gitDir = gitDir
 	generator.tmpDir = tmpDir
 
