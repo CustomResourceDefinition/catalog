@@ -68,8 +68,9 @@ Examples:
 
 - Match v-prefixed tags: `^v([0-9]+\.[0-9]+\.[0-9]+)$`
 - Match tags with custom prefix: `^prefix-([0-9]+\.[0-9]+\.[0-9]+)$`
-- Match branches like main/master: `^(([0-9]+\.[0-9]+\.[0-9]+)|(main|master))$`
-- Match versions with pre-release: `^v([0-9]+\.[0-9]+\.[0-9]+-.*)$`
+- Match tags with pre-release suffixes: `^v([0-9]+\.[0-9]+\.[0-9]+-.*)$`
+- Match versioned tags and branches: `^(([0-9]+\.[0-9]+\.[0-9]+)|(main|master))$`
+- Match branches only: `^((main|master))$`
 
 Git sources are sorted by commit date (most recent first), not by semver.
 
