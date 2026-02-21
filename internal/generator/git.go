@@ -41,9 +41,12 @@ func (generator *GitGenerator) VersionSortKey(version string) (int64, error) {
 		return 0, err
 	}
 
-	out, err := exec.Command("git", "--git-dir", generator.gitDir, "log", "-1", "--format=%ct", version).Output()
+	out, err := exec.Command("git", "--git-dir", generator.gitDir, "log", "-1", "--format=%ct", version).Output() // tag
 	if err != nil {
-		return 0, fmt.Errorf("unable to get commit date for '%s': %w", version, err)
+		out, err = exec.Command("git", "--git-dir", generator.gitDir, "log", "-1", "--format=%ct", fmt.Sprintf("origin/%s", version)).Output() // branch
+		if err != nil {
+			return 0, fmt.Errorf("unable to get commit date for '%s': %w", version, err)
+		}
 	}
 
 	ts, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
