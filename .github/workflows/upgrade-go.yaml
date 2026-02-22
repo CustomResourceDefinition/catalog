@@ -1,0 +1,61 @@
+name: Upgrade Go Version
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+
+jobs:
+  upgrade-go:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: catalog
+
+      - name: Check for Go updates
+        id: check
+        run: |
+          CURRENT=$(grep "^go " go.mod | awk '{print $2}')
+          LATEST=$(go list -m -f '{{.Version}}' go@latest)
+          {
+            echo "latest=$LATEST"
+            echo "needs_update=false"
+            [ "$CURRENT" != "$LATEST" ] && echo "needs_update=true" || true
+          } >> $GITHUB_OUTPUT
+
+      - name: Update Go version
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          GO_VERSION: ${{ steps.check.outputs.latest }}
+        run: |
+          go mod edit -go=$GO_VERSION
+          go mod tidy
+          {
+              grep -v "^golang " .tool-versions > .tool-versions.tmp || true
+              echo "golang $GO_VERSION" >> .tool-versions.tmp
+          } > .tool-versions.tmp
+          mv .tool-versions.tmp .tool-versions
+
+      - name: Create Pull Request
+        if: steps.check.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          title: "chore: upgrade Go to ${{ steps.check.outputs.latest }}"
+          commit-message: "chore: upgrade Go to ${{ steps.check.outputs.latest }}"
+          branch: chore/upgrade-go-${{ steps.check.outputs.latest }}
+          add-paths: |
+            .tool-versions
+            go.mod
+            go.sum
+          labels: go
+          token: ${{ steps.app-token.outputs.token }}
