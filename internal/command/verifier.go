@@ -10,6 +10,7 @@ import (
 	"path"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
+	_ "github.com/santhosh-tekuri/jsonschema/v5/httploader"
 	"gopkg.in/yaml.v3"
 )
 
