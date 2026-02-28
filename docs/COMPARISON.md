@@ -9,13 +9,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.75% | 3429 | 10042 | 83 |
+| 99.21% | 3429 | 10059 | 83 |
 
 ### Missing Schemas
-
-| cloud.google.com | |
-| --- | --- |
-| computeclass | v1 |
 
 | cluster.x-k8s.io | |
 | --- | --- |
@@ -32,14 +28,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | compute.coreweave.com | |
 | --- | --- |
 | nodepool | v1alpha1 |
-
-| controlplane.cluster.x-k8s.io | |
-| --- | --- |
-| taloscontrolplane | v1alpha3 |
-
-| distro.eks.amazonaws.com | |
-| --- | --- |
-| release | v1alpha1 |
 
 | eks.amazonaws.com | |
 | --- | --- |
@@ -61,16 +49,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | gcpcluster | v1alpha2 |
 | gcpmachine | v1alpha2 |
 | gcpmachinetemplate | v1alpha2 |
-
-| monitoring.googleapis.com | |
-| --- | --- |
-| clusternodemonitoring | v1 |
-| clusterpodmonitoring | v1, v1alpha1 |
-| clusterrules | v1, v1alpha1 |
-| globalrules | v1, v1alpha1 |
-| operatorconfig | v1, v1alpha1 |
-| podmonitoring | v1, v1alpha1 |
-| rules | v1, v1alpha1 |
 
 | networking.gke.io | |
 | --- | --- |
