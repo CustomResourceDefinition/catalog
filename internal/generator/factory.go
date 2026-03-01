@@ -30,7 +30,7 @@ type Builder struct {
 }
 
 func NewBuilder(config configuration.Configuration, reader crd.CrdReader, generatedRepository, schemaRepository, definitionRepository string, logger io.Writer, reg *registry.SourceRegistry) (*Builder, error) {
-	generator, err := resolveGenerator(config, reader)
+	generator, err := resolveGenerator(config, reader, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -232,10 +232,10 @@ func normalizeVersion(matches [][]string) string {
 	return fmt.Sprintf("v%d.%d.%d", ints[0], ints[1], ints[2])
 }
 
-func resolveGenerator(config configuration.Configuration, reader crd.CrdReader) (Generator, error) {
+func resolveGenerator(config configuration.Configuration, reader crd.CrdReader, logger io.Writer) (Generator, error) {
 	switch config.Kind {
 	case configuration.Git:
-		return NewGitGenerator(config, reader), nil
+		return NewGitGeneratorFactory(config, reader, logger).Build()
 	case configuration.Http:
 		return NewHttpGenerator(config, reader), nil
 	case configuration.Helm:

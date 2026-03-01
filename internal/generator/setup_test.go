@@ -232,13 +232,17 @@ func setupGit(t *testing.T, bundles []gitBundle) (*string, error) {
 		return nil, fmt.Errorf("unable to rename default branch: %w", err)
 	}
 
+	firstBranch := true
 	for _, bundle := range bundles {
-		if bundle.branch != "" {
+		ignoreFirstMain := firstBranch && bundle.branch == "main"
+		if bundle.branch != "" && !ignoreFirstMain {
 			err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "checkout", "-b", bundle.branch).Run()
 			if err != nil {
 				return nil, fmt.Errorf("unable to create branch %s: %w", bundle.branch, err)
 			}
 		}
+
+		firstBranch = false
 
 		for _, p := range bundle.paths {
 			directory := path.Join(tmpDir, path.Dir(p.path))
@@ -276,4 +280,80 @@ func setupGit(t *testing.T, bundles []gitBundle) (*string, error) {
 	}
 
 	return &gitDir, nil
+}
+
+type gitHubResponse struct {
+	prefix   string
+	tags     []githubRef
+	branches []githubRef
+}
+
+type githubRef struct {
+	name          string
+	committedDate string
+}
+
+func setupGitHubServer(t *testing.T, responses []gitHubResponse) func() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+
+		_ = body["query"].(string)
+		variables := body["variables"].(map[string]any)
+		prefix := variables["prefix"].(string)
+
+		var nodes []any
+		for _, resp := range responses {
+			if resp.prefix == prefix {
+				if prefix == "refs/tags/" {
+					for _, tag := range resp.tags {
+						nodes = append(nodes, map[string]any{
+							"name": tag.name,
+							"target": map[string]any{
+								"committedDate": tag.committedDate,
+							},
+						})
+					}
+				} else {
+					for _, branch := range resp.branches {
+						nodes = append(nodes, map[string]any{
+							"name": branch.name,
+							"target": map[string]any{
+								"committedDate": branch.committedDate,
+							},
+						})
+					}
+				}
+				break
+			}
+		}
+
+		response := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"refs": map[string]any{
+						"nodes": nodes,
+						"pageInfo": map[string]any{
+							"hasNextPage": false,
+							"endCursor":   "",
+						},
+					},
+				},
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+
+	originalEndpoint := graphQLEndpoint
+	graphQLEndpoint = server.URL
+
+	return func() {
+		server.Close()
+		graphQLEndpoint = originalEndpoint
+	}
 }
