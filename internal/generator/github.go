@@ -177,6 +177,8 @@ func (g *GitHubGenerator) fetchRef(prefix string) ([]versionInfo, error) {
 	return versions, nil
 }
 
+var graphQLEndpoint = "https://api.github.com/graphql"
+
 func (g *GitHubGenerator) graphQLRequest(query string, variables map[string]any) ([]byte, error) {
 	reqBody := map[string]any{
 		"query":     query,
@@ -188,7 +190,7 @@ func (g *GitHubGenerator) graphQLRequest(query string, variables map[string]any)
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), "POST", "https://api.github.com/graphql", bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", graphQLEndpoint, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
