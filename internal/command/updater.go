@@ -17,11 +17,12 @@ import (
 )
 
 type Updater struct {
-	Configuration, Schema, Definitions, Registry string
-	Logger                                       io.Writer
-	flags                                        *flag.FlagSet
-	reader                                       crd.CrdReader
-	registry                                     *registry.SourceRegistry
+	Configuration, Schema, Definitions string
+	Logger                             io.Writer
+	flags                              *flag.FlagSet
+	reader                             crd.CrdReader
+	registry                           *registry.SourceRegistry
+	registryPath                       string
 }
 
 func NewUpdater(configuration, schema, definitions, registryPath string, logger io.Writer, flags *flag.FlagSet) Updater {
@@ -30,7 +31,7 @@ func NewUpdater(configuration, schema, definitions, registryPath string, logger 
 		Configuration: configuration,
 		Schema:        schema,
 		Definitions:   definitions,
-		Registry:      registryPath,
+		registryPath:  registryPath,
 		Logger:        logger,
 	}
 }
@@ -47,8 +48,8 @@ func (cmd Updater) Run() error {
 		return err
 	}
 
-	if cmd.Registry != "" {
-		reg, err := registry.Load(cmd.Registry)
+	if cmd.registryPath != "" {
+		reg, err := registry.Load(cmd.registryPath)
 		if err != nil {
 			return fmt.Errorf("failed to load registry: %w", err)
 		}
@@ -92,8 +93,8 @@ func (cmd Updater) Run() error {
 		fmt.Fprintf(cmd.Logger, "%s\n\n", string(out))
 	}
 
-	if cmd.registry != nil && cmd.Registry != "" {
-		if err := cmd.registry.Save(cmd.Registry); err != nil {
+	if cmd.registry != nil && cmd.registryPath != "" {
+		if err := cmd.registry.Save(cmd.registryPath); err != nil {
 			fmt.Fprintf(cmd.Logger, "Warning: failed to save registry: %v\n", err)
 		}
 	}
