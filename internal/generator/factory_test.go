@@ -140,13 +140,13 @@ func TestResolveGenerator(t *testing.T) {
 	}
 
 	for _, c := range validConfigs {
-		g, err := resolveGenerator(c, nil)
+		g, err := resolveGenerator(c, nil, nil)
 		assert.Nil(t, err)
 		assert.NotNil(t, g)
 	}
 
 	for _, c := range invalidConfigs {
-		g, err := resolveGenerator(c, nil)
+		g, err := resolveGenerator(c, nil, nil)
 		assert.NotNil(t, err)
 		assert.Nil(t, g)
 	}

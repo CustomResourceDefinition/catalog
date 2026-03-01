@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIsGitHubRepo(t *testing.T) {
+func TestGitGeneratorFactoryIsGitHubRepo(t *testing.T) {
 	tests := []struct {
 		name        string
 		repoURL     string
@@ -47,15 +48,22 @@ func TestIsGitHubRepo(t *testing.T) {
 			expectRepo:  "",
 		},
 		{
-			name:        "file path",
+			name:        "file URL",
 			repoURL:     "file:///path/to/repo",
 			expectValid: false,
 			expectOwner: "",
 			expectRepo:  "",
 		},
 		{
-			name:        "non-https URL",
+			name:        "with-protocol",
 			repoURL:     "github.com/owner/repo",
+			expectValid: false,
+			expectOwner: "",
+			expectRepo:  "",
+		},
+		{
+			name:        "gibberish",
+			repoURL:     "af/3/tl33lg/.3l/hih//alj;lls",
 			expectValid: false,
 			expectOwner: "",
 			expectRepo:  "",
@@ -79,15 +87,15 @@ func TestGitGeneratorFactoryBuildGitHubSuccessWithVersions(t *testing.T) {
 		{
 			prefix: "refs/tags/",
 			tags: []githubRef{
-				{name: "v1.0.0", committedDate: "2024-01-15T10:00:00Z"},
-				{name: "v0.9.0", committedDate: "2024-01-10T10:00:00Z"},
+				{name: "v1.0.0", committedDate: "2000-01-15T10:00:00Z"},
+				{name: "v0.9.0", committedDate: "2000-01-10T10:00:00Z"},
 			},
 		},
 		{
 			prefix: "refs/heads/",
 			branches: []githubRef{
-				{name: "main", committedDate: "2024-01-20T10:00:00Z"},
-				{name: "develop", committedDate: "2024-01-18T10:00:00Z"},
+				{name: "main", committedDate: "2000-01-20T10:00:00Z"},
+				{name: "develop", committedDate: "2000-01-18T10:00:00Z"},
 			},
 		},
 	})
@@ -98,10 +106,10 @@ func TestGitGeneratorFactoryBuildGitHubSuccessWithVersions(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
 	assert.Nil(t, err)
-	assert.IsType(t, &PreparedGitGenerator{}, generator)
 	defer generator.Close()
+	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
 	versions, err := generator.Versions()
 	assert.Nil(t, err)
@@ -118,13 +126,13 @@ func TestGitGeneratorFactoryBuildGitHubSuccessWithSortKey(t *testing.T) {
 		{
 			prefix: "refs/tags/",
 			tags: []githubRef{
-				{name: "v1.0.0", committedDate: "2024-01-15T10:00:00Z"},
+				{name: "v1.0.0", committedDate: "2000-01-15T10:00:00Z"},
 			},
 		},
 		{
 			prefix: "refs/heads/",
 			branches: []githubRef{
-				{name: "main", committedDate: "2024-01-20T10:00:00Z"},
+				{name: "main", committedDate: "2000-01-20T10:00:00Z"},
 			},
 		},
 	})
@@ -135,10 +143,10 @@ func TestGitGeneratorFactoryBuildGitHubSuccessWithSortKey(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
 	assert.Nil(t, err)
-	assert.IsType(t, &PreparedGitGenerator{}, generator)
 	defer generator.Close()
+	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
 	key1, err := generator.VersionSortKey("v1.0.0")
 	assert.Nil(t, err)
@@ -148,7 +156,7 @@ func TestGitGeneratorFactoryBuildGitHubSuccessWithSortKey(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Greater(t, key2, int64(0))
 
-	assert.Greater(t, key2, key1, "main (2024-01-20) should have later timestamp than v1.0.0 (2024-01-15)")
+	assert.Greater(t, key2, key1, "main (2000-01-20) should have later timestamp than v1.0.0 (2000-01-15)")
 
 	_, err = generator.VersionSortKey("nonexistent")
 	assert.NotNil(t, err)
@@ -161,15 +169,15 @@ func TestPreparedGitGeneratorVersionsSortedByDate(t *testing.T) {
 		{
 			prefix: "refs/tags/",
 			tags: []githubRef{
-				{name: "v0.9.0", committedDate: "2024-01-10T10:00:00Z"},
-				{name: "v1.0.0", committedDate: "2024-01-15T10:00:00Z"},
+				{name: "v0.9.0", committedDate: "2000-01-10T10:00:00Z"},
+				{name: "v1.0.0", committedDate: "2000-01-15T10:00:00Z"},
 			},
 		},
 		{
 			prefix: "refs/heads/",
 			branches: []githubRef{
-				{name: "develop", committedDate: "2024-01-18T10:00:00Z"},
-				{name: "main", committedDate: "2024-01-20T10:00:00Z"},
+				{name: "develop", committedDate: "2000-01-18T10:00:00Z"},
+				{name: "main", committedDate: "2000-01-20T10:00:00Z"},
 			},
 		},
 	})
@@ -180,15 +188,17 @@ func TestPreparedGitGeneratorVersionsSortedByDate(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
 	assert.Nil(t, err)
-	assert.IsType(t, &PreparedGitGenerator{}, generator)
 	defer generator.Close()
+	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
 	versions, err := generator.Versions()
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"v0.9.0", "v1.0.0", "develop", "main"}, versions)
 }
+
+var logger = bytes.NewBuffer([]byte{})
 
 func TestGitGeneratorFactoryBuildGitHubFailure(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
@@ -209,10 +219,10 @@ func TestGitGeneratorFactoryBuildGitHubFailure(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, logger).Build()
 	assert.Nil(t, err)
-	assert.IsType(t, &GitGenerator{}, generator)
 	defer generator.Close()
+	assert.IsType(t, &GitGenerator{}, generator)
 }
 
 func TestGitGeneratorFactoryBuildGitHubSuccess(t *testing.T) {
@@ -222,13 +232,13 @@ func TestGitGeneratorFactoryBuildGitHubSuccess(t *testing.T) {
 		{
 			prefix: "refs/tags/",
 			tags: []githubRef{
-				{name: "v1.0.0", committedDate: "2024-01-15T10:00:00Z"},
+				{name: "v1.0.0", committedDate: "2000-01-15T10:00:00Z"},
 			},
 		},
 		{
 			prefix: "refs/heads/",
 			branches: []githubRef{
-				{name: "main", committedDate: "2024-01-20T10:00:00Z"},
+				{name: "main", committedDate: "2000-01-20T10:00:00Z"},
 			},
 		},
 	})
@@ -239,10 +249,10 @@ func TestGitGeneratorFactoryBuildGitHubSuccess(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
 	assert.Nil(t, err)
-	assert.IsType(t, &PreparedGitGenerator{}, generator)
 	defer generator.Close()
+	assert.IsType(t, &PreparedGitGenerator{}, generator)
 }
 
 func TestResolveGeneratorWithoutGitHubToken(t *testing.T) {
@@ -253,10 +263,10 @@ func TestResolveGeneratorWithoutGitHubToken(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := resolveGenerator(config, nil)
+	generator, err := resolveGenerator(config, nil, nil)
 	assert.Nil(t, err)
-	assert.IsType(t, &GitGenerator{}, generator)
 	defer generator.Close()
+	assert.IsType(t, &GitGenerator{}, generator)
 }
 
 func TestResolveGeneratorNonGitHubWithToken(t *testing.T) {
@@ -267,50 +277,8 @@ func TestResolveGeneratorNonGitHubWithToken(t *testing.T) {
 		Repository: "https://gitlab.com/owner/repo",
 	}
 
-	generator, err := resolveGenerator(config, nil)
+	generator, err := resolveGenerator(config, nil, nil)
 	assert.Nil(t, err)
-	assert.IsType(t, &GitGenerator{}, generator)
 	defer generator.Close()
-}
-
-func TestResolveGeneratorFileURL(t *testing.T) {
-	t.Setenv("GITHUB_TOKEN", "test-token")
-
-	config := configuration.Configuration{
-		Kind:       configuration.Git,
-		Repository: "file:///path/to/repo",
-	}
-
-	generator, err := resolveGenerator(config, nil)
-	assert.Nil(t, err)
 	assert.IsType(t, &GitGenerator{}, generator)
-	defer generator.Close()
-}
-
-func TestGitGeneratorFactoryBuildNonGitHubURL(t *testing.T) {
-	t.Setenv("GITHUB_TOKEN", "test-token")
-
-	config := configuration.Configuration{
-		Kind:       configuration.Git,
-		Repository: "https://gitlab.com/owner/repo",
-	}
-
-	generator, err := NewGitGeneratorFactory(config, nil).Build()
-	assert.Nil(t, err)
-	assert.IsType(t, &GitGenerator{}, generator)
-	defer generator.Close()
-}
-
-func TestGitGeneratorFactoryBuildFileURL(t *testing.T) {
-	t.Setenv("GITHUB_TOKEN", "test-token")
-
-	config := configuration.Configuration{
-		Kind:       configuration.Git,
-		Repository: "file:///path/to/repo",
-	}
-
-	generator, err := NewGitGeneratorFactory(config, nil).Build()
-	assert.Nil(t, err)
-	assert.IsType(t, &GitGenerator{}, generator)
-	defer generator.Close()
 }
