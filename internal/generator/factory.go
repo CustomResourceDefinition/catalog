@@ -78,22 +78,11 @@ func (builder Builder) Build() error {
 	fmt.Fprintf(logger, "Producing for %s@%s:\n", builder.config.Name, builder.config.Kind)
 	defer fmt.Fprintf(logger, "End.\n")
 
-	if builder.isUpdated() {
-		fmt.Fprintf(logger, "Skipping %s@%s (version unchanged)\n\n", builder.config.Name, builder.config.Kind)
+	latestVersion, isUpdated := builder.isUpdated()
+	if isUpdated {
+		fmt.Fprintf(logger, " - skipping %s@%s (version %s unchanged)\n", builder.config.Name, builder.config.Kind, latestVersion)
 		return nil
 	}
-
-	versions, err := builder.versions()
-	if err != nil {
-		return err
-	}
-	count := len(versions)
-	fmt.Fprintf(logger, " - found %d versions.\n", count)
-
-	if count <= 0 {
-		return fmt.Errorf("empty list of versions for '%s'", builder.config.Name)
-	}
-	latestVersion := versions[0]
 
 	fmt.Fprintf(logger, " - checking version %s for completeness.\n", latestVersion)
 	metadata, err := builder.generator.MetaData(latestVersion)
@@ -102,12 +91,18 @@ func (builder Builder) Build() error {
 		return err
 	}
 
+	versions := []string{}
 	missing, known := verifyKnownMetadata(metadata, builder.schemaRepository)
 	if known {
 		fmt.Fprintf(logger, " - complete -> render only latest version.\n")
 		versions = []string{latestVersion}
 	} else {
 		fmt.Fprintf(logger, " - missing %s -> render all versions.\n", missing)
+		versions, err = builder.versions()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(logger, " - found %d versions.\n", len(versions))
 		slices.Reverse(versions)
 	}
 
@@ -190,22 +185,23 @@ func (builder Builder) versions() ([]string, error) {
 	return filtered, nil
 }
 
-func (builder Builder) isUpdated() bool {
-	if builder.registry == nil {
-		return false
-	}
-
+func (builder Builder) isUpdated() (string, bool) {
 	versions, err := builder.versions()
 	if err != nil || len(versions) == 0 {
-		return false
+		return "", false
 	}
 
 	version := versions[0]
-	if entry, ok := builder.registry.Get(builder.config.Name); ok {
-		return entry.Kind == string(builder.config.Kind) && entry.Version == version
+
+	if builder.registry == nil {
+		return version, false
 	}
 
-	return false
+	if entry, ok := builder.registry.Get(builder.config.Name); ok {
+		return version, entry.Kind == string(builder.config.Kind) && entry.Version == version
+	}
+
+	return version, false
 }
 
 func (builder Builder) markAsUpdated(version string) {

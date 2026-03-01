@@ -245,22 +245,9 @@ func TestIsUpdatedNoRegistry(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, b)
 
-	result := b.isUpdated()
+	version, result := b.isUpdated()
 	assert.False(t, result)
-}
-
-func TestIsUpdatedSourceNotInRegistry(t *testing.T) {
-	config := configuration.Configuration{
-		Kind:      configuration.Http,
-		Name:      "test",
-		Downloads: []configuration.ConfigurationDownload{{Version: "1.0.0"}},
-	}
-
-	b, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
-	assert.Nil(t, err)
-
-	result := b.isUpdated()
-	assert.False(t, result)
+	assert.Equal(t, "1.0.0", version)
 }
 
 func TestIsUpdatedSameVersion(t *testing.T) {
@@ -296,8 +283,9 @@ func TestIsUpdatedSameVersion(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	result := builder.isUpdated()
+	version, result := builder.isUpdated()
 	assert.True(t, result)
+	assert.Equal(t, "1.0.0", version)
 }
 
 func TestIsUpdatedDifferentVersion(t *testing.T) {
@@ -333,8 +321,9 @@ func TestIsUpdatedDifferentVersion(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	result := builder.isUpdated()
+	version, result := builder.isUpdated()
 	assert.False(t, result)
+	assert.Equal(t, "2.0.0", version)
 }
 
 func TestIsUpdatedDifferentKind(t *testing.T) {
@@ -370,8 +359,9 @@ func TestIsUpdatedDifferentKind(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	result := builder.isUpdated()
+	version, result := builder.isUpdated()
 	assert.False(t, result)
+	assert.Equal(t, "1.0.0", version)
 }
 
 func TestBuildSkipsWhenUnchanged(t *testing.T) {
