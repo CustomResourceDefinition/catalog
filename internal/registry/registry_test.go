@@ -28,6 +28,21 @@ func TestLoadInvalidYaml(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func TestLoadYamlWithNoSources(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := path.Join(tmpDir, "registry.yaml")
+
+	yamlContent := `sources: null`
+	err := os.WriteFile(filePath, []byte(yamlContent), 0644)
+	assert.Nil(t, err)
+
+	reg, err := Load(filePath)
+	assert.Nil(t, err)
+	assert.NotNil(t, reg)
+	assert.NotNil(t, reg.Sources)
+	assert.Equal(t, 0, len(reg.Sources))
+}
+
 func TestLoadValidYaml(t *testing.T) {
 	tmpDir := t.TempDir()
 	filePath := path.Join(tmpDir, "registry.yaml")
