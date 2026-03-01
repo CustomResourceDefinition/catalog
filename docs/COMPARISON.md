@@ -9,17 +9,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.21% | 3429 | 10059 | 83 |
+| 99.50% | 3429 | 10059 | 93 |
 
 ### Missing Schemas
-
-| cluster.x-k8s.io | |
-| --- | --- |
-| cluster | v1alpha1 |
-| machine | v1alpha1 |
-| machineclass | v1alpha1 |
-| machinedeployment | v1alpha1 |
-| machineset | v1alpha1 |
 
 | compute.cnrm.cloud.google.com | |
 | --- | --- |
@@ -36,19 +28,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
 
-| helm.toolkit.fluxcd.io | |
-| --- | --- |
-| helmrelease | v1 |
-
 | infrastructure.cluster.x-k8s.io | |
 | --- | --- |
 | devcluster | v1beta1 |
 | devclustertemplate | v1beta1 |
-| devmachine | v1beta1 |
-| devmachinetemplate | v1beta1 |
 | gcpcluster | v1alpha2 |
-| gcpmachine | v1alpha2 |
-| gcpmachinetemplate | v1alpha2 |
 
 | networking.gke.io | |
 | --- | --- |
@@ -98,6 +82,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | anywhere.eks.amazonaws.com | dockermachinetemplate | v1alpha4 |
 | anywhere.eks.amazonaws.com | dockermachinetemplate | v1beta1 |
 | autoscaling.cast.ai | recommendations | v1 |
+| cluster.x-k8s.io | cluster | v1alpha1 |
+| cluster.x-k8s.io | machine | v1alpha1 |
+| cluster.x-k8s.io | machineclass | v1alpha1 |
+| cluster.x-k8s.io | machinedeployment | v1alpha1 |
+| cluster.x-k8s.io | machineset | v1alpha1 |
 | dex.coreos.com | authcode | v1 |
 | dex.coreos.com | authrequest | v1 |
 | dex.coreos.com | connector | v1 |
@@ -111,6 +100,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | dynatrace.com | dynakube | v1alpha5 |
 | getambassador.io | ratelimit | v1beta2 |
 | grafana.integreatly.org | grafana | v1alpha1 |
+| helm.toolkit.fluxcd.io | helmrelease | v1 |
+| infrastructure.cluster.x-k8s.io | devmachine | v1beta1 |
+| infrastructure.cluster.x-k8s.io | devmachinetemplate | v1beta1 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha2 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha3 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha4 |
@@ -129,6 +121,8 @@ This page lists missing CRD validation schemas that are present in alternative c
 | infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1alpha3 |
 | infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1alpha4 |
 | infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1beta1 |
+| infrastructure.cluster.x-k8s.io | gcpmachine | v1alpha2 |
+| infrastructure.cluster.x-k8s.io | gcpmachinetemplate | v1alpha2 |
 | kafka.strimzi.io | kafkatopiccontrolacls | v1alpha1 |
 | kafka.strimzi.io | kafkatopiccontrolacls | v1beta1 |
 | kafka.strimzi.io | strimzipodset | v1beta2 |
