@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -15,100 +16,52 @@ import (
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 )
 
-type GitHubGenerator struct {
-	config       configuration.Configuration
-	reader       crd.CrdReader
-	owner        string
-	repo         string
-	token        string
-	gitGenerator *GitGenerator
-	versions     []versionInfo
+type gitGeneratorFactory struct {
+	config configuration.Configuration
+	reader crd.CrdReader
 }
 
-type versionInfo struct {
-	name      string
-	timestamp int64
-}
-
-func NewGitHubGenerator(config configuration.Configuration, reader crd.CrdReader, owner, repo, token string) Generator {
-	return &GitHubGenerator{
-		config:       config,
-		reader:       reader,
-		owner:        owner,
-		repo:         repo,
-		token:        token,
-		gitGenerator: NewGitGenerator(config, reader).(*GitGenerator),
+func NewGitGeneratorFactory(config configuration.Configuration, reader crd.CrdReader) *gitGeneratorFactory {
+	return &gitGeneratorFactory{
+		config: config,
+		reader: reader,
 	}
 }
 
-func (g *GitHubGenerator) Close() error {
-	return g.gitGenerator.Close()
+func (f *gitGeneratorFactory) Build() (Generator, error) {
+	if isGitHub, owner, repo := isGitHubRepo(f.config.Repository); isGitHub {
+		token := os.Getenv("GITHUB_TOKEN")
+		if token != "" {
+			versions, err := f.fetchGitHubVersions(owner, repo, token)
+			if err == nil {
+				gitGen := NewGitGenerator(f.config, f.reader).(*GitGenerator)
+				return NewPreparedGitGenerator(gitGen, versions), nil
+			}
+			// FIXME: log the fallback
+		}
+	}
+	return NewGitGenerator(f.config, f.reader), nil
 }
 
-func (g *GitHubGenerator) Versions() ([]string, error) {
-	if err := g.loadVersions(); err != nil {
-		return nil, err
+func (f *gitGeneratorFactory) fetchGitHubVersions(owner, repo, token string) ([]versionInfo, error) {
+	tags, err := f.fetchRefs(owner, repo, token, "refs/tags/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch tags: %w", err)
 	}
 
-	versions := make([]string, len(g.versions))
-	for i, v := range g.versions {
-		versions[i] = v.name
+	branches, err := f.fetchRefs(owner, repo, token, "refs/heads/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch branches: %w", err)
 	}
+
+	versions := make([]versionInfo, 0, len(tags)+len(branches))
+	versions = append(versions, tags...)
+	versions = append(versions, branches...)
+
 	return versions, nil
 }
 
-func (g *GitHubGenerator) VersionSortKey(version string) (int64, error) {
-	if err := g.loadVersions(); err != nil {
-		return 0, err
-	}
-
-	for _, v := range g.versions {
-		if v.name == version {
-			return v.timestamp, nil
-		}
-	}
-	return 0, fmt.Errorf("version %q not found", version)
-}
-
-func (g *GitHubGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
-	return g.gitGenerator.MetaData(version)
-}
-
-func (g *GitHubGenerator) Crds(version string) ([]crd.Crd, error) {
-	return g.gitGenerator.Crds(version)
-}
-
-func (g *GitHubGenerator) loadVersions() error {
-	if len(g.versions) > 0 {
-		return nil
-	}
-
-	tags, err := g.fetchTags()
-	if err != nil {
-		return fmt.Errorf("failed to fetch tags: %w", err)
-	}
-
-	branches, err := g.fetchBranches()
-	if err != nil {
-		return fmt.Errorf("failed to fetch branches: %w", err)
-	}
-
-	g.versions = make([]versionInfo, 0, len(tags)+len(branches))
-	g.versions = append(g.versions, tags...)
-	g.versions = append(g.versions, branches...)
-
-	return nil
-}
-
-func (g *GitHubGenerator) fetchTags() ([]versionInfo, error) {
-	return g.fetchRef("refs/tags/")
-}
-
-func (g *GitHubGenerator) fetchBranches() ([]versionInfo, error) {
-	return g.fetchRef("refs/heads/")
-}
-
-func (g *GitHubGenerator) fetchRef(prefix string) ([]versionInfo, error) {
+func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]versionInfo, error) {
 	query := `
 		query($owner: String!, $repo: String!, $prefix: String!, $cursor: String) {
 			repository(owner: $owner, name: $repo) {
@@ -137,14 +90,14 @@ func (g *GitHubGenerator) fetchRef(prefix string) ([]versionInfo, error) {
 	for hasNextPage {
 		variables := map[string]any{
 			"prefix": prefix,
-			"owner":  g.owner,
-			"repo":   g.repo,
+			"owner":  owner,
+			"repo":   repo,
 		}
 		if cursor != "" {
 			variables["cursor"] = cursor
 		}
 
-		resp, err := g.graphQLRequest(query, variables)
+		resp, err := f.graphQLRequest(query, token, variables)
 		if err != nil {
 			return nil, err
 		}
@@ -179,7 +132,7 @@ func (g *GitHubGenerator) fetchRef(prefix string) ([]versionInfo, error) {
 
 var graphQLEndpoint = "https://api.github.com/graphql"
 
-func (g *GitHubGenerator) graphQLRequest(query string, variables map[string]any) ([]byte, error) {
+func (f *gitGeneratorFactory) graphQLRequest(query, token string, variables map[string]any) ([]byte, error) {
 	reqBody := map[string]any{
 		"query":     query,
 		"variables": variables,
@@ -195,7 +148,7 @@ func (g *GitHubGenerator) graphQLRequest(query string, variables map[string]any)
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", g.token))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 30 * time.Second}
