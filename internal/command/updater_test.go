@@ -14,34 +14,12 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	template := `
-- apiGroups:
-    - chart.uri
-  crds:
-    - baseUri: {{ server }}
-      paths:
-        - chart-1.0.0.yaml
-      version: 1.0.0
-  kind: http
-  name: http
-`
-	b, err := os.ReadFile("testdata/updater/multiple.yaml")
-	assert.Nil(t, err)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write(b)
-	}))
+	server, config, tmpDir := setup(t)
 	defer server.Close()
-
-	tmpDir := t.TempDir()
-
-	config := path.Join(tmpDir, "config.yaml")
-	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
 
 	updater := NewUpdater(config, tmpDir, tmpDir, "", bytes.NewBuffer([]byte{}), nil)
 
-	err = updater.Run()
+	err := updater.Run()
 	assert.Nil(t, err)
 
 	err = os.Remove(config)
@@ -155,6 +133,34 @@ func TestValidateOutput(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func setup(t *testing.T) (*httptest.Server, string, string) {
+	template := `
+- apiGroups:
+    - chart.uri
+  crds:
+    - baseUri: {{ server }}
+      paths:
+        - chart-1.0.0.yaml
+      version: 1.0.0
+  kind: http
+  name: http
+`
+	b, err := os.ReadFile("testdata/updater/multiple.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+
+	tmpDir := t.TempDir()
+
+	config := path.Join(tmpDir, "config.yaml")
+	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
+
+	return server, config, tmpDir
+}
+
 func assertDirectories(t *testing.T, a, b string) {
 	entries, err := os.ReadDir(a)
 	assert.Nil(t, err)
@@ -179,6 +185,40 @@ func assertDirectories(t *testing.T, a, b string) {
 			assert.Equal(t, aBytes, bBytes)
 		}
 	}
+}
+
+func TestRunWithRegistryLoadError(t *testing.T) {
+	unused := "testdata/updater/multiple.yaml"
+	tmpDir := t.TempDir()
+
+	registryPath := path.Join(tmpDir, "registry.yaml")
+	os.WriteFile(registryPath, []byte("invalid: yaml: content:"), 0644)
+
+	updater := NewUpdater(unused, tmpDir, tmpDir, registryPath, bytes.NewBuffer([]byte{}), nil)
+
+	err := updater.Run()
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "failed to load registry")
+}
+
+func TestRunWithRegistrySavesUpdates(t *testing.T) {
+	server, config, tmpDir := setup(t)
+	defer server.Close()
+
+	registryPath := path.Join(tmpDir, "registry.yaml")
+	initialContent := "sources: {}\n"
+	os.WriteFile(registryPath, []byte(initialContent), 0664)
+
+	updater := NewUpdater(config, tmpDir, tmpDir, registryPath, bytes.NewBuffer([]byte{}), nil)
+
+	err := updater.Run()
+	assert.Nil(t, err)
+
+	content, err := os.ReadFile(registryPath)
+	assert.Nil(t, err)
+	assert.NotEqual(t, initialContent, string(content))
+	assert.Contains(t, string(content), "http")
+	assert.Contains(t, string(content), "1.0.0")
 }
 
 // Test is skipped during unit testing and meant for step-debugging a local check
