@@ -9,9 +9,15 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.21% | 3429 | 10059 | 83 |
+| 99.04% | 3429 | 10051 | 84 |
 
 ### Missing Schemas
+
+| bootstrap.cluster.x-k8s.io | |
+| --- | --- |
+| k0scontrollerconfig | v1beta1 |
+| k0sworkerconfig | v1beta1 |
+| k0sworkerconfigtemplate | v1beta1 |
 
 | cluster.x-k8s.io | |
 | --- | --- |
@@ -29,16 +35,19 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | nodepool | v1alpha1 |
 
+| controlplane.cluster.x-k8s.io | |
+| --- | --- |
+| k0scontrolplane | v1beta1 |
+| k0scontrolplanetemplate | v1beta1 |
+| k0smotroncontrolplane | v1beta1 |
+| k0smotroncontrolplanetemplate | v1beta1 |
+
 | eks.amazonaws.com | |
 | --- | --- |
 | ingressclassparams | v1 |
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
-
-| helm.toolkit.fluxcd.io | |
-| --- | --- |
-| helmrelease | v1 |
 
 | infrastructure.cluster.x-k8s.io | |
 | --- | --- |
@@ -111,6 +120,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | dynatrace.com | dynakube | v1alpha5 |
 | getambassador.io | ratelimit | v1beta2 |
 | grafana.integreatly.org | grafana | v1alpha1 |
+| helm.toolkit.fluxcd.io | helmrelease | v1 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha2 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha3 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha4 |
