@@ -78,7 +78,7 @@ func (builder Builder) Build() error {
 	fmt.Fprintf(logger, "Producing for %s@%s:\n", builder.config.Name, builder.config.Kind)
 	defer fmt.Fprintf(logger, "End.\n")
 
-	latestVersion, isUpdated := builder.isUpdated()
+	latestVersion, isUpdated := builder.registryStatus()
 	if isUpdated {
 		fmt.Fprintf(logger, " - skipping %s@%s (version %s unchanged)\n", builder.config.Name, builder.config.Kind, latestVersion)
 		return nil
@@ -152,7 +152,7 @@ func (builder Builder) Build() error {
 		}
 	}
 
-	builder.markAsUpdated(latestVersion)
+	builder.updateRegistry(latestVersion)
 
 	return nil
 }
@@ -185,7 +185,7 @@ func (builder Builder) versions() ([]string, error) {
 	return filtered, nil
 }
 
-func (builder Builder) isUpdated() (string, bool) {
+func (builder Builder) registryStatus() (string, bool) {
 	versions, err := builder.versions()
 	if err != nil || len(versions) == 0 {
 		return "", false
@@ -204,7 +204,7 @@ func (builder Builder) isUpdated() (string, bool) {
 	return version, false
 }
 
-func (builder Builder) markAsUpdated(version string) {
+func (builder Builder) updateRegistry(version string) {
 	if builder.registry == nil {
 		return
 	}

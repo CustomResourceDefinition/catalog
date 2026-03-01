@@ -234,7 +234,7 @@ func TestBuildWithLatestVersion(t *testing.T) {
 	assert.True(t, !fs.IsDir())
 }
 
-func TestIsUpdatedNoRegistry(t *testing.T) {
+func TestRegistryStatusNoRegistry(t *testing.T) {
 	config := configuration.Configuration{
 		Kind:      configuration.Http,
 		Name:      "test",
@@ -245,12 +245,12 @@ func TestIsUpdatedNoRegistry(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, b)
 
-	version, result := b.isUpdated()
+	version, result := b.registryStatus()
 	assert.False(t, result)
 	assert.Equal(t, "1.0.0", version)
 }
 
-func TestIsUpdatedSameVersion(t *testing.T) {
+func TestRegistryStatusSameVersion(t *testing.T) {
 	b, err := os.ReadFile("testdata/test-crd.yaml")
 	assert.Nil(t, err)
 
@@ -283,12 +283,12 @@ func TestIsUpdatedSameVersion(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	version, result := builder.isUpdated()
+	version, result := builder.registryStatus()
 	assert.True(t, result)
 	assert.Equal(t, "1.0.0", version)
 }
 
-func TestIsUpdatedDifferentVersion(t *testing.T) {
+func TestRegistryStatusDifferentVersion(t *testing.T) {
 	b, err := os.ReadFile("testdata/test-crd.yaml")
 	assert.Nil(t, err)
 
@@ -321,12 +321,12 @@ func TestIsUpdatedDifferentVersion(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	version, result := builder.isUpdated()
+	version, result := builder.registryStatus()
 	assert.False(t, result)
 	assert.Equal(t, "2.0.0", version)
 }
 
-func TestIsUpdatedDifferentKind(t *testing.T) {
+func TestRegistryStatusDifferentKind(t *testing.T) {
 	b, err := os.ReadFile("testdata/test-crd.yaml")
 	assert.Nil(t, err)
 
@@ -359,7 +359,7 @@ func TestIsUpdatedDifferentKind(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	version, result := builder.isUpdated()
+	version, result := builder.registryStatus()
 	assert.False(t, result)
 	assert.Equal(t, "1.0.0", version)
 }
