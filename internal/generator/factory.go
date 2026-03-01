@@ -235,6 +235,12 @@ func normalizeVersion(matches [][]string) string {
 func resolveGenerator(config configuration.Configuration, reader crd.CrdReader) (Generator, error) {
 	switch config.Kind {
 	case configuration.Git:
+		if isGitHub, owner, repo := isGitHubRepo(config.Repository); isGitHub {
+			token := os.Getenv("GITHUB_TOKEN")
+			if token != "" {
+				return NewGitHubGenerator(config, reader, owner, repo, token), nil
+			}
+		}
 		return NewGitGenerator(config, reader), nil
 	case configuration.Http:
 		return NewHttpGenerator(config, reader), nil
