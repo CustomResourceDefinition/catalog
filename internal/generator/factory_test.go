@@ -33,7 +33,7 @@ func TestBuilderVersionSorting(t *testing.T) {
 		VersionPattern: `^([0-9]+\.[0-9]+\.[0-9]+)$`,
 	}
 
-	b, err := NewBuilder(config, nil, "-", "-", "-", nil)
+	b, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
 	assert.Nil(t, err)
 
 	versions, err := b.versions()
@@ -106,7 +106,7 @@ func TestBuilderVersionFiltering(t *testing.T) {
 			VersionPattern: test.pattern,
 		}
 
-		b, err := NewBuilder(config, nil, "-", "-", "-", nil)
+		b, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
 		assert.Nil(t, err)
 
 		versions, err := b.versions()
@@ -179,7 +179,7 @@ func TestBuild(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger())
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
 	assert.Nil(t, err)
 
 	err = builder.Build()
@@ -222,7 +222,7 @@ func TestBuildWithLatestVersion(t *testing.T) {
 	os.MkdirAll(directory, 0775)
 	os.WriteFile(filename, []byte{}, 0664)
 
-	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger())
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
 	assert.Nil(t, err)
 
 	err = builder.Build()

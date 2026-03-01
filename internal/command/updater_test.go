@@ -39,7 +39,7 @@ func TestRun(t *testing.T) {
 	config := path.Join(tmpDir, "config.yaml")
 	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
 
-	updater := NewUpdater(config, tmpDir, tmpDir, bytes.NewBuffer([]byte{}), nil)
+	updater := NewUpdater(config, tmpDir, tmpDir, "", bytes.NewBuffer([]byte{}), nil)
 
 	err = updater.Run()
 	assert.Nil(t, err)
@@ -185,7 +185,7 @@ func assertDirectories(t *testing.T, a, b string) {
 func TestCheckLocal(t *testing.T) {
 	output := "../../build/ephemeral/schema"
 	config := "../../build/configuration.yaml"
-	updater := NewUpdater(config, output, output, nil, nil)
+	updater := NewUpdater(config, output, output, "", nil, nil)
 
 	err := updater.Run()
 	assert.Nil(t, err)
