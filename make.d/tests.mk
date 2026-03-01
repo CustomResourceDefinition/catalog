@@ -30,6 +30,7 @@ test-schemas: build/schemastore/dependabot-2.0.json build/schemastore/github-wor
 	build/bin/catalog verify --schema internal/configuration/schema.json --file test/configuration.yaml
 	build/bin/catalog verify --schema build/schemastore/dependabot-2.0.json --file .github/dependabot.yml
 	build/bin/catalog verify --schema build/schemastore/github-workflow.json --file .github/workflows/tests.yaml
+	build/bin/catalog verify --schema build/schemastore/github-workflow.json --file .github/workflows/upgrade-go.yaml
 	build/bin/catalog verify --schema build/schemastore/github-workflow.json --file .github/workflows/scheduled-jobs.yaml
 
 smoke-tests:

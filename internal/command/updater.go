@@ -13,6 +13,7 @@ import (
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/CustomResourceDefinition/catalog/internal/generator"
+	"github.com/CustomResourceDefinition/catalog/internal/registry"
 )
 
 type Updater struct {
@@ -20,14 +21,17 @@ type Updater struct {
 	Logger                             io.Writer
 	flags                              *flag.FlagSet
 	reader                             crd.CrdReader
+	registry                           *registry.SourceRegistry
+	registryPath                       string
 }
 
-func NewUpdater(configuration, schema, definitions string, logger io.Writer, flags *flag.FlagSet) Updater {
+func NewUpdater(configuration, schema, definitions, registryPath string, logger io.Writer, flags *flag.FlagSet) Updater {
 	return Updater{
 		flags:         flags,
 		Configuration: configuration,
 		Schema:        schema,
 		Definitions:   definitions,
+		registryPath:  registryPath,
 		Logger:        logger,
 	}
 }
@@ -42,6 +46,14 @@ func (cmd Updater) Run() error {
 
 	if err := cmd.initialize(); err != nil {
 		return err
+	}
+
+	if cmd.registryPath != "" {
+		reg, err := registry.Load(cmd.registryPath)
+		if err != nil {
+			return fmt.Errorf("failed to load registry: %w", err)
+		}
+		cmd.registry = reg
 	}
 
 	configurations, err := readConfiguration(cmd.Configuration)
@@ -63,7 +75,7 @@ func (cmd Updater) Run() error {
 	for _, config := range splitConfigurations(configurations) {
 		runtime.GC()
 
-		build, err := generator.NewBuilder(config, reader, tmpDir, cmd.Schema, cmd.Definitions, cmd.Logger)
+		build, err := generator.NewBuilder(config, reader, tmpDir, cmd.Schema, cmd.Definitions, cmd.Logger, cmd.registry)
 		if err != nil {
 			continue
 		}
@@ -79,6 +91,12 @@ func (cmd Updater) Run() error {
 		}
 
 		fmt.Fprintf(cmd.Logger, "%s\n\n", string(out))
+	}
+
+	if cmd.registry != nil && cmd.registryPath != "" {
+		if err := cmd.registry.Save(cmd.registryPath); err != nil {
+			fmt.Fprintf(cmd.Logger, "Warning: failed to save registry: %v\n", err)
+		}
 	}
 
 	return merge(tmpDir, cmd.Schema)

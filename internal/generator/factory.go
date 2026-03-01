@@ -14,6 +14,7 @@ import (
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
+	"github.com/CustomResourceDefinition/catalog/internal/registry"
 	"github.com/CustomResourceDefinition/catalog/internal/semver"
 )
 
@@ -25,9 +26,10 @@ type Builder struct {
 	config               configuration.Configuration
 	generator            Generator
 	versionFilter        *regexp.Regexp
+	registry             *registry.SourceRegistry
 }
 
-func NewBuilder(config configuration.Configuration, reader crd.CrdReader, generatedRepository, schemaRepository, definitionRepository string, logger io.Writer) (*Builder, error) {
+func NewBuilder(config configuration.Configuration, reader crd.CrdReader, generatedRepository, schemaRepository, definitionRepository string, logger io.Writer, reg *registry.SourceRegistry) (*Builder, error) {
 	generator, err := resolveGenerator(config, reader)
 	if err != nil {
 		return nil, err
@@ -55,6 +57,7 @@ func NewBuilder(config configuration.Configuration, reader crd.CrdReader, genera
 		schemaRepository:     schemaRepository,
 		generatedRepository:  generatedRepository,
 		definitionRepository: definitionRepository,
+		registry:             reg,
 	}, nil
 }
 
@@ -75,31 +78,31 @@ func (builder Builder) Build() error {
 	fmt.Fprintf(logger, "Producing for %s@%s:\n", builder.config.Name, builder.config.Kind)
 	defer fmt.Fprintf(logger, "End.\n")
 
-	versions, err := builder.versions()
-	if err != nil {
-		return err
+	latestVersion, isUpdated := builder.registryStatus()
+	if isUpdated {
+		fmt.Fprintf(logger, " - skipping %s@%s (version %s unchanged)\n", builder.config.Name, builder.config.Kind, latestVersion)
+		return nil
 	}
-	count := len(versions)
-	fmt.Fprintf(logger, " - found %d versions.\n", count)
 
-	if count <= 0 {
-		return fmt.Errorf("empty list of versions for '%s'", builder.config.Name)
-	}
-	version := versions[0]
-
-	fmt.Fprintf(logger, " - checking version %s for completeness.\n", version)
-	metadata, err := builder.generator.MetaData(version)
+	fmt.Fprintf(logger, " - checking version %s for completeness.\n", latestVersion)
+	metadata, err := builder.generator.MetaData(latestVersion)
 	if err != nil {
 		fmt.Fprintf(logger, " ! failed: %s\n", err.Error())
 		return err
 	}
 
+	versions := []string{}
 	missing, known := verifyKnownMetadata(metadata, builder.schemaRepository)
 	if known {
 		fmt.Fprintf(logger, " - complete -> render only latest version.\n")
-		versions = []string{version}
+		versions = []string{latestVersion}
 	} else {
 		fmt.Fprintf(logger, " - missing %s -> render all versions.\n", missing)
+		versions, err = builder.versions()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(logger, " - found %d versions.\n", len(versions))
 		slices.Reverse(versions)
 	}
 
@@ -149,6 +152,8 @@ func (builder Builder) Build() error {
 		}
 	}
 
+	builder.updateRegistry(latestVersion)
+
 	return nil
 }
 
@@ -178,6 +183,33 @@ func (builder Builder) versions() ([]string, error) {
 		return semver.Compare(a, b) > 0
 	})
 	return filtered, nil
+}
+
+func (builder Builder) registryStatus() (string, bool) {
+	versions, err := builder.versions()
+	if err != nil || len(versions) == 0 {
+		return "", false
+	}
+
+	version := versions[0]
+
+	if builder.registry == nil {
+		return version, false
+	}
+
+	if entry, ok := builder.registry.Get(builder.config.Name); ok {
+		return version, entry.Kind == string(builder.config.Kind) && entry.Version == version
+	}
+
+	return version, false
+}
+
+func (builder Builder) updateRegistry(version string) {
+	if builder.registry == nil {
+		return
+	}
+
+	builder.registry.Set(builder.config.Name, string(builder.config.Kind), version)
 }
 
 func normalizeVersion(matches [][]string) string {

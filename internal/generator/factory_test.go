@@ -10,6 +10,7 @@ import (
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
+	"github.com/CustomResourceDefinition/catalog/internal/registry"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,7 +34,7 @@ func TestBuilderVersionSorting(t *testing.T) {
 		VersionPattern: `^([0-9]+\.[0-9]+\.[0-9]+)$`,
 	}
 
-	b, err := NewBuilder(config, nil, "-", "-", "-", nil)
+	b, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
 	assert.Nil(t, err)
 
 	versions, err := b.versions()
@@ -106,7 +107,7 @@ func TestBuilderVersionFiltering(t *testing.T) {
 			VersionPattern: test.pattern,
 		}
 
-		b, err := NewBuilder(config, nil, "-", "-", "-", nil)
+		b, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
 		assert.Nil(t, err)
 
 		versions, err := b.versions()
@@ -179,7 +180,7 @@ func TestBuild(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger())
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
 	assert.Nil(t, err)
 
 	err = builder.Build()
@@ -222,7 +223,7 @@ func TestBuildWithLatestVersion(t *testing.T) {
 	os.MkdirAll(directory, 0775)
 	os.WriteFile(filename, []byte{}, 0664)
 
-	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger())
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
 	assert.Nil(t, err)
 
 	err = builder.Build()
@@ -231,4 +232,219 @@ func TestBuildWithLatestVersion(t *testing.T) {
 	fs, err := os.Stat(filename)
 	assert.Nil(t, err)
 	assert.True(t, !fs.IsDir())
+}
+
+func TestRegistryStatusNoRegistry(t *testing.T) {
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		Downloads: []configuration.ConfigurationDownload{{Version: "1.0.0"}},
+	}
+
+	b, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
+	assert.Nil(t, err)
+	assert.NotNil(t, b)
+
+	version, result := b.registryStatus()
+	assert.False(t, result)
+	assert.Equal(t, "1.0.0", version)
+}
+
+func TestRegistryStatusSameVersion(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"chart.uri"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "1.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
+	reg.Set("test", "http", "1.0.0")
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
+	assert.Nil(t, err)
+
+	version, result := builder.registryStatus()
+	assert.True(t, result)
+	assert.Equal(t, "1.0.0", version)
+}
+
+func TestRegistryStatusDifferentVersion(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"chart.uri"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "2.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
+	reg.Set("test", "http", "1.0.0")
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
+	assert.Nil(t, err)
+
+	version, result := builder.registryStatus()
+	assert.False(t, result)
+	assert.Equal(t, "2.0.0", version)
+}
+
+func TestRegistryStatusDifferentKind(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"chart.uri"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "1.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
+	reg.Set("test", "git", "1.0.0")
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
+	assert.Nil(t, err)
+
+	version, result := builder.registryStatus()
+	assert.False(t, result)
+	assert.Equal(t, "1.0.0", version)
+}
+
+func TestBuildSkipsWhenUnchanged(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"chart.uri"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "1.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
+	reg.Set("test", "http", "1.0.0")
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
+	assert.Nil(t, err)
+
+	err = builder.Build()
+	assert.Nil(t, err)
+
+	_, err = os.Stat(path.Join(tmpDir, "crd.example.com", "test_v1.json"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestBuildRunsWhenChanged(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"chart.uri"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "1.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
+	assert.Nil(t, err)
+
+	err = builder.Build()
+	assert.Nil(t, err)
+
+	fs, err := os.Stat(path.Join(tmpDir, "crd.example.com", "test_v1.json"))
+	assert.Nil(t, err)
+	assert.False(t, fs.IsDir())
+
+	entry, ok := reg.Get("test")
+	assert.True(t, ok)
+	assert.Equal(t, "http", entry.Kind)
+	assert.Equal(t, "1.0.0", entry.Version)
 }
