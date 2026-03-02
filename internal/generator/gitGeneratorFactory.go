@@ -75,6 +75,13 @@ func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]ve
 							... on Commit {
 								committedDate
 							}
+							... on Tag {
+								target {
+									... on Commit {
+										committedDate
+									}
+								}
+							}
 						}
 					}
 					pageInfo {
@@ -112,9 +119,17 @@ func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]ve
 		}
 
 		for _, node := range result.Data.Repository.Refs.Nodes {
-			ts, err := parseGitHubDate(node.Target.CommittedDate)
+			var dateStr string
+			if len(node.Target.CommittedDate) != 0 {
+				dateStr = node.Target.CommittedDate
+			} else if len(node.Target.Target.CommittedDate) != 0 {
+				dateStr = node.Target.Target.CommittedDate
+			} else if len(node.Target.Tagger.Date) != 0 {
+				dateStr = node.Target.Tagger.Date
+			}
+			ts, err := parseGitHubDate(dateStr)
 			if err != nil {
-				continue
+				return nil, err
 			}
 			versions = append(versions, versionInfo{
 				name:      node.Name,
@@ -169,6 +184,9 @@ func (f *gitGeneratorFactory) graphQLRequest(query, token string, variables map[
 }
 
 func parseGitHubDate(dateStr string) (int64, error) {
+	if len(dateStr) == 0 {
+		return 0, fmt.Errorf("unable to parse date from zero-length string")
+	}
 	ts, err := time.Parse(time.RFC3339Nano, dateStr)
 	if err != nil {
 		return 0, err
@@ -192,6 +210,12 @@ type githubNode struct {
 	Name   string `json:"name"`
 	Target struct {
 		CommittedDate string `json:"committedDate"`
+		Target        struct {
+			CommittedDate string `json:"committedDate"`
+		} `json:"target"`
+		Tagger struct {
+			Date string `json:"date"`
+		} `json:"tagger"`
 	} `json:"target"`
 }
 
