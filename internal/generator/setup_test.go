@@ -283,14 +283,17 @@ func setupGit(t *testing.T, bundles []gitBundle) (*string, error) {
 }
 
 type gitHubResponse struct {
-	prefix   string
-	tags     []githubRef
-	branches []githubRef
+	prefix      string
+	refsPerPage int
+	tags        []githubRef
+	branches    []githubRef
 }
 
 type githubRef struct {
 	name          string
 	committedDate string
+	taggerDate    string
+	targetType    string // "commit" or "tag"
 }
 
 func setupGitHubServer(t *testing.T, responses []gitHubResponse) func() {
@@ -304,31 +307,71 @@ func setupGitHubServer(t *testing.T, responses []gitHubResponse) func() {
 		_ = body["query"].(string)
 		variables := body["variables"].(map[string]any)
 		prefix := variables["prefix"].(string)
+		cursor := ""
+		if c, ok := variables["cursor"].(string); ok {
+			cursor = c
+		}
 
-		var nodes []any
+		var allRefs []githubRef
+		var pageSize int
 		for _, resp := range responses {
 			if resp.prefix == prefix {
 				if prefix == "refs/tags/" {
-					for _, tag := range resp.tags {
-						nodes = append(nodes, map[string]any{
-							"name": tag.name,
-							"target": map[string]any{
-								"committedDate": tag.committedDate,
-							},
-						})
-					}
+					allRefs = resp.tags
 				} else {
-					for _, branch := range resp.branches {
-						nodes = append(nodes, map[string]any{
-							"name": branch.name,
-							"target": map[string]any{
-								"committedDate": branch.committedDate,
-							},
-						})
-					}
+					allRefs = resp.branches
 				}
+				pageSize = resp.refsPerPage
 				break
 			}
+		}
+
+		if pageSize == 0 {
+			pageSize = len(allRefs)
+		}
+
+		startIdx := 0
+		if cursor != "" {
+			fmt.Sscanf(cursor, "page%d", &startIdx)
+		}
+
+		endIdx := min(startIdx+pageSize, len(allRefs))
+
+		var nodes []any
+		for i := startIdx; i < endIdx; i++ {
+			ref := allRefs[i]
+			if prefix == "refs/tags/" {
+				target := map[string]any{}
+				if ref.targetType == "tag" {
+					innerTarget := map[string]any{}
+					if ref.committedDate != "" {
+						innerTarget["committedDate"] = ref.committedDate
+					}
+					target["target"] = innerTarget
+					if ref.taggerDate != "" {
+						target["tagger"] = map[string]any{"date": ref.taggerDate}
+					}
+				} else {
+					target["committedDate"] = ref.committedDate
+				}
+				nodes = append(nodes, map[string]any{
+					"name":   ref.name,
+					"target": target,
+				})
+			} else {
+				nodes = append(nodes, map[string]any{
+					"name": ref.name,
+					"target": map[string]any{
+						"committedDate": ref.committedDate,
+					},
+				})
+			}
+		}
+
+		hasNextPage := endIdx < len(allRefs)
+		endCursor := ""
+		if hasNextPage {
+			endCursor = fmt.Sprintf("page%d", endIdx)
 		}
 
 		response := map[string]any{
@@ -337,8 +380,8 @@ func setupGitHubServer(t *testing.T, responses []gitHubResponse) func() {
 					"refs": map[string]any{
 						"nodes": nodes,
 						"pageInfo": map[string]any{
-							"hasNextPage": false,
-							"endCursor":   "",
+							"hasNextPage": hasNextPage,
+							"endCursor":   endCursor,
 						},
 					},
 				},
