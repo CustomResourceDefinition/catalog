@@ -92,17 +92,23 @@ func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]ve
 													}
 												}
 											}
+											... on Tag {
+												tagger {
+													date
+												}
+											}
 										}
-										tagger {
-											date
+										... on Tag {
+											tagger {
+												date
+											}
 										}
 									}
+								}
+								... on Tag {
 									tagger {
 										date
 									}
-								}
-								tagger {
-									date
 								}
 							}
 						}
