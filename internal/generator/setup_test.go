@@ -227,9 +227,16 @@ func setupGit(t *testing.T, bundles []gitBundle) (*string, error) {
 		return nil, fmt.Errorf("unable to commit: %w", err)
 	}
 
-	err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "branch", "-m", "master", "main").Run()
+	bytes, err := exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "branch", "--show-current").Output()
 	if err != nil {
-		return nil, fmt.Errorf("unable to rename default branch: %w", err)
+		return nil, fmt.Errorf("unable to look up current branch: %w", err)
+	}
+
+	if strings.TrimSuffix(string(bytes), "\n") == "master" {
+		err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "branch", "-m", "master", "main").Run()
+		if err != nil {
+			return nil, fmt.Errorf("unable to rename default branch: %w", err)
+		}
 	}
 
 	firstBranch := true
