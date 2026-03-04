@@ -9,9 +9,17 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.50% | 3429 | 10067 | 93 |
+| 99.36% | 3449 | 10067 | 93 |
 
 ### Missing Schemas
+
+| aigateway.envoyproxy.io | |
+| --- | --- |
+| aigatewayroute | v1alpha1 |
+| aiservicebackend | v1alpha1 |
+| backendsecuritypolicy | v1alpha1 |
+| gatewayconfig | v1alpha1 |
+| mcproute | v1alpha1 |
 
 | compute.cnrm.cloud.google.com | |
 | --- | --- |
