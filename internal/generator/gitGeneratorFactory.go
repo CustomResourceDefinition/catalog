@@ -80,6 +80,29 @@ func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]ve
 									... on Commit {
 										committedDate
 									}
+									... on Tag {
+										target {
+											... on Commit {
+												committedDate
+											}
+											... on Tag {
+												target {
+													... on Commit {
+														committedDate
+													}
+												}
+											}
+										}
+										tagger {
+											date
+										}
+									}
+									tagger {
+										date
+									}
+								}
+								tagger {
+									date
 								}
 							}
 						}
@@ -119,14 +142,7 @@ func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]ve
 		}
 
 		for _, node := range result.Data.Repository.Refs.Nodes {
-			var dateStr string
-			if len(node.Target.CommittedDate) != 0 {
-				dateStr = node.Target.CommittedDate
-			} else if len(node.Target.Target.CommittedDate) != 0 {
-				dateStr = node.Target.Target.CommittedDate
-			} else if len(node.Target.Tagger.Date) != 0 {
-				dateStr = node.Target.Tagger.Date
-			}
+			dateStr := findCommitDate(node)
 			ts, err := parseGitHubDate(dateStr)
 			if err != nil {
 				return nil, err
@@ -194,6 +210,35 @@ func parseGitHubDate(dateStr string) (int64, error) {
 	return ts.Unix(), nil
 }
 
+func findCommitDate(node githubNode) string {
+	target := node.Target
+	if len(target.CommittedDate) != 0 {
+		return target.CommittedDate
+	}
+	if len(target.Tagger.Date) != 0 {
+		return target.Tagger.Date
+	}
+	if len(target.Target.CommittedDate) != 0 {
+		return target.Target.CommittedDate
+	}
+	if len(target.Target.Tagger.Date) != 0 {
+		return target.Target.Tagger.Date
+	}
+	if len(target.Target.Target.CommittedDate) != 0 {
+		return target.Target.Target.CommittedDate
+	}
+	if len(target.Target.Target.Tagger.Date) != 0 {
+		return target.Target.Target.Tagger.Date
+	}
+	if len(target.Target.Target.Target.CommittedDate) != 0 {
+		return target.Target.Target.Target.CommittedDate
+	}
+	if len(target.Target.Target.Target.Tagger.Date) != 0 {
+		return target.Target.Target.Target.Tagger.Date
+	}
+	return ""
+}
+
 func isGitHubRepo(repoURL string) (bool, string, string) {
 	repoURL = strings.TrimSuffix(repoURL, ".git")
 
@@ -212,6 +257,21 @@ type githubNode struct {
 		CommittedDate string `json:"committedDate"`
 		Target        struct {
 			CommittedDate string `json:"committedDate"`
+			Target        struct {
+				CommittedDate string `json:"committedDate"`
+				Target        struct {
+					CommittedDate string `json:"committedDate"`
+					Tagger        struct {
+						Date string `json:"date"`
+					} `json:"tagger"`
+				} `json:"target"`
+				Tagger struct {
+					Date string `json:"date"`
+				} `json:"tagger"`
+			} `json:"target"`
+			Tagger struct {
+				Date string `json:"date"`
+			} `json:"tagger"`
 		} `json:"target"`
 		Tagger struct {
 			Date string `json:"date"`
