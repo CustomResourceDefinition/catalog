@@ -84,6 +84,13 @@ func (builder Builder) Build() error {
 		return nil
 	}
 
+	versions, err := builder.versions()
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(logger, " - found %d versions.\n", len(versions))
+	slices.Reverse(versions)
+
 	fmt.Fprintf(logger, " - checking version %s for completeness.\n", latestVersion)
 	metadata, err := builder.generator.MetaData(latestVersion)
 	if err != nil {
@@ -91,19 +98,12 @@ func (builder Builder) Build() error {
 		return err
 	}
 
-	versions := []string{}
 	missing, known := verifyKnownMetadata(metadata, builder.schemaRepository)
 	if known {
 		fmt.Fprintf(logger, " - complete -> render only latest version.\n")
 		versions = []string{latestVersion}
 	} else {
 		fmt.Fprintf(logger, " - missing %s -> render all versions.\n", missing)
-		versions, err = builder.versions()
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(logger, " - found %d versions.\n", len(versions))
-		slices.Reverse(versions)
 	}
 
 	for _, version := range versions {
