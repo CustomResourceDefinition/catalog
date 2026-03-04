@@ -331,6 +331,58 @@ func TestGitGeneratorFactoryAnnotatedTags(t *testing.T) {
 	assert.Greater(t, key2, key3, "v0.9.0 > v0.8.0 (via target.target.committedDate)")
 }
 
+func TestGitGeneratorFactoryNestedTags(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "test-token")
+
+	cleanup := setupGitHubServer(t, []gitHubResponse{
+		{
+			prefix: "refs/tags/",
+			tags: []githubRef{
+				{name: "v1.0.0", committedDate: "2000-01-15T10:00:00Z"},
+				{name: "v0.9.0", targetType: "tag", taggerDate: "2000-01-12T10:00:00Z"},
+				{name: "nested-tag", targetType: "tag", committedDate: "", taggerDate: "2000-01-08T10:00:00Z", nested: &githubRef{
+					targetType:    "tag",
+					taggerDate:    "2000-01-05T10:00:00Z",
+					committedDate: "2000-01-03T10:00:00Z",
+				}},
+			},
+		},
+		{
+			prefix: "refs/heads/",
+			branches: []githubRef{
+				{name: "main", committedDate: "2000-01-20T10:00:00Z"},
+			},
+		},
+	})
+	defer cleanup()
+
+	config := configuration.Configuration{
+		Kind:       configuration.Git,
+		Repository: "https://github.com/owner/repo",
+	}
+
+	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
+	assert.Nil(t, err)
+	defer generator.Close()
+	assert.IsType(t, &PreparedGitGenerator{}, generator)
+
+	versions, err := generator.Versions()
+	assert.Nil(t, err)
+	assert.Contains(t, versions, "v1.0.0")
+	assert.Contains(t, versions, "v0.9.0")
+	assert.Contains(t, versions, "nested-tag")
+	assert.Contains(t, versions, "main")
+
+	key1, _ := generator.VersionSortKey("v1.0.0")
+	key2, _ := generator.VersionSortKey("v0.9.0")
+	keyNested, _ := generator.VersionSortKey("nested-tag")
+	keyMain, _ := generator.VersionSortKey("main")
+
+	assert.Greater(t, keyMain, key1, "main > v1.0.0")
+	assert.Greater(t, key1, key2, "v1.0.0 > v0.9.0")
+	assert.Greater(t, key2, keyNested, "v0.9.0 > nested-tag (via nested target.target.committedDate)")
+}
+
 func TestGitGeneratorFactoryPagination(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
 

@@ -293,7 +293,27 @@ type githubRef struct {
 	name          string
 	committedDate string
 	taggerDate    string
-	targetType    string // "commit" or "tag"
+	targetType    string     // "commit" or "tag"
+	nested        *githubRef // for nested tags
+}
+
+func buildTarget(ref githubRef) map[string]any {
+	target := map[string]any{}
+	if ref.targetType == "tag" {
+		var innerTarget map[string]any
+		if ref.nested != nil {
+			innerTarget = buildTarget(*ref.nested)
+		} else if ref.committedDate != "" {
+			innerTarget = map[string]any{"committedDate": ref.committedDate}
+		}
+		target["target"] = innerTarget
+		if ref.taggerDate != "" {
+			target["tagger"] = map[string]any{"date": ref.taggerDate}
+		}
+	} else {
+		target["committedDate"] = ref.committedDate
+	}
+	return target
 }
 
 func setupGitHubServer(t *testing.T, responses []gitHubResponse) func() {
@@ -341,19 +361,7 @@ func setupGitHubServer(t *testing.T, responses []gitHubResponse) func() {
 		for i := startIdx; i < endIdx; i++ {
 			ref := allRefs[i]
 			if prefix == "refs/tags/" {
-				target := map[string]any{}
-				if ref.targetType == "tag" {
-					innerTarget := map[string]any{}
-					if ref.committedDate != "" {
-						innerTarget["committedDate"] = ref.committedDate
-					}
-					target["target"] = innerTarget
-					if ref.taggerDate != "" {
-						target["tagger"] = map[string]any{"date": ref.taggerDate}
-					}
-				} else {
-					target["committedDate"] = ref.committedDate
-				}
+				target := buildTarget(ref)
 				nodes = append(nodes, map[string]any{
 					"name":   ref.name,
 					"target": target,
