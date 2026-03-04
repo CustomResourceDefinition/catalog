@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.48% | 3457 | 10072 | 93 |
+| 99.51% | 3457 | 10072 | 94 |
 
 ### Missing Schemas
 
@@ -43,10 +43,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | networklogging | v1alpha1 |
 | servicefunctionchain | v1 |
 | trafficselector | v1 |
-
-| platform.confluent.io | |
-| --- | --- |
-| referencegrant | v1beta1 |
 
 | secret-sync.gke.io | |
 | --- | --- |
@@ -143,6 +139,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | openebs.io | diskpool | v1beta2 |
 | pg.percona.com | perconapgcluster | v1 |
 | pg.percona.com | postgrescluster | v1beta1 |
+| platform.confluent.io | referencegrant | v1beta1 |
 | policies.kyverno.io | policyexception | v2 |
 | policies.kyverno.io | policyexception | v2beta1 |
 | policy.linkerd.io | httproute | v1 |
