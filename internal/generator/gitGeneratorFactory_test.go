@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -111,55 +112,12 @@ func TestGitGeneratorFactoryBuildGitHubSuccessWithVersions(t *testing.T) {
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-	versions, err := generator.Versions()
+	versions, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.Nil(t, err)
 	assert.Contains(t, versions, "v1.0.0")
 	assert.Contains(t, versions, "v0.9.0")
 	assert.Contains(t, versions, "main")
 	assert.Contains(t, versions, "develop")
-}
-
-func TestGitGeneratorFactoryBuildGitHubSuccessWithSortKey(t *testing.T) {
-	t.Setenv("GITHUB_TOKEN", "test-token")
-
-	cleanup := setupGitHubServer(t, []gitHubResponse{
-		{
-			prefix: "refs/tags/",
-			tags: []githubRef{
-				{name: "v1.0.0", committedDate: "2000-01-15T10:00:00Z"},
-			},
-		},
-		{
-			prefix: "refs/heads/",
-			branches: []githubRef{
-				{name: "main", committedDate: "2000-01-20T10:00:00Z"},
-			},
-		},
-	})
-	defer cleanup()
-
-	config := configuration.Configuration{
-		Kind:       configuration.Git,
-		Repository: "https://github.com/owner/repo",
-	}
-
-	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
-	assert.Nil(t, err)
-	defer generator.Close()
-	assert.IsType(t, &PreparedGitGenerator{}, generator)
-
-	key1, err := generator.VersionSortKey("v1.0.0")
-	assert.Nil(t, err)
-	assert.Greater(t, key1, int64(0))
-
-	key2, err := generator.VersionSortKey("main")
-	assert.Nil(t, err)
-	assert.Greater(t, key2, int64(0))
-
-	assert.Greater(t, key2, key1, "main (2000-01-20) should have later timestamp than v1.0.0 (2000-01-15)")
-
-	_, err = generator.VersionSortKey("nonexistent")
-	assert.NotNil(t, err)
 }
 
 func TestPreparedGitGeneratorVersionsSortedByDate(t *testing.T) {
@@ -193,7 +151,7 @@ func TestPreparedGitGeneratorVersionsSortedByDate(t *testing.T) {
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-	versions, err := generator.Versions()
+	versions, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"v0.9.0", "v1.0.0", "develop", "main"}, versions)
 }
@@ -314,21 +272,12 @@ func TestGitGeneratorFactoryAnnotatedTags(t *testing.T) {
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-	versions, err := generator.Versions()
+	versions, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.Nil(t, err)
 	assert.Contains(t, versions, "v1.0.0")
 	assert.Contains(t, versions, "v0.9.0")
 	assert.Contains(t, versions, "v0.8.0")
 	assert.Contains(t, versions, "main")
-
-	key1, _ := generator.VersionSortKey("v1.0.0")
-	key2, _ := generator.VersionSortKey("v0.9.0")
-	key3, _ := generator.VersionSortKey("v0.8.0")
-	keyMain, _ := generator.VersionSortKey("main")
-
-	assert.Greater(t, keyMain, key1, "main > v1.0.0")
-	assert.Greater(t, key1, key2, "v1.0.0 > v0.9.0 (via target.tagger.date)")
-	assert.Greater(t, key2, key3, "v0.9.0 > v0.8.0 (via target.target.committedDate)")
 }
 
 func TestGitGeneratorFactoryNestedTags(t *testing.T) {
@@ -366,21 +315,12 @@ func TestGitGeneratorFactoryNestedTags(t *testing.T) {
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-	versions, err := generator.Versions()
+	versions, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.Nil(t, err)
 	assert.Contains(t, versions, "v1.0.0")
 	assert.Contains(t, versions, "v0.9.0")
 	assert.Contains(t, versions, "nested-tag")
 	assert.Contains(t, versions, "main")
-
-	key1, _ := generator.VersionSortKey("v1.0.0")
-	key2, _ := generator.VersionSortKey("v0.9.0")
-	keyNested, _ := generator.VersionSortKey("nested-tag")
-	keyMain, _ := generator.VersionSortKey("main")
-
-	assert.Greater(t, keyMain, key1, "main > v1.0.0")
-	assert.Greater(t, key1, key2, "v1.0.0 > v0.9.0")
-	assert.Greater(t, key2, keyNested, "v0.9.0 > nested-tag (via nested target.target.committedDate)")
 }
 
 func TestGitGeneratorFactoryPagination(t *testing.T) {
@@ -416,7 +356,7 @@ func TestGitGeneratorFactoryPagination(t *testing.T) {
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-	versions, err := generator.Versions()
+	versions, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(versions), "should have all 4 tags + 1 branch")
 	assert.Contains(t, versions, "v1.0.0")
@@ -473,7 +413,7 @@ func TestGitGeneratorFactoryEmptyResponses(t *testing.T) {
 			defer generator.Close()
 			assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-			versions, err := generator.Versions()
+			versions, err := generator.Versions(regexp.MustCompile(".*"))
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectedVersions, len(versions))
 		})

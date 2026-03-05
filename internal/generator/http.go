@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -12,7 +13,7 @@ import (
 )
 
 type HttpGenerator struct {
-	*baseGenerator
+	*GeneratorVersions
 	client http.Client
 	config configuration.Configuration
 	reader crd.CrdReader
@@ -81,14 +82,22 @@ func (generator *HttpGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *HttpGenerator) AllVersions() ([]string, error) {
+func (generator *HttpGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
+	versions, err := generator.Versions(filter)
+	if err != nil {
+		return "", err
+	}
+	return generator.latest(versions)
+}
+
+func (generator *HttpGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
 	versions := make([]string, len(generator.config.Downloads))
 
 	for i, download := range generator.config.Downloads {
 		versions[i] = download.Version
 	}
 
-	return versions, nil
+	return generator.semverSort(versions, filter)
 }
 
 func (generator *HttpGenerator) Close() error {

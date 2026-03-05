@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -20,7 +21,7 @@ import (
 )
 
 type HelmGenerator struct {
-	*baseGenerator
+	*GeneratorVersions
 	target     string
 	config     configuration.Configuration
 	reader     crd.CrdReader
@@ -96,7 +97,15 @@ func (generator *HelmGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *HelmGenerator) AllVersions() ([]string, error) {
+func (generator *HelmGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
+	versions, err := generator.Versions(filter)
+	if err != nil {
+		return "", err
+	}
+	return generator.latest(versions)
+}
+
+func (generator *HelmGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -109,7 +118,7 @@ func (generator *HelmGenerator) AllVersions() ([]string, error) {
 		}
 	}
 
-	return versions, nil
+	return generator.semverSort(versions, filter)
 }
 
 func (generator *HelmGenerator) Close() error {

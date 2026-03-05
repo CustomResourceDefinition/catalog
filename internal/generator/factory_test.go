@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,109 +12,6 @@ import (
 	"github.com/CustomResourceDefinition/catalog/internal/registry"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestBuilderVersionSorting(t *testing.T) {
-	seedVersions := []string{
-		"2.10.0", "1.0.0", "2.2.0", "2.1.0", "1.01.01",
-	}
-	bundles := make([]gitBundle, 0)
-	for _, v := range seedVersions {
-		bundles = append(bundles, gitBundle{tag: v, paths: []gitPath{}})
-	}
-	expectedVersions := []string{seedVersions[0], seedVersions[2], seedVersions[3], seedVersions[4], seedVersions[1]}
-
-	p, err := setupGit(t, bundles)
-	assert.Nil(t, err)
-	assert.NotNil(t, p)
-
-	config := configuration.Configuration{
-		Kind:           configuration.Git,
-		Repository:     fmt.Sprintf("file://%s", *p),
-		VersionPattern: `^([0-9]+\.[0-9]+\.[0-9]+)$`,
-	}
-
-	b, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
-	assert.Nil(t, err)
-
-	versions, err := b.versions()
-	assert.Nil(t, err)
-	assert.NotNil(t, versions)
-	assert.Equal(t, expectedVersions, versions)
-}
-
-type testScenario struct {
-	versions         []string
-	expectedVersions []string
-	pattern          string
-}
-
-func TestBuilderVersionFiltering(t *testing.T) {
-	tests := []testScenario{
-		{
-			versions:         []string{"2.0.0", "1.3.0", "1.0.0"},
-			expectedVersions: []string{"2.0.0", "1.3.0", "1.0.0"},
-		},
-		{
-			versions:         []string{"v2.0.0", "v1.3.0", "v1.0.0"},
-			expectedVersions: []string{},
-		},
-		{
-			versions:         []string{"v2.0.0", "v1.3.0", "v1.0.0"},
-			expectedVersions: []string{"v2.0.0", "v1.3.0", "v1.0.0"},
-			pattern:          `^v([0-9]+\.[0-9]+\.[0-9]+)$`,
-		},
-		{
-			versions:         []string{"2.0.0", "v1.3.0", "v1.0.0"},
-			expectedVersions: []string{"2.0.0", "v1.3.0", "v1.0.0"},
-			pattern:          `^v?([0-9]+\.[0-9]+\.[0-9]+)$`,
-		},
-		{
-			versions:         []string{"2.0.0", "v1.3.0v", "v1.0.0"},
-			expectedVersions: []string{"2.0.0", "v1.0.0"},
-			pattern:          `^v?([0-9]+\.[0-9]+\.[0-9]+)$`,
-		},
-		{
-			versions:         []string{"2.0.0-2", "1.3.0-1892", "1.0.0-01"},
-			expectedVersions: []string{"2.0.0-2", "1.3.0-1892", "1.0.0-01"},
-			pattern:          `^([0-9]+\.[0-9]+\.[0-9]+-\d+)$`,
-		},
-		{
-			versions:         []string{"v1.33.2+k0s.0"},
-			expectedVersions: []string{"v1.33.2+k0s.0"},
-			pattern:          `^v([0-9]+\.[0-9]+\.[0-9]+\+k0s\.0)$`,
-		},
-		{
-			versions:         []string{"main", "v1.0", "master"},
-			expectedVersions: []string{"main", "master"},
-			pattern:          `^(main|master)$`,
-		},
-		{
-			versions:         []string{"main", "v1.0.0", "2.0.0", "master"},
-			expectedVersions: []string{"2.0.0", "main", "master"},
-			pattern:          `^([0-9]+\.[0-9]+\.[0-9]+)|(main|master)$`,
-		},
-	}
-
-	for i, test := range tests {
-		downloads := make([]configuration.ConfigurationDownload, 0)
-		for _, v := range test.versions {
-			downloads = append(downloads, configuration.ConfigurationDownload{Version: v})
-		}
-		config := configuration.Configuration{
-			Kind:           configuration.Http,
-			Downloads:      downloads,
-			VersionPattern: test.pattern,
-		}
-
-		b, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
-		assert.Nil(t, err)
-
-		versions, err := b.versions()
-		assert.Nil(t, err, "index %d failed", i)
-		assert.NotNil(t, versions, "index %d failed", i)
-		assert.Equal(t, test.expectedVersions, versions, "index %d failed", i)
-	}
-}
 
 func TestResolveGenerator(t *testing.T) {
 	invalidConfigs := []configuration.Configuration{
@@ -241,11 +137,12 @@ func TestRegistryStatusNoRegistry(t *testing.T) {
 		Downloads: []configuration.ConfigurationDownload{{Version: "1.0.0"}},
 	}
 
-	b, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
+	builder, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
 	assert.Nil(t, err)
-	assert.NotNil(t, b)
+	assert.NotNil(t, builder)
 
-	version, result := b.registryStatus()
+	version, result, err := builder.registryStatus()
+	assert.Nil(t, err)
 	assert.False(t, result)
 	assert.Equal(t, "1.0.0", version)
 }
@@ -283,7 +180,8 @@ func TestRegistryStatusSameVersion(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	version, result := builder.registryStatus()
+	version, result, err := builder.registryStatus()
+	assert.Nil(t, err)
 	assert.True(t, result)
 	assert.Equal(t, "1.0.0", version)
 }
@@ -321,7 +219,8 @@ func TestRegistryStatusDifferentVersion(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	version, result := builder.registryStatus()
+	version, result, err := builder.registryStatus()
+	assert.Nil(t, err)
 	assert.False(t, result)
 	assert.Equal(t, "2.0.0", version)
 }
@@ -359,7 +258,8 @@ func TestRegistryStatusDifferentKind(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	version, result := builder.registryStatus()
+	version, result, err := builder.registryStatus()
+	assert.Nil(t, err)
 	assert.False(t, result)
 	assert.Equal(t, "1.0.0", version)
 }

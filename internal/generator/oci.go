@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -14,7 +15,7 @@ import (
 )
 
 type OciGenerator struct {
-	*baseGenerator
+	*GeneratorVersions
 	realmClient realmClient
 	config      configuration.Configuration
 	reader      crd.CrdReader
@@ -109,17 +110,25 @@ func (generator *OciGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *OciGenerator) AllVersions() ([]string, error) {
+func (generator *OciGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
+	versions, err := generator.Versions(filter)
+	if err != nil {
+		return "", err
+	}
+	return generator.latest(versions)
+}
+
+func (generator *OciGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
 
-	tags, err := generator.realmClient.ListOciTags(generator.config.Repository)
+	versions, err := generator.realmClient.ListOciTags(generator.config.Repository)
 	if err != nil {
 		return nil, err
 	}
 
-	return tags, nil
+	return generator.semverSort(versions, filter)
 }
 
 func (generator *OciGenerator) ensureLoaded() error {

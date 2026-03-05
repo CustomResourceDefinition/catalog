@@ -9,7 +9,6 @@ import (
 )
 
 type PreparedGitGenerator struct {
-	*baseGenerator
 	gitGenerator *GitGenerator
 	versions     []versionInfo
 }
@@ -19,7 +18,7 @@ type versionInfo struct {
 	timestamp int64
 }
 
-func NewPreparedGitGenerator(gitGenerator *GitGenerator, versions []versionInfo) *PreparedGitGenerator {
+func NewPreparedGitGenerator(gitGenerator *GitGenerator, versions []versionInfo) Generator {
 	return &PreparedGitGenerator{
 		gitGenerator: gitGenerator,
 		versions:     versions,
@@ -35,7 +34,7 @@ func (g *PreparedGitGenerator) LatestVersion(filter *regexp.Regexp) (string, err
 	}
 
 	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].timestamp < filtered[j].timestamp
+		return filtered[i].timestamp > filtered[j].timestamp
 	})
 
 	if len(filtered) == 0 {
@@ -47,10 +46,6 @@ func (g *PreparedGitGenerator) LatestVersion(filter *regexp.Regexp) (string, err
 
 func (g *PreparedGitGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
 	return g.gitGenerator.Versions(filter)
-}
-
-func (g *PreparedGitGenerator) AllVersions() ([]string, error) {
-	return g.gitGenerator.AllVersions()
 }
 
 func (g *PreparedGitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {

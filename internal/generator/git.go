@@ -21,7 +21,7 @@ import (
 )
 
 type GitGenerator struct {
-	*baseGenerator
+	*GeneratorVersions
 	config         configuration.Configuration
 	reader         crd.CrdReader
 	tmpDir, gitDir string
@@ -142,11 +142,22 @@ func (generator *GitGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *GitGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
-	versions, err := generator.AllVersions()
+func (generator *GitGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
+	versions, err := generator.Versions(filter)
 	if err != nil {
+		return "", err
+	}
+	return generator.latest(versions)
+}
+
+func (generator *GitGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
+	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
+
+	versions := make([]string, 0, len(generator.tags)+len(generator.branches))
+	versions = append(versions, generator.tags...)
+	versions = append(versions, generator.branches...)
 
 	filtered := make([]string, 0)
 	for _, v := range versions {
@@ -172,17 +183,6 @@ func (generator *GitGenerator) Versions(filter *regexp.Regexp) ([]string, error)
 		return semver.Compare(aa, bb) > 0
 	})
 	return filtered, nil
-}
-
-func (generator *GitGenerator) AllVersions() ([]string, error) {
-	if err := generator.ensureLoaded(); err != nil {
-		return nil, err
-	}
-
-	versions := make([]string, 0, len(generator.tags)+len(generator.branches))
-	versions = append(versions, generator.tags...)
-	versions = append(versions, generator.branches...)
-	return versions, nil
 }
 
 func (generator *GitGenerator) sortKey(version string) (int64, error) {

@@ -2,6 +2,7 @@ package generator
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -24,7 +25,7 @@ func TestHelmGeneratorVersions(t *testing.T) {
 	generator := NewHelmGenerator("connect", config, nil)
 	defer generator.Close()
 
-	versions, err := generator.Versions()
+	versions, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.Nil(t, err)
 	assert.Equal(t, expectedVersions, versions)
 }
@@ -41,7 +42,7 @@ func TestHelmGeneratorUnknownTarget(t *testing.T) {
 	generator := NewHelmGenerator("unknown", config, nil)
 	defer generator.Close()
 
-	versions, err := generator.Versions()
+	versions, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.Nil(t, versions)
 	assert.NotNil(t, err)
 }
@@ -91,22 +92,4 @@ func TestHelmGeneratorMetadata(t *testing.T) {
 	assert.Equal(t, "onepassword.com", metadata[0].Group)
 	assert.Equal(t, "onepassworditem", metadata[0].Kind)
 	assert.Equal(t, "v1", metadata[0].Version)
-}
-
-func TestHelmGeneratorHasInertSortingKeys(t *testing.T) {
-	config := configuration.Configuration{
-		Kind:       configuration.Helm,
-		Repository: "http:localhost",
-	}
-
-	generator := NewHelmGenerator("connect", config, nil)
-	defer generator.Close()
-
-	versions := []string{"0.0.0", "1.0.0", "3.2.1", "999.999.999"}
-
-	for _, version := range versions {
-		key, err := generator.VersionSortKey(version)
-		assert.Nil(t, err)
-		assert.Equal(t, key, int64(0))
-	}
 }

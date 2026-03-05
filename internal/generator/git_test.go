@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -43,7 +44,7 @@ func TestGitGeneratorVersionsCombinesTagsAndBranches(t *testing.T) {
 	generator := NewGitGenerator(config, nil)
 	defer generator.Close()
 
-	versions, err := generator.Versions()
+	versions, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.Nil(t, err)
 	assert.Contains(t, versions, expectedVersion)
 	assert.Contains(t, versions, expectedDevelop)
@@ -203,41 +204,6 @@ func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
 	assert.Equal(t, "v1", metadata[0].Version)
 }
 
-func TestGitGeneratorVersionSortKeyForBranch(t *testing.T) {
-	bundles := []gitBundle{
-		{
-			tag:    "1.0.0",
-			branch: "develop",
-			paths: []gitPath{
-				{
-					path: "regular/crd.yaml",
-					file: "testdata/test-crd.yaml",
-				},
-			},
-		},
-	}
-
-	p, err := setupGit(t, bundles)
-	assert.Nil(t, err)
-	assert.NotNil(t, p)
-
-	config := configuration.Configuration{
-		Kind:       configuration.Git,
-		Repository: fmt.Sprintf("file://%s", *p),
-	}
-
-	generator := NewGitGenerator(config, nil)
-	defer generator.Close()
-
-	key, err := generator.VersionSortKey("main")
-	assert.Nil(t, err)
-	assert.Greater(t, key, int64(0))
-
-	key, err = generator.VersionSortKey("develop")
-	assert.Nil(t, err)
-	assert.Greater(t, key, int64(0))
-}
-
 func TestGitGeneratorCloneFailure(t *testing.T) {
 	config := configuration.Configuration{
 		Kind:       configuration.Git,
@@ -247,7 +213,7 @@ func TestGitGeneratorCloneFailure(t *testing.T) {
 	generator := NewGitGenerator(config, nil)
 	defer generator.Close()
 
-	_, err := generator.Versions()
+	_, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to clone")
 }
@@ -307,7 +273,7 @@ func TestGitGeneratorClose(t *testing.T) {
 	generator := NewGitGenerator(config, nil)
 	defer generator.Close()
 
-	versions, err := generator.Versions()
+	versions, err := generator.Versions(regexp.MustCompile(".*"))
 	assert.Nil(t, err)
 	assert.NotEmpty(t, versions)
 
@@ -318,4 +284,31 @@ func TestGitGeneratorClose(t *testing.T) {
 
 	_, err = os.Stat(tmpDir)
 	assert.True(t, os.IsNotExist(err), "temp dir should be removed after Close()")
+}
+
+func TestGitGeneratorVersionsCustomSort(t *testing.T) {
+	seedVersions := []string{
+		"2.10.0", "1.0.0", "2.2.0", "2.1.0", "1.01.01",
+	}
+	bundles := make([]gitBundle, 0)
+	for _, v := range seedVersions {
+		bundles = append(bundles, gitBundle{tag: v, paths: []gitPath{}})
+	}
+
+	p, err := setupGit(t, bundles)
+	assert.Nil(t, err)
+	assert.NotNil(t, p)
+
+	config := configuration.Configuration{
+		Kind:       configuration.Git,
+		Repository: fmt.Sprintf("file://%s", *p),
+	}
+
+	generator := NewGitGenerator(config, nil)
+	defer generator.Close()
+
+	filter := regexp.MustCompile(`^([0-9]+\.[0-9]+\.[0-9]+)$`)
+	versions, err := generator.Versions(filter)
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"2.10.0", "2.2.0", "2.1.0", "1.01.01", "1.0.0"}, versions)
 }
