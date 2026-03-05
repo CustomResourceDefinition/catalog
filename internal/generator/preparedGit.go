@@ -2,11 +2,14 @@ package generator
 
 import (
 	"fmt"
+	"regexp"
+	"sort"
 
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 )
 
 type PreparedGitGenerator struct {
+	*baseGenerator
 	gitGenerator *GitGenerator
 	versions     []versionInfo
 }
@@ -23,21 +26,31 @@ func NewPreparedGitGenerator(gitGenerator *GitGenerator, versions []versionInfo)
 	}
 }
 
-func (g *PreparedGitGenerator) Versions() ([]string, error) {
-	versions := make([]string, len(g.versions))
-	for i, v := range g.versions {
-		versions[i] = v.name
-	}
-	return versions, nil
-}
-
-func (g *PreparedGitGenerator) VersionSortKey(version string) (int64, error) {
+func (g *PreparedGitGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
+	filtered := make([]versionInfo, 0)
 	for _, v := range g.versions {
-		if v.name == version {
-			return v.timestamp, nil
+		if filter.MatchString(v.name) {
+			filtered = append(filtered, v)
 		}
 	}
-	return 0, fmt.Errorf("version %q not found", version)
+
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].timestamp < filtered[j].timestamp
+	})
+
+	if len(filtered) == 0 {
+		return "", fmt.Errorf("no versions are available")
+	}
+
+	return filtered[0].name, nil
+}
+
+func (g *PreparedGitGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
+	return g.gitGenerator.Versions(filter)
+}
+
+func (g *PreparedGitGenerator) AllVersions() ([]string, error) {
+	return g.gitGenerator.AllVersions()
 }
 
 func (g *PreparedGitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {

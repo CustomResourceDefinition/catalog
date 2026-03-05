@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -15,9 +17,11 @@ import (
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/CustomResourceDefinition/catalog/internal/genall"
 	"github.com/CustomResourceDefinition/catalog/internal/kustomize"
+	"github.com/CustomResourceDefinition/catalog/internal/semver"
 )
 
 type GitGenerator struct {
+	*baseGenerator
 	config         configuration.Configuration
 	reader         crd.CrdReader
 	tmpDir, gitDir string
@@ -34,27 +38,6 @@ func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader) G
 
 func (generator *GitGenerator) Close() error {
 	return os.RemoveAll(generator.tmpDir)
-}
-
-func (generator *GitGenerator) VersionSortKey(version string) (int64, error) {
-	if err := generator.ensureLoaded(); err != nil {
-		return 0, err
-	}
-
-	out, err := exec.Command("git", "--git-dir", generator.gitDir, "log", "-1", "--format=%ct", version).Output() // tag
-	if err != nil {
-		out, err = exec.Command("git", "--git-dir", generator.gitDir, "log", "-1", "--format=%ct", fmt.Sprintf("origin/%s", version)).Output() // branch
-		if err != nil {
-			return 0, fmt.Errorf("unable to get commit date for '%s': %w", version, err)
-		}
-	}
-
-	ts, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("unable to parse commit date for '%s': %w", version, err)
-	}
-
-	return ts, nil
 }
 
 func (generator *GitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
@@ -89,11 +72,13 @@ func (generator *GitGenerator) Crds(version string) ([]crd.Crd, error) {
 	}
 
 	if len(version) == 0 {
-		versions, err := generator.Versions()
-		if err != nil {
-			return nil, err
-		}
-		version = versions[0]
+		return nil, fmt.Errorf("no version was provided")
+		// FIXME: verify
+		// versions, err := generator.Versions()
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// version = versions[0]
 	}
 
 	err := exec.Command("git", "--git-dir", generator.gitDir, "--work-tree", generator.tmpDir, "checkout", "--force", version).Run()
@@ -157,7 +142,39 @@ func (generator *GitGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *GitGenerator) Versions() ([]string, error) {
+func (generator *GitGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
+	versions, err := generator.AllVersions()
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := make([]string, 0)
+	for _, v := range versions {
+		if filter.MatchString(v) {
+			filtered = append(filtered, v)
+		}
+	}
+
+	sort.Slice(filtered, func(i, j int) bool {
+		a, err := generator.sortKey(filtered[i])
+		if err != nil {
+			return false
+		}
+		b, err := generator.sortKey(filtered[j])
+		if err != nil {
+			return true
+		}
+		if a != b {
+			return a < b
+		}
+		aa := normalizeVersion(filter.FindAllStringSubmatch(filtered[i], -1))
+		bb := normalizeVersion(filter.FindAllStringSubmatch(filtered[j], -1))
+		return semver.Compare(aa, bb) > 0
+	})
+	return filtered, nil
+}
+
+func (generator *GitGenerator) AllVersions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -166,6 +183,27 @@ func (generator *GitGenerator) Versions() ([]string, error) {
 	versions = append(versions, generator.tags...)
 	versions = append(versions, generator.branches...)
 	return versions, nil
+}
+
+func (generator *GitGenerator) sortKey(version string) (int64, error) {
+	if err := generator.ensureLoaded(); err != nil {
+		return 0, err
+	}
+
+	out, err := exec.Command("git", "--git-dir", generator.gitDir, "log", "-1", "--format=%ct", version).Output() // tag
+	if err != nil {
+		out, err = exec.Command("git", "--git-dir", generator.gitDir, "log", "-1", "--format=%ct", fmt.Sprintf("origin/%s", version)).Output() // branch
+		if err != nil {
+			return 0, fmt.Errorf("unable to get commit date for '%s': %w", version, err)
+		}
+	}
+
+	ts, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unable to parse commit date for '%s': %w", version, err)
+	}
+
+	return ts, nil
 }
 
 func (generator *GitGenerator) ensureLoaded() error {

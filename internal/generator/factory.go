@@ -8,14 +8,12 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/CustomResourceDefinition/catalog/internal/registry"
-	"github.com/CustomResourceDefinition/catalog/internal/semver"
 )
 
 type Builder struct {
@@ -29,7 +27,13 @@ type Builder struct {
 	registry             *registry.SourceRegistry
 }
 
-func NewBuilder(config configuration.Configuration, reader crd.CrdReader, generatedRepository, schemaRepository, definitionRepository string, logger io.Writer, reg *registry.SourceRegistry) (*Builder, error) {
+func NewBuilder(
+	config configuration.Configuration,
+	reader crd.CrdReader,
+	generatedRepository, schemaRepository, definitionRepository string,
+	logger io.Writer,
+	reg *registry.SourceRegistry,
+) (*Builder, error) {
 	generator, err := resolveGenerator(config, reader, logger)
 	if err != nil {
 		return nil, err
@@ -78,13 +82,16 @@ func (builder Builder) Build() error {
 	fmt.Fprintf(logger, "Producing for %s@%s:\n", builder.config.Name, builder.config.Kind)
 	defer fmt.Fprintf(logger, "End.\n")
 
-	latestVersion, isUpdated := builder.registryStatus()
+	latestVersion, isUpdated, err := builder.registryStatus()
+	if err != nil {
+		return err
+	}
 	if isUpdated {
 		fmt.Fprintf(logger, " - skipping %s@%s (version %s unchanged)\n", builder.config.Name, builder.config.Kind, latestVersion)
 		return nil
 	}
 
-	versions, err := builder.versions()
+	versions, err := builder.generator.Versions(builder.versionFilter)
 	if err != nil {
 		return err
 	}
@@ -157,51 +164,23 @@ func (builder Builder) Build() error {
 	return nil
 }
 
-func (builder Builder) versions() ([]string, error) {
-	versions, err := builder.generator.Versions()
+// registryStatus reports on the state in registry based on the latest version
+// available and only uses the decided interface method for latest version information
+func (builder Builder) registryStatus() (string, bool, error) {
+	version, err := builder.generator.LatestVersion(builder.versionFilter)
 	if err != nil {
-		return nil, err
+		return "", false, fmt.Errorf("unable to check registry: %w", err)
 	}
-
-	filtered := make([]string, 0)
-	for _, v := range versions {
-		if builder.versionFilter.MatchString(v) {
-			filtered = append(filtered, v)
-		}
-	}
-
-	sort.Slice(filtered, func(i, j int) bool {
-		keyA, errA := builder.generator.VersionSortKey(filtered[i])
-		keyB, errB := builder.generator.VersionSortKey(filtered[j])
-
-		if errA == nil && errB == nil && keyA != 0 && keyB != 0 && keyA != keyB {
-			return keyA > keyB
-		}
-
-		a := normalizeVersion(builder.versionFilter.FindAllStringSubmatch(filtered[i], -1))
-		b := normalizeVersion(builder.versionFilter.FindAllStringSubmatch(filtered[j], -1))
-		return semver.Compare(a, b) > 0
-	})
-	return filtered, nil
-}
-
-func (builder Builder) registryStatus() (string, bool) {
-	versions, err := builder.versions()
-	if err != nil || len(versions) == 0 {
-		return "", false
-	}
-
-	version := versions[0]
 
 	if builder.registry == nil {
-		return version, false
+		return version, false, nil
 	}
 
 	if entry, ok := builder.registry.Get(builder.config.Name); ok {
-		return version, entry.Kind == string(builder.config.Kind) && entry.Version == version
+		return version, entry.Kind == string(builder.config.Kind) && entry.Version == version, nil
 	}
 
-	return version, false
+	return version, false, nil
 }
 
 func (builder Builder) updateRegistry(version string) {

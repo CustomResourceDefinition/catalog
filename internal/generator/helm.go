@@ -20,6 +20,7 @@ import (
 )
 
 type HelmGenerator struct {
+	*baseGenerator
 	target     string
 	config     configuration.Configuration
 	reader     crd.CrdReader
@@ -95,7 +96,7 @@ func (generator *HelmGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *HelmGenerator) Versions() ([]string, error) {
+func (generator *HelmGenerator) AllVersions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -113,10 +114,6 @@ func (generator *HelmGenerator) Versions() ([]string, error) {
 
 func (generator *HelmGenerator) Close() error {
 	return os.RemoveAll(generator.tmpDir)
-}
-
-func (generator *HelmGenerator) VersionSortKey(version string) (int64, error) {
-	return 0, nil
 }
 
 func (generator *HelmGenerator) ensureLoaded() error {

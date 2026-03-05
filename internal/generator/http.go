@@ -12,6 +12,7 @@ import (
 )
 
 type HttpGenerator struct {
+	*baseGenerator
 	client http.Client
 	config configuration.Configuration
 	reader crd.CrdReader
@@ -80,7 +81,7 @@ func (generator *HttpGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *HttpGenerator) Versions() ([]string, error) {
+func (generator *HttpGenerator) AllVersions() ([]string, error) {
 	versions := make([]string, len(generator.config.Downloads))
 
 	for i, download := range generator.config.Downloads {
@@ -92,10 +93,6 @@ func (generator *HttpGenerator) Versions() ([]string, error) {
 
 func (generator *HttpGenerator) Close() error {
 	return nil
-}
-
-func (generator *HttpGenerator) VersionSortKey(version string) (int64, error) {
-	return 0, nil
 }
 
 func (generator *HttpGenerator) read(resp *http.Response) ([]byte, error) {

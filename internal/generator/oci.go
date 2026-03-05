@@ -14,6 +14,7 @@ import (
 )
 
 type OciGenerator struct {
+	*baseGenerator
 	realmClient realmClient
 	config      configuration.Configuration
 	reader      crd.CrdReader
@@ -42,10 +43,6 @@ func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) G
 
 func (generator *OciGenerator) Close() error {
 	return os.RemoveAll(generator.tmpDir)
-}
-
-func (generator *OciGenerator) VersionSortKey(version string) (int64, error) {
-	return 0, nil
 }
 
 func (generator *OciGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
@@ -80,11 +77,13 @@ func (generator *OciGenerator) Crds(version string) ([]crd.Crd, error) {
 	}
 
 	if len(version) == 0 {
-		versions, err := generator.Versions()
-		if err != nil {
-			return nil, err
-		}
-		version = versions[0]
+		return nil, fmt.Errorf("no version was provided")
+		// FIXME: verify
+		// versions, err := generator.Versions()
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// version = versions[0]
 	}
 
 	savedPath, _, err := generator.downloader.DownloadTo(generator.config.Repository, version, generator.tmpDir)
@@ -110,7 +109,7 @@ func (generator *OciGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *OciGenerator) Versions() ([]string, error) {
+func (generator *OciGenerator) AllVersions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
