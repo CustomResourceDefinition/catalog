@@ -10,14 +10,14 @@ import (
 )
 
 func TestHttpGeneratorVersions(t *testing.T) {
-	expectedVersions := []string{"1.0.0", "1.3.0", "2.0.0"}
+	expectedVersions := []string{"2.0.0", "1.3.0", "1.0.0"}
 
 	config := configuration.Configuration{
 		Kind: configuration.Http,
 		Downloads: []configuration.ConfigurationDownload{
-			{Version: expectedVersions[0]},
-			{Version: expectedVersions[1]},
 			{Version: expectedVersions[2]},
+			{Version: expectedVersions[1]},
+			{Version: expectedVersions[0]},
 		},
 	}
 
@@ -221,6 +221,7 @@ func TestHttpGeneratorVersionsFiltering(t *testing.T) {
 		{
 			versions:         []string{"2.0.0", "1.3.0", "1.0.0"},
 			expectedVersions: []string{"2.0.0", "1.3.0", "1.0.0"},
+			pattern:          `.*`,
 		},
 		{
 			versions:         []string{"v2.0.0", "v1.3.0", "v1.0.0"},
@@ -269,14 +270,7 @@ func TestHttpGeneratorVersionsFiltering(t *testing.T) {
 			Downloads: downloads,
 		}
 
-		var filter *regexp.Regexp
-		if test.pattern != "" {
-			filter = regexp.MustCompile(test.pattern)
-		} else {
-			filter = regexp.MustCompile(".*")
-		}
-
-		generator := NewHttpGenerator(config, nil, filter)
+		generator := NewHttpGenerator(config, nil, regexp.MustCompile(test.pattern))
 		defer generator.Close()
 
 		versions, err := generator.Versions()
