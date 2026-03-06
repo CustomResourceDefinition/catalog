@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -14,9 +15,11 @@ import (
 )
 
 type OciGenerator struct {
+	*GeneratorVersions
 	realmClient realmClient
 	config      configuration.Configuration
 	reader      crd.CrdReader
+	filter      *regexp.Regexp
 	tmpDir      string
 	downloader  downloader.ChartDownloader
 	plainHttp   bool
@@ -24,7 +27,7 @@ type OciGenerator struct {
 
 const HELM_OCI_PLAIN_HTTP = "HELM_OCI_PLAIN_HTTP"
 
-func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
+func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader, filter *regexp.Regexp) Generator {
 	plainHttp := false
 	env, found := os.LookupEnv(HELM_OCI_PLAIN_HTTP)
 	value, err := strconv.ParseBool(env)
@@ -36,16 +39,13 @@ func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) G
 		realmClient: newRealmClient(plainHttp),
 		config:      config,
 		reader:      reader,
+		filter:      filter,
 		plainHttp:   plainHttp,
 	}
 }
 
 func (generator *OciGenerator) Close() error {
 	return os.RemoveAll(generator.tmpDir)
-}
-
-func (generator *OciGenerator) VersionSortKey(version string) (int64, error) {
-	return 0, nil
 }
 
 func (generator *OciGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {
@@ -110,17 +110,25 @@ func (generator *OciGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
+func (generator *OciGenerator) LatestVersion() (string, error) {
+	versions, err := generator.Versions()
+	if err != nil {
+		return "", err
+	}
+	return generator.latest(versions)
+}
+
 func (generator *OciGenerator) Versions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
 
-	tags, err := generator.realmClient.ListOciTags(generator.config.Repository)
+	versions, err := generator.realmClient.ListOciTags(generator.config.Repository)
 	if err != nil {
 		return nil, err
 	}
 
-	return tags, nil
+	return generator.semverSort(versions, generator.filter)
 }
 
 func (generator *OciGenerator) ensureLoaded() error {

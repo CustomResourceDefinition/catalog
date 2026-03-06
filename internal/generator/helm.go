@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -20,19 +21,22 @@ import (
 )
 
 type HelmGenerator struct {
+	*GeneratorVersions
 	target     string
 	config     configuration.Configuration
 	reader     crd.CrdReader
+	filter     *regexp.Regexp
 	tmpDir     string
 	versions   repo.ChartVersions
 	downloader downloader.ChartDownloader
 }
 
-func NewHelmGenerator(target string, config configuration.Configuration, reader crd.CrdReader) Generator {
+func NewHelmGenerator(target string, config configuration.Configuration, reader crd.CrdReader, filter *regexp.Regexp) Generator {
 	return &HelmGenerator{
 		target: target,
 		config: config,
 		reader: reader,
+		filter: filter,
 	}
 }
 
@@ -95,6 +99,14 @@ func (generator *HelmGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
+func (generator *HelmGenerator) LatestVersion() (string, error) {
+	versions, err := generator.Versions()
+	if err != nil {
+		return "", err
+	}
+	return generator.latest(versions)
+}
+
 func (generator *HelmGenerator) Versions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
@@ -108,15 +120,11 @@ func (generator *HelmGenerator) Versions() ([]string, error) {
 		}
 	}
 
-	return versions, nil
+	return generator.semverSort(versions, generator.filter)
 }
 
 func (generator *HelmGenerator) Close() error {
 	return os.RemoveAll(generator.tmpDir)
-}
-
-func (generator *HelmGenerator) VersionSortKey(version string) (int64, error) {
-	return 0, nil
 }
 
 func (generator *HelmGenerator) ensureLoaded() error {

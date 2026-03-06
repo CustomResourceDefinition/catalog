@@ -2,6 +2,7 @@ package generator
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestHelmGeneratorVersions(t *testing.T) {
 		Repository: server.URL,
 	}
 
-	generator := NewHelmGenerator("connect", config, nil)
+	generator := NewHelmGenerator("connect", config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	versions, err := generator.Versions()
@@ -38,7 +39,7 @@ func TestHelmGeneratorUnknownTarget(t *testing.T) {
 		Repository: server.URL,
 	}
 
-	generator := NewHelmGenerator("unknown", config, nil)
+	generator := NewHelmGenerator("unknown", config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	versions, err := generator.Versions()
@@ -56,7 +57,7 @@ func TestHelmGeneratorUnknownVersion(t *testing.T) {
 		Repository: server.URL,
 	}
 
-	generator := NewHelmGenerator("connect", config, nil)
+	generator := NewHelmGenerator("connect", config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("4.5.6")
@@ -82,7 +83,7 @@ func TestHelmGeneratorMetadata(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHelmGenerator("connect", config, reader)
+	generator := NewHelmGenerator("connect", config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("")
@@ -91,22 +92,4 @@ func TestHelmGeneratorMetadata(t *testing.T) {
 	assert.Equal(t, "onepassword.com", metadata[0].Group)
 	assert.Equal(t, "onepassworditem", metadata[0].Kind)
 	assert.Equal(t, "v1", metadata[0].Version)
-}
-
-func TestHelmGeneratorHasInertSortingKeys(t *testing.T) {
-	config := configuration.Configuration{
-		Kind:       configuration.Helm,
-		Repository: "http:localhost",
-	}
-
-	generator := NewHelmGenerator("connect", config, nil)
-	defer generator.Close()
-
-	versions := []string{"0.0.0", "1.0.0", "3.2.1", "999.999.999"}
-
-	for _, version := range versions {
-		key, err := generator.VersionSortKey(version)
-		assert.Nil(t, err)
-		assert.Equal(t, key, int64(0))
-	}
 }

@@ -19,26 +19,28 @@ import (
 type gitGeneratorFactory struct {
 	config configuration.Configuration
 	reader crd.CrdReader
+	filter *regexp.Regexp
 	logger io.Writer
 }
 
-func NewGitGeneratorFactory(config configuration.Configuration, reader crd.CrdReader, logger io.Writer) *gitGeneratorFactory {
+func NewGitGeneratorFactory(config configuration.Configuration, reader crd.CrdReader, filter *regexp.Regexp, logger io.Writer) *gitGeneratorFactory {
 	return &gitGeneratorFactory{
 		config: config,
 		reader: reader,
+		filter: filter,
 		logger: logger,
 	}
 }
 
 func (f *gitGeneratorFactory) Build() (Generator, error) {
-	generator := NewGitGenerator(f.config, f.reader).(*GitGenerator)
+	generator := NewGitGenerator(f.config, f.reader, f.filter).(*GitGenerator)
 
 	if isGitHub, owner, repo := isGitHubRepo(f.config.Repository); isGitHub {
 		token := os.Getenv("GITHUB_TOKEN")
 		if token != "" {
 			versions, err := f.fetchGitHubVersions(owner, repo, token)
 			if err == nil {
-				return NewPreparedGitGenerator(generator, versions), nil
+				return NewPreparedGitGenerator(generator, versions, f.filter), nil
 			}
 			fmt.Fprintf(f.logger, "Use git fallback instead of GitHub APIs for %s: %s\n", f.config.Name, err.Error())
 		}

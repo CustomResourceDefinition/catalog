@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -9,18 +10,18 @@ import (
 )
 
 func TestHttpGeneratorVersions(t *testing.T) {
-	expectedVersions := []string{"1.0.0", "1.3.0", "2.0.0"}
+	expectedVersions := []string{"2.0.0", "1.3.0", "1.0.0"}
 
 	config := configuration.Configuration{
 		Kind: configuration.Http,
 		Downloads: []configuration.ConfigurationDownload{
-			{Version: expectedVersions[0]},
-			{Version: expectedVersions[1]},
 			{Version: expectedVersions[2]},
+			{Version: expectedVersions[1]},
+			{Version: expectedVersions[0]},
 		},
 	}
 
-	generator := NewHttpGenerator(config, nil)
+	generator := NewHttpGenerator(config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	versions, err := generator.Versions()
@@ -38,7 +39,7 @@ func TestHttpGeneratorUnknownVersion(t *testing.T) {
 		},
 	}
 
-	generator := NewHttpGenerator(config, nil)
+	generator := NewHttpGenerator(config, nil, regexp.MustCompile(".*"))
 
 	metadata, err := generator.MetaData("4.5.6")
 	assert.Nil(t, metadata)
@@ -67,7 +68,7 @@ func TestHttpGeneratorSchemas(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHttpGenerator(config, reader)
+	generator := NewHttpGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	crds, err := generator.Crds(version)
@@ -111,7 +112,7 @@ func TestHttpGeneratorMetadata(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHttpGenerator(config, reader)
+	generator := NewHttpGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData(version)
@@ -147,7 +148,7 @@ func TestHttpGeneratorPartialSchemas(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHttpGenerator(config, reader)
+	generator := NewHttpGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	crds, err := generator.Crds(version)
@@ -193,7 +194,7 @@ func TestHttpGeneratorNoSchemas(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHttpGenerator(config, reader)
+	generator := NewHttpGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	crds, err := generator.Crds(version)
@@ -211,22 +212,69 @@ func TestHttpGeneratorNoSchemas(t *testing.T) {
 	assert.Equal(t, 0, len(schemas))
 }
 
-func TestHttpGeneratorHasInertSortingKeys(t *testing.T) {
-	config := configuration.Configuration{
-		Kind: configuration.Http,
-		Downloads: []configuration.ConfigurationDownload{
-			{Version: "1.0.0"},
+func TestHttpGeneratorVersionsFiltering(t *testing.T) {
+	tests := []struct {
+		versions         []string
+		expectedVersions []string
+		pattern          string
+	}{
+		{
+			versions:         []string{"2.0.0", "1.3.0", "1.0.0"},
+			expectedVersions: []string{"2.0.0", "1.3.0", "1.0.0"},
+			pattern:          `.*`,
+		},
+		{
+			versions:         []string{"v2.0.0", "v1.3.0", "v1.0.0"},
+			expectedVersions: []string{"v2.0.0", "v1.3.0", "v1.0.0"},
+			pattern:          `^v([0-9]+\.[0-9]+\.[0-9]+)$`,
+		},
+		{
+			versions:         []string{"2.0.0", "v1.3.0", "v1.0.0"},
+			expectedVersions: []string{"2.0.0", "v1.3.0", "v1.0.0"},
+			pattern:          `^v?([0-9]+\.[0-9]+\.[0-9]+)$`,
+		},
+		{
+			versions:         []string{"2.0.0", "v1.3v", "v1.0.0"},
+			expectedVersions: []string{"2.0.0", "v1.0.0"},
+			pattern:          `^v?([0-9]+\.[0-9]+\.[0-9]+)$`,
+		},
+		{
+			versions:         []string{"2.0.0-2", "1.3.0-1892", "1.0.0-01"},
+			expectedVersions: []string{"2.0.0-2", "1.3.0-1892", "1.0.0-01"},
+			pattern:          `^([0-9]+\.[0-9]+\.[0-9]+-\d+)$`,
+		},
+		{
+			versions:         []string{"v1.33.2+k0s.0"},
+			expectedVersions: []string{"v1.33.2+k0s.0"},
+			pattern:          `^v([0-9]+\.[0-9]+\.[0-9]+\+k0s\.0)$`,
+		},
+		{
+			versions:         []string{"main", "v1.0", "master"},
+			expectedVersions: []string{"main", "master"},
+			pattern:          `^(main|master)$`,
+		},
+		{
+			versions:         []string{"main", "v1.0.0", "2.0.0", "master"},
+			expectedVersions: []string{"2.0.0", "main", "master"},
+			pattern:          `^([0-9]+\.[0-9]+\.[0-9]+)|(main|master)$`,
 		},
 	}
 
-	generator := NewHttpGenerator(config, nil)
-	defer generator.Close()
+	for i, test := range tests {
+		downloads := make([]configuration.ConfigurationDownload, 0)
+		for _, v := range test.versions {
+			downloads = append(downloads, configuration.ConfigurationDownload{Version: v})
+		}
+		config := configuration.Configuration{
+			Kind:      configuration.Http,
+			Downloads: downloads,
+		}
 
-	versions := []string{"0.0.0", "1.0.0", "3.2.1", "999.999.999"}
+		generator := NewHttpGenerator(config, nil, regexp.MustCompile(test.pattern))
+		defer generator.Close()
 
-	for _, version := range versions {
-		key, err := generator.VersionSortKey(version)
-		assert.Nil(t, err)
-		assert.Equal(t, key, int64(0))
+		versions, err := generator.Versions()
+		assert.Nil(t, err, "index %d failed", i)
+		assert.Equal(t, test.expectedVersions, versions, "index %d failed", i)
 	}
 }

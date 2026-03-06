@@ -1,51 +1,50 @@
 package generator
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPreparedGitGeneratorVersions(t *testing.T) {
+func TestPreparedGitGeneratorLatestVersionByTimestamp(t *testing.T) {
 	versions := []versionInfo{
-		{name: "v1.0.0", timestamp: 1705317600},
-		{name: "main", timestamp: 1705749600},
-		{name: "develop", timestamp: 1705569600},
+		{name: "a", timestamp: 1705317600},
+		{name: "b", timestamp: 1706000000},
+		{name: "c", timestamp: 1705749600},
 	}
 
-	generator := NewPreparedGitGenerator(nil, versions)
+	generator := NewPreparedGitGenerator(nil, versions, regexp.MustCompile(".*"))
 
-	result, err := generator.Versions()
+	result, err := generator.LatestVersion()
 	assert.Nil(t, err)
-	assert.Equal(t, []string{"v1.0.0", "main", "develop"}, result)
+	assert.Equal(t, "b", result)
 }
 
-func TestPreparedGitGeneratorVersionSortKey(t *testing.T) {
+func TestPreparedGitGeneratorLatestVersionByTimestampNotSemver(t *testing.T) {
 	versions := []versionInfo{
-		{name: "v1.0.0", timestamp: 1705317600},
-		{name: "main", timestamp: 1705749600},
+		{name: "1.0.0", timestamp: 1705000000},
+		{name: "2.0.0", timestamp: 1706000000},
+		{name: "10.0.0", timestamp: 1704000000},
 	}
 
-	generator := NewPreparedGitGenerator(nil, versions)
+	generator := NewPreparedGitGenerator(nil, versions, regexp.MustCompile(".*"))
 
-	key, err := generator.VersionSortKey("v1.0.0")
+	result, err := generator.LatestVersion()
 	assert.Nil(t, err)
-	assert.Equal(t, int64(1705317600), key)
-
-	key, err = generator.VersionSortKey("main")
-	assert.Nil(t, err)
-	assert.Equal(t, int64(1705749600), key)
-
-	_, err = generator.VersionSortKey("nonexistent")
-	assert.NotNil(t, err)
+	assert.Equal(t, "2.0.0", result)
 }
 
-func TestPreparedGitGeneratorVersionSortKeyEmpty(t *testing.T) {
-	versions := []versionInfo{}
+func TestPreparedGitGeneratorLatestVersionNoMatchingFilter(t *testing.T) {
+	versions := []versionInfo{
+		{name: "v1.0.0", timestamp: 1705317600},
+		{name: "v2.0.0", timestamp: 1706000000},
+	}
 
-	generator := NewPreparedGitGenerator(nil, versions)
+	filter := regexp.MustCompile(`^main$`)
+	generator := NewPreparedGitGenerator(nil, versions, filter)
 
-	_, err := generator.VersionSortKey("v1.0.0")
+	_, err := generator.LatestVersion()
 	assert.NotNil(t, err)
-	assert.ErrorContains(t, err, "not found")
+	assert.Contains(t, err.Error(), "no versions are available")
 }
