@@ -23,9 +23,9 @@ func TestPreparedGitGeneratorLatestVersionByTimestamp(t *testing.T) {
 
 func TestPreparedGitGeneratorLatestVersionByTimestampNotSemver(t *testing.T) {
 	versions := []versionInfo{
-		{name: "10.0.0", timestamp: 1704000000},
 		{name: "1.0.0", timestamp: 1705000000},
 		{name: "2.0.0", timestamp: 1706000000},
+		{name: "10.0.0", timestamp: 1704000000},
 	}
 
 	generator := NewPreparedGitGenerator(nil, versions, regexp.MustCompile(".*"))

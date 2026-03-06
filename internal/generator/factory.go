@@ -64,6 +64,10 @@ func (builder Builder) Build() error {
 	fmt.Fprintf(logger, "Producing for %s@%s:\n", builder.config.Name, builder.config.Kind)
 	defer fmt.Fprintf(logger, "End.\n")
 
+	if _, ok := builder.generator.(*PreparedGitGenerator); ok {
+		fmt.Fprintf(logger, " - using prepared git generator\n")
+	}
+
 	latestVersion, isUpdated, err := builder.registryStatus()
 	if err != nil {
 		return err
