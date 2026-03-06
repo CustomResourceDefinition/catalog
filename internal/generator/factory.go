@@ -183,21 +183,21 @@ func resolveGenerator(config configuration.Configuration, reader crd.CrdReader, 
 		pattern = config.VersionPattern
 	}
 
-	re, err := regexp.Compile(pattern)
+	filter, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
 	}
 
 	switch config.Kind {
 	case configuration.Git:
-		return NewGitGeneratorFactory(config, reader, re, logger).Build()
+		return NewGitGeneratorFactory(config, reader, filter, logger).Build()
 	case configuration.Http:
-		return NewHttpGenerator(config, reader, re), nil
+		return NewHttpGenerator(config, reader, filter), nil
 	case configuration.Helm:
 		target := config.Entries[len(config.Entries)-1]
-		return NewHelmGenerator(target, config, reader, re), nil
+		return NewHelmGenerator(target, config, reader, filter), nil
 	case configuration.HelmOci:
-		return NewOciGenerator(config, reader, re), nil
+		return NewOciGenerator(config, reader, filter), nil
 	default:
 		return nil, fmt.Errorf("no generators matched for kind '%s'", config.Kind)
 	}
