@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
-	"strconv"
-	"strings"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
@@ -23,7 +21,6 @@ type Builder struct {
 	logger               io.Writer
 	config               configuration.Configuration
 	generator            Generator
-	versionFilter        *regexp.Regexp
 	registry             *registry.SourceRegistry
 }
 
@@ -39,24 +36,9 @@ func NewBuilder(
 		return nil, err
 	}
 
-	if len(config.Namespace) == 0 {
-		config.Namespace = "namespace"
-	}
-
-	pattern := defaultVersionPattern(config.Kind)
-	if len(config.VersionPattern) > 0 {
-		pattern = config.VersionPattern
-	}
-
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Builder{
 		config:               config,
 		generator:            generator,
-		versionFilter:        re,
 		logger:               logger,
 		schemaRepository:     schemaRepository,
 		generatedRepository:  generatedRepository,
@@ -91,7 +73,7 @@ func (builder Builder) Build() error {
 		return nil
 	}
 
-	versions, err := builder.generator.Versions(builder.versionFilter)
+	versions, err := builder.generator.Versions()
 	if err != nil {
 		return err
 	}
@@ -167,7 +149,7 @@ func (builder Builder) Build() error {
 // registryStatus reports on the state in registry based on the latest version
 // available and only uses the decided interface method for latest version information
 func (builder Builder) registryStatus() (string, bool, error) {
-	version, err := builder.generator.LatestVersion(builder.versionFilter)
+	version, err := builder.generator.LatestVersion()
 	if err != nil {
 		return "", false, fmt.Errorf("unable to check registry: %w", err)
 	}
@@ -191,37 +173,31 @@ func (builder Builder) updateRegistry(version string) {
 	builder.registry.Set(builder.config.Name, string(builder.config.Kind), version)
 }
 
-func normalizeVersion(matches [][]string) string {
-	if len(matches) == 0 || len(matches[0]) < 2 {
-		return "v0.0.0"
-	}
-
-	version := matches[0][1]
-	parts := strings.Split(version, ".")
-	if len(parts) < 3 {
-		return "v0.0.0"
-	}
-
-	ints := make([]int, 3)
-	for i := range 3 {
-		n, _ := strconv.Atoi(parts[i])
-		ints[i] = n
-	}
-
-	return fmt.Sprintf("v%d.%d.%d", ints[0], ints[1], ints[2])
-}
-
 func resolveGenerator(config configuration.Configuration, reader crd.CrdReader, logger io.Writer) (Generator, error) {
+	if len(config.Namespace) == 0 {
+		config.Namespace = "namespace"
+	}
+
+	pattern := defaultVersionPattern(config.Kind)
+	if len(config.VersionPattern) > 0 {
+		pattern = config.VersionPattern
+	}
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+
 	switch config.Kind {
 	case configuration.Git:
-		return NewGitGeneratorFactory(config, reader, logger).Build()
+		return NewGitGeneratorFactory(config, reader, re, logger).Build()
 	case configuration.Http:
-		return NewHttpGenerator(config, reader), nil
+		return NewHttpGenerator(config, reader, re), nil
 	case configuration.Helm:
 		target := config.Entries[len(config.Entries)-1]
-		return NewHelmGenerator(target, config, reader), nil
+		return NewHelmGenerator(target, config, reader, re), nil
 	case configuration.HelmOci:
-		return NewOciGenerator(config, reader), nil
+		return NewOciGenerator(config, reader, re), nil
 	default:
 		return nil, fmt.Errorf("no generators matched for kind '%s'", config.Kind)
 	}

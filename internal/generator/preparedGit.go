@@ -11,6 +11,7 @@ import (
 type PreparedGitGenerator struct {
 	gitGenerator *GitGenerator
 	versions     []versionInfo
+	filter       *regexp.Regexp
 }
 
 type versionInfo struct {
@@ -18,17 +19,18 @@ type versionInfo struct {
 	timestamp int64
 }
 
-func NewPreparedGitGenerator(gitGenerator *GitGenerator, versions []versionInfo) Generator {
+func NewPreparedGitGenerator(gitGenerator *GitGenerator, versions []versionInfo, filter *regexp.Regexp) Generator {
 	return &PreparedGitGenerator{
 		gitGenerator: gitGenerator,
 		versions:     versions,
+		filter:       filter,
 	}
 }
 
-func (g *PreparedGitGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
+func (g *PreparedGitGenerator) LatestVersion() (string, error) {
 	filtered := make([]versionInfo, 0)
 	for _, v := range g.versions {
-		if filter.MatchString(v.name) {
+		if g.filter.MatchString(v.name) {
 			filtered = append(filtered, v)
 		}
 	}
@@ -44,8 +46,8 @@ func (g *PreparedGitGenerator) LatestVersion(filter *regexp.Regexp) (string, err
 	return filtered[0].name, nil
 }
 
-func (g *PreparedGitGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
-	return g.gitGenerator.Versions(filter)
+func (g *PreparedGitGenerator) Versions() ([]string, error) {
+	return g.gitGenerator.Versions()
 }
 
 func (g *PreparedGitGenerator) MetaData(version string) ([]crd.CrdMetaSchema, error) {

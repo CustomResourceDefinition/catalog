@@ -24,15 +24,17 @@ type GitGenerator struct {
 	*GeneratorVersions
 	config         configuration.Configuration
 	reader         crd.CrdReader
+	filter         *regexp.Regexp
 	tmpDir, gitDir string
 	tags           []string
 	branches       []string
 }
 
-func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
+func NewGitGenerator(config configuration.Configuration, reader crd.CrdReader, filter *regexp.Regexp) Generator {
 	return &GitGenerator{
 		config: config,
 		reader: reader,
+		filter: filter,
 	}
 }
 
@@ -72,13 +74,11 @@ func (generator *GitGenerator) Crds(version string) ([]crd.Crd, error) {
 	}
 
 	if len(version) == 0 {
-		return nil, fmt.Errorf("no version was provided")
-		// FIXME: verify
-		// versions, err := generator.Versions()
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// version = versions[0]
+		versions, err := generator.Versions()
+		if err != nil {
+			return nil, err
+		}
+		version = versions[0]
 	}
 
 	err := exec.Command("git", "--git-dir", generator.gitDir, "--work-tree", generator.tmpDir, "checkout", "--force", version).Run()
@@ -142,15 +142,15 @@ func (generator *GitGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *GitGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
-	versions, err := generator.Versions(filter)
+func (generator *GitGenerator) LatestVersion() (string, error) {
+	versions, err := generator.Versions()
 	if err != nil {
 		return "", err
 	}
 	return generator.latest(versions)
 }
 
-func (generator *GitGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
+func (generator *GitGenerator) Versions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func (generator *GitGenerator) Versions(filter *regexp.Regexp) ([]string, error)
 
 	filtered := make([]string, 0)
 	for _, v := range versions {
-		if filter.MatchString(v) {
+		if generator.filter.MatchString(v) {
 			filtered = append(filtered, v)
 		}
 	}
@@ -178,8 +178,8 @@ func (generator *GitGenerator) Versions(filter *regexp.Regexp) ([]string, error)
 		if a != b {
 			return a < b
 		}
-		aa := normalizeVersion(filter.FindAllStringSubmatch(filtered[i], -1))
-		bb := normalizeVersion(filter.FindAllStringSubmatch(filtered[j], -1))
+		aa := normalizeVersion(generator.filter.FindAllStringSubmatch(filtered[i], -1))
+		bb := normalizeVersion(generator.filter.FindAllStringSubmatch(filtered[j], -1))
 		return semver.Compare(aa, bb) > 0
 	})
 	return filtered, nil

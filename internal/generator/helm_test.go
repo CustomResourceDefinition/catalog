@@ -22,10 +22,10 @@ func TestHelmGeneratorVersions(t *testing.T) {
 		Repository: server.URL,
 	}
 
-	generator := NewHelmGenerator("connect", config, nil)
+	generator := NewHelmGenerator("connect", config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
+	versions, err := generator.Versions()
 	assert.Nil(t, err)
 	assert.Equal(t, expectedVersions, versions)
 }
@@ -39,10 +39,10 @@ func TestHelmGeneratorUnknownTarget(t *testing.T) {
 		Repository: server.URL,
 	}
 
-	generator := NewHelmGenerator("unknown", config, nil)
+	generator := NewHelmGenerator("unknown", config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
+	versions, err := generator.Versions()
 	assert.Nil(t, versions)
 	assert.NotNil(t, err)
 }
@@ -57,7 +57,7 @@ func TestHelmGeneratorUnknownVersion(t *testing.T) {
 		Repository: server.URL,
 	}
 
-	generator := NewHelmGenerator("connect", config, nil)
+	generator := NewHelmGenerator("connect", config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("4.5.6")
@@ -83,7 +83,7 @@ func TestHelmGeneratorMetadata(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHelmGenerator("connect", config, reader)
+	generator := NewHelmGenerator("connect", config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("")

@@ -107,53 +107,14 @@ func TestGitGeneratorFactoryBuildGitHubSuccessWithVersions(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, regexp.MustCompile(".*"), nil).Build()
 	assert.Nil(t, err)
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
+	version, err := generator.LatestVersion()
 	assert.Nil(t, err)
-	assert.Contains(t, versions, "v1.0.0")
-	assert.Contains(t, versions, "v0.9.0")
-	assert.Contains(t, versions, "main")
-	assert.Contains(t, versions, "develop")
-}
-
-func TestPreparedGitGeneratorVersionsSortedByDate(t *testing.T) {
-	t.Setenv("GITHUB_TOKEN", "test-token")
-
-	cleanup := setupGitHubServer(t, []gitHubResponse{
-		{
-			prefix: "refs/tags/",
-			tags: []githubRef{
-				{name: "v0.9.0", committedDate: "2000-01-10T10:00:00Z"},
-				{name: "v1.0.0", committedDate: "2000-01-15T10:00:00Z"},
-			},
-		},
-		{
-			prefix: "refs/heads/",
-			branches: []githubRef{
-				{name: "develop", committedDate: "2000-01-18T10:00:00Z"},
-				{name: "main", committedDate: "2000-01-20T10:00:00Z"},
-			},
-		},
-	})
-	defer cleanup()
-
-	config := configuration.Configuration{
-		Kind:       configuration.Git,
-		Repository: "https://github.com/owner/repo",
-	}
-
-	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
-	assert.Nil(t, err)
-	defer generator.Close()
-	assert.IsType(t, &PreparedGitGenerator{}, generator)
-
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
-	assert.Nil(t, err)
-	assert.Equal(t, []string{"v0.9.0", "v1.0.0", "develop", "main"}, versions)
+	assert.Equal(t, version, "main")
 }
 
 var logger = bytes.NewBuffer([]byte{})
@@ -177,7 +138,7 @@ func TestGitGeneratorFactoryBuildGitHubFailure(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil, logger).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, regexp.MustCompile(".*"), logger).Build()
 	assert.Nil(t, err)
 	defer generator.Close()
 	assert.IsType(t, &GitGenerator{}, generator)
@@ -207,7 +168,7 @@ func TestGitGeneratorFactoryBuildGitHubSuccess(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, regexp.MustCompile(".*"), nil).Build()
 	assert.Nil(t, err)
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
@@ -267,13 +228,18 @@ func TestGitGeneratorFactoryAnnotatedTags(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, regexp.MustCompile(".*"), nil).Build()
 	assert.Nil(t, err)
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
-	assert.Nil(t, err)
+	info := generator.(*PreparedGitGenerator).versions
+	versions := make([]string, 0)
+	for _, i := range info {
+		versions = append(versions, i.name)
+	}
+
+	assert.Equal(t, len(versions), 4)
 	assert.Contains(t, versions, "v1.0.0")
 	assert.Contains(t, versions, "v0.9.0")
 	assert.Contains(t, versions, "v0.8.0")
@@ -310,13 +276,18 @@ func TestGitGeneratorFactoryNestedTags(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, regexp.MustCompile(".*"), nil).Build()
 	assert.Nil(t, err)
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
-	assert.Nil(t, err)
+	info := generator.(*PreparedGitGenerator).versions
+	versions := make([]string, 0)
+	for _, i := range info {
+		versions = append(versions, i.name)
+	}
+
+	assert.Equal(t, len(versions), 4)
 	assert.Contains(t, versions, "v1.0.0")
 	assert.Contains(t, versions, "v0.9.0")
 	assert.Contains(t, versions, "nested-tag")
@@ -351,14 +322,18 @@ func TestGitGeneratorFactoryPagination(t *testing.T) {
 		Repository: "https://github.com/owner/repo",
 	}
 
-	generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
+	generator, err := NewGitGeneratorFactory(config, nil, regexp.MustCompile(".*"), nil).Build()
 	assert.Nil(t, err)
 	defer generator.Close()
 	assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
-	assert.Nil(t, err)
-	assert.Equal(t, 5, len(versions), "should have all 4 tags + 1 branch")
+	info := generator.(*PreparedGitGenerator).versions
+	versions := make([]string, 0)
+	for _, i := range info {
+		versions = append(versions, i.name)
+	}
+
+	assert.Equal(t, len(versions), 5)
 	assert.Contains(t, versions, "v1.0.0")
 	assert.Contains(t, versions, "v0.9.0")
 	assert.Contains(t, versions, "v0.8.0")
@@ -408,13 +383,12 @@ func TestGitGeneratorFactoryEmptyResponses(t *testing.T) {
 				Repository: "https://github.com/owner/repo",
 			}
 
-			generator, err := NewGitGeneratorFactory(config, nil, nil).Build()
+			generator, err := NewGitGeneratorFactory(config, nil, regexp.MustCompile(".*"), nil).Build()
 			assert.Nil(t, err)
 			defer generator.Close()
 			assert.IsType(t, &PreparedGitGenerator{}, generator)
 
-			versions, err := generator.Versions(regexp.MustCompile(".*"))
-			assert.Nil(t, err)
+			versions := generator.(*PreparedGitGenerator).versions
 			assert.Equal(t, tt.expectedVersions, len(versions))
 		})
 	}

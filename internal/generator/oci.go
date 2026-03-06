@@ -19,6 +19,7 @@ type OciGenerator struct {
 	realmClient realmClient
 	config      configuration.Configuration
 	reader      crd.CrdReader
+	filter      *regexp.Regexp
 	tmpDir      string
 	downloader  downloader.ChartDownloader
 	plainHttp   bool
@@ -26,7 +27,7 @@ type OciGenerator struct {
 
 const HELM_OCI_PLAIN_HTTP = "HELM_OCI_PLAIN_HTTP"
 
-func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
+func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader, filter *regexp.Regexp) Generator {
 	plainHttp := false
 	env, found := os.LookupEnv(HELM_OCI_PLAIN_HTTP)
 	value, err := strconv.ParseBool(env)
@@ -38,6 +39,7 @@ func NewOciGenerator(config configuration.Configuration, reader crd.CrdReader) G
 		realmClient: newRealmClient(plainHttp),
 		config:      config,
 		reader:      reader,
+		filter:      filter,
 		plainHttp:   plainHttp,
 	}
 }
@@ -78,13 +80,11 @@ func (generator *OciGenerator) Crds(version string) ([]crd.Crd, error) {
 	}
 
 	if len(version) == 0 {
-		return nil, fmt.Errorf("no version was provided")
-		// FIXME: verify
-		// versions, err := generator.Versions()
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// version = versions[0]
+		versions, err := generator.Versions()
+		if err != nil {
+			return nil, err
+		}
+		version = versions[0]
 	}
 
 	savedPath, _, err := generator.downloader.DownloadTo(generator.config.Repository, version, generator.tmpDir)
@@ -110,15 +110,15 @@ func (generator *OciGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *OciGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
-	versions, err := generator.Versions(filter)
+func (generator *OciGenerator) LatestVersion() (string, error) {
+	versions, err := generator.Versions()
 	if err != nil {
 		return "", err
 	}
 	return generator.latest(versions)
 }
 
-func (generator *OciGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
+func (generator *OciGenerator) Versions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (generator *OciGenerator) Versions(filter *regexp.Regexp) ([]string, error)
 		return nil, err
 	}
 
-	return generator.semverSort(versions, filter)
+	return generator.semverSort(versions, generator.filter)
 }
 
 func (generator *OciGenerator) ensureLoaded() error {

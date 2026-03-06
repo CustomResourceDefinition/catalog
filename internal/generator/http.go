@@ -17,15 +17,17 @@ type HttpGenerator struct {
 	client http.Client
 	config configuration.Configuration
 	reader crd.CrdReader
+	filter *regexp.Regexp
 }
 
-func NewHttpGenerator(config configuration.Configuration, reader crd.CrdReader) Generator {
+func NewHttpGenerator(config configuration.Configuration, reader crd.CrdReader, filter *regexp.Regexp) Generator {
 	return &HttpGenerator{
 		client: http.Client{
 			Timeout: 15 * time.Second,
 		},
 		config: config,
 		reader: reader,
+		filter: filter,
 	}
 }
 
@@ -82,22 +84,22 @@ func (generator *HttpGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *HttpGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
-	versions, err := generator.Versions(filter)
+func (generator *HttpGenerator) LatestVersion() (string, error) {
+	versions, err := generator.Versions()
 	if err != nil {
 		return "", err
 	}
 	return generator.latest(versions)
 }
 
-func (generator *HttpGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
+func (generator *HttpGenerator) Versions() ([]string, error) {
 	versions := make([]string, len(generator.config.Downloads))
 
 	for i, download := range generator.config.Downloads {
 		versions[i] = download.Version
 	}
 
-	return generator.semverSort(versions, filter)
+	return generator.semverSort(versions, generator.filter)
 }
 
 func (generator *HttpGenerator) Close() error {

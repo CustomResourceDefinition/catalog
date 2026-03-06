@@ -25,16 +25,18 @@ type HelmGenerator struct {
 	target     string
 	config     configuration.Configuration
 	reader     crd.CrdReader
+	filter     *regexp.Regexp
 	tmpDir     string
 	versions   repo.ChartVersions
 	downloader downloader.ChartDownloader
 }
 
-func NewHelmGenerator(target string, config configuration.Configuration, reader crd.CrdReader) Generator {
+func NewHelmGenerator(target string, config configuration.Configuration, reader crd.CrdReader, filter *regexp.Regexp) Generator {
 	return &HelmGenerator{
 		target: target,
 		config: config,
 		reader: reader,
+		filter: filter,
 	}
 }
 
@@ -97,15 +99,15 @@ func (generator *HelmGenerator) Crds(version string) ([]crd.Crd, error) {
 	return crds, nil
 }
 
-func (generator *HelmGenerator) LatestVersion(filter *regexp.Regexp) (string, error) {
-	versions, err := generator.Versions(filter)
+func (generator *HelmGenerator) LatestVersion() (string, error) {
+	versions, err := generator.Versions()
 	if err != nil {
 		return "", err
 	}
 	return generator.latest(versions)
 }
 
-func (generator *HelmGenerator) Versions(filter *regexp.Regexp) ([]string, error) {
+func (generator *HelmGenerator) Versions() ([]string, error) {
 	if err := generator.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -118,7 +120,7 @@ func (generator *HelmGenerator) Versions(filter *regexp.Regexp) ([]string, error
 		}
 	}
 
-	return generator.semverSort(versions, filter)
+	return generator.semverSort(versions, generator.filter)
 }
 
 func (generator *HelmGenerator) Close() error {

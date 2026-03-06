@@ -26,7 +26,7 @@ func TestGeneratorVersionsSemverSortWithFilter(t *testing.T) {
 func TestGeneratorVersionsSemverSortFiltersCorrectly(t *testing.T) {
 	gv := GeneratorVersions{}
 
-	filter := regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
+	filter := regexp.MustCompile(`^([0-9]+\.[0-9]+\.[0-9]+)$`)
 	versions, err := gv.semverSort([]string{"1.0.0", "main", "2.0.0", "master"}, filter)
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"2.0.0", "1.0.0"}, versions)
@@ -35,7 +35,7 @@ func TestGeneratorVersionsSemverSortFiltersCorrectly(t *testing.T) {
 func TestGeneratorVersionsSemverSortSortsDescending(t *testing.T) {
 	gv := GeneratorVersions{}
 
-	filter := regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
+	filter := regexp.MustCompile(`^([0-9]+\.[0-9]+\.[0-9]+)$`)
 	versions, err := gv.semverSort([]string{"1.0.0", "2.10.0", "2.2.0", "1.5.0", "1.01.01"}, filter)
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"2.10.0", "2.2.0", "1.5.0", "1.01.01", "1.0.0"}, versions)
@@ -51,16 +51,10 @@ func TestGeneratorVersionsFiltering(t *testing.T) {
 		pattern          string
 	}{
 		{
-			name:             "no filter matches all",
+			name:             "filter matches all",
 			versions:         []string{"2.0.0", "1.3.0", "1.0.0"},
 			expectedVersions: []string{"2.0.0", "1.3.0", "1.0.0"},
 			pattern:          ".*",
-		},
-		{
-			name:             "v prefix versions no pattern",
-			versions:         []string{"v2.0.0", "v1.3.0", "v1.0.0"},
-			expectedVersions: []string{},
-			pattern:          "",
 		},
 		{
 			name:             "v prefix with pattern",
@@ -90,7 +84,7 @@ func TestGeneratorVersionsFiltering(t *testing.T) {
 			name:             "version with build metadata",
 			versions:         []string{"v1.33.2+k0s.0"},
 			expectedVersions: []string{"v1.33.2+k0s.0"},
-			pattern:          `^v([0-9]+\.[0-9]+\.[0-9]+\+k0s\.0)$`,
+			pattern:          `^v([0-9]+\.[0-9]+\.[0-9]+)\+k0s\.0$`,
 		},
 		{
 			name:             "branch names only",
@@ -108,14 +102,7 @@ func TestGeneratorVersionsFiltering(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var filter *regexp.Regexp
-			if test.pattern != "" {
-				filter = regexp.MustCompile(test.pattern)
-			} else {
-				filter = regexp.MustCompile(".*")
-			}
-
-			versions, err := gv.semverSort(test.versions, filter)
+			versions, err := gv.semverSort(test.versions, regexp.MustCompile(test.pattern))
 			assert.Nil(t, err)
 			assert.Equal(t, test.expectedVersions, versions)
 		})

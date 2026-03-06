@@ -21,10 +21,10 @@ func TestHttpGeneratorVersions(t *testing.T) {
 		},
 	}
 
-	generator := NewHttpGenerator(config, nil)
+	generator := NewHttpGenerator(config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
+	versions, err := generator.Versions()
 	assert.Nil(t, err)
 	assert.Equal(t, expectedVersions, versions)
 }
@@ -39,7 +39,7 @@ func TestHttpGeneratorUnknownVersion(t *testing.T) {
 		},
 	}
 
-	generator := NewHttpGenerator(config, nil)
+	generator := NewHttpGenerator(config, nil, regexp.MustCompile(".*"))
 
 	metadata, err := generator.MetaData("4.5.6")
 	assert.Nil(t, metadata)
@@ -68,7 +68,7 @@ func TestHttpGeneratorSchemas(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHttpGenerator(config, reader)
+	generator := NewHttpGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	crds, err := generator.Crds(version)
@@ -112,7 +112,7 @@ func TestHttpGeneratorMetadata(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHttpGenerator(config, reader)
+	generator := NewHttpGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData(version)
@@ -148,7 +148,7 @@ func TestHttpGeneratorPartialSchemas(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHttpGenerator(config, reader)
+	generator := NewHttpGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	crds, err := generator.Crds(version)
@@ -194,7 +194,7 @@ func TestHttpGeneratorNoSchemas(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewHttpGenerator(config, reader)
+	generator := NewHttpGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	crds, err := generator.Crds(version)
@@ -221,10 +221,6 @@ func TestHttpGeneratorVersionsFiltering(t *testing.T) {
 		{
 			versions:         []string{"2.0.0", "1.3.0", "1.0.0"},
 			expectedVersions: []string{"2.0.0", "1.3.0", "1.0.0"},
-		},
-		{
-			versions:         []string{"v2.0.0", "v1.3.0", "v1.0.0"},
-			expectedVersions: []string{},
 		},
 		{
 			versions:         []string{"v2.0.0", "v1.3.0", "v1.0.0"},
@@ -273,9 +269,6 @@ func TestHttpGeneratorVersionsFiltering(t *testing.T) {
 			Downloads: downloads,
 		}
 
-		generator := NewHttpGenerator(config, nil)
-		defer generator.Close()
-
 		var filter *regexp.Regexp
 		if test.pattern != "" {
 			filter = regexp.MustCompile(test.pattern)
@@ -283,7 +276,10 @@ func TestHttpGeneratorVersionsFiltering(t *testing.T) {
 			filter = regexp.MustCompile(".*")
 		}
 
-		versions, err := generator.Versions(filter)
+		generator := NewHttpGenerator(config, nil, filter)
+		defer generator.Close()
+
+		versions, err := generator.Versions()
 		assert.Nil(t, err, "index %d failed", i)
 		assert.Equal(t, test.expectedVersions, versions, "index %d failed", i)
 	}

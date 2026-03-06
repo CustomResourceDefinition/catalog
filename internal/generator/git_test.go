@@ -41,10 +41,10 @@ func TestGitGeneratorVersionsCombinesTagsAndBranches(t *testing.T) {
 		Repository: fmt.Sprintf("file://%s", *p),
 	}
 
-	generator := NewGitGenerator(config, nil)
+	generator := NewGitGenerator(config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
+	versions, err := generator.Versions()
 	assert.Nil(t, err)
 	assert.Contains(t, versions, expectedVersion)
 	assert.Contains(t, versions, expectedDevelop)
@@ -69,7 +69,7 @@ func TestGitGeneratorUnknownVersion(t *testing.T) {
 		Repository: fmt.Sprintf("file://%s", *p),
 	}
 
-	generator := NewGitGenerator(config, nil)
+	generator := NewGitGenerator(config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("4.5.6")
@@ -103,7 +103,7 @@ func TestGitGeneratorMetadataForRegularFile(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewGitGenerator(config, reader)
+	generator := NewGitGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("")
@@ -148,7 +148,7 @@ func TestGitGeneratorMetadataForKustomizeFile(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewGitGenerator(config, reader)
+	generator := NewGitGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("")
@@ -193,7 +193,7 @@ func TestGitGeneratorMetadataForSourceFiles(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewGitGenerator(config, reader)
+	generator := NewGitGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("")
@@ -210,10 +210,10 @@ func TestGitGeneratorCloneFailure(t *testing.T) {
 		Repository: "file:///nonexistent/path/repo.git",
 	}
 
-	generator := NewGitGenerator(config, nil)
+	generator := NewGitGenerator(config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
-	_, err := generator.Versions(regexp.MustCompile(".*"))
+	_, err := generator.Versions()
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to clone")
 }
@@ -240,7 +240,7 @@ func TestGitGeneratorCheckoutFailure(t *testing.T) {
 		Repository: fmt.Sprintf("file://%s", *p),
 	}
 
-	generator := NewGitGenerator(config, nil)
+	generator := NewGitGenerator(config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	_, err = generator.Crds("nonexistent-branch-tag")
@@ -270,10 +270,10 @@ func TestGitGeneratorClose(t *testing.T) {
 		Repository: fmt.Sprintf("file://%s", *p),
 	}
 
-	generator := NewGitGenerator(config, nil)
+	generator := NewGitGenerator(config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
+	versions, err := generator.Versions()
 	assert.Nil(t, err)
 	assert.NotEmpty(t, versions)
 
@@ -304,11 +304,11 @@ func TestGitGeneratorVersionsCustomSort(t *testing.T) {
 		Repository: fmt.Sprintf("file://%s", *p),
 	}
 
-	generator := NewGitGenerator(config, nil)
+	filter := regexp.MustCompile(`^([0-9]+\.[0-9]+\.[0-9]+)$`)
+	generator := NewGitGenerator(config, nil, filter)
 	defer generator.Close()
 
-	filter := regexp.MustCompile(`^([0-9]+\.[0-9]+\.[0-9]+)$`)
-	versions, err := generator.Versions(filter)
+	versions, err := generator.Versions()
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"2.10.0", "2.2.0", "2.1.0", "1.01.01", "1.0.0"}, versions)
 }

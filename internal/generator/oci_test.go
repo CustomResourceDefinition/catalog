@@ -26,10 +26,10 @@ func TestOciGeneratorVersions(t *testing.T) {
 		Repository: fmt.Sprintf("%s%s", server.URL, "/helm/connect"),
 	}
 
-	generator := NewOciGenerator(config, nil)
+	generator := NewOciGenerator(config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
-	versions, err := generator.Versions(regexp.MustCompile(".*"))
+	versions, err := generator.Versions()
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"2.0.0"}, versions)
 }
@@ -51,7 +51,7 @@ func TestOciGeneratorUnknownVersion(t *testing.T) {
 		Repository: fmt.Sprintf("%s%s", server.URL, "/helm/connect"),
 	}
 
-	generator := NewOciGenerator(config, nil)
+	generator := NewOciGenerator(config, nil, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("4.5.6")
@@ -79,7 +79,7 @@ func TestOciGeneratorMetadata(t *testing.T) {
 	reader, err := crd.NewCrdReader(setupLogger())
 	assert.Nil(t, err)
 
-	generator := NewOciGenerator(config, reader)
+	generator := NewOciGenerator(config, reader, regexp.MustCompile(".*"))
 	defer generator.Close()
 
 	metadata, err := generator.MetaData("")
