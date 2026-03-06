@@ -13,6 +13,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestBuildWithVersionPatternFiltering(t *testing.T) {
+	config := configuration.Configuration{
+		Kind:           configuration.Http,
+		Name:           "test",
+		ApiGroups:      []string{"chart.uri"},
+		VersionPattern: `^v([0-9]+\.[0-9]+\.[0-9]+)$`,
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				Version: "v1.0.0",
+			},
+			{
+				Version: "v2.0.0",
+			},
+			{
+				Version: "3.0.0",
+			},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
+	assert.Nil(t, err)
+
+	version, result, err := builder.registryStatus()
+	assert.Nil(t, err)
+	assert.False(t, result)
+	assert.Equal(t, "v2.0.0", version)
+}
+
 func TestResolveGenerator(t *testing.T) {
 	invalidConfigs := []configuration.Configuration{
 		{
