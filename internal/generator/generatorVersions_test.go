@@ -54,7 +54,7 @@ func TestGeneratorVersionsFiltering(t *testing.T) {
 			name:             "filter matches all",
 			versions:         []string{"2.0.0", "1.3.0", "1.0.0"},
 			expectedVersions: []string{"2.0.0", "1.3.0", "1.0.0"},
-			pattern:          ".*",
+			pattern:          `.*`,
 		},
 		{
 			name:             "v prefix with pattern",
