@@ -244,7 +244,7 @@ func (generator *GitGenerator) ensureLoaded() error {
 			b = after
 		}
 
-		if b == "" || b == "HEAD" || b == "origin" {
+		if len(b) == 0 || b == "HEAD" || b == "origin" {
 			continue
 		}
 

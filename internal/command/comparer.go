@@ -258,14 +258,14 @@ func (data *markdownData) update(current []item, target []item, ignores []ignore
 		}
 	}
 
-	marker := make(map[string]bool, 0)
+	marker := make(map[string]bool)
 	for _, i := range current {
 		marker[i.Id()] = false
 	}
 
 	ignored := make([]ignoreItem, 0)
 	missing := make([]item, 0)
-	groups := make(map[string]string, 0)
+	groups := make(map[string]string)
 	for _, item := range target {
 		id := item.Id()
 		_, ok := marker[id]
@@ -284,7 +284,7 @@ func (data *markdownData) update(current []item, target []item, ignores []ignore
 	for group := range groups {
 		item := markdownItem{Group: group, Items: []markdownItems{}}
 
-		kinds := make(map[string]string, 0)
+		kinds := make(map[string]string)
 		for _, i := range missing {
 			if i.group != group {
 				continue
@@ -333,6 +333,11 @@ func (data *markdownData) update(current []item, target []item, ignores []ignore
 		return result
 	})
 
-	ratio := float32(len(target)-len(missing)) / float32(len(target))
+	var ratio float32
+	if len(target) == 0 {
+		ratio = 1
+	} else {
+		ratio = float32(len(target)-len(missing)) / float32(len(target))
+	}
 	data.Ratio = fmt.Sprintf("%.2f%%", ratio*100)
 }

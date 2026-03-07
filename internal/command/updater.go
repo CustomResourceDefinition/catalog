@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path"
 	"runtime"
 
@@ -48,20 +47,7 @@ func (cmd Updater) Run() error {
 		return err
 	}
 
-	if cmd.registryPath != "" {
-		reg, err := registry.Load(cmd.registryPath)
-		if err != nil {
-			return fmt.Errorf("failed to load registry: %w", err)
-		}
-		cmd.registry = reg
-	}
-
 	configurations, err := readConfiguration(cmd.Configuration)
-	if err != nil {
-		return err
-	}
-
-	reader, err := crd.NewCrdReader(cmd.Logger)
 	if err != nil {
 		return err
 	}
@@ -75,27 +61,22 @@ func (cmd Updater) Run() error {
 	for _, config := range splitConfigurations(configurations) {
 		runtime.GC()
 
-		build, err := generator.NewBuilder(config, reader, tmpDir, cmd.Schema, cmd.Definitions, cmd.Logger, cmd.registry)
+		build, err := generator.NewBuilder(config, cmd.reader, tmpDir, cmd.Schema, cmd.Definitions, cmd.Logger, cmd.registry)
 		if err != nil {
+			fmt.Fprintf(cmd.Logger, "::warning:: unable to create builder for %s: %v\n", config.Name, err)
 			continue
 		}
 
 		err = build.Build()
 		if err != nil {
+			fmt.Fprintf(cmd.Logger, "::warning:: build of %s failed: %v\n", config.Name, err)
 			continue
 		}
-
-		out, err := exec.Command("df", "-h", cmd.Schema).Output()
-		if err != nil {
-			return fmt.Errorf("unable to look up free disk space: %w", err)
-		}
-
-		fmt.Fprintf(cmd.Logger, "%s\n\n", string(out))
 	}
 
 	if cmd.registry != nil && cmd.registryPath != "" {
 		if err := cmd.registry.Save(cmd.registryPath); err != nil {
-			fmt.Fprintf(cmd.Logger, "Warning: failed to save registry: %v\n", err)
+			fmt.Fprintf(cmd.Logger, "::warning:: failed to save registry: %v\n", err)
 		}
 	}
 
@@ -129,6 +110,14 @@ func (cmd *Updater) initialize() error {
 	}
 	cmd.reader = reader
 
+	if cmd.registryPath != "" {
+		reg, err := registry.Load(cmd.registryPath)
+		if err != nil {
+			return fmt.Errorf("failed to load registry: %w", err)
+		}
+		cmd.registry = reg
+	}
+
 	return nil
 }
 
@@ -155,10 +144,10 @@ func splitConfigurations(configurations []configuration.Configuration) []configu
 			continue
 		}
 		for _, e := range c.Entries {
-			copy := c
-			copy.Name = fmt.Sprintf("%s.%s", c.Name, e)
-			copy.Entries = []string{e}
-			updated = append(updated, copy)
+			cfg := c
+			cfg.Name = fmt.Sprintf("%s.%s", c.Name, e)
+			cfg.Entries = []string{e}
+			updated = append(updated, cfg)
 		}
 	}
 
@@ -175,7 +164,7 @@ func merge(generatedRepository, schemaRepository string) error {
 
 	for _, group := range groups {
 		if group.IsDir() {
-			os.Mkdir(path.Join(schemaRepository, group.Name()), 0755)
+			_ = os.Mkdir(path.Join(schemaRepository, group.Name()), 0755)
 			files, err := os.ReadDir(path.Join(generatedRepository, group.Name()))
 			if err != nil {
 				return err
