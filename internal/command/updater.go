@@ -63,20 +63,20 @@ func (cmd Updater) Run() error {
 
 		build, err := generator.NewBuilder(config, cmd.reader, tmpDir, cmd.Schema, cmd.Definitions, cmd.Logger, cmd.registry)
 		if err != nil {
-			fmt.Fprintf(cmd.Logger, "Warning: unable to create builder for %s: %v\n", config.Name, err)
+			fmt.Fprintf(cmd.Logger, "::warning:: unable to create builder for %s: %v\n", config.Name, err)
 			continue
 		}
 
 		err = build.Build()
 		if err != nil {
-			fmt.Fprintf(cmd.Logger, "Warning: build of %s failed: %v\n", config.Name, err)
+			fmt.Fprintf(cmd.Logger, "::warning:: build of %s failed: %v\n", config.Name, err)
 			continue
 		}
 	}
 
 	if cmd.registry != nil && cmd.registryPath != "" {
 		if err := cmd.registry.Save(cmd.registryPath); err != nil {
-			fmt.Fprintf(cmd.Logger, "Warning: failed to save registry: %v\n", err)
+			fmt.Fprintf(cmd.Logger, "::warning:: failed to save registry: %v\n", err)
 		}
 	}
 
