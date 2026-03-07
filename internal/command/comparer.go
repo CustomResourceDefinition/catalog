@@ -284,7 +284,7 @@ func (data *markdownData) update(current []item, target []item, ignores []ignore
 	for group := range groups {
 		item := markdownItem{Group: group, Items: []markdownItems{}}
 
-		kinds := make(map[string]string, 0)
+		kinds := make(map[string]string)
 		for _, i := range missing {
 			if i.group != group {
 				continue
