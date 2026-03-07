@@ -71,7 +71,7 @@ func (generator *HelmGenerator) Crds(version string) ([]crd.Crd, error) {
 		return nil, err
 	}
 
-	if version == "" {
+	if len(version) == 0 {
 		version = ">0.0.0"
 	}
 

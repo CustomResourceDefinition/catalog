@@ -164,7 +164,7 @@ func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]ve
 		hasNextPage = result.Data.Repository.Refs.PageInfo.HasNextPage
 		cursor = result.Data.Repository.Refs.PageInfo.EndCursor
 
-		if cursor == "" {
+		if len(cursor) == 0 {
 			hasNextPage = false
 		}
 	}

@@ -107,6 +107,7 @@ func unpack(file string, data []byte) (any, error) {
 	return nil, fmt.Errorf("unable to unpack '%s' as either JSON or YAML", file)
 }
 
+// tryUnpack attempts to deserialize data as yaml and as json and returns true if either succeeds
 func tryUnpack(data []byte, target any) bool {
 	return yaml.Unmarshal(data, target) == nil || json.Unmarshal(data, target) == nil
 }

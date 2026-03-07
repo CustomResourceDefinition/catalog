@@ -84,11 +84,12 @@ func UnmarshalConfigurations(reader io.Reader) ([]Configuration, error) {
 // ValuesFile resolves the most relevant values file content from the configuration,
 // note that versions are treated as semver, but any prefix/suffix extras or leading zeroes will result in improper sorting
 func (c *Configuration) ValuesFile(version string) (map[string]any, error) {
-	sort.Slice(c.Values, func(i, j int) bool {
-		return semver.Compare(c.Values[i].Version, c.Values[j].Version) > 0
+	values := c.Values
+	sort.Slice(values, func(i, j int) bool {
+		return semver.Compare(values[i].Version, values[j].Version) > 0
 	})
 
-	for _, v := range c.Values {
+	for _, v := range values {
 		if semver.Compare(v.Version, version) > 0 {
 			continue
 		}

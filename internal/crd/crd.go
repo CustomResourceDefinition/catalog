@@ -44,6 +44,8 @@ type CrdMetaSchema struct {
 	Group, Kind, Version string
 }
 
+var emptyDocument = regexp.MustCompile(`[^\t\n\v\f\r ]+`)
+
 func NewCrdReader(logger io.Writer) (CrdReader, error) {
 	scheme := runtime.NewScheme()
 	if err := v1beta1.AddToScheme(scheme); err != nil {
@@ -71,12 +73,7 @@ func NewCrdReader(logger io.Writer) (CrdReader, error) {
 	codecs := serializer.NewCodecFactory(scheme)
 	decoder := codecs.UniversalDeserializer()
 
-	matcher, err := regexp.Compile(`[^\t\n\v\f\r ]+`)
-	if err != nil {
-		return nil, err
-	}
-
-	return &crdReader{decoder: decoder, logger: logger, matcher: matcher, scheme: scheme}, nil
+	return &crdReader{decoder: decoder, logger: logger, matcher: emptyDocument, scheme: scheme}, nil
 }
 
 func (r *crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
@@ -118,11 +115,11 @@ func (r *crdReader) Read(reader io.Reader, file string) ([]Crd, error) {
 			doc = out
 		}
 
-		if crd.Spec.Group == "" {
+		if len(crd.Spec.Group) == 0 {
 			fmt.Fprintf(r.logger, "   empty group declared for %s at %s\n", crd.ObjectMeta.Name, file)
 			continue
 		}
-		if crd.Spec.Names.Kind == "" {
+		if len(crd.Spec.Names.Kind) == 0 {
 			fmt.Fprintf(r.logger, "   empty group declared for %s at %s\n", crd.ObjectMeta.Name, file)
 			continue
 		}
@@ -241,7 +238,7 @@ func applyDefaults(schema *v1.JSONSchemaProps, skip bool) {
 	}
 }
 
-func (r crdReader) convertToV1(obj runtime.Object) *v1.CustomResourceDefinition {
+func (r *crdReader) convertToV1(obj runtime.Object) *v1.CustomResourceDefinition {
 	var (
 		crd v1.CustomResourceDefinition
 		err error
