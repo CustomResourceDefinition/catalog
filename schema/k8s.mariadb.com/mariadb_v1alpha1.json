@@ -352,6 +352,80 @@
           "description": "BootstrapFrom defines a source to bootstrap from.",
           "type": "object",
           "properties": {
+            "azureBlob": {
+              "description": "AzureBlob defines the configuration to restore from Azure Blob compatible storage.\nThis field takes precedence over the Volume source.",
+              "type": "object",
+              "required": [
+                "containerName",
+                "serviceURL"
+              ],
+              "properties": {
+                "containerName": {
+                  "description": "ContainerName is the name of the storage container.",
+                  "type": "string"
+                },
+                "prefix": {
+                  "description": "Prefix indicates a folder/subfolder in the container. For example: mariadb/ or mariadb/backups. A trailing slash '/' is added if not provided.",
+                  "type": "string"
+                },
+                "serviceURL": {
+                  "description": "ServiceURL is the full URL for connecting to Azure, usually in the form: http(s)://\u003caccount\u003e.blob.core.windows.net/.",
+                  "type": "string"
+                },
+                "storageAccountKey": {
+                  "description": "StorageAccountKey is a reference to a Secret key containing the Azure Blob Storage Storage account Key. Pairs with StorageAccountKey for static credential authentication",
+                  "type": "object",
+                  "required": [
+                    "key"
+                  ],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string",
+                      "default": ""
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-map-type": "atomic"
+                },
+                "storageAccountName": {
+                  "description": "StorageAccountName is the name of the storage account. Pairs with StorageAccountKey for static credential authentication",
+                  "type": "string"
+                },
+                "tls": {
+                  "description": "TLS provides the configuration required to establish TLS connections with Azure Blob Storage.",
+                  "type": "object",
+                  "properties": {
+                    "caSecretKeyRef": {
+                      "description": "CASecretKeyRef is a reference to a Secret key containing a CA bundle in PEM format used to establish TLS connections with S3.\nBy default, the system trust chain will be used, but you can use this field to add more CAs to the bundle.",
+                      "type": "object",
+                      "required": [
+                        "key"
+                      ],
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string",
+                          "default": ""
+                        }
+                      },
+                      "additionalProperties": false,
+                      "x-kubernetes-map-type": "atomic"
+                    },
+                    "enabled": {
+                      "description": "Enabled is a flag to enable TLS.",
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
             "backupContentType": {
               "description": "BackupContentType is the backup content type available in the source to bootstrap from.\nIt is inferred based on the BackupRef and VolumeSnapshotRef fields. If inference is not possible, it defaults to Logical.\nSet this field explicitly when using physical backups from S3 or Volume sources.",
               "type": "string",
@@ -375,8 +449,33 @@
               },
               "additionalProperties": false
             },
+            "logLevel": {
+              "description": "LogLevel to be used in the mariadb-operator container of the restoration Job. It defaults to 'info'.",
+              "type": "string",
+              "default": "info",
+              "enum": [
+                "debug",
+                "info",
+                "warn",
+                "error",
+                "dpanic",
+                "panic",
+                "fatal"
+              ]
+            },
+            "pointInTimeRecoveryRef": {
+              "description": "PointInTimeRecoveryRef is a reference to a PointInTimeRecovery object.\nProviding this field implies restoring the PhysicalBackup referenced in the PointInTimeRecovery object and replaying the\narchived binary logs up to the point-in-time restoration target, defined by the targetRecoveryTime field.",
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "default": ""
+                }
+              },
+              "additionalProperties": false
+            },
             "restoreJob": {
-              "description": "RestoreJob defines additional properties for the Job used to perform the restoration.",
+              "description": "RestoreJob defines additional properties for the restoration Job.",
               "type": "object",
               "properties": {
                 "affinity": {
@@ -948,7 +1047,7 @@
               "additionalProperties": false
             },
             "stagingStorage": {
-              "description": "StagingStorage defines the temporary storage used to keep external backups (i.e. S3) while they are being processed.\nIt defaults to an emptyDir volume, meaning that the backups will be temporarily stored in the node where the Job is scheduled.",
+              "description": "StagingStorage defines the temporary storage used to keep external backups and binary logs (i.e. S3) while they are being processed.\nIt defaults to an emptyDir volume, meaning that the backups will be temporarily stored in the node where the Job is scheduled.",
               "type": "object",
               "properties": {
                 "persistentVolumeClaim": {
@@ -1428,6 +1527,10 @@
         "database": {
           "description": "Database is the name of the initial Database.",
           "type": "string"
+        },
+        "enableServiceLinks": {
+          "description": "EnableServiceLinks indicates whether information about services should be injected into pod's\nenvironment variables, matching the syntax of Docker links. Defaults to true if not specified.\nSet to false to disable injection of service link environment variables.",
+          "type": "boolean"
         },
         "env": {
           "description": "Env represents the environment variables to be injected in a container.",
@@ -3453,7 +3556,7 @@
           "additionalProperties": false
         },
         "maxScaleRef": {
-          "description": "MaxScaleRef is a reference to a MaxScale resource to be used with the current MariaDB.\nProviding this field implies delegating high availability tasks such as primary failover to MaxScale.",
+          "description": "MaxScaleRef is a reference to a MaxScale resource to be used with the current MariaDB.\nProviding this reference implies delegating high availability tasks such as primary failover to MaxScale.",
           "type": "object",
           "properties": {
             "name": {
@@ -4400,6 +4503,17 @@
           },
           "additionalProperties": false
         },
+        "pointInTimeRecoveryRef": {
+          "description": "PointInTimeRecoveryRef is a reference to a PointInTimeRecovery resource to be used with the current MariaDB.\nProviding this reference implies configuring binary logs in the MariaDB instance and binary log archival in the sidecar agent.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": ""
+            }
+          },
+          "additionalProperties": false
+        },
         "port": {
           "description": "Port where the instances will be listening for connections.",
           "type": "integer",
@@ -4514,6 +4628,10 @@
             },
             "externalTrafficPolicy": {
               "description": "ExternalTrafficPolicy Service field.",
+              "type": "string"
+            },
+            "loadBalancerClass": {
+              "description": "LoadBalancerClass Service field.",
               "type": "string"
             },
             "loadBalancerIP": {
@@ -6619,6 +6737,10 @@
               "description": "ExternalTrafficPolicy Service field.",
               "type": "string"
             },
+            "loadBalancerClass": {
+              "description": "LoadBalancerClass Service field.",
+              "type": "string"
+            },
             "loadBalancerIP": {
               "description": "LoadBalancerIP Service field.",
               "type": "string"
@@ -6730,6 +6852,10 @@
             },
             "externalTrafficPolicy": {
               "description": "ExternalTrafficPolicy Service field.",
+              "type": "string"
+            },
+            "loadBalancerClass": {
+              "description": "LoadBalancerClass Service field.",
               "type": "string"
             },
             "loadBalancerIP": {
@@ -7303,15 +7429,15 @@
               ],
               "properties": {
                 "group": {
-                  "description": "Group of the resource being referred to.",
+                  "description": "Group of the issuer being referred to.\nDefaults to 'cert-manager.io'.",
                   "type": "string"
                 },
                 "kind": {
-                  "description": "Kind of the resource being referred to.",
+                  "description": "Kind of the issuer being referred to.\nDefaults to 'Issuer'.",
                   "type": "string"
                 },
                 "name": {
-                  "description": "Name of the resource being referred to.",
+                  "description": "Name of the issuer being referred to.",
                   "type": "string"
                 }
               },
@@ -7359,15 +7485,15 @@
               ],
               "properties": {
                 "group": {
-                  "description": "Group of the resource being referred to.",
+                  "description": "Group of the issuer being referred to.\nDefaults to 'cert-manager.io'.",
                   "type": "string"
                 },
                 "kind": {
-                  "description": "Kind of the resource being referred to.",
+                  "description": "Kind of the issuer being referred to.\nDefaults to 'Issuer'.",
                   "type": "string"
                 },
                 "name": {
-                  "description": "Name of the resource being referred to.",
+                  "description": "Name of the issuer being referred to.",
                   "type": "string"
                 }
               },
@@ -7672,6 +7798,137 @@
                 },
                 "additionalProperties": false
               },
+              "ephemeral": {
+                "description": "Refer to the Kubernetes docs: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ephemeralvolumesource-v1-core.",
+                "type": "object",
+                "properties": {
+                  "volumeClaimTemplate": {
+                    "description": "VolumeClaimTemplate defines a template to customize PVC objects.",
+                    "type": "object",
+                    "properties": {
+                      "accessModes": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "x-kubernetes-list-type": "atomic"
+                      },
+                      "metadata": {
+                        "description": "Metadata to be added to the PVC metadata.",
+                        "type": "object",
+                        "properties": {
+                          "annotations": {
+                            "description": "Annotations to be added to children resources.",
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "labels": {
+                            "description": "Labels to be added to children resources.",
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "resources": {
+                        "description": "VolumeResourceRequirements describes the storage resource requirements for a volume.",
+                        "type": "object",
+                        "properties": {
+                          "limits": {
+                            "description": "Limits describes the maximum amount of compute resources allowed.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+                            "type": "object",
+                            "additionalProperties": {
+                              "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "string"
+                                }
+                              ],
+                              "x-kubernetes-int-or-string": true
+                            }
+                          },
+                          "requests": {
+                            "description": "Requests describes the minimum amount of compute resources required.\nIf Requests is omitted for a container, it defaults to Limits if that is explicitly specified,\notherwise to an implementation-defined value. Requests cannot exceed Limits.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+                            "type": "object",
+                            "additionalProperties": {
+                              "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "string"
+                                }
+                              ],
+                              "x-kubernetes-int-or-string": true
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "selector": {
+                        "description": "A label selector is a label query over a set of resources. The result of matchLabels and\nmatchExpressions are ANDed. An empty label selector matches all objects. A null\nlabel selector matches no objects.",
+                        "type": "object",
+                        "properties": {
+                          "matchExpressions": {
+                            "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                            "type": "array",
+                            "items": {
+                              "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                              "type": "object",
+                              "required": [
+                                "key",
+                                "operator"
+                              ],
+                              "properties": {
+                                "key": {
+                                  "description": "key is the label key that the selector applies to.",
+                                  "type": "string"
+                                },
+                                "operator": {
+                                  "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                  "type": "string"
+                                },
+                                "values": {
+                                  "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "x-kubernetes-list-type": "atomic"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "x-kubernetes-list-type": "atomic"
+                          },
+                          "matchLabels": {
+                            "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      },
+                      "storageClassName": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              },
               "hostPath": {
                 "description": "Refer to the Kubernetes docs: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#hostpathvolumesource-v1-core",
                 "type": "object",
@@ -7898,6 +8155,44 @@
                   }
                 }
               }
+            }
+          },
+          "additionalProperties": false
+        },
+        "pointInTimeRecovery": {
+          "description": "PointInTimeRecovery is the status of the point-in-time-recovery process.",
+          "type": "object",
+          "properties": {
+            "gtidStrictModePaused": {
+              "description": "GtidStrictModePaused indicates that gtid_strict_mode has been temporarily paused to replay binlogs.",
+              "type": "boolean"
+            },
+            "lastArchivedBinaryLog": {
+              "description": "LastArchivedBinaryLog is name of the last archived binary log.",
+              "type": "string"
+            },
+            "lastArchivedGtid": {
+              "description": "LastArchivedGtid is the last archived GTID.",
+              "type": "string"
+            },
+            "lastArchivedPosition": {
+              "description": "LastArchivedPosition is the position of last archived binary log event.",
+              "type": "integer",
+              "format": "int32"
+            },
+            "lastArchivedTime": {
+              "description": "LastArchivedTime is the time of the last archived binary log event.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "serverId": {
+              "description": "ServerId identifies the server whose binary logs are being archived.",
+              "type": "integer",
+              "format": "int32"
+            },
+            "storageReadyForArchival": {
+              "description": "StorageReadyForArchival indicates that the storage is ready for archival, meaning that the sidecar agent can start archiving the binary logs.",
+              "type": "boolean"
             }
           },
           "additionalProperties": false
