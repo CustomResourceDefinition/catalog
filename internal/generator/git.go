@@ -176,7 +176,7 @@ func (generator *GitGenerator) Versions() ([]string, error) {
 			return true
 		}
 		if a != b {
-			return a < b
+			return a > b
 		}
 		aa := normalizeVersion(generator.filter.FindAllStringSubmatch(filtered[i], -1))
 		bb := normalizeVersion(generator.filter.FindAllStringSubmatch(filtered[j], -1))

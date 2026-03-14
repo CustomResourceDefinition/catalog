@@ -15,6 +15,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -193,9 +194,10 @@ func setupOciServer(t *testing.T, chart ociChart) (mockServer, func()) {
 }
 
 type gitBundle struct {
-	tag    string
-	branch string
-	paths  []gitPath
+	tag       string
+	branch    string
+	paths     []gitPath
+	timestamp *int64
 }
 
 type gitPath struct {
@@ -272,7 +274,12 @@ func setupGit(t *testing.T, bundles []gitBundle) (*string, error) {
 		}
 
 		if len(bundle.paths) > 0 {
-			err = exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "commit", "--message", "Add bundle").Run()
+			cmd := exec.Command("git", "--git-dir", gitDir, "--work-tree", tmpDir, "commit", "--message", "Add bundle")
+			if bundle.timestamp != nil {
+				date := time.Unix(*bundle.timestamp, 0).Format("2006-01-02T15:04:05Z")
+				cmd.Env = append(os.Environ(), "GIT_AUTHOR_DATE="+date, "GIT_COMMITTER_DATE="+date)
+			}
+			err = cmd.Run()
 			if err != nil {
 				return nil, fmt.Errorf("unable to commit: %w", err)
 			}
