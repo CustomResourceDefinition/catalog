@@ -312,3 +312,31 @@ func TestGitGeneratorVersionsCustomSort(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"2.10.0", "2.2.0", "2.1.0", "1.01.01", "1.0.0"}, versions)
 }
+
+func TestGitGeneratorVersionsSortByTimestamp(t *testing.T) {
+	baseTime := int64(1704000000)
+	newerTime := baseTime + 86400
+
+	bundles := []gitBundle{
+		{tag: "v1.0.0", timestamp: &baseTime, paths: []gitPath{{path: "crds/v1.yaml", file: "testdata/test-crd.yaml"}}},
+		{tag: "v2.0.0", timestamp: &baseTime, paths: []gitPath{{path: "crds/v2.yaml", file: "testdata/test-crd.yaml"}}},
+		{tag: "v3.0.0", timestamp: &newerTime, paths: []gitPath{{path: "crds/v3.yaml", file: "testdata/test-crd.yaml"}}},
+	}
+
+	p, err := setupGit(t, bundles)
+	assert.Nil(t, err)
+	assert.NotNil(t, p)
+
+	config := configuration.Configuration{
+		Kind:       configuration.Git,
+		Repository: fmt.Sprintf("file://%s", *p),
+	}
+
+	filter := regexp.MustCompile(`^v([0-9]+\.[0-9]+\.[0-9]+)$`)
+	generator := NewGitGenerator(config, nil, filter)
+	defer generator.Close()
+
+	versions, err := generator.Versions()
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"v3.0.0", "v2.0.0", "v1.0.0"}, versions)
+}
