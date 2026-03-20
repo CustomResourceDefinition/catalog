@@ -22,6 +22,7 @@
       "properties": {
         "allowedUses": {
           "type": "array",
+          "maxItems": 10,
           "items": {
             "type": "string",
             "enum": [
@@ -43,11 +44,26 @@
         "blockSize": {
           "type": "integer",
           "maximum": 128,
-          "minimum": 0
+          "minimum": 0,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == oldSelf",
+              "message": "Block size cannot be changed; follow IP pool migration guide to avoid corruption.",
+              "reason": "FieldValueInvalid"
+            }
+          ]
         },
         "cidr": {
           "type": "string",
-          "format": "cidr"
+          "format": "cidr",
+          "maxLength": 48,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == oldSelf",
+              "message": "CIDR cannot be changed; follow IP pool migration guide to avoid corruption.",
+              "reason": "FieldValueInvalid"
+            }
+          ]
         },
         "disableBGPExport": {
           "type": "boolean"
@@ -81,7 +97,29 @@
           ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.ipipMode) || !has(self.vxlanMode) || self.ipipMode == 'Never' || self.vxlanMode == 'Never' || size(self.ipipMode) == 0 || size(self.vxlanMode) == 0",
+          "message": "ipipMode and vxlanMode cannot both be enabled",
+          "reason": "FieldValueForbidden"
+        },
+        {
+          "rule": "!has(self.allowedUses) || !self.allowedUses.exists(u, u == 'LoadBalancer') || (!has(self.ipipMode) || size(self.ipipMode) == 0 || self.ipipMode == 'Never') \u0026\u0026 (!has(self.vxlanMode) || size(self.vxlanMode) == 0 || self.vxlanMode == 'Never')",
+          "message": "LoadBalancer IP pool cannot have IPIP or VXLAN enabled",
+          "reason": "FieldValueForbidden"
+        },
+        {
+          "rule": "!has(self.allowedUses) || !self.allowedUses.exists(u, u == 'LoadBalancer') || !self.allowedUses.exists(u, u == 'Workload' || u == 'Tunnel')",
+          "message": "LoadBalancer cannot be combined with Workload or Tunnel allowed uses",
+          "reason": "FieldValueForbidden"
+        },
+        {
+          "rule": "!self.cidr.contains(':') || !has(self.ipipMode) || self.ipipMode == 'Never' || size(self.ipipMode) == 0",
+          "message": "IPIP is not supported on IPv6 pools",
+          "reason": "FieldValueForbidden"
+        }
+      ]
     },
     "status": {
       "type": "object",
