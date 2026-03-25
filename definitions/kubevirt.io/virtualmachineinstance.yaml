@@ -877,6 +877,8 @@ spec:
                               type: string
                             passt:
                               type: object
+                            passtBinding:
+                              type: object
                             pciAddress:
                               type: string
                             ports:
@@ -1036,8 +1038,18 @@ spec:
                             type: object
                           tlbflush:
                             properties:
+                              direct:
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                type: object
                               enabled:
                                 type: boolean
+                              extended:
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                type: object
                             type: object
                           vapic:
                             properties:
@@ -1180,7 +1192,26 @@ spec:
                         - type: string
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
+                      reservedOverhead:
+                        properties:
+                          addedOverhead:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          memLock:
+                            enum:
+                            - NotRequired
+                            - Required
+                            type: string
+                        type: object
                     type: object
+                  rebootPolicy:
+                    enum:
+                    - Reboot
+                    - Terminate
+                    type: string
                   resources:
                     properties:
                       limits:
@@ -1478,6 +1509,26 @@ spec:
                 - topologyKey
                 - whenUnsatisfiable
                 x-kubernetes-list-type: map
+              utilityVolumes:
+                items:
+                  properties:
+                    claimName:
+                      type: string
+                    name:
+                      type: string
+                    readOnly:
+                      type: boolean
+                    type:
+                      type: string
+                  required:
+                  - claimName
+                  - name
+                  type: object
+                maxItems: 256
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               volumes:
                 items:
                   properties:
@@ -1554,6 +1605,25 @@ spec:
                           type: string
                       required:
                       - image
+                      type: object
+                    containerPath:
+                      properties:
+                        path:
+                          maxLength: 4096
+                          type: string
+                          x-kubernetes-validations:
+                          - message: path must be absolute (start with '/')
+                            rule: self.startsWith('/')
+                          - message: path must not contain '..'
+                            rule: '!self.contains(''..'')'
+                        readOnly:
+                          default: true
+                          type: boolean
+                          x-kubernetes-validations:
+                          - message: readOnly must be true, write access is not supported
+                            rule: self == true
+                      required:
+                      - path
                       type: object
                     dataVolume:
                       properties:
@@ -1725,6 +1795,43 @@ spec:
               changedBlockTracking:
                 nullable: true
                 properties:
+                  backupStatus:
+                    nullable: true
+                    properties:
+                      backupMsg:
+                        type: string
+                      backupName:
+                        type: string
+                      checkpointName:
+                        type: string
+                      completed:
+                        type: boolean
+                      endTimestamp:
+                        format: date-time
+                        type: string
+                      failed:
+                        type: boolean
+                      startTimestamp:
+                        format: date-time
+                        type: string
+                      volumes:
+                        items:
+                          properties:
+                            dataEndpoint:
+                              type: string
+                            diskTarget:
+                              type: string
+                            mapEndpoint:
+                              type: string
+                            volumeName:
+                              type: string
+                          required:
+                          - diskTarget
+                          - volumeName
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    type: object
                   state:
                     type: string
                 required:
@@ -1765,57 +1872,6 @@ spec:
                   threads:
                     format: int32
                     type: integer
-                type: object
-              deviceStatus:
-                properties:
-                  gpuStatuses:
-                    items:
-                      properties:
-                        deviceResourceClaimStatus:
-                          properties:
-                            attributes:
-                              properties:
-                                mDevUUID:
-                                  type: string
-                                pciAddress:
-                                  type: string
-                              type: object
-                            name:
-                              type: string
-                            resourceClaimName:
-                              type: string
-                          type: object
-                        name:
-                          type: string
-                      required:
-                      - name
-                      type: object
-                    type: array
-                    x-kubernetes-list-type: atomic
-                  hostDeviceStatuses:
-                    items:
-                      properties:
-                        deviceResourceClaimStatus:
-                          properties:
-                            attributes:
-                              properties:
-                                mDevUUID:
-                                  type: string
-                                pciAddress:
-                                  type: string
-                              type: object
-                            name:
-                              type: string
-                            resourceClaimName:
-                              type: string
-                          type: object
-                        name:
-                          type: string
-                      required:
-                      - name
-                      type: object
-                    type: array
-                    x-kubernetes-list-type: atomic
                 type: object
               evacuationNodeName:
                 type: string
@@ -1903,6 +1959,12 @@ spec:
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   guestRequested:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  memoryOverhead:
                     anyOf:
                     - type: integer
                     - type: string
@@ -2039,6 +2101,9 @@ spec:
                         type: integer
                       unsafeMigrationOverride:
                         type: boolean
+                      utilityVolumesTimeout:
+                        format: int64
+                        type: integer
                     type: object
                   migrationNetworkType:
                     type: string
@@ -2094,6 +2159,12 @@ spec:
                     additionalProperties:
                       type: integer
                     type: object
+                  targetMemoryOverhead:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
                   targetNode:
                     type: string
                   targetNodeAddress:

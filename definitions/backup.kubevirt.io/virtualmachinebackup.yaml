@@ -1,0 +1,135 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (devel)
+  name: virtualmachinebackups.backup.kubevirt.io
+spec:
+  group: backup.kubevirt.io
+  names:
+    kind: VirtualMachineBackup
+    listKind: VirtualMachineBackupList
+    plural: virtualmachinebackups
+    singular: virtualmachinebackup
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              forceFullBackup:
+                type: boolean
+              mode:
+                enum:
+                - Push
+                - Pull
+                type: string
+              pvcName:
+                type: string
+              skipQuiesce:
+                type: boolean
+              source:
+                properties:
+                  apiGroup:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: apiGroup is required
+                  rule: has(self.apiGroup)
+                - message: apiGroup must be kubevirt.io or backup.kubevirt.io
+                  rule: '!has(self.apiGroup) || self.apiGroup == ''kubevirt.io'' ||
+                    self.apiGroup == ''backup.kubevirt.io'''
+                - message: kind must be VirtualMachine for kubevirt.io or VirtualMachineBackupTracker
+                    for backup.kubevirt.io
+                  rule: '!has(self.apiGroup) || (self.apiGroup == ''kubevirt.io''
+                    && self.kind == ''VirtualMachine'') || (self.apiGroup == ''backup.kubevirt.io''
+                    && self.kind == ''VirtualMachineBackupTracker'')'
+                - message: name is required
+                  rule: self.name != ''
+              tokenSecretRef:
+                type: string
+              ttlDuration:
+                type: string
+            required:
+            - source
+            type: object
+            x-kubernetes-validations:
+            - message: spec is immutable after creation
+              rule: self == oldSelf
+            - message: pvcName is required
+              rule: has(self.pvcName) && self.pvcName != ""
+            - message: tokenSecretRef is required when mode is Pull
+              rule: '!has(self.mode) || self.mode != ''Pull'' || (has(self.tokenSecretRef)
+                && self.tokenSecretRef != "")'
+          status:
+            properties:
+              checkpointName:
+                type: string
+              conditions:
+                items:
+                  properties:
+                    lastProbeTime:
+                      format: date-time
+                      nullable: true
+                      type: string
+                    lastTransitionTime:
+                      format: date-time
+                      nullable: true
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
+              endpointCert:
+                type: string
+              includedVolumes:
+                items:
+                  properties:
+                    dataEndpoint:
+                      type: string
+                    diskTarget:
+                      type: string
+                    mapEndpoint:
+                      type: string
+                    volumeName:
+                      type: string
+                  required:
+                  - diskTarget
+                  - volumeName
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
+              type:
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
