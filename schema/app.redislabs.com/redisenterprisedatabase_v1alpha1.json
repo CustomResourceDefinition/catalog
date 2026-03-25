@@ -134,6 +134,18 @@
               "additionalProperties": false,
               "x-kubernetes-preserve-unknown-fields": true
             },
+            "bdb_proxy_cert_expiring_soon": {
+              "description": "Proxy certificate will expire in less than specified threshold value [days]",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "description": "Alert enabled or disabled",
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-preserve-unknown-fields": true
+            },
             "bdb_ram_dataset_overhead": {
               "description": "Dataset RAM overhead of a shard has reached the threshold value [% of its RAM limit] -Note threshold is commented (allow string/int/float and support backwards compatibility) but is required",
               "type": "object",
@@ -205,6 +217,17 @@
               },
               "additionalProperties": false,
               "x-kubernetes-preserve-unknown-fields": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "auditing": {
+          "description": "Database auditing configuration.",
+          "type": "object",
+          "properties": {
+            "dbConnsAuditing": {
+              "description": "Enables auditing of database connection and authentication events.\nWhen enabled, connection, authentication, and disconnection events are tracked and sent\nto the configured audit listener (configured at the cluster level).\nThe cluster-level auditing configuration must be set before enabling this on a database.",
+              "type": "boolean"
             }
           },
           "additionalProperties": false
@@ -406,7 +429,7 @@
           "type": "string"
         },
         "modulesList": {
-          "description": "List of modules associated with the database. The list of valid modules for the specific cluster can be retrieved from the status of the REC object. Use the \"name\" and \"versions\" fields for the specific module configuration. If specifying an explicit version for a module, automatic modules versions upgrade must be disabled by setting the '.upgradeSpec.upgradeModulesToLatest' field in the REC to 'false'. Note that the option to specify module versions is deprecated, and will be removed in future releases.",
+          "description": "List of modules associated with the database. The list of valid modules for the specific cluster can be retrieved from the status of the REC object. Use the \"name\" and \"versions\" fields for the specific module configuration. If specifying an explicit version for a module, automatic modules versions upgrade must be disabled by setting the '.upgradeSpec.upgradeModulesToLatest' field in the REC to 'false'. Note that the option to specify module versions is deprecated, and will be removed in future releases. for Redis version 8 and above, bundled modules are enabled automatically, so there is no need to specify them",
           "type": "array",
           "items": {
             "description": "Redis Enterprise module (see https://redis.io/docs/latest/develop/reference/modules/)",
@@ -432,8 +455,19 @@
           }
         },
         "ossCluster": {
-          "description": "Enables OSS Cluster mode. Note: Not all client libraries support OSS cluster mode.",
+          "description": "Enables OSS cluster mode for this database. By default, advertised database topology includes the internal endpoints (pod IPs) for the Redis Enterprise nodes hosting the database shards. To enable external access, configure ossClusterSettings.enableExternalAccess for this RedisEnterpriseDatabase as well as ossClusterSettings.externalAccessType for the RedisEnterpriseCluster. Note: Not all client libraries support OSS cluster mode.",
           "type": "boolean"
+        },
+        "ossClusterSettings": {
+          "description": "Additional OSS cluster mode settings.",
+          "type": "object",
+          "properties": {
+            "enableExternalAccess": {
+              "description": "Toggles whether this database supports external access in OSS cluster mode. When enabled, advertised database topology includes the external endpoints for the Redis Enterprise nodes hosting the database shards. The external access mechanism (e.g., LoadBalancer services) is configured via the ossClusterSettings.externalAccessType field of the RedisEnterpriseCluster. When external access is enabled, the corresponding database secret will have the list of primary shard IPs in the oss_startup_nodes field. Currently enabling OSS cluster API in conjunction with external access is not supported for active active databases.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
         },
         "persistence": {
           "description": "Database persistence policy for on-disk storage.",
@@ -519,6 +553,12 @@
           "description": "Whether this database supports RESP3 protocol. Note - Deleting this property after explicitly setting its value shall have no effect. Please view the corresponding field in RS doc for more info.",
           "type": "boolean"
         },
+        "rofRamRatio": {
+          "description": "RAM allocation ratio for Redis Flex (v2) databases as a percentage of total data size. Valid range 0-100. When omitted, RS uses the default value of 50%. Controls how much RAM is allocated per unit of data (e.g., 30% means 3MB RAM per 10MB data). RAM grows proportionally with data until rofRamSize limit is reached (if specified). Only applicable when isRof=true and Redis version \u003e= 8.0 (BigStore v2 - Redis Flex).",
+          "type": "integer",
+          "maximum": 100,
+          "minimum": 0
+        },
         "rofRamSize": {
           "description": "The size of the RAM portion of an Auto Tiering (formerly Redis on Flash) database. Similarly to \"memorySize\" use formats like 100MB, 0.1GB. It must be at least 10% of combined memory size (RAM and Flash), as specified by \"memorySize\".",
           "type": "string"
@@ -544,8 +584,12 @@
                 "type": "string"
               },
               "type": {
-                "description": "Type of Redis Enterprise Database Role Permission",
-                "type": "string"
+                "description": "Type of Redis Enterprise Database Role Permission. Currently, only \"redis-enterprise\" is supported, which uses roles and ACLs defined within Redis Enterprise directly.",
+                "type": "string",
+                "default": "redis-enterprise",
+                "enum": [
+                  "redis-enterprise"
+                ]
               }
             },
             "additionalProperties": false
@@ -658,6 +702,10 @@
             }
           },
           "additionalProperties": false
+        },
+        "bigstoreVersion": {
+          "description": "BigStore version for Redis on Flash databases (1 for Auto Tiering, 2 for Redis Flex). Read-only field populated from RS.",
+          "type": "integer"
         },
         "createdTime": {
           "description": "Time when the database was created",
