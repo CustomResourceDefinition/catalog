@@ -866,7 +866,7 @@
                               "type": "string"
                             },
                             "name": {
-                              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nTODO: Add other useful fields. apiVersion, kind, uid?\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names\nTODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.",
+                              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
                               "type": "string",
                               "default": ""
                             },
@@ -936,7 +936,7 @@
                               "type": "string"
                             },
                             "name": {
-                              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nTODO: Add other useful fields. apiVersion, kind, uid?\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names\nTODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.",
+                              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
                               "type": "string",
                               "default": ""
                             },
@@ -986,8 +986,76 @@
                           "SCRAM-SHA-1",
                           "MONGODB-CR",
                           "SCRAM-SHA-256",
-                          "LDAP"
+                          "LDAP",
+                          "OIDC"
                         ]
+                      }
+                    },
+                    "oidcProviderConfigs": {
+                      "description": "Configuration for OIDC providers",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "audience",
+                          "authorizationMethod",
+                          "authorizationType",
+                          "configurationName",
+                          "issuerURI",
+                          "userClaim"
+                        ],
+                        "properties": {
+                          "audience": {
+                            "description": "Entity that your external identity provider intends the token for.\nEnter the audience value from the app you registered with external Identity Provider.",
+                            "type": "string"
+                          },
+                          "authorizationMethod": {
+                            "description": "Configure single-sign-on for human user access to deployments with Workforce Identity Federation.\nFor programmatic, application access to deployments use Workload Identity Federation.\nOnly one Workforce Identity Federation IdP can be configured per MongoDB resource",
+                            "type": "string",
+                            "enum": [
+                              "WorkforceIdentityFederation",
+                              "WorkloadIdentityFederation"
+                            ]
+                          },
+                          "authorizationType": {
+                            "description": "Select GroupMembership to grant authorization based on IdP user group membership, or select UserID to grant\nan individual user authorization.",
+                            "type": "string",
+                            "enum": [
+                              "GroupMembership",
+                              "UserID"
+                            ]
+                          },
+                          "clientId": {
+                            "description": "Unique identifier for your registered application. Enter the clientId value from the app you\nregistered with an external Identity Provider.\nRequired when selected Workforce Identity Federation authorization method",
+                            "type": "string"
+                          },
+                          "configurationName": {
+                            "description": "Unique label that identifies this configuration. It is case-sensitive and can only contain the following characters:\n - alphanumeric characters (combination of a to z and 0 to 9)\n - hyphens (-)\n - underscores (_)",
+                            "type": "string",
+                            "pattern": "^[a-zA-Z0-9-_]+$"
+                          },
+                          "groupsClaim": {
+                            "description": "The identifier of the claim that includes the principal's IdP user group membership information.\nRequired when selected GroupMembership as the authorization type, ignored otherwise",
+                            "type": "string"
+                          },
+                          "issuerURI": {
+                            "description": "Issuer value provided by your registered IdP application. Using this URI, MongoDB finds an OpenID Connect Provider\nConfiguration Document, which should be available in the /.wellknown/open-id-configuration endpoint.\nFor MongoDB 8.0+, the combination of issuerURI and audience must be unique across OIDC provider configurations.\nFor other MongoDB versions, the issuerURI itself must be unique.",
+                            "type": "string"
+                          },
+                          "requestedScopes": {
+                            "description": "Tokens that give users permission to request data from the authorization endpoint.\nOnly used for Workforce Identity Federation authorization method",
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "userClaim": {
+                            "description": "The identifier of the claim that includes the user principal identity.\nAccept the default value unless your IdP uses a different claim.",
+                            "type": "string",
+                            "default": "sub"
+                          }
+                        },
+                        "additionalProperties": false
                       }
                     },
                     "requireClientTLSAuthentication": {
@@ -999,6 +1067,28 @@
                 },
                 "certsSecretPrefix": {
                   "type": "string"
+                },
+                "roleRefs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "name"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "ClusterMongoDBRole"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
                 },
                 "roles": {
                   "type": "array",
@@ -1114,7 +1204,13 @@
                   "additionalProperties": false
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!(has(self.roles) \u0026\u0026 has(self.roleRefs)) || !(self.roles.size() \u003e 0 \u0026\u0026 self.roleRefs.size() \u003e 0)",
+                  "message": "At most one of roles or roleRefs can be non-empty"
+                }
+              ]
             },
             "service": {
               "description": "this is an optional service, it will get the name \"\u003crsName\u003e-svc\" in case not provided",
@@ -1423,7 +1519,7 @@
                           "type": "string"
                         },
                         "name": {
-                          "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nTODO: Add other useful fields. apiVersion, kind, uid?\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names\nTODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.",
+                          "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
                           "type": "string",
                           "default": ""
                         },
@@ -1469,6 +1565,10 @@
                   },
                   "name": {
                     "type": "string"
+                  },
+                  "objectLockEnabled": {
+                    "description": "ObjectLockEnabled indicates whether S3 Object Lock is enabled for the bucket.\nThis should be enabled to leverage Immutable Backups.",
+                    "type": "boolean"
                   },
                   "pathStyleAccessEnabled": {
                     "type": "boolean"
@@ -1536,7 +1636,7 @@
                           "type": "string"
                         },
                         "name": {
-                          "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nTODO: Add other useful fields. apiVersion, kind, uid?\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names\nTODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.",
+                          "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
                           "type": "string",
                           "default": ""
                         },
@@ -1582,6 +1682,10 @@
                   },
                   "name": {
                     "type": "string"
+                  },
+                  "objectLockEnabled": {
+                    "description": "ObjectLockEnabled indicates whether S3 Object Lock is enabled for the bucket.\nThis should be enabled to leverage Immutable Backups.",
+                    "type": "boolean"
                   },
                   "pathStyleAccessEnabled": {
                     "type": "boolean"
@@ -1663,12 +1767,16 @@
             "description": "ClusterSpecOMItem defines members cluster details for Ops Manager multi-cluster deployment.",
             "type": "object",
             "required": [
+              "clusterName",
               "members"
             ],
             "properties": {
               "backup": {
                 "description": "Backup contains settings to override from top-level `spec.backup` for this member cluster.\nIf the value is not set here, then the value is taken from `spec.backup`.",
                 "type": "object",
+                "required": [
+                  "members"
+                ],
                 "properties": {
                   "assignmentLabels": {
                     "description": "Assignment Labels set in the Ops Manager",
@@ -1747,7 +1855,7 @@
                 "format": "hostname"
               },
               "clusterName": {
-                "description": "ClusterName is name of the cluster where the Ops Manager Statefulset will be scheduled.\nThe operator is using ClusterName to find API credentials in `mongodb-enterprise-operator-member-list` config map to use for this member cluster.\nIf the credentials are not found, then the member cluster is considered unreachable and ignored in the reconcile process.",
+                "description": "ClusterName is name of the cluster where the Ops Manager Statefulset will be scheduled.\nThe operator is using ClusterName to find API credentials in `mongodb-kubernetes-operator-member-list` config map to use for this member cluster.\nIf the credentials are not found, then the member cluster is considered unreachable and ignored in the reconcile process.",
                 "type": "string"
               },
               "configuration": {
