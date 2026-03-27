@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.51% | 3486 | 10171 | 94 |
+| 99.43% | 3494 | 10171 | 94 |
 
 ### Missing Schemas
 
@@ -28,6 +28,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
 
+| holmesgpt.dev | |
+| --- | --- |
+| healthcheck | v1alpha1 |
+| scheduledhealthcheck | v1alpha1 |
+
 | infrastructure.cluster.x-k8s.io | |
 | --- | --- |
 | devcluster | v1beta1 |
@@ -36,6 +41,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | networking.gke.io | |
 | --- | --- |
+| fqdnnetworkpolicy | v1alpha1 |
 | gcproutingextension | v1 |
 | gcptrafficextension | v1 |
 | gcpwasmplugin | v1 |
