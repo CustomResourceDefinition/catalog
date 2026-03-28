@@ -155,11 +155,15 @@ func (builder Builder) renderVersion(logger io.Writer, version string) error {
 	schemas := builder.extractSchemas(logger, crds)
 
 	if len(crds) > 0 {
-		builder.writeDefinitions(crds)
+		if err := builder.writeDefinitions(crds); err != nil {
+			return err
+		}
 	}
 
 	if len(schemas) > 0 {
-		builder.writeSchemas(schemas)
+		if err := builder.writeSchemas(schemas); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -191,7 +195,7 @@ func (builder Builder) extractSchemas(logger io.Writer, crds []crd.Crd) []crd.Cr
 	return schemas
 }
 
-func (builder Builder) writeDefinitions(crds []crd.Crd) {
+func (builder Builder) writeDefinitions(crds []crd.Crd) error {
 	fmt.Fprintf(builder.logger, " - - rendered %d definitions.\n", len(crds))
 	var startTime time.Time
 	var duration time.Duration
@@ -203,16 +207,17 @@ func (builder Builder) writeDefinitions(crds []crd.Crd) {
 			startTime = loopStart
 		}
 		if err := os.WriteFile(file, crd.Bytes, 0644); err != nil {
-			return
+			return err
 		}
 		duration += time.Since(loopStart)
 	}
 	if len(crds) > 0 {
 		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "definitions", duration, true, startTime)
 	}
+	return nil
 }
 
-func (builder Builder) writeSchemas(schemas []crd.CrdSchema) {
+func (builder Builder) writeSchemas(schemas []crd.CrdSchema) error {
 	fmt.Fprintf(builder.logger, " - - rendered %d schema.\n", len(schemas))
 	var startTime time.Time
 	var duration time.Duration
@@ -224,13 +229,14 @@ func (builder Builder) writeSchemas(schemas []crd.CrdSchema) {
 			startTime = loopStart
 		}
 		if err := os.WriteFile(file, schema.Bytes, 0644); err != nil {
-			return
+			return err
 		}
 		duration += time.Since(loopStart)
 	}
 	if len(schemas) > 0 {
 		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "schemas", duration, true, startTime)
 	}
+	return nil
 }
 
 func (builder Builder) Stats() *timing.Stats {
