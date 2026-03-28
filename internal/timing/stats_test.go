@@ -93,7 +93,7 @@ func TestCalculatePercentiles(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, time.Duration(77.5*float64(time.Second)), result[0.75])
 	assert.Equal(t, time.Duration(91*float64(time.Second)), result[0.90])
-	assert.Equal(t, time.Duration(95.5*float64(time.Second)), result[0.95])
+	assert.InDelta(t, time.Duration(95.5*float64(time.Second)), result[0.95], 0.001)
 }
 
 func TestCalculatePercentilesEmpty(t *testing.T) {
