@@ -13,8 +13,12 @@ on:
       - registry.yaml
   workflow_dispatch:
     inputs:
-      reset:
+      reset-registry:
         description: Space-separated source keys to remove from registry.yaml
+        default: ""
+        type: string
+      reset-paths:
+        description: Space-separated directories to remove from schema and definitions
         default: ""
         type: string
 
@@ -40,12 +44,23 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Optionally remove sources from registry
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.reset != ''
+      - name: Optionally reset source registry
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.reset-registry != ''
         run: |
-          for key in ${{ github.event.inputs.reset }}; do
-            yq "del(.sources[\"$key\"])" registry.yaml -i
+          for key in ${{ github.event.inputs.reset-registry }}; do
+            yq "del(.sources[\"$key\"])" registry.yaml -i || true
           done
+
+      - name: Optionally remove paths
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.reset-paths != ''
+        run: |
+          cd schema
+          rm -rf ${{ github.event.inputs.reset-paths }} || true
+          cd -
+
+          cd definitions
+          rm -rf ${{ github.event.inputs.reset-paths }} || true
+          cd -
 
       - name: Create token
         id: app-token
