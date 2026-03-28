@@ -13,33 +13,34 @@ import (
 type Category string
 
 const (
-	CategoryHTTP       Category = "http"
+	CategoryGeneration Category = "generation"
 	CategoryGit        Category = "git"
 	CategoryHelm       Category = "helm"
-	CategoryOCI        Category = "oci"
-	CategoryGeneration Category = "generation"
+	CategoryHTTP       Category = "http"
 	CategoryMisc       Category = "misc"
+	CategoryOCI        Category = "oci"
 )
 
 type OperationType string
 
 const (
-	OperationTypeFetch     OperationType = "fetch"
-	OperationTypeGenerate  OperationType = "generate"
-	OperationTypeDownload  OperationType = "download"
-	OperationTypeRender    OperationType = "render"
 	OperationTypeAPIFetch  OperationType = "api_fetch"
-	OperationTypeClone     OperationType = "clone"
+	OperationTypeAuth      OperationType = "auth"
+	OperationTypeBranches  OperationType = "branches"
 	OperationTypeCheckout  OperationType = "checkout"
+	OperationTypeClone     OperationType = "clone"
+	OperationTypeDownload  OperationType = "download"
+	OperationTypeFetch     OperationType = "fetch"
+	OperationTypeGC        OperationType = "gc"
+	OperationTypeGenerate  OperationType = "generate"
+	OperationTypeIndex     OperationType = "index"
+	OperationTypePull      OperationType = "pull"
+	OperationTypeRender    OperationType = "render"
+	OperationTypeStatus    OperationType = "status"
 	OperationTypeSubmodule OperationType = "submodule"
 	OperationTypeTags      OperationType = "tags"
-	OperationTypeBranches  OperationType = "branches"
-	OperationTypeWrite     OperationType = "write"
-	OperationTypeStatus    OperationType = "status"
 	OperationTypeUpdate    OperationType = "update"
-	OperationTypePull      OperationType = "pull"
-	OperationTypeAuth      OperationType = "auth"
-	OperationTypeIndex     OperationType = "index"
+	OperationTypeWrite     OperationType = "write"
 )
 
 type Operation struct {

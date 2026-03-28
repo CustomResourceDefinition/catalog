@@ -103,7 +103,7 @@ func (builder Builder) Build() error {
 	for _, version := range versions {
 		start := time.Now()
 		runtime.GC()
-		builder.stats.Record(timing.CategoryMisc, timing.OperationTypeUpdate, "gc", time.Since(start), true, start)
+		builder.stats.Record(timing.CategoryMisc, timing.OperationTypeGC, "gc", time.Since(start), true, start)
 
 		if err := builder.renderVersion(logger, version); err != nil {
 			continue
