@@ -192,33 +192,35 @@ func (builder Builder) extractSchemas(logger io.Writer, crds []crd.Crd) []crd.Cr
 
 func (builder Builder) writeDefinitions(crds []crd.Crd) {
 	fmt.Fprintf(builder.logger, " - - rendered %d definitions.\n", len(crds))
-	var writeDuration time.Duration
+	var duration time.Duration
 	for _, crd := range crds {
 		file := path.Join(builder.definitionRepository, crd.Filepath())
 		os.MkdirAll(path.Dir(file), 0755)
+		start := time.Now()
 		if err := os.WriteFile(file, crd.Bytes, 0644); err != nil {
 			return
 		}
-		writeDuration += time.Second
+		duration += time.Since(start)
 	}
 	if len(crds) > 0 {
-		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "definitions", writeDuration, true)
+		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "definitions", duration, true)
 	}
 }
 
 func (builder Builder) writeSchemas(schemas []crd.CrdSchema) {
 	fmt.Fprintf(builder.logger, " - - rendered %d schema.\n", len(schemas))
-	schemaWriteDuration := time.Duration(0)
+	var duration time.Duration
 	for _, schema := range schemas {
 		file := path.Join(builder.generatedRepository, schema.Filepath())
 		os.MkdirAll(path.Dir(file), 0755)
+		start := time.Now()
 		if err := os.WriteFile(file, schema.Bytes, 0644); err != nil {
 			return
 		}
-		schemaWriteDuration += time.Second
+		duration += time.Since(start)
 	}
 	if len(schemas) > 0 {
-		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "schemas", schemaWriteDuration, true)
+		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "schemas", duration, true)
 	}
 }
 

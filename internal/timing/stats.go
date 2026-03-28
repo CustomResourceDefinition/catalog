@@ -3,6 +3,8 @@ package timing
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -60,6 +62,8 @@ type Stats struct {
 	totalTime  time.Duration
 	totalOps   int
 	mu         sync.RWMutex
+	logFile    *os.File
+	logMu      sync.Mutex
 }
 
 var contextKey = struct{}{}
@@ -77,6 +81,26 @@ func FromContext(ctx context.Context) (*Stats, bool) {
 
 func WithContext(ctx context.Context, stats *Stats) context.Context {
 	return context.WithValue(ctx, contextKey, stats)
+}
+
+func (s *Stats) OpenLogFile(path string) error {
+	if path == "" {
+		return nil
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	s.logFile = f
+	return nil
+}
+
+func (s *Stats) CloseLogFile() {
+	if s.logFile != nil {
+		s.logFile.Close()
+		s.logFile = nil
+	}
 }
 
 func (s *Stats) Record(category Category, opType OperationType, name string, duration time.Duration, success bool) {
@@ -103,6 +127,23 @@ func (s *Stats) Record(category Category, opType OperationType, name string, dur
 		Success:   success,
 		StartTime: time.Now().Add(-duration),
 	})
+
+	if s.logFile != nil {
+		successStr := "success"
+		if !success {
+			successStr = "failure"
+		}
+		s.logMu.Lock()
+		defer s.logMu.Unlock()
+		fmt.Fprintf(s.logFile, "%s %s %s %s %s (%s)\n",
+			time.Now().Format(time.RFC3339),
+			category,
+			opType,
+			name,
+			formatDuration(duration),
+			successStr,
+		)
+	}
 }
 
 func (s *Stats) RecordFunc(category Category, opType OperationType, name string, success bool, fn func() error) error {
@@ -172,31 +213,6 @@ func calculatePercentiles(durations []float64, ps []float64) map[float64]time.Du
 	return result
 }
 
-func findWorst(durations []float64) (int, time.Duration) {
-	if len(durations) == 0 {
-		return -1, 0
-	}
-
-	maxIdx := 0
-	maxVal := durations[0]
-	for i, v := range durations {
-		if v > maxVal {
-			maxVal = v
-			maxIdx = i
-		}
-	}
-	return maxIdx, time.Duration(maxVal * float64(time.Second))
-}
-
-func sanitizeName(name string) string {
-	name = strings.ReplaceAll(name, "/", "_")
-	name = strings.ReplaceAll(name, ":", "_")
-	name = strings.ReplaceAll(name, ".", "_")
-	name = strings.ReplaceAll(name, "-", "_")
-	name = strings.ReplaceAll(name, " ", "_")
-	return name
-}
-
 func formatDuration(d time.Duration) string {
 	if d < time.Millisecond {
 		return fmt.Sprintf("%.0fµs", float64(d.Microseconds()))
@@ -218,12 +234,12 @@ func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%.1fh", h)
 }
 
-func (s *Stats) PrintSummary() {
+func (s *Stats) PrintSummary(writer io.Writer) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	fmt.Printf("\n=== Update Statistics ===\n\n")
-	fmt.Printf("Overall: %s (%d operations)\n\n", formatDuration(s.totalTime), s.totalOps)
+	fmt.Fprintf(writer, "\n=== Update Statistics ===\n\n")
+	fmt.Fprintf(writer, "Overall: %s (%d operations)\n\n", formatDuration(s.totalTime), s.totalOps)
 
 	categoryOrder := []Category{CategoryHTTP, CategoryGit, CategoryHelm, CategoryOCI, CategoryGeneration, CategoryMisc}
 
@@ -247,7 +263,7 @@ func (s *Stats) PrintSummary() {
 			typeStats[op.Type] = append(typeStats[op.Type], op.Duration)
 		}
 
-		fmt.Printf("%s:\n", strings.ToUpper(string(cat)[:1])+string(cat)[1:])
+		fmt.Fprintf(writer, "%s:\n", strings.ToUpper(string(cat)[:1])+string(cat)[1:])
 
 		for opType, durations := range typeStats {
 			if len(durations) == 0 {
@@ -264,31 +280,21 @@ func (s *Stats) PrintSummary() {
 			percs := calculatePercentiles(durationsSecs, []float64{0.75, 0.90, 0.95})
 
 			typeLabel := string(opType)
-			fmt.Printf("  %-10s %4d operations  total: %s",
+			fmt.Fprintf(writer, "  %-10s %4d operations  total: %s",
 				typeLabel+":",
 				len(durations),
 				formatDuration(total),
 			)
 
 			if len(percs) > 0 {
-				fmt.Printf("  p75: %s  p90: %s  p95: %s",
+				fmt.Fprintf(writer, "  p75: %s  p90: %s  p95: %s",
 					formatDuration(percs[0.75]),
 					formatDuration(percs[0.90]),
 					formatDuration(percs[0.95]),
 				)
 			}
-			fmt.Println()
-
-			worstIdx, worstDur := findWorst(durationsSecs)
-			if worstIdx >= 0 {
-				for _, op := range ops {
-					if op.Type == opType && op.Duration == worstDur {
-						fmt.Printf("  Worst:   %s (%s)\n", op.Name, formatDuration(worstDur))
-						break
-					}
-				}
-			}
+			fmt.Fprintln(writer)
 		}
-		fmt.Println()
+		fmt.Fprintln(writer)
 	}
 }

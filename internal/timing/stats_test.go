@@ -2,6 +2,9 @@ package timing
 
 import (
 	"context"
+	"io"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -152,42 +155,6 @@ func TestCalculatePercentilesSingle(t *testing.T) {
 	assert.Equal(t, 50*time.Second, result[0.95])
 }
 
-func TestFindWorst(t *testing.T) {
-	durations := []float64{10, 20, 30, 40, 50}
-
-	idx, dur := findWorst(durations)
-
-	assert.Equal(t, 4, idx)
-	assert.Equal(t, 50*time.Second, dur)
-}
-
-func TestFindWorstEmpty(t *testing.T) {
-	idx, dur := findWorst([]float64{})
-
-	assert.Equal(t, -1, idx)
-	assert.Zero(t, dur)
-}
-
-func TestSanitizeName(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"simple", "simple"},
-		{"with/slash", "with_slash"},
-		{"with:colon", "with_colon"},
-		{"with.dot", "with_dot"},
-		{"with-dash", "with_dash"},
-		{"with space", "with_space"},
-		{"mixed/slash:colon.dash-dash", "mixed_slash_colon_dash_dash"},
-	}
-
-	for _, tt := range tests {
-		result := sanitizeName(tt.input)
-		assert.Equal(t, tt.expected, result, "input: %s", tt.input)
-	}
-}
-
 func TestFormatDuration(t *testing.T) {
 	tests := []struct {
 		input    time.Duration
@@ -215,7 +182,7 @@ func TestFormatDuration(t *testing.T) {
 func TestPrintSummaryEmpty(t *testing.T) {
 	s := NewStats()
 
-	s.PrintSummary()
+	s.PrintSummary(io.Discard)
 }
 
 func TestPrintSummaryWithData(t *testing.T) {
@@ -227,7 +194,7 @@ func TestPrintSummaryWithData(t *testing.T) {
 	s.Record(CategoryGit, OperationTypeClone, "repo1", 100*time.Millisecond, true)
 	s.Record(CategoryGit, OperationTypeClone, "repo2", 200*time.Millisecond, true)
 
-	s.PrintSummary()
+	s.PrintSummary(io.Discard)
 }
 
 func TestPrintSummaryAllCategories(t *testing.T) {
@@ -240,7 +207,7 @@ func TestPrintSummaryAllCategories(t *testing.T) {
 	s.Record(CategoryGeneration, OperationTypeWrite, "gen-op", 50*time.Millisecond, true)
 	s.Record(CategoryMisc, OperationTypeUpdate, "misc-op", 60*time.Millisecond, true)
 
-	s.PrintSummary()
+	s.PrintSummary(io.Discard)
 }
 
 func TestRecordDuration(t *testing.T) {
@@ -271,4 +238,63 @@ func TestConcurrentRecording(t *testing.T) {
 
 	assert.Equal(t, 100, s.TotalOperations())
 	assert.Len(t, s.GetCategoryStats(CategoryHTTP), 100)
+}
+
+func TestOpenLogFileEmpty(t *testing.T) {
+	s := NewStats()
+
+	err := s.OpenLogFile("")
+	assert.NoError(t, err)
+	assert.Nil(t, s.logFile)
+}
+
+func TestOpenLogFile(t *testing.T) {
+	s := NewStats()
+
+	tmpFile := t.TempDir() + "/perf.log"
+	err := s.OpenLogFile(tmpFile)
+	assert.NoError(t, err)
+	assert.NotNil(t, s.logFile)
+
+	s.CloseLogFile()
+
+	_, err = os.Stat(tmpFile)
+	assert.NoError(t, err)
+}
+
+func TestOpenLogFileThenRecord(t *testing.T) {
+	s := NewStats()
+
+	tmpFile := t.TempDir() + "/perf.log"
+	err := s.OpenLogFile(tmpFile)
+	assert.NoError(t, err)
+
+	s.Record(CategoryHTTP, OperationTypeFetch, "test-op", 100*time.Millisecond, true)
+	s.CloseLogFile()
+
+	content, err := os.ReadFile(tmpFile)
+	assert.NoError(t, err)
+	assert.Contains(t, string(content), "http")
+	assert.Contains(t, string(content), "fetch")
+	assert.Contains(t, string(content), "test-op")
+}
+
+func TestOpenLogFileInvalidPath(t *testing.T) {
+	s := NewStats()
+
+	err := s.OpenLogFile("/invalid/path/that/does/not/exist/perf.log")
+	assert.Error(t, err)
+}
+
+func TestPrintSummaryWriter(t *testing.T) {
+	s := NewStats()
+
+	s.Record(CategoryHTTP, OperationTypeFetch, "op1", 10*time.Millisecond, true)
+
+	var buf strings.Builder
+	s.PrintSummary(&buf)
+
+	assert.Contains(t, buf.String(), "Update Statistics")
+	assert.Contains(t, buf.String(), "Overall:")
+	assert.Contains(t, buf.String(), "Http:")
 }

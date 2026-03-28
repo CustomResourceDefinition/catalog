@@ -55,12 +55,14 @@ func parse(args []string, logger io.Writer) (command.Command, error) {
 		schema := cmd.String("output", "", "Path of directory for openapi schema output files")
 		definitions := cmd.String("definitions", "", "Path of directory for definition output files")
 		registry := cmd.String("registry", "", "Path to registry file for tracking source versions")
+		performance := cmd.String("performance-log", "", "Path to performance log file")
 		cmd.SetOutput(logger)
 		err := cmd.Parse(args[2:])
 		if err != nil {
 			return nil, err
 		}
-		return command.NewUpdater(*configuration, *schema, *definitions, *registry, logger, cmd), nil
+		updater := command.NewUpdater(*configuration, *schema, *definitions, *registry, *performance, logger, cmd)
+		return updater, nil
 	case commandVerify:
 		cmd := flag.NewFlagSet(commandVerify, flag.ContinueOnError)
 		schema := cmd.String("schema", "", "Path of jsonschema file to use")

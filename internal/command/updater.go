@@ -23,16 +23,18 @@ type Updater struct {
 	reader                             crd.CrdReader
 	registry                           *registry.SourceRegistry
 	registryPath                       string
+	performanceLog                     string
 }
 
-func NewUpdater(configuration, schema, definitions, registryPath string, logger io.Writer, flags *flag.FlagSet) Updater {
+func NewUpdater(configuration, schema, definitions, registryPath, performancePath string, logger io.Writer, flags *flag.FlagSet) Updater {
 	return Updater{
-		flags:         flags,
-		Configuration: configuration,
-		Schema:        schema,
-		Definitions:   definitions,
-		registryPath:  registryPath,
-		Logger:        logger,
+		flags:          flags,
+		Configuration:  configuration,
+		Schema:         schema,
+		Definitions:    definitions,
+		registryPath:   registryPath,
+		Logger:         logger,
+		performanceLog: performancePath,
 	}
 }
 
@@ -71,6 +73,11 @@ func (cmd Updater) Run() error {
 
 	totalStats := timing.NewStats()
 
+	if err := totalStats.OpenLogFile(cmd.performanceLog); err != nil {
+		return fmt.Errorf("failed to open performance log: %w", err)
+	}
+	defer totalStats.CloseLogFile()
+
 	for _, config := range splitConfigurations(configurations) {
 		runtime.GC()
 
@@ -100,7 +107,7 @@ func (cmd Updater) Run() error {
 		}
 	}
 
-	totalStats.PrintSummary()
+	totalStats.PrintSummary(cmd.Logger)
 
 	return merge(tmpDir, cmd.Schema)
 }

@@ -17,7 +17,7 @@ func TestRun(t *testing.T) {
 	server, config, tmpDir := setup(t)
 	defer server.Close()
 
-	updater := NewUpdater(config, tmpDir, tmpDir, "", bytes.NewBuffer([]byte{}), nil)
+	updater := NewUpdater(config, tmpDir, tmpDir, "", "", bytes.NewBuffer([]byte{}), nil)
 
 	err := updater.Run()
 	assert.Nil(t, err)
@@ -221,7 +221,7 @@ func TestRunWithRegistryLoadError(t *testing.T) {
 	registryPath := path.Join(tmpDir, "registry.yaml")
 	os.WriteFile(registryPath, []byte("invalid: yaml: content:"), 0644)
 
-	updater := NewUpdater(unused, tmpDir, tmpDir, registryPath, bytes.NewBuffer([]byte{}), nil)
+	updater := NewUpdater(unused, tmpDir, tmpDir, registryPath, "", bytes.NewBuffer([]byte{}), nil)
 
 	err := updater.Run()
 	assert.NotNil(t, err)
@@ -236,7 +236,7 @@ func TestRunWithRegistrySavesUpdates(t *testing.T) {
 	initialContent := "sources: {}\n"
 	os.WriteFile(registryPath, []byte(initialContent), 0664)
 
-	updater := NewUpdater(config, tmpDir, tmpDir, registryPath, bytes.NewBuffer([]byte{}), nil)
+	updater := NewUpdater(config, tmpDir, tmpDir, registryPath, "", bytes.NewBuffer([]byte{}), nil)
 
 	err := updater.Run()
 	assert.Nil(t, err)
@@ -269,7 +269,7 @@ func TestRunWithRegistryRemovesStaleEntries(t *testing.T) {
 `
 	os.WriteFile(registryPath, []byte(initialContent), 0664)
 
-	updater := NewUpdater(config, tmpDir, tmpDir, registryPath, bytes.NewBuffer([]byte{}), nil)
+	updater := NewUpdater(config, tmpDir, tmpDir, registryPath, "", bytes.NewBuffer([]byte{}), nil)
 
 	err := updater.Run()
 	assert.Nil(t, err)
@@ -287,7 +287,7 @@ func TestRunWithRegistryRemovesStaleEntries(t *testing.T) {
 func TestCheckLocal(t *testing.T) {
 	output := "../../build/ephemeral/schema"
 	config := "../../build/configuration.yaml"
-	updater := NewUpdater(config, output, output, "", nil, nil)
+	updater := NewUpdater(config, output, output, "", "", nil, nil)
 
 	err := updater.Run()
 	assert.Nil(t, err)
@@ -321,13 +321,17 @@ func TestRunAggregatesStats(t *testing.T) {
 	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
 
 	output := bytes.NewBuffer([]byte{})
-	updater := NewUpdater(config, tmpDir, tmpDir, "", output, nil)
+	updater := NewUpdater(config, tmpDir, tmpDir, "", "", output, nil)
 
 	err = updater.Run()
 	assert.Nil(t, err)
 
 	outStr := output.String()
-	assert.NotEmpty(t, outStr)
+	assert.Contains(t, outStr, "Update Statistics")
+	assert.Contains(t, outStr, "Overall:")
+	assert.Contains(t, outStr, "operations")
+	assert.Contains(t, outStr, "Http:")
+	assert.Contains(t, outStr, "api_fetch")
 }
 
 func TestRunWithMultipleConfigsAggregatesStats(t *testing.T) {
@@ -366,8 +370,53 @@ func TestRunWithMultipleConfigsAggregatesStats(t *testing.T) {
 	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
 
 	output := bytes.NewBuffer([]byte{})
-	updater := NewUpdater(config, tmpDir, tmpDir, "", output, nil)
+	updater := NewUpdater(config, tmpDir, tmpDir, "", "", output, nil)
 
 	err = updater.Run()
 	assert.Nil(t, err)
+
+	outStr := output.String()
+	assert.Contains(t, outStr, "Overall:")
+	assert.Contains(t, outStr, "api_fetch")
+}
+
+func TestRunWithPerformanceLog(t *testing.T) {
+	b, err := os.ReadFile("testdata/updater/multiple.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	template := `
+- apiGroups:
+    - chart.uri
+  crds:
+    - baseUri: {{ server }}
+      paths:
+        - chart-1.0.0.yaml
+      version: 1.0.0
+  kind: http
+  name: http
+`
+	tmpDir := t.TempDir()
+
+	config := path.Join(tmpDir, "config.yaml")
+	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
+
+	logPath := path.Join(tmpDir, "perf.log")
+
+	output := bytes.NewBuffer([]byte{})
+	updater := NewUpdater(config, tmpDir, tmpDir, "", logPath, output, nil)
+
+	err = updater.Run()
+	assert.Nil(t, err)
+
+	perfContent, err := os.ReadFile(logPath)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, string(perfContent))
+	assert.Contains(t, string(perfContent), "http")
+	assert.Contains(t, string(perfContent), "api_fetch")
 }
