@@ -3,6 +3,7 @@ package timing
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -187,14 +188,24 @@ func calculatePercentiles(durations []float64, ps []float64) map[float64]time.Du
 
 	result := make(map[float64]time.Duration)
 	for _, p := range ps {
-		idx := int(float64(len(sorted)) * p)
-		if idx >= len(sorted) {
-			idx = len(sorted) - 1
+		rank := p * float64(len(sorted)-1)
+		lower := int(math.Floor(rank))
+		upper := int(math.Ceil(rank))
+
+		if lower >= len(sorted) {
+			lower = len(sorted) - 1
 		}
-		if idx < 0 {
-			idx = 0
+		if upper >= len(sorted) {
+			upper = len(sorted) - 1
 		}
-		result[p] = time.Duration(sorted[idx] * float64(time.Second))
+
+		if lower == upper {
+			result[p] = time.Duration(sorted[lower] * float64(time.Second))
+		} else {
+			fraction := rank - float64(lower)
+			interpolated := sorted[lower] + (sorted[upper]-sorted[lower])*fraction
+			result[p] = time.Duration(interpolated * float64(time.Second))
+		}
 	}
 	return result
 }

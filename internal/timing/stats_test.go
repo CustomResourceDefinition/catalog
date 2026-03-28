@@ -91,9 +91,9 @@ func TestCalculatePercentiles(t *testing.T) {
 	result := calculatePercentiles(durations, []float64{0.75, 0.90, 0.95})
 
 	assert.NotNil(t, result)
-	assert.Equal(t, 80*time.Second, result[0.75])
-	assert.Equal(t, 100*time.Second, result[0.90])
-	assert.Equal(t, 100*time.Second, result[0.95])
+	assert.Equal(t, time.Duration(77.5*float64(time.Second)), result[0.75])
+	assert.Equal(t, time.Duration(91*float64(time.Second)), result[0.90])
+	assert.Equal(t, time.Duration(95.5*float64(time.Second)), result[0.95])
 }
 
 func TestCalculatePercentilesEmpty(t *testing.T) {
@@ -108,6 +108,23 @@ func TestCalculatePercentilesSingle(t *testing.T) {
 	assert.Equal(t, 50*time.Second, result[0.75])
 	assert.Equal(t, 50*time.Second, result[0.90])
 	assert.Equal(t, 50*time.Second, result[0.95])
+}
+
+func TestCalculatePercentilesComprehensive(t *testing.T) {
+	durations := make([]float64, 100)
+	for i := range 100 {
+		durations[i] = float64(i + 1)
+	}
+
+	result := calculatePercentiles(durations, []float64{0.01, 0.25, 0.50, 0.75, 0.95, 0.99})
+
+	assert.NotNil(t, result)
+	assert.Equal(t, time.Duration(1.99*float64(time.Second)), result[0.01])
+	assert.Equal(t, time.Duration(25.75*float64(time.Second)), result[0.25])
+	assert.Equal(t, time.Duration(50.5*float64(time.Second)), result[0.50])
+	assert.Equal(t, time.Duration(75.25*float64(time.Second)), result[0.75])
+	assert.Equal(t, time.Duration(95.05*float64(time.Second)), result[0.95])
+	assert.Equal(t, time.Duration(99.01*float64(time.Second)), result[0.99])
 }
 
 func TestFormatDuration(t *testing.T) {
