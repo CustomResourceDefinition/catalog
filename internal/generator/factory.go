@@ -71,9 +71,9 @@ func (builder Builder) Build() error {
 	}
 	defer fmt.Fprintf(logger, "End.\n")
 
-	stop := builder.stats.RecordDuration(timing.CategoryMisc, timing.OperationTypeStatus, "registry_status")
+	start := time.Now()
 	latestVersion, isUpdated, err := builder.registryStatus()
-	stop()
+	builder.stats.Record(timing.CategoryMisc, timing.OperationTypeStatus, "registry_status", time.Since(start), err == nil, start)
 	if err != nil {
 		return err
 	}
@@ -103,15 +103,16 @@ func (builder Builder) Build() error {
 	for _, version := range versions {
 		start := time.Now()
 		runtime.GC()
-		builder.stats.Record(timing.CategoryMisc, timing.OperationTypeUpdate, "gc", time.Since(start), true)
+		builder.stats.Record(timing.CategoryMisc, timing.OperationTypeUpdate, "gc", time.Since(start), true, start)
 
 		if err := builder.renderVersion(logger, version); err != nil {
 			continue
 		}
 	}
 
-	defer builder.stats.RecordDuration(timing.CategoryMisc, timing.OperationTypeUpdate, "update_registry")()
+	start = time.Now()
 	builder.updateRegistry(latestVersion)
+	builder.stats.Record(timing.CategoryMisc, timing.OperationTypeUpdate, "update_registry", time.Since(start), true, start)
 
 	return nil
 }
@@ -120,7 +121,7 @@ func (builder Builder) fetchVersions(logger io.Writer) ([]string, error) {
 	start := time.Now()
 	versions, err := builder.generator.Versions()
 	cat := builder.operationCategory()
-	builder.stats.Record(cat, timing.OperationTypeAPIFetch, "versions", time.Since(start), err == nil)
+	builder.stats.Record(cat, timing.OperationTypeAPIFetch, "versions", time.Since(start), err == nil, start)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +135,7 @@ func (builder Builder) fetchMetadata(logger io.Writer, latestVersion string) ([]
 	start := time.Now()
 	metadata, err := builder.generator.MetaData(latestVersion)
 	cat := builder.operationCategory()
-	builder.stats.Record(cat, timing.OperationTypeAPIFetch, "metadata", time.Since(start), err == nil)
+	builder.stats.Record(cat, timing.OperationTypeAPIFetch, "metadata", time.Since(start), err == nil, start)
 	if err != nil {
 		fmt.Fprintf(logger, " ! failed: %s\n", err.Error())
 		return nil, err
@@ -168,7 +169,7 @@ func (builder Builder) generateCrds(logger io.Writer, version string) ([]crd.Crd
 	start := time.Now()
 	crds, err := builder.generator.Crds(version)
 	cat := builder.operationCategory()
-	builder.stats.Record(cat, timing.OperationTypeGenerate, fmt.Sprintf("crds_%s", version), time.Since(start), err == nil)
+	builder.stats.Record(cat, timing.OperationTypeGenerate, fmt.Sprintf("crds_%s", version), time.Since(start), err == nil, start)
 	return crds, err
 }
 
@@ -192,35 +193,43 @@ func (builder Builder) extractSchemas(logger io.Writer, crds []crd.Crd) []crd.Cr
 
 func (builder Builder) writeDefinitions(crds []crd.Crd) {
 	fmt.Fprintf(builder.logger, " - - rendered %d definitions.\n", len(crds))
+	var startTime time.Time
 	var duration time.Duration
-	for _, crd := range crds {
+	for i, crd := range crds {
 		file := path.Join(builder.definitionRepository, crd.Filepath())
 		os.MkdirAll(path.Dir(file), 0755)
-		start := time.Now()
+		loopStart := time.Now()
+		if i == 0 {
+			startTime = loopStart
+		}
 		if err := os.WriteFile(file, crd.Bytes, 0644); err != nil {
 			return
 		}
-		duration += time.Since(start)
+		duration += time.Since(loopStart)
 	}
 	if len(crds) > 0 {
-		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "definitions", duration, true)
+		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "definitions", duration, true, startTime)
 	}
 }
 
 func (builder Builder) writeSchemas(schemas []crd.CrdSchema) {
 	fmt.Fprintf(builder.logger, " - - rendered %d schema.\n", len(schemas))
+	var startTime time.Time
 	var duration time.Duration
-	for _, schema := range schemas {
+	for i, schema := range schemas {
 		file := path.Join(builder.generatedRepository, schema.Filepath())
 		os.MkdirAll(path.Dir(file), 0755)
-		start := time.Now()
+		loopStart := time.Now()
+		if i == 0 {
+			startTime = loopStart
+		}
 		if err := os.WriteFile(file, schema.Bytes, 0644); err != nil {
 			return
 		}
-		duration += time.Since(start)
+		duration += time.Since(loopStart)
 	}
 	if len(schemas) > 0 {
-		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "schemas", duration, true)
+		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "schemas", duration, true, startTime)
 	}
 }
 

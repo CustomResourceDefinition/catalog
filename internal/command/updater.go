@@ -94,12 +94,12 @@ func (cmd Updater) Run() error {
 		}
 
 		stats := build.Stats()
-		for _, cat := range []timing.Category{timing.CategoryHTTP, timing.CategoryGit, timing.CategoryHelm, timing.CategoryOCI, timing.CategoryGeneration, timing.CategoryMisc} {
-			for _, op := range stats.GetCategoryStats(cat) {
-				totalStats.Record(op.Category, op.Type, op.Name, op.Duration, op.Success)
-			}
+		for _, op := range stats.GetAllStats() {
+			totalStats.Record(op.Category, op.Type, op.Name, op.Duration, op.Success, op.StartTime)
 		}
 	}
+
+	totalStats.Flush()
 
 	if cmd.registry != nil && cmd.registryPath != "" {
 		if err := cmd.registry.Save(cmd.registryPath); err != nil {
