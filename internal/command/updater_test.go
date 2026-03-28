@@ -100,6 +100,33 @@ func TestSplittingConfiguration(t *testing.T) {
 	}
 }
 
+func TestValidSourceKeys(t *testing.T) {
+	assert.Empty(t, validSourceKeys(nil))
+	assert.Empty(t, validSourceKeys([]configuration.Configuration{}))
+
+	configs := []configuration.Configuration{{Name: "foo"}}
+	keys := validSourceKeys(configs)
+	assert.True(t, keys["foo"])
+	assert.Len(t, keys, 1)
+
+	configs = []configuration.Configuration{{Name: "bar", Entries: []string{"a", "b"}}}
+	keys = validSourceKeys(configs)
+	assert.True(t, keys["bar.a"])
+	assert.True(t, keys["bar.b"])
+	assert.Len(t, keys, 2)
+
+	configs = []configuration.Configuration{
+		{Name: "single"},
+		{Name: "multi", Entries: []string{"x", "y", "z"}},
+	}
+	keys = validSourceKeys(configs)
+	assert.True(t, keys["single"])
+	assert.True(t, keys["multi.x"])
+	assert.True(t, keys["multi.y"])
+	assert.True(t, keys["multi.z"])
+	assert.Len(t, keys, 4)
+}
+
 func TestReadConfiguration(t *testing.T) {
 	_, err := readConfiguration("testdata/does-not.exist")
 	assert.NotNil(t, err)
@@ -219,6 +246,41 @@ func TestRunWithRegistrySavesUpdates(t *testing.T) {
 	assert.NotEqual(t, initialContent, string(content))
 	assert.Contains(t, string(content), "http")
 	assert.Contains(t, string(content), "1.0.0")
+}
+
+func TestRunWithRegistryRemovesStaleEntries(t *testing.T) {
+	server, config, tmpDir := setup(t)
+	defer server.Close()
+
+	registryPath := path.Join(tmpDir, "registry.yaml")
+	initialContent := `sources:
+  http:
+    kind: http
+    version: 1.0.0
+    lastUpdated: "2026-01-01T00:00:00Z"
+  stale1:
+    kind: helm
+    version: v1.0.0
+    lastUpdated: "2026-01-01T00:00:00Z"
+  stale2:
+    kind: git
+    version: v1.0.0
+    lastUpdated: "2026-01-01T00:00:00Z"
+`
+	os.WriteFile(registryPath, []byte(initialContent), 0664)
+
+	updater := NewUpdater(config, tmpDir, tmpDir, registryPath, bytes.NewBuffer([]byte{}), nil)
+
+	err := updater.Run()
+	assert.Nil(t, err)
+
+	content, err := os.ReadFile(registryPath)
+	assert.Nil(t, err)
+
+	assert.Contains(t, string(content), "http")
+	assert.Contains(t, string(content), "1.0.0")
+	assert.NotContains(t, string(content), "stale1")
+	assert.NotContains(t, string(content), "stale2")
 }
 
 // Test is skipped during unit testing and meant for step-debugging a local check

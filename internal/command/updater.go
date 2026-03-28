@@ -52,6 +52,16 @@ func (cmd Updater) Run() error {
 		return err
 	}
 
+	if cmd.registry != nil {
+		validKeys := validSourceKeys(configurations)
+		for key := range cmd.registry.Sources {
+			if !validKeys[key] {
+				delete(cmd.registry.Sources, key)
+				fmt.Fprintf(cmd.Logger, "Removing stale registry entry: %s\n", key)
+			}
+		}
+	}
+
 	tmpDir, err := os.MkdirTemp("", "output")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
@@ -152,6 +162,14 @@ func splitConfigurations(configurations []configuration.Configuration) []configu
 	}
 
 	return updated
+}
+
+func validSourceKeys(configs []configuration.Configuration) map[string]bool {
+	valid := make(map[string]bool)
+	for _, cfg := range splitConfigurations(configs) {
+		valid[cfg.Name] = true
+	}
+	return valid
 }
 
 // merge will move created files in generated into the schema repository,
