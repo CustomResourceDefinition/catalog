@@ -71,6 +71,18 @@ func (builder Builder) Build() error {
 	}
 	defer fmt.Fprintf(logger, "End.\n")
 
+	buildStart := time.Now()
+	defer func() {
+		builder.stats.Record(
+			timing.CategoryMisc,
+			timing.OperationTypeUpdate,
+			fmt.Sprintf("build_%s", builder.config.Name),
+			time.Since(buildStart),
+			true,
+			buildStart,
+		)
+	}()
+
 	start := time.Now()
 	latestVersion, isUpdated, err := builder.registryStatus()
 	builder.stats.Record(timing.CategoryMisc, timing.OperationTypeStatus, "registry_status", time.Since(start), err == nil, start)
