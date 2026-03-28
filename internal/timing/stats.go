@@ -81,14 +81,14 @@ func (s *Stats) OpenLogFile(path string) error {
 }
 
 func (s *Stats) CloseLogFile() {
-	s.Flush()
+	s.flush()
 	if s.logFile != nil {
 		s.logFile.Close()
 		s.logFile = nil
 	}
 }
 
-func (s *Stats) Flush() {
+func (s *Stats) flush() {
 	if s.logFile == nil {
 		return
 	}

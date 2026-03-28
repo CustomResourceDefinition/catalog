@@ -99,8 +99,6 @@ func (cmd Updater) Run() error {
 		}
 	}
 
-	totalStats.Flush()
-
 	if cmd.registry != nil && cmd.registryPath != "" {
 		if err := cmd.registry.Save(cmd.registryPath); err != nil {
 			fmt.Fprintf(cmd.Logger, "::warning:: failed to save registry: %v\n", err)
