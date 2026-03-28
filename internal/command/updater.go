@@ -13,6 +13,7 @@ import (
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/CustomResourceDefinition/catalog/internal/generator"
 	"github.com/CustomResourceDefinition/catalog/internal/registry"
+	"github.com/CustomResourceDefinition/catalog/internal/timing"
 )
 
 type Updater struct {
@@ -22,16 +23,18 @@ type Updater struct {
 	reader                             crd.CrdReader
 	registry                           *registry.SourceRegistry
 	registryPath                       string
+	performanceLog                     string
 }
 
-func NewUpdater(configuration, schema, definitions, registryPath string, logger io.Writer, flags *flag.FlagSet) Updater {
+func NewUpdater(configuration, schema, definitions, registryPath, performancePath string, logger io.Writer, flags *flag.FlagSet) Updater {
 	return Updater{
-		flags:         flags,
-		Configuration: configuration,
-		Schema:        schema,
-		Definitions:   definitions,
-		registryPath:  registryPath,
-		Logger:        logger,
+		flags:          flags,
+		Configuration:  configuration,
+		Schema:         schema,
+		Definitions:    definitions,
+		registryPath:   registryPath,
+		Logger:         logger,
+		performanceLog: performancePath,
 	}
 }
 
@@ -68,6 +71,13 @@ func (cmd Updater) Run() error {
 	}
 	defer os.RemoveAll(tmpDir)
 
+	totalStats := timing.NewStats()
+
+	if err := totalStats.OpenLogFile(cmd.performanceLog); err != nil {
+		return fmt.Errorf("failed to open performance log: %w", err)
+	}
+	defer totalStats.CloseLogFile()
+
 	for _, config := range splitConfigurations(configurations) {
 		runtime.GC()
 
@@ -82,6 +92,11 @@ func (cmd Updater) Run() error {
 			fmt.Fprintf(cmd.Logger, "::warning:: build of %s failed: %v\n", config.Name, err)
 			continue
 		}
+
+		stats := build.Stats()
+		for _, op := range stats.GetAllStats() {
+			totalStats.Record(op.Category, op.Type, op.Name, op.Duration, op.Success, op.StartTime)
+		}
 	}
 
 	if cmd.registry != nil && cmd.registryPath != "" {
@@ -89,6 +104,8 @@ func (cmd Updater) Run() error {
 			fmt.Fprintf(cmd.Logger, "::warning:: failed to save registry: %v\n", err)
 		}
 	}
+
+	totalStats.PrintSummary(cmd.Logger)
 
 	return merge(tmpDir, cmd.Schema)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/CustomResourceDefinition/catalog/internal/registry"
+	"github.com/CustomResourceDefinition/catalog/internal/timing"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -380,4 +381,90 @@ func TestBuildRunsWhenChanged(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "http", entry.Kind)
 	assert.Equal(t, "1.0.0", entry.Version)
+}
+
+func TestBuildRecordsStats(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"chart.uri"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "1.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
+	assert.Nil(t, err)
+
+	assert.NotNil(t, builder.Stats())
+
+	err = builder.Build()
+	assert.Nil(t, err)
+
+	stats := builder.Stats()
+	assert.Greater(t, stats.TotalOperations(), 0)
+	assert.Greater(t, int(stats.TotalTime()), 0)
+
+	httpOps := stats.GetCategoryStats(timing.CategoryHTTP)
+	assert.NotNil(t, httpOps)
+	assert.NotEmpty(t, httpOps)
+
+	genOps := stats.GetCategoryStats(timing.CategoryGeneration)
+	assert.NotNil(t, genOps)
+	assert.NotEmpty(t, genOps)
+}
+
+func TestOperationCategory(t *testing.T) {
+	tests := []struct {
+		kind     configuration.Kind
+		expected timing.Category
+	}{
+		{kind: configuration.Git, expected: timing.CategoryGit},
+		{kind: configuration.Http, expected: timing.CategoryHTTP},
+		{kind: configuration.Helm, expected: timing.CategoryHelm},
+		{kind: configuration.HelmOci, expected: timing.CategoryOCI},
+		{kind: configuration.Kind("unknown"), expected: timing.CategoryMisc},
+	}
+
+	for _, tt := range tests {
+		config := configuration.Configuration{
+			Kind:      tt.kind,
+			Name:      "test",
+			Downloads: []configuration.ConfigurationDownload{{Version: "1.0.0"}},
+		}
+
+		builder := &Builder{config: config}
+		result := builder.operationCategory()
+		assert.Equal(t, tt.expected, result, "kind: %s", tt.kind)
+	}
+}
+
+func TestStatsInitialized(t *testing.T) {
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		Downloads: []configuration.ConfigurationDownload{{Version: "1.0.0"}},
+	}
+
+	builder, err := NewBuilder(config, nil, "-", "-", "-", nil, nil)
+	assert.Nil(t, err)
+	assert.NotNil(t, builder.stats)
 }
