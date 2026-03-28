@@ -13,6 +13,7 @@ import (
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/CustomResourceDefinition/catalog/internal/generator"
 	"github.com/CustomResourceDefinition/catalog/internal/registry"
+	"github.com/CustomResourceDefinition/catalog/internal/timing"
 )
 
 type Updater struct {
@@ -68,6 +69,8 @@ func (cmd Updater) Run() error {
 	}
 	defer os.RemoveAll(tmpDir)
 
+	totalStats := timing.NewStats()
+
 	for _, config := range splitConfigurations(configurations) {
 		runtime.GC()
 
@@ -82,6 +85,13 @@ func (cmd Updater) Run() error {
 			fmt.Fprintf(cmd.Logger, "::warning:: build of %s failed: %v\n", config.Name, err)
 			continue
 		}
+
+		stats := build.Stats()
+		for _, cat := range []timing.Category{timing.CategoryHTTP, timing.CategoryGit, timing.CategoryHelm, timing.CategoryOCI, timing.CategoryGeneration, timing.CategoryMisc} {
+			for _, op := range stats.GetCategoryStats(cat) {
+				totalStats.Record(op.Category, op.Type, op.Name, op.Duration, op.Success)
+			}
+		}
 	}
 
 	if cmd.registry != nil && cmd.registryPath != "" {
@@ -89,6 +99,8 @@ func (cmd Updater) Run() error {
 			fmt.Fprintf(cmd.Logger, "::warning:: failed to save registry: %v\n", err)
 		}
 	}
+
+	totalStats.PrintSummary()
 
 	return merge(tmpDir, cmd.Schema)
 }

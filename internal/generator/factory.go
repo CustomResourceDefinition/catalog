@@ -8,10 +8,12 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"time"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
 	"github.com/CustomResourceDefinition/catalog/internal/registry"
+	"github.com/CustomResourceDefinition/catalog/internal/timing"
 )
 
 type Builder struct {
@@ -22,6 +24,7 @@ type Builder struct {
 	config               configuration.Configuration
 	generator            Generator
 	registry             *registry.SourceRegistry
+	stats                *timing.Stats
 }
 
 func NewBuilder(
@@ -44,6 +47,7 @@ func NewBuilder(
 		generatedRepository:  generatedRepository,
 		definitionRepository: definitionRepository,
 		registry:             reg,
+		stats:                timing.NewStats(),
 	}, nil
 }
 
@@ -62,13 +66,14 @@ func (builder Builder) Build() error {
 	logger := builder.logger
 
 	fmt.Fprintf(logger, "Producing for %s@%s:\n", builder.config.Name, builder.config.Kind)
-	defer fmt.Fprintf(logger, "End.\n")
-
 	if _, ok := builder.generator.(*PreparedGitGenerator); ok {
 		fmt.Fprintf(logger, " - using prepared git generator\n")
 	}
+	defer fmt.Fprintf(logger, "End.\n")
 
+	stop := builder.stats.RecordDuration(timing.CategoryMisc, timing.OperationTypeStatus, "registry_status")
 	latestVersion, isUpdated, err := builder.registryStatus()
+	stop()
 	if err != nil {
 		return err
 	}
@@ -77,17 +82,13 @@ func (builder Builder) Build() error {
 		return nil
 	}
 
-	versions, err := builder.generator.Versions()
+	versions, err := builder.fetchVersions(logger)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(logger, " - found %d versions.\n", len(versions))
-	slices.Reverse(versions)
 
-	fmt.Fprintf(logger, " - checking version %s for completeness.\n", latestVersion)
-	metadata, err := builder.generator.MetaData(latestVersion)
+	metadata, err := builder.fetchMetadata(logger, latestVersion)
 	if err != nil {
-		fmt.Fprintf(logger, " ! failed: %s\n", err.Error())
 		return err
 	}
 
@@ -100,54 +101,143 @@ func (builder Builder) Build() error {
 	}
 
 	for _, version := range versions {
+		start := time.Now()
 		runtime.GC()
+		builder.stats.Record(timing.CategoryMisc, timing.OperationTypeUpdate, "gc", time.Since(start), true)
 
-		fmt.Fprintf(logger, " - render version %s.\n", version)
-		crds, err := builder.generator.Crds(version)
-		if err != nil {
-			fmt.Fprintf(logger, " - - discarded due to error: %s.\n", err.Error())
+		if err := builder.renderVersion(logger, version); err != nil {
 			continue
-		}
-
-		schemas := make([]crd.CrdSchema, 0)
-		valid := true
-		for _, c := range crds {
-			schema, err := c.Schema()
-			if err != nil {
-				fmt.Fprintf(logger, " - - discarding due to error: %s.\n", err.Error())
-				valid = false
-			}
-			schemas = append(schemas, schema...)
-		}
-		if !valid {
-			fmt.Fprintf(logger, " - - discarded.\n")
-			continue
-		}
-
-		fmt.Fprintf(logger, " - - rendered %d definitions.\n", len(crds))
-		for _, crd := range crds {
-			file := path.Join(builder.definitionRepository, crd.Filepath())
-			os.MkdirAll(path.Dir(file), 0755)
-			err := os.WriteFile(file, crd.Bytes, 0644)
-			if err != nil {
-				return err
-			}
-		}
-
-		fmt.Fprintf(logger, " - - rendered %d schema.\n", len(schemas))
-		for _, schema := range schemas {
-			file := path.Join(builder.generatedRepository, schema.Filepath())
-			os.MkdirAll(path.Dir(file), 0755)
-			err := os.WriteFile(file, schema.Bytes, 0644)
-			if err != nil {
-				return err
-			}
 		}
 	}
 
+	defer builder.stats.RecordDuration(timing.CategoryMisc, timing.OperationTypeUpdate, "update_registry")()
 	builder.updateRegistry(latestVersion)
 
 	return nil
+}
+
+func (builder Builder) fetchVersions(logger io.Writer) ([]string, error) {
+	start := time.Now()
+	versions, err := builder.generator.Versions()
+	cat := builder.operationCategory()
+	builder.stats.Record(cat, timing.OperationTypeAPIFetch, "versions", time.Since(start), err == nil)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(logger, " - found %d versions.\n", len(versions))
+	slices.Reverse(versions)
+	return versions, nil
+}
+
+func (builder Builder) fetchMetadata(logger io.Writer, latestVersion string) ([]crd.CrdMetaSchema, error) {
+	fmt.Fprintf(logger, " - checking version %s for completeness.\n", latestVersion)
+	start := time.Now()
+	metadata, err := builder.generator.MetaData(latestVersion)
+	cat := builder.operationCategory()
+	builder.stats.Record(cat, timing.OperationTypeAPIFetch, "metadata", time.Since(start), err == nil)
+	if err != nil {
+		fmt.Fprintf(logger, " ! failed: %s\n", err.Error())
+		return nil, err
+	}
+	return metadata, nil
+}
+
+func (builder Builder) renderVersion(logger io.Writer, version string) error {
+	fmt.Fprintf(logger, " - render version %s.\n", version)
+
+	crds, err := builder.generateCrds(logger, version)
+	if err != nil {
+		fmt.Fprintf(logger, " - - discarded due to error: %s.\n", err.Error())
+		return err
+	}
+
+	schemas := builder.extractSchemas(logger, crds)
+
+	if len(crds) > 0 {
+		builder.writeDefinitions(crds)
+	}
+
+	if len(schemas) > 0 {
+		builder.writeSchemas(schemas)
+	}
+
+	return nil
+}
+
+func (builder Builder) generateCrds(logger io.Writer, version string) ([]crd.Crd, error) {
+	start := time.Now()
+	crds, err := builder.generator.Crds(version)
+	cat := builder.operationCategory()
+	builder.stats.Record(cat, timing.OperationTypeGenerate, fmt.Sprintf("crds_%s", version), time.Since(start), err == nil)
+	return crds, err
+}
+
+func (builder Builder) extractSchemas(logger io.Writer, crds []crd.Crd) []crd.CrdSchema {
+	schemas := make([]crd.CrdSchema, 0)
+	valid := true
+	for _, c := range crds {
+		schema, err := c.Schema()
+		if err != nil {
+			fmt.Fprintf(logger, " - - discarding due to error: %s.\n", err.Error())
+			valid = false
+		}
+		schemas = append(schemas, schema...)
+	}
+	if !valid {
+		fmt.Fprintf(logger, " - - discarded.\n")
+		return nil
+	}
+	return schemas
+}
+
+func (builder Builder) writeDefinitions(crds []crd.Crd) {
+	fmt.Fprintf(builder.logger, " - - rendered %d definitions.\n", len(crds))
+	var writeDuration time.Duration
+	for _, crd := range crds {
+		file := path.Join(builder.definitionRepository, crd.Filepath())
+		os.MkdirAll(path.Dir(file), 0755)
+		if err := os.WriteFile(file, crd.Bytes, 0644); err != nil {
+			return
+		}
+		writeDuration += time.Second
+	}
+	if len(crds) > 0 {
+		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "definitions", writeDuration, true)
+	}
+}
+
+func (builder Builder) writeSchemas(schemas []crd.CrdSchema) {
+	fmt.Fprintf(builder.logger, " - - rendered %d schema.\n", len(schemas))
+	schemaWriteDuration := time.Duration(0)
+	for _, schema := range schemas {
+		file := path.Join(builder.generatedRepository, schema.Filepath())
+		os.MkdirAll(path.Dir(file), 0755)
+		if err := os.WriteFile(file, schema.Bytes, 0644); err != nil {
+			return
+		}
+		schemaWriteDuration += time.Second
+	}
+	if len(schemas) > 0 {
+		builder.stats.Record(timing.CategoryGeneration, timing.OperationTypeWrite, "schemas", schemaWriteDuration, true)
+	}
+}
+
+func (builder Builder) Stats() *timing.Stats {
+	return builder.stats
+}
+
+func (builder Builder) operationCategory() timing.Category {
+	switch builder.config.Kind {
+	case configuration.Git:
+		return timing.CategoryGit
+	case configuration.Http:
+		return timing.CategoryHTTP
+	case configuration.Helm:
+		return timing.CategoryHelm
+	case configuration.HelmOci:
+		return timing.CategoryOCI
+	}
+	return timing.CategoryMisc
 }
 
 // registryStatus reports on the state in registry based on the latest version

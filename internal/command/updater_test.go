@@ -293,3 +293,81 @@ func TestCheckLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, false, "this test should always be skipped and/or ignored")
 }
+
+func TestRunAggregatesStats(t *testing.T) {
+	b, err := os.ReadFile("testdata/updater/multiple.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	template := `
+- apiGroups:
+    - chart.uri
+  crds:
+    - baseUri: {{ server }}
+      paths:
+        - chart-1.0.0.yaml
+      version: 1.0.0
+  kind: http
+  name: http
+`
+	tmpDir := t.TempDir()
+
+	config := path.Join(tmpDir, "config.yaml")
+	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
+
+	output := bytes.NewBuffer([]byte{})
+	updater := NewUpdater(config, tmpDir, tmpDir, "", output, nil)
+
+	err = updater.Run()
+	assert.Nil(t, err)
+
+	outStr := output.String()
+	assert.NotEmpty(t, outStr)
+}
+
+func TestRunWithMultipleConfigsAggregatesStats(t *testing.T) {
+	b, err := os.ReadFile("testdata/updater/multiple.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	template := `
+- apiGroups:
+    - chart.uri
+  crds:
+    - baseUri: {{ server }}
+      paths:
+        - chart-1.0.0.yaml
+      version: 1.0.0
+  kind: http
+  name: http1
+- apiGroups:
+    - chart.uri
+  crds:
+    - baseUri: {{ server }}
+      paths:
+        - chart-1.0.0.yaml
+      version: 1.0.0
+  kind: http
+  name: http2
+`
+	tmpDir := t.TempDir()
+
+	config := path.Join(tmpDir, "config.yaml")
+	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
+
+	output := bytes.NewBuffer([]byte{})
+	updater := NewUpdater(config, tmpDir, tmpDir, "", output, nil)
+
+	err = updater.Run()
+	assert.Nil(t, err)
+}
