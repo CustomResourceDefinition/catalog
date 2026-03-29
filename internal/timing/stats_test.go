@@ -1,7 +1,6 @@
 package timing
 
 import (
-	"io"
 	"os"
 	"strings"
 	"sync"
@@ -21,14 +20,14 @@ func TestNewStats(t *testing.T) {
 func TestRecord(t *testing.T) {
 	s := NewStats()
 
-	s.Record(CategoryHTTP, OperationTypeFetch, "test-op", 100*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "test-op", 100*time.Millisecond, true, time.Now())
 
 	assert.Equal(t, 1, s.TotalOperations())
 	assert.Equal(t, 100*time.Millisecond, s.TotalTime())
 
 	ops := s.GetCategoryStats(CategoryHTTP)
 	assert.Len(t, ops, 1)
-	assert.Equal(t, OperationTypeFetch, ops[0].Type)
+	assert.Equal(t, OperationTypeAPIFetch, ops[0].Type)
 	assert.Equal(t, "test-op", ops[0].Name)
 	assert.Equal(t, 100*time.Millisecond, ops[0].Duration)
 	assert.True(t, ops[0].Success)
@@ -37,9 +36,9 @@ func TestRecord(t *testing.T) {
 func TestRecordMultipleCategories(t *testing.T) {
 	s := NewStats()
 
-	s.Record(CategoryHTTP, OperationTypeFetch, "http-op", 50*time.Millisecond, true, time.Now())
-	s.Record(CategoryGit, OperationTypeClone, "git-op", 100*time.Millisecond, true, time.Now())
-	s.Record(CategoryHelm, OperationTypeDownload, "helm-op", 75*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "http-op", 50*time.Millisecond, true, time.Now())
+	s.Record(CategoryGit, OperationTypeWrite, "git-op", 100*time.Millisecond, true, time.Now())
+	s.Record(CategoryHelm, OperationTypeGenerate, "helm-op", 75*time.Millisecond, true, time.Now())
 
 	assert.Equal(t, 3, s.TotalOperations())
 	assert.Equal(t, 225*time.Millisecond, s.TotalTime())
@@ -52,9 +51,9 @@ func TestRecordMultipleCategories(t *testing.T) {
 func TestRecordMultipleOperationsSameCategory(t *testing.T) {
 	s := NewStats()
 
-	s.Record(CategoryHTTP, OperationTypeFetch, "op1", 10*time.Millisecond, true, time.Now())
-	s.Record(CategoryHTTP, OperationTypeFetch, "op2", 20*time.Millisecond, true, time.Now())
-	s.Record(CategoryHTTP, OperationTypeFetch, "op3", 30*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "op1", 10*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "op2", 20*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "op3", 30*time.Millisecond, true, time.Now())
 
 	ops := s.GetCategoryStats(CategoryHTTP)
 	assert.Len(t, ops, 3)
@@ -63,7 +62,7 @@ func TestRecordMultipleOperationsSameCategory(t *testing.T) {
 func TestRecordFailure(t *testing.T) {
 	s := NewStats()
 
-	s.Record(CategoryHTTP, OperationTypeFetch, "failed-op", 100*time.Millisecond, false, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "failed-op", 100*time.Millisecond, false, time.Now())
 
 	ops := s.GetCategoryStats(CategoryHTTP)
 	assert.Len(t, ops, 1)
@@ -79,7 +78,7 @@ func TestGetCategoryStatsEmpty(t *testing.T) {
 
 func TestGetCategoryStatsUnknownCategory(t *testing.T) {
 	s := NewStats()
-	s.Record(CategoryHTTP, OperationTypeFetch, "test", 100*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "test", 100*time.Millisecond, true, time.Now())
 
 	ops := s.GetCategoryStats(CategoryOCI)
 	assert.Nil(t, ops)
@@ -154,43 +153,63 @@ func TestFormatDuration(t *testing.T) {
 func TestPrintSummaryEmpty(t *testing.T) {
 	s := NewStats()
 
-	s.PrintSummary(io.Discard)
+	var buf strings.Builder
+	s.PrintSummary(&buf)
+
+	assert.Contains(t, buf.String(), "### Statistics")
+	assert.Contains(t, buf.String(), "**Overall:** 0µs (0 operations)")
 }
 
 func TestPrintSummaryWithData(t *testing.T) {
 	s := NewStats()
 
-	s.Record(CategoryHTTP, OperationTypeFetch, "op1", 10*time.Millisecond, true, time.Now())
-	s.Record(CategoryHTTP, OperationTypeFetch, "op2", 20*time.Millisecond, true, time.Now())
-	s.Record(CategoryHTTP, OperationTypeFetch, "op3", 30*time.Millisecond, true, time.Now())
-	s.Record(CategoryGit, OperationTypeClone, "repo1", 100*time.Millisecond, true, time.Now())
-	s.Record(CategoryGit, OperationTypeClone, "repo2", 200*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "op1", 10*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "op2", 20*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "op3", 30*time.Millisecond, true, time.Now())
+	s.Record(CategoryGit, OperationTypeGenerate, "repo1", 100*time.Millisecond, true, time.Now())
+	s.Record(CategoryGit, OperationTypeGenerate, "repo2", 200*time.Millisecond, true, time.Now())
 
-	s.PrintSummary(io.Discard)
+	var buf strings.Builder
+	s.PrintSummary(&buf)
+
+	assert.Contains(t, buf.String(), "### Statistics")
+	assert.Contains(t, buf.String(), "**Overall:** 360ms (5 operations)")
+	assert.Contains(t, buf.String(), "#### Http")
+	assert.Contains(t, buf.String(), "#### Git")
 }
 
 func TestPrintSummaryAllCategories(t *testing.T) {
 	s := NewStats()
 
-	s.Record(CategoryHTTP, OperationTypeFetch, "http-op", 10*time.Millisecond, true, time.Now())
-	s.Record(CategoryGit, OperationTypeClone, "git-op", 20*time.Millisecond, true, time.Now())
-	s.Record(CategoryHelm, OperationTypeDownload, "helm-op", 30*time.Millisecond, true, time.Now())
-	s.Record(CategoryOCI, OperationTypePull, "oci-op", 40*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "http-op", 10*time.Millisecond, true, time.Now())
+	s.Record(CategoryGit, OperationTypeGenerate, "git-op", 20*time.Millisecond, true, time.Now())
+	s.Record(CategoryHelm, OperationTypeGenerate, "helm-op", 30*time.Millisecond, true, time.Now())
+	s.Record(CategoryOCI, OperationTypeGenerate, "oci-op", 40*time.Millisecond, true, time.Now())
 	s.Record(CategoryGeneration, OperationTypeWrite, "gen-op", 50*time.Millisecond, true, time.Now())
 	s.Record(CategoryMisc, OperationTypeUpdate, "misc-op", 60*time.Millisecond, true, time.Now())
 
-	s.PrintSummary(io.Discard)
+	var buf strings.Builder
+	s.PrintSummary(&buf)
+
+	assert.Contains(t, buf.String(), "### Statistics")
+	assert.Contains(t, buf.String(), "**Overall:** 210ms (6 operations)")
+	assert.Contains(t, buf.String(), "#### Http")
+	assert.Contains(t, buf.String(), "#### Git")
+	assert.Contains(t, buf.String(), "#### Helm")
+	assert.Contains(t, buf.String(), "#### Oci")
+	assert.Contains(t, buf.String(), "#### Generation")
+	assert.Contains(t, buf.String(), "#### Misc")
 }
 
 func TestConcurrentRecording(t *testing.T) {
 	s := NewStats()
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			s.Record(CategoryHTTP, OperationTypeFetch, "op", time.Duration(n)*time.Millisecond, true, time.Now())
+			s.Record(CategoryHTTP, OperationTypeAPIFetch, "op", time.Duration(n)*time.Millisecond, true, time.Now())
 		}(i)
 	}
 	wg.Wait()
@@ -228,7 +247,7 @@ func TestOpenLogFileThenRecord(t *testing.T) {
 	err := s.OpenLogFile(tmpFile)
 	assert.NoError(t, err)
 
-	s.Record(CategoryHTTP, OperationTypeFetch, "test-op", 100*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "test-op", 100*time.Millisecond, true, time.Now())
 	s.CloseLogFile()
 
 	content, err := os.ReadFile(tmpFile)
@@ -248,12 +267,12 @@ func TestOpenLogFileInvalidPath(t *testing.T) {
 func TestPrintSummaryWriter(t *testing.T) {
 	s := NewStats()
 
-	s.Record(CategoryHTTP, OperationTypeFetch, "op1", 10*time.Millisecond, true, time.Now())
+	s.Record(CategoryHTTP, OperationTypeAPIFetch, "op1", 10*time.Millisecond, true, time.Now())
 
 	var buf strings.Builder
 	s.PrintSummary(&buf)
 
-	assert.Contains(t, buf.String(), "Update Statistics")
+	assert.Contains(t, buf.String(), "### Statistics")
 	assert.Contains(t, buf.String(), "**Overall:**")
 	assert.Contains(t, buf.String(), "#### Http")
 }

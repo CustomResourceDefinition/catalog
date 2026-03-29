@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"time"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
 	"github.com/CustomResourceDefinition/catalog/internal/crd"
@@ -78,12 +79,17 @@ func (cmd Updater) Run() error {
 		return err
 	}
 
+	totalStats := timing.NewStats()
+
+	start := time.Now()
 	configurations, err := readConfiguration(cmd.Configuration)
 	if err != nil {
 		return err
 	}
+	totalStats.Record(timing.CategoryMisc, timing.OperationTypeConfiguration, "read", time.Since(start), true, start)
 
 	if cmd.registry != nil {
+		start = time.Now()
 		validKeys := validSourceKeys(configurations)
 		for key := range cmd.registry.Sources {
 			if !validKeys[key] {
@@ -91,6 +97,7 @@ func (cmd Updater) Run() error {
 				fmt.Fprintf(cmd.Logger, "Removing stale registry entry: %s\n", key)
 			}
 		}
+		totalStats.Record(timing.CategoryMisc, timing.OperationTypeConfiguration, "valid_keys", time.Since(start), true, start)
 	}
 
 	tmpDir, err := os.MkdirTemp("", "output")
@@ -99,14 +106,13 @@ func (cmd Updater) Run() error {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	totalStats := timing.NewStats()
-
 	if err := totalStats.OpenLogFile(cmd.performanceLog); err != nil {
 		return fmt.Errorf("failed to open performance log: %w", err)
 	}
 	defer totalStats.CloseLogFile()
 
 	for _, config := range splitConfigurations(configurations) {
+		start = time.Now()
 		runtime.GC()
 
 		build, err := generator.NewBuilder(config, cmd.reader, tmpDir, cmd.Schema, cmd.Definitions, cmd.Logger, cmd.registry)
@@ -116,6 +122,7 @@ func (cmd Updater) Run() error {
 		}
 
 		err = build.Build()
+		totalStats.Record(timing.CategoryMisc, timing.OperationTypeBuild, config.Name, time.Since(start), true, start)
 		if err != nil {
 			fmt.Fprintf(cmd.Logger, "::warning:: build of %s failed: %v\n", config.Name, err)
 			continue
@@ -128,10 +135,19 @@ func (cmd Updater) Run() error {
 	}
 
 	if cmd.registry != nil && cmd.registryPath != "" {
+		start = time.Now()
 		if err := cmd.registry.Save(cmd.registryPath); err != nil {
 			fmt.Fprintf(cmd.Logger, "::warning:: failed to save registry: %v\n", err)
 		}
+		totalStats.Record(timing.CategoryMisc, timing.OperationTypeConfiguration, "save_registry", time.Since(start), true, start)
 	}
+
+	start = time.Now()
+	err = merge(tmpDir, cmd.Schema)
+	if err != nil {
+		return err
+	}
+	totalStats.Record(timing.CategoryMisc, timing.OperationTypeMerge, "files", time.Since(start), true, start)
 
 	writer, closer, err := cmd.createSummaryWriter()
 	if err != nil {
@@ -140,7 +156,7 @@ func (cmd Updater) Run() error {
 	defer closer()
 	totalStats.PrintSummary(writer)
 
-	return merge(tmpDir, cmd.Schema)
+	return nil
 }
 
 func (cmd Updater) validate() error {
