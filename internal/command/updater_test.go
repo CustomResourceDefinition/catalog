@@ -329,7 +329,7 @@ func TestRunAggregatesStats(t *testing.T) {
 	assert.Nil(t, err)
 
 	outStr := output.String()
-	assert.Contains(t, outStr, "Update Statistics")
+	assert.Contains(t, outStr, "### Statistics")
 	assert.Contains(t, outStr, "**Overall:**")
 	assert.Contains(t, outStr, "operations")
 	assert.Contains(t, outStr, "#### Http")
