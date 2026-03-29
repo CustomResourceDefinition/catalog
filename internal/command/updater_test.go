@@ -17,7 +17,7 @@ func TestRun(t *testing.T) {
 	server, config, tmpDir := setup(t)
 	defer server.Close()
 
-	updater := NewUpdater(config, tmpDir, tmpDir, "", bytes.NewBuffer([]byte{}), nil)
+	updater := NewUpdater(config, tmpDir, tmpDir, "", "", bytes.NewBuffer([]byte{}), nil)
 
 	err := updater.Run()
 	assert.Nil(t, err)
@@ -98,6 +98,33 @@ func TestSplittingConfiguration(t *testing.T) {
 		result := splitConfigurations(test.configs)
 		assert.Equal(t, test.resolvedAmount, len(result), "index %d failed", i)
 	}
+}
+
+func TestValidSourceKeys(t *testing.T) {
+	assert.Empty(t, validSourceKeys(nil))
+	assert.Empty(t, validSourceKeys([]configuration.Configuration{}))
+
+	configs := []configuration.Configuration{{Name: "foo"}}
+	keys := validSourceKeys(configs)
+	assert.True(t, keys["foo"])
+	assert.Len(t, keys, 1)
+
+	configs = []configuration.Configuration{{Name: "bar", Entries: []string{"a", "b"}}}
+	keys = validSourceKeys(configs)
+	assert.True(t, keys["bar.a"])
+	assert.True(t, keys["bar.b"])
+	assert.Len(t, keys, 2)
+
+	configs = []configuration.Configuration{
+		{Name: "single"},
+		{Name: "multi", Entries: []string{"x", "y", "z"}},
+	}
+	keys = validSourceKeys(configs)
+	assert.True(t, keys["single"])
+	assert.True(t, keys["multi.x"])
+	assert.True(t, keys["multi.y"])
+	assert.True(t, keys["multi.z"])
+	assert.Len(t, keys, 4)
 }
 
 func TestReadConfiguration(t *testing.T) {
@@ -194,7 +221,7 @@ func TestRunWithRegistryLoadError(t *testing.T) {
 	registryPath := path.Join(tmpDir, "registry.yaml")
 	os.WriteFile(registryPath, []byte("invalid: yaml: content:"), 0644)
 
-	updater := NewUpdater(unused, tmpDir, tmpDir, registryPath, bytes.NewBuffer([]byte{}), nil)
+	updater := NewUpdater(unused, tmpDir, tmpDir, registryPath, "", bytes.NewBuffer([]byte{}), nil)
 
 	err := updater.Run()
 	assert.NotNil(t, err)
@@ -209,7 +236,7 @@ func TestRunWithRegistrySavesUpdates(t *testing.T) {
 	initialContent := "sources: {}\n"
 	os.WriteFile(registryPath, []byte(initialContent), 0664)
 
-	updater := NewUpdater(config, tmpDir, tmpDir, registryPath, bytes.NewBuffer([]byte{}), nil)
+	updater := NewUpdater(config, tmpDir, tmpDir, registryPath, "", bytes.NewBuffer([]byte{}), nil)
 
 	err := updater.Run()
 	assert.Nil(t, err)
@@ -221,13 +248,175 @@ func TestRunWithRegistrySavesUpdates(t *testing.T) {
 	assert.Contains(t, string(content), "1.0.0")
 }
 
+func TestRunWithRegistryRemovesStaleEntries(t *testing.T) {
+	server, config, tmpDir := setup(t)
+	defer server.Close()
+
+	registryPath := path.Join(tmpDir, "registry.yaml")
+	initialContent := `sources:
+  http:
+    kind: http
+    version: 1.0.0
+    lastUpdated: "2026-01-01T00:00:00Z"
+  stale1:
+    kind: helm
+    version: v1.0.0
+    lastUpdated: "2026-01-01T00:00:00Z"
+  stale2:
+    kind: git
+    version: v1.0.0
+    lastUpdated: "2026-01-01T00:00:00Z"
+`
+	os.WriteFile(registryPath, []byte(initialContent), 0664)
+
+	updater := NewUpdater(config, tmpDir, tmpDir, registryPath, "", bytes.NewBuffer([]byte{}), nil)
+
+	err := updater.Run()
+	assert.Nil(t, err)
+
+	content, err := os.ReadFile(registryPath)
+	assert.Nil(t, err)
+
+	assert.Contains(t, string(content), "http")
+	assert.Contains(t, string(content), "1.0.0")
+	assert.NotContains(t, string(content), "stale1")
+	assert.NotContains(t, string(content), "stale2")
+}
+
 // Test is skipped during unit testing and meant for step-debugging a local check
 func TestCheckLocal(t *testing.T) {
 	output := "../../build/ephemeral/schema"
 	config := "../../build/configuration.yaml"
-	updater := NewUpdater(config, output, output, "", nil, nil)
+	updater := NewUpdater(config, output, output, "", "", nil, nil)
 
 	err := updater.Run()
 	assert.Nil(t, err)
 	assert.True(t, false, "this test should always be skipped and/or ignored")
+}
+
+func TestRunAggregatesStats(t *testing.T) {
+	b, err := os.ReadFile("testdata/updater/multiple.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	template := `
+- apiGroups:
+    - chart.uri
+  crds:
+    - baseUri: {{ server }}
+      paths:
+        - chart-1.0.0.yaml
+      version: 1.0.0
+  kind: http
+  name: http
+`
+	tmpDir := t.TempDir()
+
+	config := path.Join(tmpDir, "config.yaml")
+	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
+
+	output := bytes.NewBuffer([]byte{})
+	updater := NewUpdater(config, tmpDir, tmpDir, "", "", output, nil)
+
+	err = updater.Run()
+	assert.Nil(t, err)
+
+	outStr := output.String()
+	assert.Contains(t, outStr, "Update Statistics")
+	assert.Contains(t, outStr, "Overall:")
+	assert.Contains(t, outStr, "operations")
+	assert.Contains(t, outStr, "Http:")
+	assert.Contains(t, outStr, "api_fetch")
+}
+
+func TestRunWithMultipleConfigsAggregatesStats(t *testing.T) {
+	b, err := os.ReadFile("testdata/updater/multiple.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	template := `
+- apiGroups:
+    - chart.uri
+  crds:
+    - baseUri: {{ server }}
+      paths:
+        - chart-1.0.0.yaml
+      version: 1.0.0
+  kind: http
+  name: http1
+- apiGroups:
+    - chart.uri
+  crds:
+    - baseUri: {{ server }}
+      paths:
+        - chart-1.0.0.yaml
+      version: 1.0.0
+  kind: http
+  name: http2
+`
+	tmpDir := t.TempDir()
+
+	config := path.Join(tmpDir, "config.yaml")
+	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
+
+	output := bytes.NewBuffer([]byte{})
+	updater := NewUpdater(config, tmpDir, tmpDir, "", "", output, nil)
+
+	err = updater.Run()
+	assert.Nil(t, err)
+
+	outStr := output.String()
+	assert.Contains(t, outStr, "Overall:")
+	assert.Contains(t, outStr, "api_fetch")
+}
+
+func TestRunWithPerformanceLog(t *testing.T) {
+	b, err := os.ReadFile("testdata/updater/multiple.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	template := `
+- apiGroups:
+    - chart.uri
+  crds:
+    - baseUri: {{ server }}
+      paths:
+        - chart-1.0.0.yaml
+      version: 1.0.0
+  kind: http
+  name: http
+`
+	tmpDir := t.TempDir()
+
+	config := path.Join(tmpDir, "config.yaml")
+	os.WriteFile(config, []byte(strings.ReplaceAll(template, "{{ server }}", server.URL)), 0664)
+
+	logPath := path.Join(tmpDir, "perf.log")
+
+	output := bytes.NewBuffer([]byte{})
+	updater := NewUpdater(config, tmpDir, tmpDir, "", logPath, output, nil)
+
+	err = updater.Run()
+	assert.Nil(t, err)
+
+	perfContent, err := os.ReadFile(logPath)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, string(perfContent))
+	assert.Contains(t, string(perfContent), "http")
+	assert.Contains(t, string(perfContent), "api_fetch")
 }
