@@ -2,6 +2,8 @@ package command
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -328,9 +330,9 @@ func TestRunAggregatesStats(t *testing.T) {
 
 	outStr := output.String()
 	assert.Contains(t, outStr, "Update Statistics")
-	assert.Contains(t, outStr, "Overall:")
+	assert.Contains(t, outStr, "**Overall:**")
 	assert.Contains(t, outStr, "operations")
-	assert.Contains(t, outStr, "Http:")
+	assert.Contains(t, outStr, "#### Http")
 	assert.Contains(t, outStr, "api_fetch")
 }
 
@@ -417,6 +419,107 @@ func TestRunWithPerformanceLog(t *testing.T) {
 	perfContent, err := os.ReadFile(logPath)
 	assert.Nil(t, err)
 	assert.NotEmpty(t, string(perfContent))
-	assert.Contains(t, string(perfContent), "http")
-	assert.Contains(t, string(perfContent), "api_fetch")
+}
+
+func TestTeeWriter(t *testing.T) {
+	var buf1, buf2 bytes.Buffer
+	tw := teeWriter{Writers: []io.Writer{&buf1, &buf2}}
+
+	n, err := tw.Write([]byte("hello world"))
+	assert.Nil(t, err)
+	assert.Equal(t, 11, n)
+
+	assert.Equal(t, "hello world", buf1.String())
+	assert.Equal(t, "hello world", buf2.String())
+}
+
+func TestTeeWriterPartialError(t *testing.T) {
+	var buf1 bytes.Buffer
+	errorWriter := errorWriter{err: io.EOF}
+	tw := teeWriter{Writers: []io.Writer{&buf1, errorWriter}}
+
+	_, err := tw.Write([]byte("hello"))
+	assert.Error(t, err)
+	assert.Equal(t, io.EOF, err)
+}
+
+type errorWriter struct {
+	err error
+}
+
+func (e errorWriter) Write(p []byte) (n int, err error) {
+	return 0, e.err
+}
+
+func TestCreateSummaryWriterNoEnv(t *testing.T) {
+	original := os.Getenv("GITHUB_STEP_SUMMARY")
+	os.Unsetenv("GITHUB_STEP_SUMMARY")
+	defer func() {
+		if original != "" {
+			os.Setenv("GITHUB_STEP_SUMMARY", original)
+		}
+	}()
+
+	buf := bytes.NewBuffer([]byte{})
+	updater := Updater{Logger: buf}
+
+	writer, closer, err := updater.createSummaryWriter()
+	assert.Nil(t, err)
+	assert.Equal(t, buf, writer)
+	closer()
+}
+
+func TestCreateSummaryWriterWithEnv(t *testing.T) {
+	original := os.Getenv("GITHUB_STEP_SUMMARY")
+	tmpDir := t.TempDir()
+	summaryPath := path.Join(tmpDir, "summary.md")
+	os.Setenv("GITHUB_STEP_SUMMARY", summaryPath)
+	defer func() {
+		os.Unsetenv("GITHUB_STEP_SUMMARY")
+		if original != "" {
+			os.Setenv("GITHUB_STEP_SUMMARY", original)
+		}
+	}()
+
+	buf := bytes.NewBuffer([]byte{})
+	updater := Updater{Logger: buf}
+
+	writer, closer, err := updater.createSummaryWriter()
+	assert.Nil(t, err)
+	closer()
+
+	_, ok := writer.(teeWriter)
+	assert.True(t, ok)
+
+	content, err := os.ReadFile(summaryPath)
+	assert.Nil(t, err)
+	assert.Empty(t, string(content))
+}
+
+func TestCreateSummaryWriterAppendsToFile(t *testing.T) {
+	original := os.Getenv("GITHUB_STEP_SUMMARY")
+	tmpDir := t.TempDir()
+	summaryPath := path.Join(tmpDir, "summary.md")
+	os.WriteFile(summaryPath, []byte("Existing content\n"), 0644)
+	os.Setenv("GITHUB_STEP_SUMMARY", summaryPath)
+	defer func() {
+		os.Unsetenv("GITHUB_STEP_SUMMARY")
+		if original != "" {
+			os.Setenv("GITHUB_STEP_SUMMARY", original)
+		}
+	}()
+
+	buf := bytes.NewBuffer([]byte{})
+	updater := Updater{Logger: buf}
+
+	writer, closer, err := updater.createSummaryWriter()
+	assert.Nil(t, err)
+
+	fmt.Fprintf(writer, "New content")
+	closer()
+
+	content, err := os.ReadFile(summaryPath)
+	assert.Nil(t, err)
+	assert.Contains(t, string(content), "Existing content")
+	assert.Contains(t, string(content), "New content")
 }

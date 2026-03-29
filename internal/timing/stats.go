@@ -235,8 +235,8 @@ func (s *Stats) PrintSummary(writer io.Writer) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	fmt.Fprintf(writer, "\n=== Update Statistics ===\n\n")
-	fmt.Fprintf(writer, "Overall: %s (%d operations)\n\n", formatDuration(s.totalTime), s.totalOps)
+	fmt.Fprintf(writer, "\n### Update Statistics\n\n")
+	fmt.Fprintf(writer, "**Overall:** %s (%d operations)\n\n", formatDuration(s.totalTime), s.totalOps)
 
 	categoryOrder := []Category{CategoryHTTP, CategoryGit, CategoryHelm, CategoryOCI, CategoryGeneration, CategoryMisc}
 
@@ -252,7 +252,9 @@ func (s *Stats) PrintSummary(writer io.Writer) {
 			typeStats[op.Type] = append(typeStats[op.Type], op.Duration)
 		}
 
-		fmt.Fprintf(writer, "%s:\n", strings.ToUpper(string(cat)[:1])+string(cat)[1:])
+		fmt.Fprintf(writer, "#### %s\n\n", strings.ToUpper(string(cat)[:1])+string(cat)[1:])
+		fmt.Fprintf(writer, "| Operation | Count | Total | p75 | p90 | p95 |\n")
+		fmt.Fprintf(writer, "|-----------|-------|-------|-----|-----|-----|\n")
 
 		for opType, durations := range typeStats {
 			if len(durations) == 0 {
@@ -266,23 +268,19 @@ func (s *Stats) PrintSummary(writer io.Writer) {
 				durationsSecs[i] = d.Seconds()
 			}
 
-			percs := calculatePercentiles(durationsSecs, []float64{0.75, 0.90, 0.95})
+			percentiles := calculatePercentiles(durationsSecs, []float64{0.75, 0.90, 0.95})
 
 			typeLabel := string(opType)
-			fmt.Fprintf(writer, "  %-10s %4d operations  total: %s",
-				typeLabel+":",
+			p75 := formatDuration(percentiles[0.75])
+			p90 := formatDuration(percentiles[0.90])
+			p95 := formatDuration(percentiles[0.95])
+
+			fmt.Fprintf(writer, "| %s | %d | %s | %s | %s | %s |\n",
+				typeLabel,
 				len(durations),
 				formatDuration(total),
+				p75, p90, p95,
 			)
-
-			if len(percs) > 0 {
-				fmt.Fprintf(writer, "  p75: %s  p90: %s  p95: %s",
-					formatDuration(percs[0.75]),
-					formatDuration(percs[0.90]),
-					formatDuration(percs[0.95]),
-				)
-			}
-			fmt.Fprintln(writer)
 		}
 		fmt.Fprintln(writer)
 	}

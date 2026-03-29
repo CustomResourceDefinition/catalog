@@ -16,6 +16,34 @@ import (
 	"github.com/CustomResourceDefinition/catalog/internal/timing"
 )
 
+type teeWriter struct {
+	Writers []io.Writer
+}
+
+func (t teeWriter) Write(p []byte) (n int, err error) {
+	for _, w := range t.Writers {
+		if _, err := w.Write(p); err != nil {
+			return n, err
+		}
+		n = len(p)
+	}
+	return n, nil
+}
+
+func (cmd Updater) createSummaryWriter() (io.Writer, func(), error) {
+	summaryPath := os.Getenv("GITHUB_STEP_SUMMARY")
+	if summaryPath == "" {
+		return cmd.Logger, func() {}, nil
+	}
+
+	f, err := os.OpenFile(summaryPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return teeWriter{Writers: []io.Writer{cmd.Logger, f}}, func() { f.Close() }, nil
+}
+
 type Updater struct {
 	Configuration, Schema, Definitions string
 	Logger                             io.Writer
@@ -105,7 +133,12 @@ func (cmd Updater) Run() error {
 		}
 	}
 
-	totalStats.PrintSummary(cmd.Logger)
+	writer, closer, err := cmd.createSummaryWriter()
+	if err != nil {
+		return err
+	}
+	defer closer()
+	totalStats.PrintSummary(writer)
 
 	return merge(tmpDir, cmd.Schema)
 }
