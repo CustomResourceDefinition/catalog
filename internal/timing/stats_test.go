@@ -254,6 +254,6 @@ func TestPrintSummaryWriter(t *testing.T) {
 	s.PrintSummary(&buf)
 
 	assert.Contains(t, buf.String(), "Update Statistics")
-	assert.Contains(t, buf.String(), "Overall:")
-	assert.Contains(t, buf.String(), "Http:")
+	assert.Contains(t, buf.String(), "**Overall:**")
+	assert.Contains(t, buf.String(), "#### Http")
 }
