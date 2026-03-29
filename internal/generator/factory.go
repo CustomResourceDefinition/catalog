@@ -114,9 +114,7 @@ func (builder Builder) Build() error {
 	}
 
 	for _, version := range versions {
-		start := time.Now()
 		runtime.GC()
-		builder.stats.Record(timing.CategoryMisc, timing.OperationTypeGC, "gc", time.Since(start), true, start)
 
 		if err := builder.renderVersion(logger, version); err != nil {
 			continue
@@ -133,8 +131,7 @@ func (builder Builder) Build() error {
 func (builder Builder) fetchVersions(logger io.Writer) ([]string, error) {
 	start := time.Now()
 	versions, err := builder.generator.Versions()
-	cat := builder.operationCategory()
-	builder.stats.Record(cat, timing.OperationTypeAPIFetch, "versions", time.Since(start), err == nil, start)
+	builder.stats.Record(builder.operationCategory(), timing.OperationTypeAPIFetch, "versions", time.Since(start), err == nil, start)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +144,7 @@ func (builder Builder) fetchMetadata(logger io.Writer, latestVersion string) ([]
 	fmt.Fprintf(logger, " - checking version %s for completeness.\n", latestVersion)
 	start := time.Now()
 	metadata, err := builder.generator.MetaData(latestVersion)
-	cat := builder.operationCategory()
-	builder.stats.Record(cat, timing.OperationTypeAPIFetch, "metadata", time.Since(start), err == nil, start)
+	builder.stats.Record(builder.operationCategory(), timing.OperationTypeAPIFetch, "metadata", time.Since(start), err == nil, start)
 	if err != nil {
 		fmt.Fprintf(logger, " ! failed: %s\n", err.Error())
 		return nil, err
@@ -159,7 +155,7 @@ func (builder Builder) fetchMetadata(logger io.Writer, latestVersion string) ([]
 func (builder Builder) renderVersion(logger io.Writer, version string) error {
 	fmt.Fprintf(logger, " - render version %s.\n", version)
 
-	crds, err := builder.generateCrds(logger, version)
+	crds, err := builder.generateCrds(version)
 	if err != nil {
 		fmt.Fprintf(logger, " - - discarded due to error: %s.\n", err.Error())
 		return err
@@ -182,11 +178,10 @@ func (builder Builder) renderVersion(logger io.Writer, version string) error {
 	return nil
 }
 
-func (builder Builder) generateCrds(logger io.Writer, version string) ([]crd.Crd, error) {
+func (builder Builder) generateCrds(version string) ([]crd.Crd, error) {
 	start := time.Now()
 	crds, err := builder.generator.Crds(version)
-	cat := builder.operationCategory()
-	builder.stats.Record(cat, timing.OperationTypeGenerate, fmt.Sprintf("crds_%s", version), time.Since(start), err == nil, start)
+	builder.stats.Record(builder.operationCategory(), timing.OperationTypeGenerate, fmt.Sprintf("crds_%s", version), time.Since(start), err == nil, start)
 	return crds, err
 }
 

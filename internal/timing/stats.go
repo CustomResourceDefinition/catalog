@@ -25,23 +25,14 @@ const (
 type OperationType string
 
 const (
-	OperationTypeAPIFetch  OperationType = "api_fetch"
-	OperationTypeAuth      OperationType = "auth"
-	OperationTypeBranches  OperationType = "branches"
-	OperationTypeCheckout  OperationType = "checkout"
-	OperationTypeClone     OperationType = "clone"
-	OperationTypeDownload  OperationType = "download"
-	OperationTypeFetch     OperationType = "fetch"
-	OperationTypeGC        OperationType = "gc"
-	OperationTypeGenerate  OperationType = "generate"
-	OperationTypeIndex     OperationType = "index"
-	OperationTypePull      OperationType = "pull"
-	OperationTypeRender    OperationType = "render"
-	OperationTypeStatus    OperationType = "status"
-	OperationTypeSubmodule OperationType = "submodule"
-	OperationTypeTags      OperationType = "tags"
-	OperationTypeUpdate    OperationType = "update"
-	OperationTypeWrite     OperationType = "write"
+	OperationTypeAPIFetch      OperationType = "api_fetch"
+	OperationTypeBuild         OperationType = "build"
+	OperationTypeConfiguration OperationType = "configuration"
+	OperationTypeGenerate      OperationType = "generate"
+	OperationTypeMerge         OperationType = "merge"
+	OperationTypeStatus        OperationType = "status"
+	OperationTypeUpdate        OperationType = "update"
+	OperationTypeWrite         OperationType = "write"
 )
 
 type Operation struct {
@@ -235,7 +226,7 @@ func (s *Stats) PrintSummary(writer io.Writer) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	fmt.Fprintf(writer, "\n### Update Statistics\n\n")
+	fmt.Fprintf(writer, "\n### Statistics\n\n")
 	fmt.Fprintf(writer, "**Overall:** %s (%d operations)\n\n", formatDuration(s.totalTime), s.totalOps)
 
 	categoryOrder := []Category{CategoryHTTP, CategoryGit, CategoryHelm, CategoryOCI, CategoryGeneration, CategoryMisc}
