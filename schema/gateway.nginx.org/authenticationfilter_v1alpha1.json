@@ -37,15 +37,251 @@
               "type": "string"
             },
             "secretRef": {
-              "description": "SecretRef allows referencing a Secret in the same namespace.",
+              "description": "SecretRef references a Secret containing credentials in the same namespace.",
               "type": "object",
               "required": [
                 "name"
               ],
               "properties": {
                 "name": {
-                  "description": "Name is the referenced object.",
+                  "description": "Name is the name of the referenced object.",
                   "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "jwt": {
+          "description": "JWT configures JSON Web Token authentication (NGINX Plus).",
+          "type": "object",
+          "required": [
+            "realm",
+            "source"
+          ],
+          "properties": {
+            "file": {
+              "description": "File specifies local JWKS configuration.\nRequired when Source == File.",
+              "type": "object",
+              "required": [
+                "secretRef"
+              ],
+              "properties": {
+                "secretRef": {
+                  "description": "SecretRef references a Secret containing the JWKS.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name is the name of the referenced object.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "keyCache": {
+              "description": "KeyCache is the cache duration for keys.\nConfigures `auth_jwt_key_cache` directive.\nhttps://nginx.org/en/docs/http/ngx_http_auth_jwt_module.html#auth_jwt_key_cache\nExample: \"auth_jwt_key_cache 10m;\".",
+              "type": "string",
+              "pattern": "^[0-9]{1,4}(ms|s|m|h)?$"
+            },
+            "realm": {
+              "description": "Realm used by NGINX `auth_jwt` directive\nhttps://nginx.org/en/docs/http/ngx_http_auth_jwt_module.html#auth_jwt\nConfigures \"realm=\"\u003crealm_value\u003e\" in WWW-Authenticate header in error page location.",
+              "type": "string"
+            },
+            "remote": {
+              "description": "Remote specifies remote JWKS configuration.\nRequired when Source == Remote.",
+              "type": "object",
+              "required": [
+                "uri"
+              ],
+              "properties": {
+                "caCertificateRefs": {
+                  "description": "CACertificateRefs references a list of secrets containing trusted CA certificates\nin PEM format used to verify the server certificate of the JWKS endpoint.\nThe referenced secrets must contain an entry with the key \"ca.crt\".\nOnly one secret can be referenced currently.\nIf not specified, the system CA bundle is used.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_ssl_trusted_certificate",
+                  "type": "array",
+                  "maxItems": 1,
+                  "items": {
+                    "description": "LocalObjectReference specifies a local Kubernetes object.",
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "description": "Name is the name of the referenced object.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "uri": {
+                  "description": "URI is the JWKS endpoint.",
+                  "type": "string",
+                  "pattern": "^https:\\/\\/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?(\\/[a-zA-Z0-9._~:\\/?@!\u0026'()*+,=-]*)?$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "source": {
+              "description": "Source selects how JWT keys are provided: local file or remote JWKS.",
+              "type": "string",
+              "enum": [
+                "File",
+                "Remote"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.source != 'File' || has(self.file)",
+              "message": "source File requires spec.file to be set."
+            },
+            {
+              "rule": "self.source != 'File' || !has(self.remote)",
+              "message": "source File must not set spec.remote."
+            },
+            {
+              "rule": "self.source != 'Remote' || has(self.remote)",
+              "message": "source Remote requires spec.remote to be set."
+            },
+            {
+              "rule": "self.source != 'Remote' || !has(self.file)",
+              "message": "source Remote must not set spec.file."
+            }
+          ]
+        },
+        "oidc": {
+          "description": "OIDC configures OpenID Connect Authentication (NGINX Plus).",
+          "type": "object",
+          "required": [
+            "clientID",
+            "clientSecretRef",
+            "issuer"
+          ],
+          "properties": {
+            "caCertificateRefs": {
+              "description": "CACertificateRefs references a list of secrets containing trusted CA certificates\nin PEM format used to verify the certificates of the OpenID Provider endpoints.\nThe referenced secrets must contain an entry with the key \"ca.crt\".\nOnly one secret can be referenced currently.\nIf not specified, the system CA bundle is used.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#ssl_trusted_certificate\nNGINX Default: system CA bundle",
+              "type": "array",
+              "maxItems": 1,
+              "items": {
+                "description": "LocalObjectReference specifies a local Kubernetes object.",
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "description": "Name is the name of the referenced object.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "clientID": {
+              "description": "ClientID is the client identifier registered with the OpenID Provider.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#client_id",
+              "type": "string",
+              "minLength": 1
+            },
+            "clientSecretRef": {
+              "description": "ClientSecretRef references a Kubernetes secret which contains the OIDC client secret to be used in the\nAuthentication Request: https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest.\nThe referenced Secret must contain an entry with the key \"client-secret\".\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#client_secret",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name is the name of the referenced object.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "configURL": {
+              "description": "ConfigURL sets a custom URL to retrieve the OpenID Provider metadata.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#config_url\nNGINX Default: \u003cissuer\u003e/.well-known/openid-configuration",
+              "type": "string",
+              "pattern": "^https:\\/\\/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?(\\/[a-zA-Z0-9._~:\\/?@!\u0026'()*+,=-]*)?$"
+            },
+            "crlSecretRef": {
+              "description": "CRLSecretRef references a Secret containing a certificate\nrevocation list in PEM format. The referenced Secret must contain an entry with the key \"ca.crl\".\nThis is used to verify that certificates presented by the OpenID Provider endpoints have not been revoked.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name is the name of the referenced object.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "extraAuthArgs": {
+              "description": "ExtraAuthArgs sets additional query arguments for the authentication request URL.\nArguments are appended with \"\u0026\". For example: \"prompt=consent\u0026audience=api\".\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#extra_auth_args",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "issuer": {
+              "description": "Issuer is the URL of the OpenID Provider.\nMust exactly match the \"issuer\" value from the provider's\n.well-known/openid-configuration endpoint.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#issuer\nExamples:\n  - Keycloak: \"https://keycloak.example.com/realms/my-realm\"\n  - Okta: \"https://dev-123456.okta.com/oauth2/default\"\n  - Auth0: \"https://my-tenant.auth0.com/\"",
+              "type": "string",
+              "pattern": "^https:\\/\\/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?(\\/[a-zA-Z0-9._~:\\/?@!\u0026'()*+,=-]*)?$"
+            },
+            "logout": {
+              "description": "Logout defines the logout behavior for OIDC authentication.",
+              "type": "object",
+              "properties": {
+                "frontChannelLogoutURI": {
+                  "description": "FrontChannelLogoutURI defines the path for front-channel logout.\nThe OpenID Provider should be configured to set \"iss\" and \"sid\" arguments.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#frontchannel_logout_uri\nExample: /frontchannel_logout",
+                  "type": "string",
+                  "pattern": "^/[A-Za-z0-9._~!\u0026'()*+,=@/-]*$"
+                },
+                "postLogoutURI": {
+                  "description": "PostLogoutURI defines the URI to redirect to after logout.\nMust match the configuration on the provider's side.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#post_logout_uri\nExample: /after_logout, https://example.com/after_logout",
+                  "type": "string",
+                  "pattern": "^(https?:\\/\\/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?(\\/[a-zA-Z0-9._~:\\/?@!\u0026'()*+,=-]*)?|\\/[a-zA-Z0-9._~:\\/?@!\u0026'()*+,=-]*)$"
+                },
+                "tokenHint": {
+                  "description": "TokenHint adds the id_token_hint argument to the provider's Logout Endpoint.\nSome OpenID Providers require this.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#logout_token_hint\nNGINX Default: false",
+                  "type": "boolean"
+                },
+                "uri": {
+                  "description": "URI defines the path for initiating session logout.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#logout_uri\nExample: /logout",
+                  "type": "string",
+                  "pattern": "^/[A-Za-z0-9._~!\u0026'()*+,=@/-]*$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "pkce": {
+              "description": "PKCE enables Proof Key for Code Exchange (PKCE) for the authentication flow.\nIf nil, NGINX automatically enables PKCE when the OpenID Provider requires it.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#pkce",
+              "type": "boolean"
+            },
+            "redirectURI": {
+              "description": "RedirectURI sets a custom redirect URI for the OIDC callback.\nIf a path-only URI is specified, a callback location block is created to handle the redirect from the OIDC provider.\nIf a full URI is specified, it points to an external callback handler; no location block is created.\nIf not specified, defaults to /oidc_callback_\u003cfilternamespace\u003e_\u003cfiltername\u003e.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#redirect_uri\nNGINX Default: /oidc_callback\nExample: /oidc_callback, https://cafe.example.com:8442/oidc_callback",
+              "type": "string",
+              "pattern": "^(https:\\/\\/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?(\\/[a-zA-Z0-9._~:\\/?@!\u0026'()*+,=-]*)?|\\/[a-zA-Z0-9._~:\\/?@!\u0026'()*+,=-]*)$"
+            },
+            "session": {
+              "description": "Session configures session management for OIDC authentication.",
+              "type": "object",
+              "properties": {
+                "cookieName": {
+                  "description": "CookieName sets the name of the session cookie.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#cookie_name\nNGINX Default: NGX_OIDC_SESSION",
+                  "type": "string"
+                },
+                "timeout": {
+                  "description": "Timeout sets the session timeout duration.\nDirective: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#session_timeout\nNGINX Default: 8h",
+                  "type": "string",
+                  "pattern": "^[0-9]{1,4}(ms|s|m|h)?$"
                 }
               },
               "additionalProperties": false
@@ -57,15 +293,49 @@
           "description": "Type selects the authentication mechanism.",
           "type": "string",
           "enum": [
-            "Basic"
+            "Basic",
+            "OIDC",
+            "JWT"
           ]
         }
       },
       "additionalProperties": false,
       "x-kubernetes-validations": [
         {
-          "rule": "!(!has(self.basic) \u0026\u0026 self.type == 'Basic')",
-          "message": "for type=Basic, spec.basic must be set"
+          "rule": "self.type != 'Basic' || has(self.basic)",
+          "message": "type Basic requires spec.basic to be set"
+        },
+        {
+          "rule": "self.type != 'Basic' || !has(self.jwt)",
+          "message": "type Basic must not set spec.jwt"
+        },
+        {
+          "rule": "self.type != 'Basic' || !has(self.oidc)",
+          "message": "type Basic must not set spec.oidc"
+        },
+        {
+          "rule": "self.type != 'OIDC' || has(self.oidc)",
+          "message": "type OIDC requires spec.oidc to be set"
+        },
+        {
+          "rule": "self.type != 'OIDC' || !has(self.basic)",
+          "message": "type OIDC must not set spec.basic"
+        },
+        {
+          "rule": "self.type != 'OIDC' || !has(self.jwt)",
+          "message": "type OIDC must not set spec.jwt"
+        },
+        {
+          "rule": "self.type != 'JWT' || has(self.jwt)",
+          "message": "type JWT requires spec.jwt to be set"
+        },
+        {
+          "rule": "self.type != 'JWT' || !has(self.basic)",
+          "message": "type JWT must not set spec.basic"
+        },
+        {
+          "rule": "self.type != 'JWT' || !has(self.oidc)",
+          "message": "type JWT must not set spec.oidc"
         }
       ]
     },
