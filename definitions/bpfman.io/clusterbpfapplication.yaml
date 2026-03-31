@@ -3,15 +3,15 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
-  name: bpfapplications.bpfman.io
+  name: clusterbpfapplications.bpfman.io
 spec:
   group: bpfman.io
   names:
-    kind: BpfApplication
-    listKind: BpfApplicationList
-    plural: bpfapplications
-    singular: bpfapplication
-  scope: Namespaced
+    kind: ClusterBpfApplication
+    listKind: ClusterBpfApplicationList
+    plural: clusterbpfapplications
+    singular: clusterbpfapplication
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.nodeselector
@@ -27,15 +27,16 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          BpfApplication is the schema for the namespace scoped BPF Applications API.
-          This API allows applications to use bpfman to load and attach one or more
-          eBPF programs on a Kubernetes cluster.
+          ClusterBpfApplication is the schema for the cluster scoped BPF Applications
+          API. This API allows applications to use bpfman to load and attach one or
+          more eBPF programs on a Kubernetes cluster.
 
-          The bpfApplication.status field reports the overall status of the
-          BpfApplication CRD. A given BpfApplication CRD can result in loading and
-          attaching multiple eBPF programs on multiple nodes, so this status is just a
-          summary. More granular per-node status details can be found in the
-          corresponding BpfApplicationState CRD that bpfman creates for each node.
+          The clusterBpfApplication.status field reports the overall status of the
+          ClusterBpfApplication CRD. A given ClusterBpfApplication CRD can result in
+          loading and attaching multiple eBPF programs on multiple nodes, so this
+          status is just a summary. More granular per-node status details can be
+          found in the corresponding ClusterBpfApplicationState CRD that bpfman
+          creates for each node.
         properties:
           apiVersion:
             description: |-
@@ -56,12 +57,12 @@ spec:
             type: object
           spec:
             description: |-
-              spec defines the desired state of the BpfApplication. The BpfApplication
-              describes the set of one or more namespace scoped eBPF programs that should
-              be loaded for a given application and attributes for how they should be
-              loaded. eBPF programs that are grouped together under the same
-              BpfApplication instance can share maps and global data between the eBPF
-              programs loaded on the same Kubernetes Node.
+              spec defines the desired state of the ClusterBpfApplication. The
+              ClusterBpfApplication describes the set of one or more cluster scoped eBPF
+              programs that should be loaded for a given application and attributes for
+              how they should be loaded. eBPF programs that are grouped together under the
+              same ClusterBpfApplication instance can share maps and global data between
+              the eBPF programs loaded on the same Kubernetes Node.
             properties:
               byteCode:
                 description: |-
@@ -260,9 +261,188 @@ spec:
                   programs in the list to be reloaded, which could be temporarily service
                   effecting. For this reason, modifying the list is currently not allowed.
                 items:
-                  description: BpfApplicationProgram defines the desired state of
-                    BpfApplication
                   properties:
+                    fentry:
+                      description: |-
+                        fentry is an optional field, but required when the type field is set to
+                        FEntry. fentry defines the desired state of the application's FEntry
+                        programs. FEntry programs are attached to the entry of a Linux kernel
+                        function or to another eBPF program function. They are attached to the first
+                        instruction, before control passes to the function. FEntry programs are
+                        similar to KProbe programs, but have higher performance.
+                      properties:
+                        function:
+                          description: |-
+                            function is a required field and specifies the name of the Linux kernel
+                            function to attach the FEntry program. function must not be an empty string,
+                            must not exceed 64 characters in length, must start with alpha characters
+                            and must only contain alphanumeric characters.
+                          maxLength: 64
+                          minLength: 1
+                          pattern: ^[a-zA-Z][a-zA-Z0-9_]+.
+                          type: string
+                        links:
+                          description: |-
+                            links is an optional field and is a flag to indicate if the FEntry program
+                            should be attached. The attachment point for a FEntry program is a Linux
+                            kernel function. Unlike other eBPF program types, an FEntry program must be
+                            provided with the target function at load time. The links field is optional,
+                            but unlike other program types where it represents a list of attachment
+                            points, for FEntry programs it contains at most one entry that determines
+                            whether the program should be attached to the specified function. To attach
+                            the program, add an entry to links with mode set to Attach. To detach it,
+                            remove the entry from links.
+                          items:
+                            properties:
+                              mode:
+                                description: |-
+                                  mode is a required field. When set to Attach, the FEntry program will
+                                  attempt to be attached. To detach the FEntry program, remove the link entry.
+                                enum:
+                                - Attach
+                                type: string
+                            required:
+                            - mode
+                            type: object
+                          maxItems: 1
+                          type: array
+                      required:
+                      - function
+                      type: object
+                    fexit:
+                      description: |-
+                        fexit is an optional field, but required when the type field is set to
+                        FExit. fexit defines the desired state of the application's FExit programs.
+                        FExit programs are attached to the exit of a Linux kernel function or to
+                        another eBPF program function. The program is invoked when the function
+                        returns, independent of where in the function that occurs. FExit programs
+                        are similar to KRetProbe programs, but get invoked with the input arguments
+                        and the return values. They also have higher performance over KRetProbe
+                        programs.
+                      properties:
+                        function:
+                          description: |-
+                            function is a required field and specifies the name of the Linux kernel
+                            function to attach the FExit program. function must not be an empty string,
+                            must not exceed 64 characters in length, must start with alpha characters
+                            and must only contain alphanumeric characters.
+                          maxLength: 64
+                          minLength: 1
+                          pattern: ^[a-zA-Z][a-zA-Z0-9_]+.
+                          type: string
+                        links:
+                          description: |-
+                            links is an optional field and is a flag to indicate if the FExit program
+                            should be attached. The attachment point for a FExit program is a Linux
+                            kernel function. Unlike other eBPF program types, an FExit program must be
+                            provided with the target function at load time. The links field is optional,
+                            but unlike other program types where it represents a list of attachment
+                            points, for FExit programs it contains at most one entry that determines
+                            whether the program should be attached to the specified function. To attach
+                            the program, add an entry to links with mode set to Attach. To detach it,
+                            remove the entry from links.
+                          items:
+                            properties:
+                              mode:
+                                description: |-
+                                  mode is a required field. When set to Attach, the FExit program will
+                                  attempt to be attached. To detach the FExit program, remove the link entry.
+                                enum:
+                                - Attach
+                                type: string
+                            required:
+                            - mode
+                            type: object
+                          maxItems: 1
+                          type: array
+                      required:
+                      - function
+                      type: object
+                    kprobe:
+                      description: |-
+                        kprobe is an optional field, but required when the type field is set to
+                        KProbe. kprobe defines the desired state of the application's Kprobe
+                        programs. KProbe programs are attached to a Linux kernel function. Unlike
+                        FEntry programs, which must always be attached at the entry point of a Linux
+                        kernel function, KProbe programs can be attached at any point in the
+                        function using the optional offset field. However, caution must be taken
+                        when using the offset, ensuring the offset is still in the function
+                        bytecode. FEntry programs have less overhead than KProbe programs.
+                      properties:
+                        links:
+                          description: |-
+                            links is an optional field and is the list of attachment points to which the
+                            KProbe program should be attached. The eBPF program is loaded in kernel
+                            memory when the BPF Application CRD is created and the selected Kubernetes
+                            nodes are active. The eBPF program will not be triggered until the program
+                            has also been attached to an attachment point described in this list. Items
+                            may be added or removed from the list at any point, causing the eBPF program
+                            to be attached or detached.
+
+                            The attachment point for a KProbe program is a Linux kernel function. By
+                            default, the eBPF program is triggered at the entry of the attachment point,
+                            but the attachment point can be adjusted using an optional offset.
+                          items:
+                            properties:
+                              function:
+                                description: |-
+                                  function is a required field and specifies the name of the Linux kernel
+                                  function to attach the KProbe program. function must not be an empty string,
+                                  must not exceed 64 characters in length, must start with alpha characters
+                                  and must only contain alphanumeric characters.
+                                maxLength: 64
+                                minLength: 1
+                                pattern: ^[a-zA-Z][a-zA-Z0-9_]+.
+                                type: string
+                              offset:
+                                default: 0
+                                description: |-
+                                  offset is an optional field and the value is added to the address of the
+                                  attachment point function. If not provided, offset defaults to 0.
+                                format: int64
+                                type: integer
+                            required:
+                            - function
+                            type: object
+                          type: array
+                      type: object
+                    kretprobe:
+                      description: |-
+                        kretprobe is an optional field, but required when the type field is set to
+                        KRetProbe. kretprobe defines the desired state of the application's
+                        KRetProbe programs. KRetProbe programs are attached to the exit of a Linux
+                        kernel function. FExit programs have less overhead than KRetProbe programs
+                        and FExit programs have access to both the input arguments as well as the
+                        return values. KRetProbes only have access to the return values.
+                      properties:
+                        links:
+                          description: |-
+                            links is an optional field and is the list of attachment points to which the
+                            KRetProbe program should be attached. The eBPF program is loaded in kernel
+                            memory when the BPF Application CRD is created and the selected Kubernetes
+                            nodes are active. The eBPF program will not be triggered until the program
+                            has also been attached to an attachment point described in this list. Items
+                            may be added or removed from the list at any point, causing the eBPF program
+                            to be attached or detached.
+
+                            The attachment point for a KRetProbe program is a Linux kernel function.
+                          items:
+                            properties:
+                              function:
+                                description: |-
+                                  function is a required field and specifies the name of the Linux kernel
+                                  function to attach the KRetProbe program. function must not be an empty
+                                  string, must not exceed 64 characters in length, must start with alpha
+                                  characters and must only contain alphanumeric characters.
+                                maxLength: 64
+                                minLength: 1
+                                pattern: ^[a-zA-Z][a-zA-Z0-9_]+.
+                                type: string
+                            required:
+                            - function
+                            type: object
+                          type: array
+                      type: object
                     name:
                       description: |-
                         name is a required field and is the name of the function that is the entry
@@ -387,9 +567,15 @@ spec:
                                 type: object
                               networkNamespaces:
                                 description: |-
-                                  networkNamespaces is a required field that identifies the set of network
-                                  namespaces in which to attach the eBPF program.
+                                  networkNamespaces is an optional field that identifies the set of network
+                                  namespaces in which to attach the eBPF program. If networkNamespaces is not
+                                  specified, the eBPF program will be attached in the root network namespace.
                                 properties:
+                                  namespace:
+                                    description: |-
+                                      namespace is an optional field and indicates the target network namespace.
+                                      If not provided, the default network namespace is used.
+                                    type: string
                                   pods:
                                     description: |-
                                       pods is a required field and indicates the target pods. To select all pods
@@ -488,7 +674,6 @@ spec:
                             required:
                             - direction
                             - interfaceSelector
-                            - networkNamespaces
                             type: object
                           type: array
                       type: object
@@ -606,9 +791,15 @@ spec:
                                 type: object
                               networkNamespaces:
                                 description: |-
-                                  networkNamespaces is a required field that identifies the set of network
-                                  namespaces in which to attach the eBPF program.
+                                  networkNamespaces is an optional field that identifies the set of network
+                                  namespaces in which to attach the eBPF program. If networkNamespaces is not
+                                  specified, the eBPF program will be attached in the root network namespace.
                                 properties:
+                                  namespace:
+                                    description: |-
+                                      namespace is an optional field and indicates the target network namespace.
+                                      If not provided, the default network namespace is used.
+                                    type: string
                                   pods:
                                     description: |-
                                       pods is a required field and indicates the target pods. To select all pods
@@ -676,7 +867,49 @@ spec:
                             required:
                             - direction
                             - interfaceSelector
-                            - networkNamespaces
+                            type: object
+                          type: array
+                      type: object
+                    tracepoint:
+                      description: |-
+                        tracepoint is an optional field, but required when the type field is set to
+                        Tracepoint. tracepoint defines the desired state of the application's
+                        Tracepoint programs. Whereas KProbes attach to dynamically to any Linux
+                        kernel function, Tracepoint programs are programs that can only be attached
+                        at predefined locations in the Linux kernel. Use the following command to
+                        see the available attachment points:
+                         `sudo find /sys/kernel/debug/tracing/events -type d`
+                        While KProbes are more flexible in where in the kernel the probe can be
+                        attached, the functions and data structure rely on the kernel your system is
+                        running. Tracepoints tend to be more stable across kernel versions and are
+                        better for portability.
+                      properties:
+                        links:
+                          description: |-
+                            links is an optional field and is the list of attachment points to which the
+                            Tracepoint program should be attached. The Tracepoint program is loaded in
+                            kernel memory when the BPF Application CRD is created and the selected
+                            Kubernetes nodes are active. The Tracepoint program will not be triggered
+                            until the program has also been attached to an attachment point described in
+                            this list. Items may be added or removed from the list at any point, causing
+                            the Tracepoint program to be attached or detached.
+
+                            The attachment point for a Tracepoint program is a one of a predefined set
+                            of Linux kernel functions.
+                          items:
+                            properties:
+                              name:
+                                description: |-
+                                  name is a required field and specifies the name of the Linux kernel
+                                  Tracepoint to attach the eBPF program. name must not be an empty string,
+                                  must not exceed 64 characters in length, must start with alpha characters
+                                  and must only contain alphanumeric characters.
+                                maxLength: 64
+                                minLength: 1
+                                pattern: ^[a-zA-Z][a-zA-Z0-9_]+.
+                                type: string
+                            required:
+                            - name
                             type: object
                           type: array
                       type: object
@@ -685,7 +918,26 @@ spec:
                         type is a required field used to specify the type of the eBPF program.
 
                         Allowed values are:
-                          TC, TCX, UProbe, URetProbe, XDP
+                          FEntry, FExit, KProbe, KRetProbe, TC, TCX, TracePoint, UProbe, URetProbe,
+                          XDP
+
+                        When set to FEntry, the program is attached to the entry of a Linux kernel
+                        function or to another eBPF program function. When using the FEntry program
+                        type, the fentry field is required. See fentry for more details on FEntry
+                        programs.
+
+                        When set to FExit, the program is attached to the exit of a Linux kernel
+                        function or to another eBPF program function. When using the FExit program
+                        type, the fexit field is required. See fexit for more details on FExit
+                        programs.
+
+                        When set to KProbe, the program is attached to entry of a Linux kernel
+                        function. When using the KProbe program type, the kprobe field is required.
+                        See kprobe for more details on KProbe programs.
+
+                        When set to KRetProbe, the program is attached to exit of a Linux kernel
+                        function. When using the KRetProbe program type, the kretprobe field is
+                        required. See kretprobe for more details on KRetProbe programs.
 
                         When set to TC, the eBPF program can attach to network devices (interfaces).
                         The program can be attached on either packet ingress or egress, so the
@@ -698,6 +950,11 @@ spec:
                         egress, so the program will be called on every incoming or outgoing packet
                         seen by the network device. When using the TCX program type, the tcx field
                         is required. See tcx for more details on TCX programs.
+
+                        When set to Tracepoint, the program can attach to one of the predefined set
+                        of Linux kernel functions. When using the Tracepoint program type, the
+                        tracepoint field is required. See tracepoint for more details on Tracepoint
+                        programs.
 
                         When set to UProbe, the program can attach in user-space. The UProbe is
                         attached to a binary, library or function name, and optionally an offset in
@@ -718,8 +975,13 @@ spec:
                       - XDP
                       - TC
                       - TCX
+                      - FEntry
+                      - FExit
+                      - KProbe
+                      - KRetProbe
                       - UProbe
                       - URetProbe
+                      - TracePoint
                       type: string
                     uprobe:
                       description: |-
@@ -755,16 +1017,20 @@ spec:
                                   containers is an optional field that identifies the set of containers in
                                   which to attach the UProbe or URetProbe program. If containers is not
                                   specified, the eBPF program will be attached in the bpfman container.
-                                  uprobe.
                                 properties:
                                   containerNames:
                                     description: |-
                                       containerNames is an optional field and is a list of container names in a
-                                      pod to attach the eBPF program. If no names are  specified, all containers
+                                      pod to attach the eBPF program. If no names are specified, all containers
                                       in the pod are selected.
                                     items:
                                       type: string
                                     type: array
+                                  namespace:
+                                    description: |-
+                                      namespace is an optional field and indicates the target Kubernetes
+                                      namespace. If not provided, all Kubernetes namespaces are included.
+                                    type: string
                                   pods:
                                     description: |-
                                       pods is a required field and indicates the target pods. To select all pods
@@ -832,7 +1098,7 @@ spec:
                                 default: 0
                                 description: |-
                                   offset is an optional field and the value is added to the address of the
-                                  attachment point function. If not provided, offset defaults to 0.
+                                  attachment point function.
                                 format: int64
                                 type: integer
                               pid:
@@ -848,7 +1114,6 @@ spec:
                                   absolute path to a binary or library.
                                 type: string
                             required:
-                            - containers
                             - target
                             type: object
                           type: array
@@ -888,16 +1153,20 @@ spec:
                                   containers is an optional field that identifies the set of containers in
                                   which to attach the UProbe or URetProbe program. If containers is not
                                   specified, the eBPF program will be attached in the bpfman container.
-                                  uprobe.
                                 properties:
                                   containerNames:
                                     description: |-
                                       containerNames is an optional field and is a list of container names in a
-                                      pod to attach the eBPF program. If no names are  specified, all containers
+                                      pod to attach the eBPF program. If no names are specified, all containers
                                       in the pod are selected.
                                     items:
                                       type: string
                                     type: array
+                                  namespace:
+                                    description: |-
+                                      namespace is an optional field and indicates the target Kubernetes
+                                      namespace. If not provided, all Kubernetes namespaces are included.
+                                    type: string
                                   pods:
                                     description: |-
                                       pods is a required field and indicates the target pods. To select all pods
@@ -965,7 +1234,7 @@ spec:
                                 default: 0
                                 description: |-
                                   offset is an optional field and the value is added to the address of the
-                                  attachment point function. If not provided, offset defaults to 0.
+                                  attachment point function.
                                 format: int64
                                 type: integer
                               pid:
@@ -981,7 +1250,6 @@ spec:
                                   absolute path to a binary or library.
                                 type: string
                             required:
-                            - containers
                             - target
                             type: object
                           type: array
@@ -1006,10 +1274,11 @@ spec:
                             added or removed from the list at any point, causing the XDP program to be
                             attached or detached.
 
-                            The attachment point for a XDP program is a network interface (or device).
+                            The attachment point for an XDP program is a network interface (or device).
                             The interface can be specified by name, by allowing bpfman to discover each
                             interface, or by setting the primaryNodeInterface flag, which instructs
-                            bpfman to use the primary interface of a Kubernetes node.
+                            bpfman to use the primary interface of a Kubernetes node. Optionally, the
+                            XDP program can also be installed into a set of network namespaces.
                           items:
                             properties:
                               interfaceSelector:
@@ -1081,9 +1350,15 @@ spec:
                                 type: object
                               networkNamespaces:
                                 description: |-
-                                  networkNamespaces is a required field that identifies the set of network
-                                  namespaces in which to attach the eBPF program.
+                                  networkNamespaces identifies the set of network namespaces in which to
+                                  attach the eBPF program. If networkNamespaces is not specified, the eBPF
+                                  program will be attached in the root network namespace.
                                 properties:
+                                  namespace:
+                                    description: |-
+                                      namespace is an optional field and indicates the target network namespace.
+                                      If not provided, the default network namespace is used.
+                                    type: string
                                   pods:
                                     description: |-
                                       pods is a required field and indicates the target pods. To select all pods
@@ -1142,8 +1417,8 @@ spec:
                                   program relative to other XDP programs attached to the same attachment
                                   point. It must be a value between 0 and 1000, where lower values indicate
                                   higher precedence. For XDP programs on the same attachment point with the
-                                  same priority, the most recently attached program has a lower precedence.
-                                  If not provided, priority will default to 1000.
+                                  same priority, the most recently attached program has a lower precedence. If
+                                  not provided, priority will default to 1000.
                                 format: int32
                                 maximum: 1000
                                 minimum: 0
@@ -1157,7 +1432,7 @@ spec:
                                   programs in a chain, or not call the next program in a chain based on the
                                   exit code of an XDP program. Allowed values, which are the possible exit
                                   codes from an XDP eBPF program, are:
-                                    Aborted, Drop, Pass, TX, ReDirect,DispatcherReturn
+                                    Aborted, Drop, Pass, TX, ReDirect, DispatcherReturn
 
                                   Multiple values are supported. Default is Pass and DispatcherReturn. So
                                   using the default values, if an XDP program returns Pass, the next XDP
@@ -1175,7 +1450,6 @@ spec:
                                 type: array
                             required:
                             - interfaceSelector
-                            - networkNamespaces
                             type: object
                           type: array
                       type: object
@@ -1192,10 +1466,26 @@ spec:
                       otherwise
                     rule: 'has(self.type) && self.type == ''TC'' ?  has(self.tc) :
                       !has(self.tc)'
-                  - message: tcx configuration is required when type is TCX, and forbidden
+                  - message: tcx configuration is required when type is tcx, and forbidden
                       otherwise
                     rule: 'has(self.type) && self.type == ''TCX'' ?  has(self.tcx)
                       : !has(self.tcx)'
+                  - message: fentry configuration is required when type is fentry,
+                      and forbidden otherwise
+                    rule: 'has(self.type) && self.type == ''FEntry'' ?  has(self.fentry)
+                      : !has(self.fentry)'
+                  - message: fexit configuration is required when type is fexit, and
+                      forbidden otherwise
+                    rule: 'has(self.type) && self.type == ''FExit'' ?  has(self.fexit)
+                      : !has(self.fexit)'
+                  - message: kprobe configuration is required when type is kprobe,
+                      and forbidden otherwise
+                    rule: 'has(self.type) && self.type == ''KProbe'' ?  has(self.kprobe)
+                      : !has(self.kprobe)'
+                  - message: kretprobe configuration is required when type is kretprobe,
+                      and forbidden otherwise
+                    rule: 'has(self.type) && self.type == ''KRetProbe'' ?  has(self.kretprobe)
+                      : !has(self.kretprobe)'
                   - message: uprobe configuration is required when type is uprobe,
                       and forbidden otherwise
                     rule: 'has(self.type) && self.type == ''UProbe'' ?  has(self.uprobe)
@@ -1204,6 +1494,10 @@ spec:
                       and forbidden otherwise
                     rule: 'has(self.type) && self.type == ''URetProbe'' ?  has(self.uretprobe)
                       : !has(self.uretprobe)'
+                  - message: tracepoint configuration is required when type is tracepoint,
+                      and forbidden otherwise
+                    rule: 'has(self.type) && self.type == ''TracePoint'' ?  has(self.tracepoint)
+                      : !has(self.tracepoint)'
                 minItems: 1
                 type: array
             required:
