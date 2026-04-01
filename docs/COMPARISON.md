@@ -9,9 +9,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.48% | 3494 | 10217 | 94 |
+| 99.35% | 3513 | 10235 | 94 |
 
 ### Missing Schemas
+
+| catalog.cattle.io | |
+| --- | --- |
+| app | v1 |
 
 | compute.cnrm.cloud.google.com | |
 | --- | --- |
@@ -33,6 +37,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 | devcluster | v1beta1 |
 | devclustertemplate | v1beta1 |
 | gcpcluster | v1alpha2 |
+
+| management.cattle.io | |
+| --- | --- |
+| authconfig | v3 |
+| clusterregistrationtoken | v3 |
+| managedchart | v3 |
+| podsecurityadmissionconfigurationtemplate | v3 |
 
 | networking.gke.io | |
 | --- | --- |
