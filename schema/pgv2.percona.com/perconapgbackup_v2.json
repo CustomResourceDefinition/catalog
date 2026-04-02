@@ -17,10 +17,196 @@
     "spec": {
       "type": "object",
       "required": [
-        "pgCluster",
-        "repoName"
+        "pgCluster"
       ],
       "properties": {
+        "containerOptions": {
+          "type": "object",
+          "properties": {
+            "env": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "valueFrom": {
+                    "type": "object",
+                    "properties": {
+                      "configMapKeyRef": {
+                        "type": "object",
+                        "required": [
+                          "key"
+                        ],
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string",
+                            "default": ""
+                          },
+                          "optional": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      },
+                      "fieldRef": {
+                        "type": "object",
+                        "required": [
+                          "fieldPath"
+                        ],
+                        "properties": {
+                          "apiVersion": {
+                            "type": "string"
+                          },
+                          "fieldPath": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      },
+                      "fileKeyRef": {
+                        "type": "object",
+                        "required": [
+                          "key",
+                          "path",
+                          "volumeName"
+                        ],
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "optional": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "volumeName": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      },
+                      "resourceFieldRef": {
+                        "type": "object",
+                        "required": [
+                          "resource"
+                        ],
+                        "properties": {
+                          "containerName": {
+                            "type": "string"
+                          },
+                          "divisor": {
+                            "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                            "anyOf": [
+                              {
+                                "type": "integer"
+                              },
+                              {
+                                "type": "string"
+                              }
+                            ],
+                            "x-kubernetes-int-or-string": true
+                          },
+                          "resource": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      },
+                      "secretKeyRef": {
+                        "type": "object",
+                        "required": [
+                          "key"
+                        ],
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string",
+                            "default": ""
+                          },
+                          "optional": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "envFrom": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "configMapRef": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "default": ""
+                      },
+                      "optional": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-map-type": "atomic"
+                  },
+                  "prefix": {
+                    "type": "string"
+                  },
+                  "secretRef": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "default": ""
+                      },
+                      "optional": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-map-type": "atomic"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "method": {
+          "type": "string",
+          "default": "pgbackrest",
+          "enum": [
+            "pgbackrest",
+            "volumeSnapshot"
+          ]
+        },
         "options": {
           "type": "array",
           "items": {
@@ -35,7 +221,13 @@
           "pattern": "^repo[1-4]"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "self.method == \"volumeSnapshot\" || has(self.repoName)",
+          "message": "repoName is required when method is 'pgbackrest'"
+        }
+      ]
     },
     "status": {
       "type": "object",
@@ -49,6 +241,54 @@
         "completed": {
           "type": "string",
           "format": "date-time"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          }
         },
         "crVersion": {
           "type": "string"
@@ -291,6 +531,24 @@
                 }
               },
               "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "snapshot": {
+          "type": "object",
+          "properties": {
+            "dataVolumeSnapshotRef": {
+              "type": "string"
+            },
+            "tablespaceVolumeSnapshotRefs": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "walVolumeSnapshotRef": {
+              "type": "string"
             }
           },
           "additionalProperties": false

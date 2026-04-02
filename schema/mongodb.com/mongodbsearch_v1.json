@@ -44,6 +44,146 @@
           },
           "additionalProperties": false
         },
+        "jvmFlags": {
+          "description": "JVMFlags can be used to set the `--jvm-flags` option for the search (mongot) processes.\nhttps://www.mongodb.com/docs/manual/tutorial/mongot-sizing/advanced-guidance/hardware/#jvm-heap-sizing",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "loadBalancer": {
+          "description": "LoadBalancer configures how mongod/mongos connect to mongot (Managed vs Unmanaged/BYO Load Balancer).",
+          "type": "object",
+          "properties": {
+            "managed": {
+              "description": "Managed configures an operator-managed Envoy load balancer.",
+              "type": "object",
+              "properties": {
+                "deployment": {
+                  "description": "Deployment holds optional overrides merged into the operator-created Envoy Deployment.\nFollows the same convention as spec.statefulSet on MongoDB resources.",
+                  "type": "object",
+                  "required": [
+                    "spec"
+                  ],
+                  "properties": {
+                    "metadata": {
+                      "description": "DeploymentMetadataWrapper is a wrapper around Labels and Annotations",
+                      "type": "object",
+                      "properties": {
+                        "annotations": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "labels": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "spec": {
+                      "type": "object",
+                      "x-kubernetes-preserve-unknown-fields": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "externalHostname": {
+                  "description": "ExternalHostname is the hostname Envoy expects for SNI matching on incoming requests.\nFor sharded clusters, may contain a {shardName} placeholder.\nRequired when MongoDB is externally managed. Ignored for operator-managed MongoDB.",
+                  "type": "string"
+                },
+                "resourceRequirements": {
+                  "description": "ResourceRequirements for the Envoy container.\nWhen not set, defaults to requests: {cpu: 100m, memory: 128Mi}, limits: {cpu: 500m, memory: 512Mi}.",
+                  "type": "object",
+                  "properties": {
+                    "claims": {
+                      "description": "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
+                      "type": "array",
+                      "items": {
+                        "description": "ResourceClaim references one entry in PodSpec.ResourceClaims.",
+                        "type": "object",
+                        "required": [
+                          "name"
+                        ],
+                        "properties": {
+                          "name": {
+                            "description": "Name must match the name of one entry in pod.spec.resourceClaims of\nthe Pod where this field is used. It makes that resource available\ninside a container.",
+                            "type": "string"
+                          },
+                          "request": {
+                            "description": "Request is the name chosen for a request in the referenced claim.\nIf empty, everything from the claim is made available, otherwise\nonly the result of this request.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "x-kubernetes-list-map-keys": [
+                        "name"
+                      ],
+                      "x-kubernetes-list-type": "map"
+                    },
+                    "limits": {
+                      "description": "Limits describes the maximum amount of compute resources allowed.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+                      "type": "object",
+                      "additionalProperties": {
+                        "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                        "anyOf": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ],
+                        "x-kubernetes-int-or-string": true
+                      }
+                    },
+                    "requests": {
+                      "description": "Requests describes the minimum amount of compute resources required.\nIf Requests is omitted for a container, it defaults to Limits if that is explicitly specified,\notherwise to an implementation-defined value. Requests cannot exceed Limits.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+                      "type": "object",
+                      "additionalProperties": {
+                        "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                        "anyOf": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ],
+                        "x-kubernetes-int-or-string": true
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "unmanaged": {
+              "description": "Unmanaged configures a user-provided (BYO) L7 load balancer.",
+              "type": "object",
+              "properties": {
+                "endpoint": {
+                  "description": "Endpoint is the full host:port of the BYO load balancer written into mongod config.\nFor sharded clusters, must contain a {shardName} placeholder.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(has(self.managed) \u0026\u0026 !has(self.unmanaged)) || (!has(self.managed) \u0026\u0026 has(self.unmanaged))",
+              "message": "exactly one of managed or unmanaged must be set"
+            }
+          ]
+        },
         "logLevel": {
           "description": "Configure verbosity of mongot logs. Defaults to INFO if not set.",
           "type": "string",
@@ -146,6 +286,12 @@
           },
           "additionalProperties": false
         },
+        "replicas": {
+          "description": "Replicas is the number of mongot pods to deploy.\nFor ReplicaSet source: the number of mongot pods in total.\nFor Sharded source: the number mongot pods per shard.\nWhen Replicas \u003e 1, a load balancer configuration (spec.loadBalancer)\nis required to distribute traffic across mongot instances.",
+          "type": "integer",
+          "default": 1,
+          "minimum": 1
+        },
         "resourceRequirements": {
           "description": "Configure resource requests and limits for the MongoDB Search pods.",
           "type": "object",
@@ -217,12 +363,9 @@
           "properties": {
             "tls": {
               "type": "object",
-              "required": [
-                "certificateKeySecretRef"
-              ],
               "properties": {
                 "certificateKeySecretRef": {
-                  "description": "CertificateKeySecret is a reference to a Secret containing a private key and certificate to use for TLS.\nThe key and cert are expected to be PEM encoded and available at \"tls.key\" and \"tls.crt\".\nThis is the same format used for the standard \"kubernetes.io/tls\" Secret type, but no specific type is required.",
+                  "description": "CertificateKeySecret is a reference to a Secret containing a private key and certificate to use for TLS.\nThe key and cert are expected to be PEM encoded and available at \"tls.key\" and \"tls.crt\".\nThis is the same format used for the standard \"kubernetes.io/tls\" Secret type, but no specific type is required.\nIf both CertificateKeySecret.Name and CertsSecretPrefix are specified, CertificateKeySecret.Name takes precedence.",
                   "type": "object",
                   "properties": {
                     "name": {
@@ -233,6 +376,10 @@
                   },
                   "additionalProperties": false,
                   "x-kubernetes-map-type": "atomic"
+                },
+                "certsSecretPrefix": {
+                  "description": "CertsSecretPrefix is a prefix used to derive the TLS secret name.\nWhen set, the operator will look for a secret named \"{prefix}-{resourceName}-search-cert\".\nIf CertificateKeySecret.Name is also specified, that takes precedence over this field.",
+                  "type": "string"
                 }
               },
               "additionalProperties": false
@@ -248,6 +395,7 @@
               "type": "object",
               "properties": {
                 "hostAndPorts": {
+                  "description": "HostAndPorts is the list of mongod host:port seeds for replica set sources.\nMutually exclusive with Sharded.",
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -265,6 +413,64 @@
                     },
                     "name": {
                       "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "shardedCluster": {
+                  "description": "ShardedCluster contains configuration for external sharded MongoDB clusters.\nMutually exclusive with HostAndPorts.",
+                  "type": "object",
+                  "required": [
+                    "router",
+                    "shards"
+                  ],
+                  "properties": {
+                    "router": {
+                      "description": "Router contains the mongos router configuration",
+                      "type": "object",
+                      "required": [
+                        "hosts"
+                      ],
+                      "properties": {
+                        "hosts": {
+                          "description": "Hosts is the list of mongos router endpoints (host:port)",
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "shards": {
+                      "description": "Shards is the list of shard configurations",
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "description": "ExternalShardConfig contains configuration for a single shard in an external sharded cluster",
+                        "type": "object",
+                        "required": [
+                          "hosts",
+                          "shardName"
+                        ],
+                        "properties": {
+                          "hosts": {
+                            "description": "Hosts is the list of mongod host:port seeds for this shard's replica set",
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "shardName": {
+                            "description": "ShardName is the logical shard name (e.g., \"shard-0\").",
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "additionalProperties": false
@@ -328,6 +534,29 @@
             },
             "username": {
               "type": "string"
+            },
+            "x509": {
+              "description": "X509 configures x509 client certificate authentication for the sync source connection.\nWhen set, mongot authenticates to MongoDB using x509 instead of username/password.\nMutually exclusive with PasswordSecretRef and Username.",
+              "type": "object",
+              "required": [
+                "clientCertificateSecretRef"
+              ],
+              "properties": {
+                "clientCertificateSecretRef": {
+                  "description": "ClientCertificateSecret is a reference to a Secret containing the x509 client\ncertificate and key for authenticating to the MongoDB sync source.\nExpected keys: \"tls.crt\", \"tls.key\" (required), \"tls.keyFilePassword\" (optional).",
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                      "type": "string",
+                      "default": ""
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-map-type": "atomic"
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -380,6 +609,22 @@
       "properties": {
         "lastTransition": {
           "type": "string"
+        },
+        "loadBalancer": {
+          "description": "LoadBalancer reports the state of the operator-managed load balancer.\nOnly populated when spec.loadBalancer.managed is set.",
+          "type": "object",
+          "required": [
+            "phase"
+          ],
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "phase": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         },
         "message": {
           "type": "string"

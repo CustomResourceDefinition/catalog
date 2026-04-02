@@ -1224,11 +1224,11 @@
           "type": "string"
         },
         "cleanupData": {
-          "description": "CleanupData determines whether to clean up PVCs and user data (including buckets and objects) when the cluster is decommissioned.\nThe reclamation of PVs linked to the PVCs depends on the PV reclaim policy or the default policy of the associated StorageClass.\nThis field is relevant only if you are deleting the CR (leading to decommissioning of the cluster).",
+          "description": "CleanupData determines whether to clean up user data (including buckets and objects) when the cluster is decommissioned.\nThis field is relevant only if CleanupMetadata is true when deleting the AIStore CR (leading to decommissioning of the cluster).\nIf this option is enabled, AIStore itself will delete user data on cluster decommission.\nIf not enabled, user data cleanup will be left to the PV reclaim policy.",
           "type": "boolean"
         },
         "cleanupMetadata": {
-          "description": "CleanupMetadata determines whether to clean up cluster and bucket metadata when the cluster is decommissioned.\nWhen enabled, the cluster will fully decommission, removing metadata and optionally deleting user data.\nWhen disabled, the operator will call the AIS shutdown API to preserve metadata before deleting other k8s resources.\nThe metadata stored in the state PVCs will be preserved to be usable in a future AIS deployment.",
+          "description": "CleanupMetadata determines whether to clean up cluster and bucket metadata when the cluster is decommissioned.\nWhen enabled, the cluster will fully decommission, removing metadata and optionally deleting user data according to the CleanupData option.\nWhen disabled, the operator will call the AIS shutdown API to preserve metadata before deleting other k8s resources.\nState cleanup:\n - All state PVCs will be deleted and cleaned up according to the storage class\n - Any state host paths will be cleaned with operator-managed jobs\nData cleanup:\n - Data PVCs will be deleted but data on disk will remain unless specified by CleanupData\n - The reclamation behavior for PVs bound to the PVCs depends on the PVC's reclaim policy, or, if the PV was dynamically provisioned, on the reclaim policy of the associated StorageClass.",
           "type": "boolean"
         },
         "clusterDomain": {
@@ -4957,8 +4957,7 @@
               "items": {
                 "type": "object",
                 "required": [
-                  "path",
-                  "size"
+                  "path"
                 ],
                 "properties": {
                   "label": {
@@ -5632,6 +5631,10 @@
         {
           "rule": "[has(self.tls), has(self.tlsCertificate), has(self.tlsCertManagerIssuerName), has(self.tlsSecretName)].filter(x, x).size() \u003c= 1",
           "message": "specify only one TLS option: tls, tlsCertificate, tlsCertManagerIssuerName, or tlsSecretName"
+        },
+        {
+          "rule": "!has(self.cleanupData) || !self.cleanupData || (has(self.cleanupMetadata) \u0026\u0026 self.cleanupMetadata)",
+          "message": "cleanupData requires cleanupMetadata to be enabled"
         }
       ]
     },
