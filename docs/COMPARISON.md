@@ -9,13 +9,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.35% | 3513 | 10235 | 94 |
+| 99.49% | 3513 | 10250 | 99 |
 
 ### Missing Schemas
-
-| catalog.cattle.io | |
-| --- | --- |
-| app | v1 |
 
 | compute.cnrm.cloud.google.com | |
 | --- | --- |
@@ -37,13 +33,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | devcluster | v1beta1 |
 | devclustertemplate | v1beta1 |
 | gcpcluster | v1alpha2 |
-
-| management.cattle.io | |
-| --- | --- |
-| authconfig | v3 |
-| clusterregistrationtoken | v3 |
-| managedchart | v3 |
-| podsecurityadmissionconfigurationtemplate | v3 |
 
 | networking.gke.io | |
 | --- | --- |
@@ -94,6 +83,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | anywhere.eks.amazonaws.com | dockermachinetemplate | v1alpha4 |
 | anywhere.eks.amazonaws.com | dockermachinetemplate | v1beta1 |
 | autoscaling.cast.ai | recommendations | v1 |
+| catalog.cattle.io | app | v1 |
 | cluster.x-k8s.io | cluster | v1alpha1 |
 | cluster.x-k8s.io | machine | v1alpha1 |
 | cluster.x-k8s.io | machineclass | v1alpha1 |
@@ -144,6 +134,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | kyverno.io | clusterpolicyreport | v1alpha2 |
 | kyverno.io | ephemeralreport | v1 |
 | kyverno.io | policyreport | v1alpha2 |
+| management.cattle.io | authconfig | v3 |
+| management.cattle.io | clusterregistrationtoken | v3 |
+| management.cattle.io | managedchart | v3 |
+| management.cattle.io | podsecurityadmissionconfigurationtemplate | v3 |
 | mysql.presslabs.org | mysqlbackup | v2 |
 | openebs.io | blockdevice | v1alpha1 |
 | openebs.io | blockdeviceclaim | v1alpha1 |
