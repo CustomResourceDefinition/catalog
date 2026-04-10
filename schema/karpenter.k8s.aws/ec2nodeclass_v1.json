@@ -485,6 +485,80 @@
           },
           "additionalProperties": false
         },
+        "networkInterfaces": {
+          "description": "NetworkInterfaces specifies the network interface configurations to be attached to provisioned instances.",
+          "type": "array",
+          "maxItems": 150,
+          "items": {
+            "description": "NetworkInterface specifies the configuration for a network interface to be attached\nto provisioned instances.",
+            "type": "object",
+            "required": [
+              "deviceIndex",
+              "interfaceType",
+              "networkCardIndex"
+            ],
+            "properties": {
+              "deviceIndex": {
+                "description": "DeviceIndex is the device index for the network interface attachment.",
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "interfaceType": {
+                "description": "InterfaceType is the type of network interface. Valid values are \"interface\" and \"efa-only\".",
+                "type": "string",
+                "enum": [
+                  "interface",
+                  "efa-only"
+                ]
+              },
+              "networkCardIndex": {
+                "description": "NetworkCardIndex is the index of the network card to attach the interface to.",
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.size() == 0 || self.exists(x, x.deviceIndex == 0 \u0026\u0026 x.networkCardIndex == 0 \u0026\u0026 x.interfaceType == 'interface')",
+              "message": "networkInterfaces must include a primary interface with interfaceType='interface'"
+            },
+            {
+              "rule": "self.all(x, self.filter(y, x.networkCardIndex == y.networkCardIndex \u0026\u0026 x.deviceIndex == y.deviceIndex).size() == 1 \u0026\u0026 (x.interfaceType != 'efa-only' || self.filter(y, x.networkCardIndex == y.networkCardIndex \u0026\u0026 y.interfaceType == 'efa-only').size() == 1))",
+              "message": "networkInterfaces must not have duplicate networkCardIndex and deviceIndex pairs, and can have at most one efa device per network card"
+            }
+          ]
+        },
+        "placementGroupSelector": {
+          "description": "PlacementGroupSelector defines the name or the id of the placement to resolve with the nodeclass.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "description": "ID is the placement group id in EC2",
+              "type": "string",
+              "pattern": "^pg-[0-9a-z]+$"
+            },
+            "name": {
+              "description": "Name is the placement group name in EC2",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "has(self.name) || has(self.id)",
+              "message": "expected at least one, got none, ['name', 'id']"
+            },
+            {
+              "rule": "!(has(self.name) \u0026\u0026 has(self.id))",
+              "message": "'name' and 'id' are mutually exclusive"
+            }
+          ]
+        },
         "role": {
           "description": "Role is the AWS identity that nodes use.\nThis field is mutually exclusive from instanceProfile.",
           "type": "string",
