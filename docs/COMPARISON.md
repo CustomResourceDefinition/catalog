@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.49% | 3517 | 10310 | 99 |
+| 99.55% | 3517 | 10340 | 82 |
 
 ### Missing Schemas
 
@@ -30,8 +30,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | infrastructure.cluster.x-k8s.io | |
 | --- | --- |
-| devcluster | v1beta1 |
-| devclustertemplate | v1beta1 |
 | gcpcluster | v1alpha2 |
 
 | networking.gke.io | |
@@ -103,26 +101,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | getambassador.io | ratelimit | v1beta2 |
 | grafana.integreatly.org | grafana | v1alpha1 |
 | helm.toolkit.fluxcd.io | helmrelease | v1 |
-| infrastructure.cluster.x-k8s.io | devmachine | v1beta1 |
-| infrastructure.cluster.x-k8s.io | devmachinetemplate | v1beta1 |
 | infrastructure.cluster.x-k8s.io | dockercluster | v1alpha2 |
-| infrastructure.cluster.x-k8s.io | dockercluster | v1alpha3 |
-| infrastructure.cluster.x-k8s.io | dockercluster | v1alpha4 |
-| infrastructure.cluster.x-k8s.io | dockercluster | v1beta1 |
-| infrastructure.cluster.x-k8s.io | dockerclustertemplate | v1alpha4 |
-| infrastructure.cluster.x-k8s.io | dockerclustertemplate | v1beta1 |
 | infrastructure.cluster.x-k8s.io | dockermachine | v1alpha2 |
-| infrastructure.cluster.x-k8s.io | dockermachine | v1alpha3 |
-| infrastructure.cluster.x-k8s.io | dockermachine | v1alpha4 |
-| infrastructure.cluster.x-k8s.io | dockermachine | v1beta1 |
-| infrastructure.cluster.x-k8s.io | dockermachinepool | v1alpha3 |
-| infrastructure.cluster.x-k8s.io | dockermachinepool | v1alpha4 |
-| infrastructure.cluster.x-k8s.io | dockermachinepool | v1beta1 |
-| infrastructure.cluster.x-k8s.io | dockermachinepooltemplate | v1beta1 |
 | infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1alpha2 |
-| infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1alpha3 |
-| infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1alpha4 |
-| infrastructure.cluster.x-k8s.io | dockermachinetemplate | v1beta1 |
 | infrastructure.cluster.x-k8s.io | gcpmachine | v1alpha2 |
 | infrastructure.cluster.x-k8s.io | gcpmachinetemplate | v1alpha2 |
 | kafka.strimzi.io | kafkatopiccontrolacls | v1alpha1 |
