@@ -11,7 +11,7 @@ spec:
     listKind: FelixConfigurationList
     plural: felixconfigurations
     singular: felixconfiguration
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v3
     schema:
@@ -125,6 +125,9 @@ spec:
                 - Enabled
                 - Disabled
                 type: string
+              bpfIPFragTimeout:
+                pattern: ^([0-9]+(\\.[0-9]+)?(ms|s|m|h))*$
+                type: string
               bpfJITHardening:
                 allOf:
                 - enum:
@@ -134,8 +137,6 @@ spec:
                   - Auto
                   - Strict
                 type: string
-              bpfKubeProxyEndpointSlicesEnabled:
-                type: boolean
               bpfKubeProxyHealthzPort:
                 type: integer
               bpfKubeProxyIptablesCleanupEnabled:
@@ -152,6 +153,10 @@ spec:
               bpfLogLevel:
                 pattern: ^(?i)(Off|Info|Debug)?$
                 type: string
+              bpfMaglevMaxEndpointsPerService:
+                type: integer
+              bpfMaglevMaxServices:
+                type: integer
               bpfMapSizeConntrack:
                 type: integer
               bpfMapSizeConntrackCleanupQueue:
@@ -196,7 +201,6 @@ spec:
                 enum:
                 - Enabled
                 - Disabled
-                - L2Only
                 type: string
               cgroupV2Path:
                 type: string
@@ -230,8 +234,10 @@ spec:
               deviceRouteProtocol:
                 type: integer
               deviceRouteSourceAddress:
+                maxLength: 45
                 type: string
               deviceRouteSourceAddressIPv6:
+                maxLength: 45
                 type: string
               disableConntrackInvalidCheck:
                 type: boolean
@@ -326,6 +332,7 @@ spec:
                   - timeout
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               interfaceExclude:
                 type: string
               interfacePrefix:
@@ -346,6 +353,10 @@ spec:
                 pattern: ^([0-9]+(\\.[0-9]+)?(ms|s|m|h))*$
                 type: string
               iptablesBackend:
+                enum:
+                - Legacy
+                - NFT
+                - Auto
                 pattern: ^(?i)(Auto|Legacy|NFT)?$
                 type: string
               iptablesFilterAllowAction:
@@ -354,12 +365,7 @@ spec:
               iptablesFilterDenyAction:
                 pattern: ^(?i)(Drop|Reject)?$
                 type: string
-              iptablesLockFilePath:
-                type: string
               iptablesLockProbeInterval:
-                pattern: ^([0-9]+(\\.[0-9]+)?(ms|s|m|h))*$
-                type: string
-              iptablesLockTimeout:
                 pattern: ^([0-9]+(\\.[0-9]+)?(ms|s|m|h))*$
                 type: string
               iptablesMangleAllowAction:
@@ -376,8 +382,25 @@ spec:
               iptablesRefreshInterval:
                 pattern: ^([0-9]+(\\.[0-9]+)?(ms|s|m|h))*$
                 type: string
+              ipv4ElevatedRoutePriority:
+                type: integer
+              ipv4NormalRoutePriority:
+                type: integer
+              ipv6ElevatedRoutePriority:
+                type: integer
+              ipv6NormalRoutePriority:
+                type: integer
               ipv6Support:
                 type: boolean
+              istioAmbientMode:
+                enum:
+                - Enabled
+                - Disabled
+                type: string
+              istioDSCPMark:
+                pattern: ^.*
+                type: integer
+                x-kubernetes-int-or-string: true
               kubeNodePortRanges:
                 items:
                   properties:
@@ -390,7 +413,11 @@ spec:
                   required:
                   - portName
                   type: object
+                maxItems: 7
                 type: array
+              liveMigrationRouteConvergenceTime:
+                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))*$
+                type: string
               logActionRateLimit:
                 pattern: ^[1-9]\d{0,3}/(?:second|minute|hour|day)$
                 type: string
@@ -423,6 +450,7 @@ spec:
               mtuIfacePattern:
                 type: string
               natOutgoingAddress:
+                maxLength: 45
                 type: string
               natOutgoingExclusions:
                 enum:
@@ -456,6 +484,7 @@ spec:
                 format: int32
                 type: integer
               nftablesMode:
+                default: Auto
                 enum:
                 - Disabled
                 - Enabled
@@ -474,9 +503,17 @@ spec:
                 type: string
               prometheusGoMetricsEnabled:
                 type: boolean
+              prometheusMetricsCAFile:
+                type: string
+              prometheusMetricsCertFile:
+                type: string
+              prometheusMetricsClientAuth:
+                type: string
               prometheusMetricsEnabled:
                 type: boolean
               prometheusMetricsHost:
+                type: string
+              prometheusMetricsKeyFile:
                 type: string
               prometheusMetricsPort:
                 type: integer
@@ -512,6 +549,10 @@ spec:
                 - max
                 - min
                 type: object
+                x-kubernetes-validations:
+                - message: must be a range of route table indices within 1..250
+                  reason: FieldValueInvalid
+                  rule: self.min >= 1 && self.max >= self.min && self.max <= 250
               routeTableRanges:
                 items:
                   properties:
@@ -523,6 +564,13 @@ spec:
                   - max
                   - min
                   type: object
+                  x-kubernetes-validations:
+                  - message: min must be >= 1
+                    reason: FieldValueInvalid
+                    rule: self.min >= 1
+                  - message: min must not be greater than max
+                    reason: FieldValueInvalid
+                    rule: self.min <= self.max
                 type: array
               serviceLoopPrevention:
                 pattern: ^(?i)(Drop|Reject|Disabled)?$
@@ -588,6 +636,28 @@ spec:
                 pattern: ^([0-9]+(\\.[0-9]+)?(ms|s|m|h))*$
                 type: string
             type: object
+            x-kubernetes-validations:
+            - message: routeTableRange and routeTableRanges cannot both be set
+              reason: FieldValueForbidden
+              rule: '!has(self.routeTableRange) || !has(self.routeTableRanges)'
+            - message: natOutgoingAddress must be a valid IPv4 address
+              reason: FieldValueInvalid
+              rule: '!has(self.natOutgoingAddress) || size(self.natOutgoingAddress)
+                == 0 || (isIP(self.natOutgoingAddress) && ip(self.natOutgoingAddress).family()
+                == 4)'
+            - message: deviceRouteSourceAddress must be a valid IPv4 address
+              reason: FieldValueInvalid
+              rule: '!has(self.deviceRouteSourceAddress) || size(self.deviceRouteSourceAddress)
+                == 0 || (isIP(self.deviceRouteSourceAddress) && ip(self.deviceRouteSourceAddress).family()
+                == 4)'
+            - message: deviceRouteSourceAddressIPv6 must be a valid IPv6 address
+              reason: FieldValueInvalid
+              rule: '!has(self.deviceRouteSourceAddressIPv6) || size(self.deviceRouteSourceAddressIPv6)
+                == 0 || (isIP(self.deviceRouteSourceAddressIPv6) && ip(self.deviceRouteSourceAddressIPv6).family()
+                == 6)'
+        required:
+        - metadata
+        - spec
         type: object
     served: true
     storage: true

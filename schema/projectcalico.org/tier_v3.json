@@ -1,5 +1,9 @@
 {
   "type": "object",
+  "required": [
+    "metadata",
+    "spec"
+  ],
   "properties": {
     "apiVersion": {
       "type": "string"
@@ -15,14 +19,117 @@
       "properties": {
         "defaultAction": {
           "type": "string",
-          "enum": [
-            "Pass",
-            "Deny"
+          "default": "Deny",
+          "allOf": [
+            {
+              "enum": [
+                "Allow",
+                "Deny",
+                "Log",
+                "Pass"
+              ]
+            },
+            {
+              "enum": [
+                "Pass",
+                "Deny"
+              ]
+            }
           ]
         },
         "order": {}
       },
       "additionalProperties": false
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        }
+      },
+      "additionalProperties": false
     }
-  }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "self.metadata.name == 'kube-admin' ? (has(self.spec.defaultAction) \u0026\u0026 self.spec.defaultAction == 'Pass') : true",
+      "message": "The 'kube-admin' tier must have default action 'Pass'",
+      "reason": "FieldValueInvalid"
+    },
+    {
+      "rule": "self.metadata.name == 'kube-baseline' ? (has(self.spec.defaultAction) \u0026\u0026 self.spec.defaultAction == 'Pass') : true",
+      "message": "The 'kube-baseline' tier must have default action 'Pass'",
+      "reason": "FieldValueInvalid"
+    },
+    {
+      "rule": "self.metadata.name == 'default' ? (has(self.spec.defaultAction) \u0026\u0026 self.spec.defaultAction == 'Deny') : true",
+      "message": "The 'default' tier must have default action 'Deny'",
+      "reason": "FieldValueInvalid"
+    },
+    {
+      "rule": "self.metadata.name != 'default' || (has(self.spec.order) \u0026\u0026 self.spec.order == 1000000.0)",
+      "message": "default tier order must be 1000000",
+      "reason": "FieldValueInvalid"
+    },
+    {
+      "rule": "self.metadata.name != 'kube-admin' || (has(self.spec.order) \u0026\u0026 self.spec.order == 1000.0)",
+      "message": "kube-admin tier order must be 1000",
+      "reason": "FieldValueInvalid"
+    },
+    {
+      "rule": "self.metadata.name != 'kube-baseline' || (has(self.spec.order) \u0026\u0026 self.spec.order == 10000000.0)",
+      "message": "kube-baseline tier order must be 10000000",
+      "reason": "FieldValueInvalid"
+    }
+  ]
 }
