@@ -1,5 +1,5 @@
 {
-  "description": "EKSConfig is the schema for the Amazon EKS Machine Bootstrap Configuration API.\n\nDeprecated: EKSConfig is deprecated and will be removed in a future release.\nAmazon Linux 2 (AL2) reaches end-of-life in June 2026 see: https://aws.amazon.com/amazon-linux-2/faqs/\nPlease use NodeadmConfig with Amazon Linux 2023 (AL2023) instead.",
+  "description": "NodeadmConfig is the Schema for the nodeadmconfigs API.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -14,20 +14,24 @@
       "type": "object"
     },
     "spec": {
-      "description": "EKSConfigSpec defines the desired state of Amazon EKS Bootstrap Configuration.",
+      "description": "NodeadmConfigSpec defines the desired state of NodeadmConfig.",
       "type": "object",
       "properties": {
-        "apiRetryAttempts": {
-          "description": "APIRetryAttempts is the number of retry attempts for AWS API call.",
-          "type": "integer"
-        },
-        "boostrapCommandOverride": {
-          "description": "BootstrapCommandOverride allows you to override the bootstrap command to use for EKS nodes.",
-          "type": "string"
-        },
-        "containerRuntime": {
-          "description": "ContainerRuntime specify the container runtime to use when bootstrapping EKS.",
-          "type": "string"
+        "containerd": {
+          "description": "Containerd contains options for containerd.",
+          "type": "object",
+          "properties": {
+            "baseRuntimeSpec": {
+              "description": "BaseRuntimeSpec is the OCI runtime specification upon which all containers will be based.",
+              "type": "object",
+              "x-kubernetes-preserve-unknown-fields": true
+            },
+            "config": {
+              "description": "Config is an inline containerd configuration TOML that will be merged with the defaults.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         },
         "diskSetup": {
           "description": "DiskSetup specifies options for the creation of partition tables and file systems on devices.",
@@ -110,13 +114,12 @@
           },
           "additionalProperties": false
         },
-        "dnsClusterIP": {
-          "description": " DNSClusterIP overrides the IP address to use for DNS queries within the cluster.",
-          "type": "string"
-        },
-        "dockerConfigJson": {
-          "description": "DockerConfigJson is used for the contents of the /etc/docker/daemon.json file. Useful if you want a custom config differing from the default one in the AMI.\nThis is expected to be a json string.",
-          "type": "string"
+        "featureGates": {
+          "description": "FeatureGates holds key-value pairs to enable or disable application features.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          }
         },
         "files": {
           "description": "Files specifies extra files to be passed to user_data upon creation.",
@@ -190,12 +193,24 @@
             "additionalProperties": false
           }
         },
-        "kubeletExtraArgs": {
-          "description": "KubeletExtraArgs passes the specified kubelet args into the Amazon EKS machine bootstrap script",
+        "kubelet": {
+          "description": "Kubelet contains options for kubelet.",
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "properties": {
+            "config": {
+              "description": "Config is a KubeletConfiguration that will be merged with the defaults.",
+              "type": "object",
+              "x-kubernetes-preserve-unknown-fields": true
+            },
+            "flags": {
+              "description": "Flags are command-line kubelet arguments that will be appended to the defaults.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
         },
         "mounts": {
           "description": "Mounts specifies a list of mount points to be setup.",
@@ -209,7 +224,7 @@
           }
         },
         "ntp": {
-          "description": "NTP specifies NTP configuration",
+          "description": "NTP specifies NTP configuration.",
           "type": "object",
           "properties": {
             "enabled": {
@@ -226,49 +241,15 @@
           },
           "additionalProperties": false
         },
-        "pauseContainer": {
-          "description": "PauseContainer allows customization of the pause container to use.",
-          "type": "object",
-          "required": [
-            "accountNumber",
-            "version"
-          ],
-          "properties": {
-            "accountNumber": {
-              "description": " AccountNumber is the AWS account number to pull the pause container from.",
-              "type": "string"
-            },
-            "version": {
-              "description": "Version is the tag of the pause container to use.",
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "postBootstrapCommands": {
-          "description": "PostBootstrapCommands specifies extra commands to run after bootstrapping nodes to the cluster",
+        "preNodeadmCommands": {
+          "description": "PreNodeadmCommands specifies extra commands to run before bootstrapping nodes.",
           "type": "array",
           "items": {
             "type": "string"
           }
-        },
-        "preBootstrapCommands": {
-          "description": "PreBootstrapCommands specifies extra commands to run before bootstrapping nodes to the cluster",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "serviceIPV6Cidr": {
-          "description": "ServiceIPV6Cidr is the ipv6 cidr range of the cluster. If this is specified then\nthe ip family will be set to ipv6.",
-          "type": "string"
-        },
-        "useMaxPods": {
-          "description": "UseMaxPods  sets --max-pods for the kubelet when true.",
-          "type": "boolean"
         },
         "users": {
-          "description": "Users specifies extra users to add",
+          "description": "Users specifies extra users to add.",
           "type": "array",
           "items": {
             "description": "User defines the input for a generated user in cloud-init.",
@@ -361,11 +342,11 @@
       "additionalProperties": false
     },
     "status": {
-      "description": "EKSConfigStatus defines the observed state of the Amazon EKS Bootstrap Configuration.",
+      "description": "NodeadmConfigStatus defines the observed state of NodeadmConfig.",
       "type": "object",
       "properties": {
         "conditions": {
-          "description": "Conditions defines current service state of the EKSConfig.",
+          "description": "Conditions defines current service state of the NodeadmConfig.",
           "type": "array",
           "items": {
             "description": "Condition defines an observation of a Cluster API resource operational state.",
@@ -417,12 +398,23 @@
           "type": "string"
         },
         "failureMessage": {
-          "description": "FailureMessage will be set on non-retryable errors",
+          "description": "FailureMessage will be set on non-retryable errors.",
           "type": "string"
         },
         "failureReason": {
-          "description": "FailureReason will be set on non-retryable errors",
+          "description": "FailureReason will be set on non-retryable errors.",
           "type": "string"
+        },
+        "initialization": {
+          "description": "Initialization provides observations of the NodeadmConfig initialization process.\nNOTE: Fields in this struct are part of the Cluster API contract and are used to orchestrate initial Machine provisioning.",
+          "type": "object",
+          "properties": {
+            "dataSecretCreated": {
+              "description": "DataSecretCreated is true when the Machine's bootstrap secret is created.\nNOTE: This field is part of the Cluster API contract, and it is used to orchestrate initial Machine provisioning.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
         },
         "observedGeneration": {
           "description": "ObservedGeneration is the latest generation observed by the controller.",
@@ -430,7 +422,7 @@
           "format": "int64"
         },
         "ready": {
-          "description": "Ready indicates the BootstrapData secret is ready to be consumed",
+          "description": "Deprecated: This field will be removed with the CAPI v1beta2 transition\nReady indicates the BootstrapData secret is ready to be consumed.",
           "type": "boolean"
         }
       },
