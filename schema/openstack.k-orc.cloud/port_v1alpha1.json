@@ -1,6 +1,9 @@
 {
   "description": "Port is the Schema for an ORC resource.",
   "type": "object",
+  "required": [
+    "spec"
+  ],
   "properties": {
     "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
@@ -54,11 +57,20 @@
               "type": "object",
               "minProperties": 1,
               "properties": {
+                "adminStateUp": {
+                  "description": "adminStateUp is the administrative state of the port,\nwhich is up (true) or down (false).",
+                  "type": "boolean"
+                },
                 "description": {
                   "description": "description of the existing resource",
                   "type": "string",
                   "maxLength": 255,
                   "minLength": 1
+                },
+                "macAddress": {
+                  "description": "macAddress is the MAC address of the port.",
+                  "type": "string",
+                  "maxLength": 32
                 },
                 "name": {
                   "description": "name of the existing resource",
@@ -133,7 +145,8 @@
             "id": {
               "description": "id contains the unique identifier of an existing OpenStack resource. Note\nthat when specifying an import by ID, the resource MUST already exist.\nThe ORC object will enter an error state if the resource does not exist.",
               "type": "string",
-              "format": "uuid"
+              "format": "uuid",
+              "maxLength": 36
             }
           },
           "additionalProperties": false
@@ -209,6 +222,11 @@
                 }
               ]
             },
+            "adminStateUp": {
+              "description": "adminStateUp is the administrative state of the port,\nwhich is up (true) or down (false). The default value is true.",
+              "type": "boolean",
+              "default": true
+            },
             "allowedAddressPairs": {
               "description": "allowedAddressPairs are allowed addresses associated with this port.",
               "type": "array",
@@ -241,6 +259,41 @@
               "type": "string",
               "maxLength": 255,
               "minLength": 1
+            },
+            "hostID": {
+              "description": "hostID specifies the host where the port will be bound.\nNote that when the port is attached to a server, OpenStack may\nrebind the port to the server's actual compute host, which may\ndiffer from the specified hostID if no matching scheduler hint\nis used. In this case the port's status will reflect the actual\nbinding host, not the value specified here.",
+              "type": "object",
+              "maxProperties": 1,
+              "minProperties": 1,
+              "properties": {
+                "id": {
+                  "description": "id is the literal host ID string to use for binding:host_id.\nThis is mutually exclusive with serverRef.",
+                  "type": "string",
+                  "maxLength": 36
+                },
+                "serverRef": {
+                  "description": "serverRef is a reference to an ORC Server resource from which to\nretrieve the hostID for port binding. The hostID will be read from\nthe Server's status.resource.hostID field.\nThis is mutually exclusive with id.",
+                  "type": "string",
+                  "maxLength": 253,
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self == oldSelf",
+                  "message": "hostID is immutable"
+                },
+                {
+                  "rule": "(has(self.id) \u0026\u0026 size(self.id) \u003e 0) != (has(self.serverRef) \u0026\u0026 size(self.serverRef) \u003e 0)",
+                  "message": "exactly one of id or serverRef must be set"
+                }
+              ]
+            },
+            "macAddress": {
+              "description": "macAddress is the MAC address of the port.",
+              "type": "string",
+              "maxLength": 32
             },
             "name": {
               "description": "name is a human-readable name of the port. If not set, the object's name will be used.",
@@ -423,7 +476,8 @@
         },
         "id": {
           "description": "id is the unique identifier of the OpenStack resource.",
-          "type": "string"
+          "type": "string",
+          "maxLength": 1024
         },
         "resource": {
           "description": "resource contains the observed state of the OpenStack resource.",
@@ -496,6 +550,11 @@
                 "additionalProperties": false
               },
               "x-kubernetes-list-type": "atomic"
+            },
+            "hostID": {
+              "description": "hostID is the ID of host where the port resides.",
+              "type": "string",
+              "maxLength": 128
             },
             "macAddress": {
               "description": "macAddress is the MAC address of the port.",

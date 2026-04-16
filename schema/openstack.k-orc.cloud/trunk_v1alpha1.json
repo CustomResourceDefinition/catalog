@@ -1,5 +1,5 @@
 {
-  "description": "Router is the Schema for an ORC resource.",
+  "description": "Trunk is the Schema for an ORC resource.",
   "type": "object",
   "required": [
     "spec"
@@ -57,6 +57,10 @@
               "type": "object",
               "minProperties": 1,
               "properties": {
+                "adminStateUp": {
+                  "description": "adminStateUp is the administrative state of the trunk.",
+                  "type": "boolean"
+                },
                 "description": {
                   "description": "description of the existing resource",
                   "type": "string",
@@ -94,8 +98,14 @@
                   },
                   "x-kubernetes-list-type": "set"
                 },
+                "portRef": {
+                  "description": "portRef is a reference to the ORC Port which this resource is associated with.",
+                  "type": "string",
+                  "maxLength": 253,
+                  "minLength": 1
+                },
                 "projectRef": {
-                  "description": "projectRef is a reference to the ORC Project this resource is associated with.\nTypically, only used by admin.",
+                  "description": "projectRef is a reference to the ORC Project which this resource is associated with.",
                   "type": "string",
                   "maxLength": 253,
                   "minLength": 1
@@ -170,27 +180,13 @@
         "resource": {
           "description": "resource specifies the desired state of the resource.\n\nresource may not be specified if the management policy is `unmanaged`.\n\nresource must be specified if the management policy is `managed`.",
           "type": "object",
+          "required": [
+            "portRef"
+          ],
           "properties": {
             "adminStateUp": {
-              "description": "adminStateUp represents the administrative state of the resource,\nwhich is up (true) or down (false). Default is true.",
+              "description": "adminStateUp is the administrative state of the trunk. If false (down),\nthe trunk does not forward packets.",
               "type": "boolean"
-            },
-            "availabilityZoneHints": {
-              "description": "availabilityZoneHints is the availability zone candidate for the router.",
-              "type": "array",
-              "maxItems": 64,
-              "items": {
-                "type": "string",
-                "maxLength": 255,
-                "minLength": 1
-              },
-              "x-kubernetes-list-type": "set",
-              "x-kubernetes-validations": [
-                {
-                  "rule": "self == oldSelf",
-                  "message": "availabilityZoneHints is immutable"
-                }
-              ]
             },
             "description": {
               "description": "description is a human-readable description for the resource.",
@@ -198,52 +194,27 @@
               "maxLength": 255,
               "minLength": 1
             },
-            "distributed": {
-              "description": "distributed indicates whether the router is distributed or not. It\nis available when dvr extension is enabled.",
-              "type": "boolean",
-              "x-kubernetes-validations": [
-                {
-                  "rule": "self == oldSelf",
-                  "message": "distributed is immutable"
-                }
-              ]
-            },
-            "externalGateways": {
-              "description": "externalGateways is a list of external gateways for the router.\nMultiple gateways are not currently supported by ORC.",
-              "type": "array",
-              "maxItems": 1,
-              "items": {
-                "type": "object",
-                "required": [
-                  "networkRef"
-                ],
-                "properties": {
-                  "networkRef": {
-                    "description": "networkRef is a reference to the ORC Network which the external\ngateway is on.",
-                    "type": "string",
-                    "maxLength": 253,
-                    "minLength": 1
-                  }
-                },
-                "additionalProperties": false
-              },
-              "x-kubernetes-list-type": "atomic",
-              "x-kubernetes-validations": [
-                {
-                  "rule": "self == oldSelf",
-                  "message": "externalGateways is immutable"
-                }
-              ]
-            },
             "name": {
-              "description": "name is a human-readable name of the router. If not set, the\nobject's name will be used.",
+              "description": "name will be the name of the created resource. If not specified, the\nname of the ORC object will be used.",
               "type": "string",
               "maxLength": 255,
               "minLength": 1,
               "pattern": "^[^,]+$"
             },
+            "portRef": {
+              "description": "portRef is a reference to the ORC Port which this resource is associated with.",
+              "type": "string",
+              "maxLength": 253,
+              "minLength": 1,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self == oldSelf",
+                  "message": "portRef is immutable"
+                }
+              ]
+            },
             "projectRef": {
-              "description": "projectRef is a reference to the ORC Project this resource is associated with.\nTypically, only used by admin.",
+              "description": "projectRef is a reference to the ORC Project which this resource is associated with.",
               "type": "string",
               "maxLength": 253,
               "minLength": 1,
@@ -254,8 +225,49 @@
                 }
               ]
             },
+            "subports": {
+              "description": "subports is the list of ports to attach to the trunk.",
+              "type": "array",
+              "maxItems": 1024,
+              "items": {
+                "description": "TrunkSubportSpec represents a subport to attach to a trunk.\nIt maps to gophercloud's trunks.Subport.",
+                "type": "object",
+                "required": [
+                  "portRef",
+                  "segmentationID",
+                  "segmentationType"
+                ],
+                "properties": {
+                  "portRef": {
+                    "description": "portRef is a reference to the ORC Port that will be attached as a subport.",
+                    "type": "string",
+                    "maxLength": 253,
+                    "minLength": 1
+                  },
+                  "segmentationID": {
+                    "description": "segmentationID is the segmentation ID for the subport (e.g. VLAN ID).",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 4094,
+                    "minimum": 1
+                  },
+                  "segmentationType": {
+                    "description": "segmentationType is the segmentation type for the subport (e.g. vlan).",
+                    "type": "string",
+                    "maxLength": 32,
+                    "minLength": 1,
+                    "enum": [
+                      "inherit",
+                      "vlan"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-list-type": "atomic"
+            },
             "tags": {
-              "description": "tags is a list of tags which will be applied to the router.",
+              "description": "tags is a list of Neutron tags to apply to the trunk.",
               "type": "array",
               "maxItems": 64,
               "items": {
@@ -369,33 +381,64 @@
           "type": "object",
           "properties": {
             "adminStateUp": {
-              "description": "adminStateUp is the administrative state of the router,\nwhich is up (true) or down (false).",
+              "description": "adminStateUp is the administrative state of the trunk.",
               "type": "boolean"
             },
-            "availabilityZoneHints": {
-              "description": "availabilityZoneHints is the availability zone candidate for the\nrouter.",
-              "type": "array",
-              "maxItems": 64,
-              "items": {
-                "type": "string",
-                "maxLength": 1024
-              },
-              "x-kubernetes-list-type": "atomic"
+            "createdAt": {
+              "description": "createdAt shows the date and time when the resource was created. The date and time stamp format is ISO 8601",
+              "type": "string",
+              "format": "date-time"
             },
             "description": {
               "description": "description is a human-readable description for the resource.",
               "type": "string",
               "maxLength": 1024
             },
-            "externalGateways": {
-              "description": "externalGateways is a list of external gateways for the router.",
+            "name": {
+              "description": "name is a Human-readable name for the resource. Might not be unique.",
+              "type": "string",
+              "maxLength": 1024
+            },
+            "portID": {
+              "description": "portID is the ID of the Port to which the resource is associated.",
+              "type": "string",
+              "maxLength": 1024
+            },
+            "projectID": {
+              "description": "projectID is the ID of the Project to which the resource is associated.",
+              "type": "string",
+              "maxLength": 1024
+            },
+            "revisionNumber": {
+              "description": "revisionNumber optionally set via extensions/standard-attr-revisions",
+              "type": "integer",
+              "format": "int64"
+            },
+            "status": {
+              "description": "status indicates whether the trunk is currently operational.",
+              "type": "string",
+              "maxLength": 1024
+            },
+            "subports": {
+              "description": "subports is a list of ports associated with the trunk.",
               "type": "array",
-              "maxItems": 32,
+              "maxItems": 1024,
               "items": {
+                "description": "TrunkSubportStatus represents an attached subport on a trunk.\nIt maps to gophercloud's trunks.Subport.",
                 "type": "object",
                 "properties": {
-                  "networkID": {
-                    "description": "networkID is the ID of the network the gateway is on.",
+                  "portID": {
+                    "description": "portID is the OpenStack ID of the Port attached as a subport.",
+                    "type": "string",
+                    "maxLength": 1024
+                  },
+                  "segmentationID": {
+                    "description": "segmentationID is the segmentation ID for the subport (e.g. VLAN ID).",
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "segmentationType": {
+                    "description": "segmentationType is the segmentation type for the subport (e.g. vlan).",
                     "type": "string",
                     "maxLength": 1024
                   }
@@ -403,21 +446,6 @@
                 "additionalProperties": false
               },
               "x-kubernetes-list-type": "atomic"
-            },
-            "name": {
-              "description": "name is the human-readable name of the resource. Might not be unique.",
-              "type": "string",
-              "maxLength": 1024
-            },
-            "projectID": {
-              "description": "projectID is the project owner of the resource.",
-              "type": "string",
-              "maxLength": 1024
-            },
-            "status": {
-              "description": "status indicates the current status of the resource.",
-              "type": "string",
-              "maxLength": 1024
             },
             "tags": {
               "description": "tags is the list of tags on the resource.",
@@ -428,6 +456,16 @@
                 "maxLength": 1024
               },
               "x-kubernetes-list-type": "atomic"
+            },
+            "tenantID": {
+              "description": "tenantID is the project owner of the trunk (alias of projectID in some deployments).",
+              "type": "string",
+              "maxLength": 1024
+            },
+            "updatedAt": {
+              "description": "updatedAt shows the date and time when the resource was updated. The date and time stamp format is ISO 8601",
+              "type": "string",
+              "format": "date-time"
             }
           },
           "additionalProperties": false

@@ -79,6 +79,19 @@
           "maxLength": 255,
           "minLength": 1
         },
+        "observedRevisionGeneration": {
+          "description": "observedRevisionGeneration is the generation of the ClusterAPI object that was last observed by the revision controller.\nIf specified it must be greater than or equal to 1, and less than 2^53. It may not decrease or be unset once set.",
+          "type": "integer",
+          "format": "int64",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self \u003e= oldSelf",
+              "message": "observedRevisionGeneration may not decrease"
+            }
+          ]
+        },
         "revisions": {
           "description": "revisions is a list of all currently active revisions. A revision is\nactive until the installer controller updates currentRevision to a later\nrevision. It is written by the revision controller.\n\nThe maximum number of revisions is 16.\nAll revisions must have a unique name.\nAll revisions must have a unique revision number.\nWhen adding a revision, the revision number must be greater than the highest revision number in the list.\nRevisions are immutable, although they can be deleted.",
           "type": "array",
@@ -143,6 +156,18 @@
                       },
                       "additionalProperties": false
                     },
+                    "name": {
+                      "description": "name is the human-readable name of the component. The value has no\neffect, and will not be set if the component does not define a name in\nits manifests. If set it must consist of alphanumeric characters, or\n'-', and may not exceed 255 characters.",
+                      "type": "string",
+                      "maxLength": 255,
+                      "minLength": 1,
+                      "x-kubernetes-validations": [
+                        {
+                          "rule": "self.matches('^[A-Za-z0-9-]+$')",
+                          "message": "name must consist of alphanumeric characters or '-'"
+                        }
+                      ]
+                    },
                     "type": {
                       "description": "type is the source type of the component.\nThe only valid value is Image.\nWhen set to Image, the image field must be set and will define an image source for the component.",
                       "type": "string",
@@ -166,6 +191,45 @@
                 "type": "string",
                 "maxLength": 255,
                 "minLength": 1
+              },
+              "manifestSubstitutions": {
+                "description": "manifestSubstitutions is a list of envsubst style substitutions which\nwill be applied to manifests in the revision during rendering. If\ndefined it must not be empty, and may not contain more than 32 items.\nEach manifest substitution must have a unique key.",
+                "type": "array",
+                "maxItems": 32,
+                "minItems": 1,
+                "items": {
+                  "description": "ClusterAPIInstallerRevisionManifestSubstitution defines an envsubst style\nsubstitution which will be applied to manifests in a revision during\nrendering.",
+                  "type": "object",
+                  "required": [
+                    "key",
+                    "value"
+                  ],
+                  "properties": {
+                    "key": {
+                      "description": "key is the name of the envsubst variable to substitute. It must be a\nvalid envsubst variable name, consisting of letters, digits, and\nunderscores, and must start with a letter or underscore. The key must\nnot be empty, and must not exceed 255 characters.",
+                      "type": "string",
+                      "maxLength": 255,
+                      "minLength": 1,
+                      "x-kubernetes-validations": [
+                        {
+                          "rule": "self.matches('^[A-Za-z_][A-Za-z0-9_]*$')",
+                          "message": "key must start with a letter or underscore, followed by letters, digits, or underscores"
+                        }
+                      ]
+                    },
+                    "value": {
+                      "description": "value is the value to substitute for the envsubst variable. It may be\nempty, in which case the variable will be substituted with an empty\nstring. The value must not exceed 4096 characters.",
+                      "type": "string",
+                      "maxLength": 4096,
+                      "minLength": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "x-kubernetes-list-map-keys": [
+                  "key"
+                ],
+                "x-kubernetes-list-type": "map"
               },
               "name": {
                 "description": "name is the name of a revision.",
@@ -231,6 +295,10 @@
         {
           "rule": "!has(self.currentRevision) || self.revisions.exists(r, r.name == self.currentRevision)",
           "message": "currentRevision must correspond to an entry in the revisions list"
+        },
+        {
+          "rule": "!has(oldSelf.observedRevisionGeneration) || has(self.observedRevisionGeneration)",
+          "message": "observedRevisionGeneration may not be unset once set"
         }
       ]
     }
@@ -239,6 +307,10 @@
     {
       "rule": "self.metadata.name == 'cluster'",
       "message": "clusterapi is a singleton, .metadata.name must be 'cluster'"
+    },
+    {
+      "rule": "!has(oldSelf.status) || has(self.status)",
+      "message": "status may not be removed once set"
     }
   ]
 }
