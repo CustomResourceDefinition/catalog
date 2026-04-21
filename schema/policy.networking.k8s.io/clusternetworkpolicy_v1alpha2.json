@@ -1,5 +1,5 @@
 {
-  "description": "AdminNetworkPolicy is  a cluster level resource that is part of the\nAdminNetworkPolicy API.",
+  "description": "ClusterNetworkPolicy is a cluster-wide network policy resource.",
   "type": "object",
   "required": [
     "metadata",
@@ -18,19 +18,20 @@
       "type": "object"
     },
     "spec": {
-      "description": "Specification of the desired behavior of AdminNetworkPolicy.",
+      "description": "Spec defines the desired behavior of ClusterNetworkPolicy.",
       "type": "object",
       "required": [
         "priority",
-        "subject"
+        "subject",
+        "tier"
       ],
       "properties": {
         "egress": {
-          "description": "Egress is the list of Egress rules to be applied to the selected pods.\nA total of 100 rules will be allowed in each ANP instance.\nThe relative precedence of egress rules within a single ANP object (all of\nwhich share the priority) will be determined by the order in which the rule\nis written. Thus, a rule that appears at the top of the egress rules\nwould take the highest precedence.\nANPs with no egress rules do not affect egress traffic.",
+          "description": "Egress is the list of Egress rules to be applied to the selected pods.\n\nA maximum of 25 rules is allowed in this block.\n\nThe relative precedence of egress rules within a single CNP object\n(all of which share the priority) will be determined by the order\nin which the rule is written.\nThus, a rule that appears at the top of the egress rules\nwould take the highest precedence.\nCNPs with no egress rules do not affect egress traffic.",
           "type": "array",
-          "maxItems": 100,
+          "maxItems": 25,
           "items": {
-            "description": "AdminNetworkPolicyEgressRule describes an action to take on a particular\nset of traffic originating from pods selected by a AdminNetworkPolicy's\nSubject field.\n\u003cnetwork-policy-api:experimental:validation\u003e",
+            "description": "ClusterNetworkPolicyEgressRule describes an action to take on a particular\nset of traffic originating from pods selected by a ClusterNetworkPolicy's\nSubject field.\n\n\u003cnetwork-policy-api:experimental:validation\u003e",
             "type": "object",
             "required": [
               "action",
@@ -38,79 +39,195 @@
             ],
             "properties": {
               "action": {
-                "description": "Action specifies the effect this rule will have on matching traffic.\nCurrently the following actions are supported:\nAllow: allows the selected traffic (even if it would otherwise have been denied by NetworkPolicy)\nDeny: denies the selected traffic\nPass: instructs the selected traffic to skip any remaining ANP rules, and\nthen pass execution to any NetworkPolicies that select the pod.\nIf the pod is not selected by any NetworkPolicies then execution\nis passed to any BaselineAdminNetworkPolicies that select the pod.",
+                "description": "Action specifies the effect this rule will have on matching\ntraffic.  Currently the following actions are supported:\n\n- Accept: Accepts the selected traffic, allowing it to\n  egress. No further ClusterNetworkPolicy or NetworkPolicy\n  rules will be processed.\n\n- Deny: Drops the selected traffic. No further\n  ClusterNetworkPolicy or NetworkPolicy rules will be\n  processed.\n\n- Pass: Skips all further ClusterNetworkPolicy rules in the\n  current tier for the selected traffic, and passes\n  evaluation to the next tier.",
                 "type": "string",
                 "enum": [
-                  "Allow",
+                  "Accept",
                   "Deny",
                   "Pass"
                 ]
               },
               "name": {
-                "description": "Name is an identifier for this rule, that may be no more than 100 characters\nin length. This field should be used by the implementation to help\nimprove observability, readability and error-reporting for any applied\nAdminNetworkPolicies.",
+                "description": "Name is an identifier for this rule, that may be no more than\n100 characters in length. This field should be used by the implementation\nto help improve observability, readability and error-reporting\nfor any applied policies.",
                 "type": "string",
                 "maxLength": 100
               },
-              "ports": {
-                "description": "Ports allows for matching traffic based on port and protocols.\nThis field is a list of destination ports for the outgoing egress traffic.\nIf Ports is not set then the rule does not filter traffic via port.",
+              "protocols": {
+                "description": "Protocols allows for more fine-grain matching of traffic on\nprotocol-specific attributes such as the port. If\nunspecified, protocol-specific attributes will not be used\nto match traffic.",
                 "type": "array",
-                "maxItems": 100,
+                "maxItems": 25,
                 "minItems": 1,
                 "items": {
-                  "description": "AdminNetworkPolicyPort describes how to select network ports on pod(s).\nExactly one field must be set.",
+                  "description": "ClusterNetworkPolicyProtocol describes additional protocol-specific match rules.\nExactly one field must be set.",
                   "type": "object",
                   "maxProperties": 1,
                   "minProperties": 1,
                   "properties": {
-                    "portNumber": {
-                      "description": "Port selects a port on a pod(s) based on number.",
+                    "destinationNamedPort": {
+                      "description": "DestinationNamedPort selects a destination port on a pod based on the\nContainerPort name. You can't use this in a rule that targets resources\nwithout named ports (e.g. Nodes or Networks).",
+                      "type": "string"
+                    },
+                    "sctp": {
+                      "description": "SCTP specific protocol matches.",
                       "type": "object",
-                      "required": [
-                        "port",
-                        "protocol"
-                      ],
+                      "minProperties": 1,
                       "properties": {
-                        "port": {
-                          "description": "Number defines a network port value.",
-                          "type": "integer",
-                          "format": "int32",
-                          "maximum": 65535,
-                          "minimum": 1
-                        },
-                        "protocol": {
-                          "description": "Protocol is the network protocol (TCP, UDP, or SCTP) which traffic must\nmatch. If not specified, this field defaults to TCP.",
-                          "type": "string",
-                          "default": "TCP"
+                        "destinationPort": {
+                          "description": "DestinationPort for the match.",
+                          "type": "object",
+                          "maxProperties": 1,
+                          "minProperties": 1,
+                          "properties": {
+                            "number": {
+                              "description": "Number defines a network port value.",
+                              "type": "integer",
+                              "format": "int32",
+                              "maximum": 65535,
+                              "minimum": 1
+                            },
+                            "range": {
+                              "description": "Range defines a contiguous range of ports.",
+                              "type": "object",
+                              "required": [
+                                "end",
+                                "start"
+                              ],
+                              "properties": {
+                                "end": {
+                                  "description": "end specifies the last port in the range. It must be\ngreater than start.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                },
+                                "start": {
+                                  "description": "start defines a network port that is the start of a port\nrange, the Start value must be less than End.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                }
+                              },
+                              "additionalProperties": false,
+                              "x-kubernetes-validations": [
+                                {
+                                  "rule": "self.start \u003c self.end",
+                                  "message": "Start port must be less than End port"
+                                }
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       },
                       "additionalProperties": false
                     },
-                    "portRange": {
-                      "description": "PortRange selects a port range on a pod(s) based on provided start and end\nvalues.",
+                    "tcp": {
+                      "description": "TCP specific protocol matches.",
                       "type": "object",
-                      "required": [
-                        "end",
-                        "start"
-                      ],
+                      "minProperties": 1,
                       "properties": {
-                        "end": {
-                          "description": "End defines a network port that is the end of a port range, the End value\nmust be greater than Start.",
-                          "type": "integer",
-                          "format": "int32",
-                          "maximum": 65535,
-                          "minimum": 1
-                        },
-                        "protocol": {
-                          "description": "Protocol is the network protocol (TCP, UDP, or SCTP) which traffic must\nmatch. If not specified, this field defaults to TCP.",
-                          "type": "string",
-                          "default": "TCP"
-                        },
-                        "start": {
-                          "description": "Start defines a network port that is the start of a port range, the Start\nvalue must be less than End.",
-                          "type": "integer",
-                          "format": "int32",
-                          "maximum": 65535,
-                          "minimum": 1
+                        "destinationPort": {
+                          "description": "DestinationPort for the match.",
+                          "type": "object",
+                          "maxProperties": 1,
+                          "minProperties": 1,
+                          "properties": {
+                            "number": {
+                              "description": "Number defines a network port value.",
+                              "type": "integer",
+                              "format": "int32",
+                              "maximum": 65535,
+                              "minimum": 1
+                            },
+                            "range": {
+                              "description": "Range defines a contiguous range of ports.",
+                              "type": "object",
+                              "required": [
+                                "end",
+                                "start"
+                              ],
+                              "properties": {
+                                "end": {
+                                  "description": "end specifies the last port in the range. It must be\ngreater than start.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                },
+                                "start": {
+                                  "description": "start defines a network port that is the start of a port\nrange, the Start value must be less than End.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                }
+                              },
+                              "additionalProperties": false,
+                              "x-kubernetes-validations": [
+                                {
+                                  "rule": "self.start \u003c self.end",
+                                  "message": "Start port must be less than End port"
+                                }
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "udp": {
+                      "description": "UDP specific protocol matches.",
+                      "type": "object",
+                      "minProperties": 1,
+                      "properties": {
+                        "destinationPort": {
+                          "description": "DestinationPort for the match.",
+                          "type": "object",
+                          "maxProperties": 1,
+                          "minProperties": 1,
+                          "properties": {
+                            "number": {
+                              "description": "Number defines a network port value.",
+                              "type": "integer",
+                              "format": "int32",
+                              "maximum": 65535,
+                              "minimum": 1
+                            },
+                            "range": {
+                              "description": "Range defines a contiguous range of ports.",
+                              "type": "object",
+                              "required": [
+                                "end",
+                                "start"
+                              ],
+                              "properties": {
+                                "end": {
+                                  "description": "end specifies the last port in the range. It must be\ngreater than start.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                },
+                                "start": {
+                                  "description": "start defines a network port that is the start of a port\nrange, the Start value must be less than End.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                }
+                              },
+                              "additionalProperties": false,
+                              "x-kubernetes-validations": [
+                                {
+                                  "rule": "self.start \u003c self.end",
+                                  "message": "Start port must be less than End port"
+                                }
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       },
                       "additionalProperties": false
@@ -120,12 +237,12 @@
                 }
               },
               "to": {
-                "description": "To is the List of destinations whose traffic this rule applies to.\nIf any element matches the destination of outgoing\ntraffic then the specified action is applied.\nThis field must be defined and contain at least one item.",
+                "description": "To is the list of destinations whose traffic this rule applies to. If any\nelement matches the destination of outgoing traffic then the specified\naction is applied. This field must be defined and contain at least one\nitem.",
                 "type": "array",
-                "maxItems": 100,
+                "maxItems": 25,
                 "minItems": 1,
                 "items": {
-                  "description": "AdminNetworkPolicyEgressPeer defines a peer to allow traffic to.\n\nExactly one of the fields must be set for a given peer and this is enforced\nby the validation rules on the CRD. If an implementation sees no fields are\nset then it can infer that the deployed CRD is of an incompatible version\nwith an unknown field.  In that case it should fail closed.\n\nFor \"Allow\" rules, \"fail closed\" means: \"treat the rule as matching no\ntraffic\". For \"Deny\" and \"Pass\" rules, \"fail closed\" means: \"treat the rule\nas a 'Deny all' rule\".",
+                  "description": "ClusterNetworkPolicyEgressPeer defines a peer to allow traffic to.\n\nExactly one of the fields must be set for a given peer and this is enforced\nby the validation rules on the CRD. If an implementation sees no fields are\nset then it can infer that the deployed CRD is of an incompatible version\nwith an unknown field.  In that case it should fail closed.\n\nFor \"Accept\" rules, \"fail closed\" means: \"treat the rule as matching no\ntraffic\". For \"Deny\" and \"Pass\" rules, \"fail closed\" means: \"treat the rule\nas a 'Deny all' rule\".",
                   "type": "object",
                   "maxProperties": 1,
                   "minProperties": 1,
@@ -178,12 +295,12 @@
                       "x-kubernetes-map-type": "atomic"
                     },
                     "networks": {
-                      "description": "Networks defines a way to select peers via CIDR blocks.\nThis is intended for representing entities that live outside the cluster,\nwhich can't be selected by pods, namespaces and nodes peers, but note\nthat cluster-internal traffic will be checked against the rule as\nwell. So if you Allow or Deny traffic to `\"0.0.0.0/0\"`, that will allow\nor deny all IPv4 pod-to-pod traffic as well. If you don't want that,\nadd a rule that Passes all pod traffic before the Networks rule.\n\nEach item in Networks should be provided in the CIDR format and should be\nIPv4 or IPv6, for example \"10.0.0.0/8\" or \"fd00::/8\".\n\nNetworks can have upto 25 CIDRs specified.",
+                      "description": "Networks defines a way to select peers via CIDR blocks.\nThis is intended for representing entities that live outside the cluster,\nwhich can't be selected by pods, namespaces and nodes peers, but note\nthat cluster-internal traffic will be checked against the rule as\nwell. So if you Accept or Deny traffic to `\"0.0.0.0/0\"`, that will allow\nor deny all IPv4 pod-to-pod traffic as well. If you don't want that,\nadd a rule that Passes all pod traffic before the Networks rule.\n\nEach item in Networks should be provided in the CIDR format and should be\nIPv4 or IPv6, for example \"10.0.0.0/8\" or \"fd00::/8\".\n\nNetworks can have up to 25 CIDRs specified.",
                       "type": "array",
                       "maxItems": 25,
                       "minItems": 1,
                       "items": {
-                        "description": "CIDR is an IP address range in CIDR notation (for example, \"10.0.0.0/8\" or \"fd00::/8\").",
+                        "description": "CIDR is an IP address range in CIDR notation\n(for example, \"10.0.0.0/8\" or \"fd00::/8\").",
                         "type": "string",
                         "maxLength": 43,
                         "x-kubernetes-validations": [
@@ -199,12 +316,11 @@
                       "description": "Pods defines a way to select a set of pods in\na set of namespaces. Note that host-networked pods\nare not included in this type of peer.",
                       "type": "object",
                       "required": [
-                        "namespaceSelector",
                         "podSelector"
                       ],
                       "properties": {
                         "namespaceSelector": {
-                          "description": "NamespaceSelector follows standard label selector semantics; if empty,\nit selects all Namespaces.",
+                          "description": "NamespaceSelector follows standard label selector\nsemantics; if empty, it selects all Namespaces.",
                           "type": "object",
                           "properties": {
                             "matchExpressions": {
@@ -251,7 +367,7 @@
                           "x-kubernetes-map-type": "atomic"
                         },
                         "podSelector": {
-                          "description": "PodSelector is used to explicitly select pods within a namespace; if empty,\nit selects all Pods.",
+                          "description": "PodSelector is used to explicitly select pods within a namespace;\nif empty, it selects all Pods.",
                           "type": "object",
                           "properties": {
                             "matchExpressions": {
@@ -309,11 +425,11 @@
           }
         },
         "ingress": {
-          "description": "Ingress is the list of Ingress rules to be applied to the selected pods.\nA total of 100 rules will be allowed in each ANP instance.\nThe relative precedence of ingress rules within a single ANP object (all of\nwhich share the priority) will be determined by the order in which the rule\nis written. Thus, a rule that appears at the top of the ingress rules\nwould take the highest precedence.\nANPs with no ingress rules do not affect ingress traffic.",
+          "description": "Ingress is the list of Ingress rules to be applied to the selected pods.\n\nA maximum of 25 rules is allowed in this block.\n\nThe relative precedence of ingress rules within a single CNP object\n(all of which share the priority) will be determined by the order\nin which the rule is written.\nThus, a rule that appears at the top of the ingress rules\nwould take the highest precedence.\nCNPs with no ingress rules do not affect ingress traffic.",
           "type": "array",
-          "maxItems": 100,
+          "maxItems": 25,
           "items": {
-            "description": "AdminNetworkPolicyIngressRule describes an action to take on a particular\nset of traffic destined for pods selected by an AdminNetworkPolicy's\nSubject field.",
+            "description": "ClusterNetworkPolicyIngressRule describes an action to take on a particular\nset of traffic destined for pods selected by a ClusterNetworkPolicy's\nSubject field.",
             "type": "object",
             "required": [
               "action",
@@ -321,10 +437,10 @@
             ],
             "properties": {
               "action": {
-                "description": "Action specifies the effect this rule will have on matching traffic.\nCurrently the following actions are supported:\nAllow: allows the selected traffic (even if it would otherwise have been denied by NetworkPolicy)\nDeny: denies the selected traffic\nPass: instructs the selected traffic to skip any remaining ANP rules, and\nthen pass execution to any NetworkPolicies that select the pod.\nIf the pod is not selected by any NetworkPolicies then execution\nis passed to any BaselineAdminNetworkPolicies that select the pod.",
+                "description": "Action specifies the effect this rule will have on matching\ntraffic. Currently the following actions are supported:\n\n- Accept: Accepts the selected traffic, allowing it into\n  the destination. No further ClusterNetworkPolicy or\n  NetworkPolicy rules will be processed.\n\n  Note: while Accept ensures traffic is accepted by\n  Kubernetes network policy, it is still possible that the\n  packet is blocked in other ways: custom nftable rules,\n  high-layers e.g. service mesh.\n\n- Deny: Drops the selected traffic. No further\n  ClusterNetworkPolicy or NetworkPolicy rules will be\n  processed.\n\n- Pass: Skips all further ClusterNetworkPolicy rules in the\n  current tier for the selected traffic, and passes\n  evaluation to the next tier.",
                 "type": "string",
                 "enum": [
-                  "Allow",
+                  "Accept",
                   "Deny",
                   "Pass"
                 ]
@@ -332,10 +448,10 @@
               "from": {
                 "description": "From is the list of sources whose traffic this rule applies to.\nIf any element matches the source of incoming\ntraffic then the specified action is applied.\nThis field must be defined and contain at least one item.",
                 "type": "array",
-                "maxItems": 100,
+                "maxItems": 25,
                 "minItems": 1,
                 "items": {
-                  "description": "AdminNetworkPolicyIngressPeer defines a peer to allow traffic to.\n\nExactly one of the fields must be set for a given peer and this is enforced\nby the validation rules on the CRD. If an implementation sees no fields are\nset then it can infer that the deployed CRD is of an incompatible version\nwith an unknown field.  In that case it should fail closed.\n\nFor \"Allow\" rules, \"fail closed\" means: \"treat the rule as matching no\ntraffic\". For \"Deny\" and \"Pass\" rules, \"fail closed\" means: \"treat the rule\nas a 'Deny all' rule\".",
+                  "description": "ClusterNetworkPolicyIngressPeer defines a peer to allow traffic from.\n\nExactly one of the fields must be set for a given peer and this is enforced\nby the validation rules on the CRD. If an implementation sees no fields are\nset then it can infer that the deployed CRD is of an incompatible version\nwith an unknown field.  In that case it should fail closed.\n\nFor \"Accept\" rules, \"fail closed\" means: \"treat the rule as matching no\ntraffic\". For \"Deny\" and \"Pass\" rules, \"fail closed\" means: \"treat the rule\nas a 'Deny all' rule\".",
                   "type": "object",
                   "maxProperties": 1,
                   "minProperties": 1,
@@ -391,12 +507,11 @@
                       "description": "Pods defines a way to select a set of pods in\na set of namespaces. Note that host-networked pods\nare not included in this type of peer.",
                       "type": "object",
                       "required": [
-                        "namespaceSelector",
                         "podSelector"
                       ],
                       "properties": {
                         "namespaceSelector": {
-                          "description": "NamespaceSelector follows standard label selector semantics; if empty,\nit selects all Namespaces.",
+                          "description": "NamespaceSelector follows standard label selector\nsemantics; if empty, it selects all Namespaces.",
                           "type": "object",
                           "properties": {
                             "matchExpressions": {
@@ -443,7 +558,7 @@
                           "x-kubernetes-map-type": "atomic"
                         },
                         "podSelector": {
-                          "description": "PodSelector is used to explicitly select pods within a namespace; if empty,\nit selects all Pods.",
+                          "description": "PodSelector is used to explicitly select pods within a namespace;\nif empty, it selects all Pods.",
                           "type": "object",
                           "properties": {
                             "matchExpressions": {
@@ -497,70 +612,186 @@
                 }
               },
               "name": {
-                "description": "Name is an identifier for this rule, that may be no more than 100 characters\nin length. This field should be used by the implementation to help\nimprove observability, readability and error-reporting for any applied\nAdminNetworkPolicies.",
+                "description": "Name is an identifier for this rule, that may be no more than\n100 characters in length. This field should be used by the implementation\nto help improve observability, readability and error-reporting\nfor any applied policies.",
                 "type": "string",
                 "maxLength": 100
               },
-              "ports": {
-                "description": "Ports allows for matching traffic based on port and protocols.\nThis field is a list of ports which should be matched on\nthe pods selected for this policy i.e the subject of the policy.\nSo it matches on the destination port for the ingress traffic.\nIf Ports is not set then the rule does not filter traffic via port.",
+              "protocols": {
+                "description": "Protocols allows for more fine-grain matching of traffic on\nprotocol-specific attributes such as the port. If\nunspecified, protocol-specific attributes will not be used\nto match traffic.",
                 "type": "array",
-                "maxItems": 100,
+                "maxItems": 25,
                 "minItems": 1,
                 "items": {
-                  "description": "AdminNetworkPolicyPort describes how to select network ports on pod(s).\nExactly one field must be set.",
+                  "description": "ClusterNetworkPolicyProtocol describes additional protocol-specific match rules.\nExactly one field must be set.",
                   "type": "object",
                   "maxProperties": 1,
                   "minProperties": 1,
                   "properties": {
-                    "portNumber": {
-                      "description": "Port selects a port on a pod(s) based on number.",
+                    "destinationNamedPort": {
+                      "description": "DestinationNamedPort selects a destination port on a pod based on the\nContainerPort name. You can't use this in a rule that targets resources\nwithout named ports (e.g. Nodes or Networks).",
+                      "type": "string"
+                    },
+                    "sctp": {
+                      "description": "SCTP specific protocol matches.",
                       "type": "object",
-                      "required": [
-                        "port",
-                        "protocol"
-                      ],
+                      "minProperties": 1,
                       "properties": {
-                        "port": {
-                          "description": "Number defines a network port value.",
-                          "type": "integer",
-                          "format": "int32",
-                          "maximum": 65535,
-                          "minimum": 1
-                        },
-                        "protocol": {
-                          "description": "Protocol is the network protocol (TCP, UDP, or SCTP) which traffic must\nmatch. If not specified, this field defaults to TCP.",
-                          "type": "string",
-                          "default": "TCP"
+                        "destinationPort": {
+                          "description": "DestinationPort for the match.",
+                          "type": "object",
+                          "maxProperties": 1,
+                          "minProperties": 1,
+                          "properties": {
+                            "number": {
+                              "description": "Number defines a network port value.",
+                              "type": "integer",
+                              "format": "int32",
+                              "maximum": 65535,
+                              "minimum": 1
+                            },
+                            "range": {
+                              "description": "Range defines a contiguous range of ports.",
+                              "type": "object",
+                              "required": [
+                                "end",
+                                "start"
+                              ],
+                              "properties": {
+                                "end": {
+                                  "description": "end specifies the last port in the range. It must be\ngreater than start.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                },
+                                "start": {
+                                  "description": "start defines a network port that is the start of a port\nrange, the Start value must be less than End.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                }
+                              },
+                              "additionalProperties": false,
+                              "x-kubernetes-validations": [
+                                {
+                                  "rule": "self.start \u003c self.end",
+                                  "message": "Start port must be less than End port"
+                                }
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       },
                       "additionalProperties": false
                     },
-                    "portRange": {
-                      "description": "PortRange selects a port range on a pod(s) based on provided start and end\nvalues.",
+                    "tcp": {
+                      "description": "TCP specific protocol matches.",
                       "type": "object",
-                      "required": [
-                        "end",
-                        "start"
-                      ],
+                      "minProperties": 1,
                       "properties": {
-                        "end": {
-                          "description": "End defines a network port that is the end of a port range, the End value\nmust be greater than Start.",
-                          "type": "integer",
-                          "format": "int32",
-                          "maximum": 65535,
-                          "minimum": 1
-                        },
-                        "protocol": {
-                          "description": "Protocol is the network protocol (TCP, UDP, or SCTP) which traffic must\nmatch. If not specified, this field defaults to TCP.",
-                          "type": "string",
-                          "default": "TCP"
-                        },
-                        "start": {
-                          "description": "Start defines a network port that is the start of a port range, the Start\nvalue must be less than End.",
-                          "type": "integer",
-                          "format": "int32",
-                          "maximum": 65535,
-                          "minimum": 1
+                        "destinationPort": {
+                          "description": "DestinationPort for the match.",
+                          "type": "object",
+                          "maxProperties": 1,
+                          "minProperties": 1,
+                          "properties": {
+                            "number": {
+                              "description": "Number defines a network port value.",
+                              "type": "integer",
+                              "format": "int32",
+                              "maximum": 65535,
+                              "minimum": 1
+                            },
+                            "range": {
+                              "description": "Range defines a contiguous range of ports.",
+                              "type": "object",
+                              "required": [
+                                "end",
+                                "start"
+                              ],
+                              "properties": {
+                                "end": {
+                                  "description": "end specifies the last port in the range. It must be\ngreater than start.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                },
+                                "start": {
+                                  "description": "start defines a network port that is the start of a port\nrange, the Start value must be less than End.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                }
+                              },
+                              "additionalProperties": false,
+                              "x-kubernetes-validations": [
+                                {
+                                  "rule": "self.start \u003c self.end",
+                                  "message": "Start port must be less than End port"
+                                }
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "udp": {
+                      "description": "UDP specific protocol matches.",
+                      "type": "object",
+                      "minProperties": 1,
+                      "properties": {
+                        "destinationPort": {
+                          "description": "DestinationPort for the match.",
+                          "type": "object",
+                          "maxProperties": 1,
+                          "minProperties": 1,
+                          "properties": {
+                            "number": {
+                              "description": "Number defines a network port value.",
+                              "type": "integer",
+                              "format": "int32",
+                              "maximum": 65535,
+                              "minimum": 1
+                            },
+                            "range": {
+                              "description": "Range defines a contiguous range of ports.",
+                              "type": "object",
+                              "required": [
+                                "end",
+                                "start"
+                              ],
+                              "properties": {
+                                "end": {
+                                  "description": "end specifies the last port in the range. It must be\ngreater than start.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                },
+                                "start": {
+                                  "description": "start defines a network port that is the start of a port\nrange, the Start value must be less than End.",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "maximum": 65535,
+                                  "minimum": 1
+                                }
+                              },
+                              "additionalProperties": false,
+                              "x-kubernetes-validations": [
+                                {
+                                  "rule": "self.start \u003c self.end",
+                                  "message": "Start port must be less than End port"
+                                }
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       },
                       "additionalProperties": false
@@ -574,14 +805,14 @@
           }
         },
         "priority": {
-          "description": "Priority is a value from 0 to 1000. Policies with lower priority values have\nhigher precedence, and are checked before policies with higher priority values.\nAll AdminNetworkPolicy rules have higher precedence than NetworkPolicy or\nBaselineAdminNetworkPolicy rules.\nIf two (or more) policies with the same priority could both match a connection,\nthen the implementation can apply any of the matching policies to the\nconnection, and there is no way for the user to reliably determine which one it\nwill choose. Administrators must be careful about assigning the priorities for\npolicies with rules that will match many connections, and ensure that policies\nhave unique priority values in cases where ambiguity would be unacceptable.",
+          "description": "Priority is a value from 0 to 1000 indicating the precedence of\nthe policy within its tier. Policies with lower priority values have\nhigher precedence, and are checked before policies with higher priority\nvalues in the same tier. All Admin tier rules have higher precedence than\nNetworkPolicy or Baseline tier rules.\nIf two (or more) policies in the same tier with the same priority\ncould match a connection, then the implementation can apply any of the\nmatching policies to the connection, and there is no way for the user to\nreliably determine which one it will choose. Administrators must be\ncareful about assigning the priorities for policies with rules that will\nmatch many connections, and ensure that policies have unique priority\nvalues in cases where ambiguity would be unacceptable.",
           "type": "integer",
           "format": "int32",
           "maximum": 1000,
           "minimum": 0
         },
         "subject": {
-          "description": "Subject defines the pods to which this AdminNetworkPolicy applies.\nNote that host-networked pods are not included in subject selection.",
+          "description": "Subject defines the pods to which this ClusterNetworkPolicy applies.",
           "type": "object",
           "maxProperties": 1,
           "minProperties": 1,
@@ -637,12 +868,11 @@
               "description": "Pods is used to select pods via namespace AND pod selectors.",
               "type": "object",
               "required": [
-                "namespaceSelector",
                 "podSelector"
               ],
               "properties": {
                 "namespaceSelector": {
-                  "description": "NamespaceSelector follows standard label selector semantics; if empty,\nit selects all Namespaces.",
+                  "description": "NamespaceSelector follows standard label selector\nsemantics; if empty, it selects all Namespaces.",
                   "type": "object",
                   "properties": {
                     "matchExpressions": {
@@ -689,7 +919,7 @@
                   "x-kubernetes-map-type": "atomic"
                 },
                 "podSelector": {
-                  "description": "PodSelector is used to explicitly select pods within a namespace; if empty,\nit selects all Pods.",
+                  "description": "PodSelector is used to explicitly select pods within a namespace;\nif empty, it selects all Pods.",
                   "type": "object",
                   "properties": {
                     "matchExpressions": {
@@ -740,6 +970,14 @@
             }
           },
           "additionalProperties": false
+        },
+        "tier": {
+          "description": "Tier is used as the top-level grouping for network policy prioritization.\n\nPolicy tiers are evaluated in the following order:\n* Admin tier\n* NetworkPolicy tier\n* Baseline tier\n\nClusterNetworkPolicy can use 2 of these tiers: Admin and Baseline.\n\nThe Admin tier takes precedence over all other policies. Policies\ndefined in this tier are used to set cluster-wide security rules\nthat cannot be overridden in the other tiers. If Admin tier has\nmade a final decision (Accept or Deny) on a connection, then no\nfurther evaluation is done.\n\nNetworkPolicy tier is the tier for the namespaced v1.NetworkPolicy.\nThese policies are intended for the application developer to describe\nthe security policy associated with their deployments inside their\nnamespace. v1.NetworkPolicy always makes a final decision for selected\npods. Further evaluation only happens for Pods not selected by a\nv1.NetworkPolicy.\n\nBaseline tier is a cluster-wide policy that can be overridden by the\nv1.NetworkPolicy. If Baseline tier has made a final decision (Accept or\nDeny) on a connection, then no further evaluation is done.\n\nIf a given connection wasn't allowed or denied by any of the tiers,\nthe default kubernetes policy is applied, which says that\nall pods can communicate with each other.",
+          "type": "string",
+          "enum": [
+            "Admin",
+            "Baseline"
+          ]
         }
       },
       "additionalProperties": false
