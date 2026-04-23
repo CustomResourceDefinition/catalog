@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.18.0
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: clusterlogforwarders.observability.openshift.io
 spec:
   group: observability.openshift.io
@@ -2514,13 +2514,6 @@ spec:
                               - secretName
                               type: object
                           type: object
-                        format:
-                          description: Format defines data format used to send data
-                            to remote destination.
-                          enum:
-                          - json
-                          - ndjson
-                          type: string
                         headers:
                           additionalProperties:
                             type: string
@@ -2662,11 +2655,14 @@ spec:
                             The list represents only the initial set used by the collector's Kafka client for the
                             first connection only. The collector's Kafka client fetches constantly an updated list
                             from Kafka. These updates are not reconciled back to the collector configuration.
-                            If provided, it must be a valid URL with a 'tcp' or 'tls' scheme and include a port number.
+                            If provided, it must be a valid URL with a 'tcp' or 'tls' scheme.
                             If none is provided, the target URL from the OutputSpec is used as fallback.
                           items:
-                            pattern: ^(tcp|tls)://([a-zA-Z0-9\-\.]+|\[[a-fA-F0-9:]+\]):[0-9]+(/.*)?$
                             type: string
+                            x-kubernetes-validations:
+                            - message: each broker must be a valid URL with a tcp
+                                or tls scheme
+                              rule: isURL(self) && (self.startsWith('tcp://') || self.startsWith('tls://'))
                           type: array
                         topic:
                           description: |-
@@ -2722,10 +2718,13 @@ spec:
                         url:
                           description: |-
                             URL to send log records to. This field is optional.
-                            If provided, it must be a valid URL with a 'tcp' or 'tls' scheme and include a port number, for example: 'tls://kafka.secure.com:9093/app-topic'.
+                            If provided, it must be a valid URL with a 'tcp' or 'tls' scheme, for example: 'tls://kafka.secure.com:9093/app-topic'.
                             The 'username@password' part of `url` is ignored.
-                          pattern: ^(tcp|tls)://([a-zA-Z0-9\-\.]+|\[[a-fA-F0-9:]+\]):[0-9]+(/.*)?$
                           type: string
+                          x-kubernetes-validations:
+                          - message: must be a valid URL with a tcp or tls scheme
+                            rule: self == '' || (isURL(self) && (self.startsWith('tcp://')
+                              || self.startsWith('tls://')))
                       type: object
                       x-kubernetes-validations:
                       - message: URL or brokers required
@@ -2842,13 +2841,6 @@ spec:
                           items:
                             type: string
                           type: array
-                        proxyURL:
-                          description: ProxyURL URL of a HTTP or HTTPS proxy to be
-                            used instead of direct connection.
-                          type: string
-                          x-kubernetes-validations:
-                          - message: invalid URL
-                            rule: self == '' ||  isURL(self)
                         tenantKey:
                           description: |-
                             TenantKey is the tenant for the logs. This supports vector's template syntax to allow dynamic per-event values.
@@ -3899,11 +3891,13 @@ spec:
                           type: object
                         url:
                           description: |-
-                            An absolute URL, with a scheme and a port number. Valid schemes are: `tcp`, `tls`, `udp`
+                            An absolute URL, with a scheme. Valid schemes are: `tcp`, `tls`, `udp`
                             For example, to send syslog records using UDP:
                                 url: udp://syslog.example.com:514
-                          pattern: ^(tcp|tls|udp)://([a-zA-Z0-9\-\.]+|\[[a-fA-F0-9:]+\]):[0-9]+(/.*)?$
                           type: string
+                          x-kubernetes-validations:
+                          - message: invalid URL
+                            rule: isURL(self)
                       required:
                       - rfc
                       - url
