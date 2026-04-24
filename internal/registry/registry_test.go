@@ -119,7 +119,7 @@ func TestSet(t *testing.T) {
 		Sources: make(map[string]SourceEntry),
 	}
 
-	reg.Set("new-source", "http", "3.0.0")
+	reg.Set("new-source", "http", "3.0.0", nil, nil)
 
 	entry, ok := reg.Get("new-source")
 	assert.True(t, ok)
@@ -135,7 +135,7 @@ func TestSetUpdate(t *testing.T) {
 		},
 	}
 
-	reg.Set("source1", "git", "2.0.0")
+	reg.Set("source1", "git", "2.0.0", nil, nil)
 
 	entry, ok := reg.Get("source1")
 	assert.True(t, ok)
@@ -161,9 +161,9 @@ func TestSourceRegistrySetMultiple(t *testing.T) {
 		Sources: make(map[string]SourceEntry),
 	}
 
-	reg.Set("source1", "git", "1.0.0")
-	reg.Set("source2", "helm", "2.0.0")
-	reg.Set("source3", "oci", "3.0.0")
+	reg.Set("source1", "git", "1.0.0", nil, nil)
+	reg.Set("source2", "helm", "2.0.0", nil, nil)
+	reg.Set("source3", "oci", "3.0.0", nil, nil)
 
 	assert.Equal(t, 3, len(reg.Sources))
 
@@ -185,7 +185,7 @@ func TestSourceRegistryLastUpdatedFormat(t *testing.T) {
 	}
 
 	before := time.Now().UTC().Format(time.RFC3339)
-	reg.Set("source", "git", "1.0.0")
+	reg.Set("source", "git", "1.0.0", nil, nil)
 	after := time.Now().UTC().Format(time.RFC3339)
 
 	entry, _ := reg.Get("source")
@@ -194,4 +194,52 @@ func TestSourceRegistryLastUpdatedFormat(t *testing.T) {
 	assert.Nil(t, err)
 	assert.GreaterOrEqual(t, entry.LastUpdated, before)
 	assert.LessOrEqual(t, entry.LastUpdated, after)
+}
+
+func TestSaveAndLoadWithCrds(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := path.Join(tmpDir, "registry.yaml")
+
+	original := &SourceRegistry{
+		Sources: map[string]SourceEntry{
+			"source1": {
+				Kind:        "git",
+				Version:     "1.0.0",
+				LastUpdated: "2000-01-01T00:00:00Z",
+				Refs: []CrdRef{
+					{Group: "example.com", Kind: "Test", Version: "v1"},
+				},
+				PastRefs: []CrdRef{
+					{Group: "example.com", Kind: "OldTest", Version: "v1"},
+				},
+			},
+			"source2": {
+				Kind:        "helm",
+				Version:     "2.0.0",
+				LastUpdated: "2000-01-02T00:00:00Z",
+			},
+		},
+	}
+
+	err := original.Save(filePath)
+	assert.Nil(t, err)
+
+	loaded, err := Load(filePath)
+	assert.Nil(t, err)
+	assert.NotNil(t, loaded)
+	assert.Equal(t, 2, len(loaded.Sources))
+
+	entry1, ok := loaded.Get("source1")
+	assert.True(t, ok)
+	assert.Equal(t, "git", entry1.Kind)
+	assert.Len(t, entry1.Refs, 1)
+	assert.Equal(t, "Test", entry1.Refs[0].Kind)
+	assert.Len(t, entry1.PastRefs, 1)
+	assert.Equal(t, "OldTest", entry1.PastRefs[0].Kind)
+
+	entry2, ok := loaded.Get("source2")
+	assert.True(t, ok)
+	assert.Equal(t, "helm", entry2.Kind)
+	assert.Nil(t, entry2.Refs)
+	assert.Nil(t, entry2.PastRefs)
 }

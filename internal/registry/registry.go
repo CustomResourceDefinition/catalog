@@ -13,10 +13,18 @@ type SourceRegistry struct {
 	Sources map[string]SourceEntry `yaml:"sources"`
 }
 
+type CrdRef struct {
+	Group   string `yaml:"group"`
+	Kind    string `yaml:"kind"`
+	Version string `yaml:"version"`
+}
+
 type SourceEntry struct {
-	Kind        string `yaml:"kind"`
-	Version     string `yaml:"version"`
-	LastUpdated string `yaml:"lastUpdated"`
+	Kind        string   `yaml:"kind"`
+	Version     string   `yaml:"version"`
+	LastUpdated string   `yaml:"lastUpdated"`
+	Refs        []CrdRef `yaml:"crds,omitempty"`
+	PastRefs    []CrdRef `yaml:"pastCrds,omitempty"`
 }
 
 func Load(path string) (*SourceRegistry, error) {
@@ -57,10 +65,12 @@ func (r *SourceRegistry) Get(name string) (SourceEntry, bool) {
 	return entry, ok
 }
 
-func (r *SourceRegistry) Set(name, kind, version string) {
+func (r *SourceRegistry) Set(name, kind, version string, refs, pastRefs []CrdRef) {
 	r.Sources[name] = SourceEntry{
 		Kind:        kind,
 		Version:     version,
 		LastUpdated: time.Now().UTC().Format(time.RFC3339),
+		Refs:        refs,
+		PastRefs:    pastRefs,
 	}
 }
