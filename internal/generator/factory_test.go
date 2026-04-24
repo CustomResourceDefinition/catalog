@@ -41,7 +41,7 @@ func TestBuildWithVersionPatternFiltering(t *testing.T) {
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
 	assert.Nil(t, err)
 
-	version, result, err := builder.registryStatus()
+	version, result, _, err := builder.registryStatus()
 	assert.Nil(t, err)
 	assert.False(t, result)
 	assert.Equal(t, "v2.0.0", version)
@@ -175,7 +175,7 @@ func TestRegistryStatusNoRegistry(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, builder)
 
-	version, result, err := builder.registryStatus()
+	version, result, _, err := builder.registryStatus()
 	assert.Nil(t, err)
 	assert.False(t, result)
 	assert.Equal(t, "1.0.0", version)
@@ -209,12 +209,12 @@ func TestRegistryStatusSameVersion(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
-	reg.Set("test", "http", "1.0.0")
+	reg.Set("test", "http", "1.0.0", nil, nil)
 
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	version, result, err := builder.registryStatus()
+	version, result, _, err := builder.registryStatus()
 	assert.Nil(t, err)
 	assert.True(t, result)
 	assert.Equal(t, "1.0.0", version)
@@ -248,12 +248,12 @@ func TestRegistryStatusDifferentVersion(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
-	reg.Set("test", "http", "1.0.0")
+	reg.Set("test", "http", "1.0.0", nil, nil)
 
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	version, result, err := builder.registryStatus()
+	version, result, _, err := builder.registryStatus()
 	assert.Nil(t, err)
 	assert.False(t, result)
 	assert.Equal(t, "2.0.0", version)
@@ -287,12 +287,12 @@ func TestRegistryStatusDifferentKind(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
-	reg.Set("test", "git", "1.0.0")
+	reg.Set("test", "git", "1.0.0", nil, nil)
 
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
 
-	version, result, err := builder.registryStatus()
+	version, result, _, err := builder.registryStatus()
 	assert.Nil(t, err)
 	assert.False(t, result)
 	assert.Equal(t, "1.0.0", version)
@@ -326,7 +326,7 @@ func TestBuildSkipsWhenUnchanged(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
-	reg.Set("test", "http", "1.0.0")
+	reg.Set("test", "http", "1.0.0", nil, nil)
 
 	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
 	assert.Nil(t, err)
@@ -430,6 +430,113 @@ func TestBuildRecordsStats(t *testing.T) {
 	genOps := stats.GetCategoryStats(timing.CategoryGeneration)
 	assert.NotNil(t, genOps)
 	assert.NotEmpty(t, genOps)
+}
+
+func TestBuildTracksCrds(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"chart.uri"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "1.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), reg)
+	assert.Nil(t, err)
+
+	err = builder.Build()
+	assert.Nil(t, err)
+
+	entry, ok := reg.Get("test")
+	assert.True(t, ok)
+	assert.Len(t, entry.Refs, 1)
+	assert.Equal(t, "crd.example.com", entry.Refs[0].Group)
+	assert.Equal(t, "test", entry.Refs[0].Kind)
+	assert.Equal(t, "v1", entry.Refs[0].Version)
+	assert.Empty(t, entry.PastRefs)
+}
+
+func TestComputeRemoved(t *testing.T) {
+	currentCrds := []registry.CrdRef{
+		{Group: "a.com", Kind: "Test", Version: "v1"},
+		{Group: "a.com", Kind: "Test", Version: "v2"},
+	}
+
+	pastRefs := []registry.CrdRef{
+		{Group: "a.com", Kind: "Old", Version: "v1"},
+		{Group: "a.com", Kind: "Test", Version: "v1"},
+	}
+
+	removed := computeRemoved(pastRefs, pastRefs, currentCrds)
+
+	assert.Len(t, removed, 1)
+	found := make(map[string]bool)
+	for _, r := range removed {
+		found[r.Kind] = true
+	}
+	assert.False(t, found["Test"])
+	assert.True(t, found["Old"])
+}
+
+func TestComputeRemovedEmpty(t *testing.T) {
+	currentCrds := []registry.CrdRef{
+		{Group: "a.com", Kind: "Test", Version: "v1"},
+	}
+
+	empty := make([]registry.CrdRef, 0)
+	removed := computeRemoved(empty, empty, currentCrds)
+	assert.Len(t, removed, 0)
+}
+
+func TestComputeRemovedAllPresent(t *testing.T) {
+	reg := &registry.SourceRegistry{Sources: make(map[string]registry.SourceEntry)}
+	reg.Set("test", "git", "1.0.0",
+		[]registry.CrdRef{
+			{Group: "a.com", Kind: "Test", Version: "v1"},
+		},
+		[]registry.CrdRef{
+			{Group: "b.com", Kind: "Old", Version: "v1"},
+		},
+	)
+
+	currentCrds := []registry.CrdRef{
+		{Group: "a.com", Kind: "Test", Version: "v1"},
+		{Group: "b.com", Kind: "Old", Version: "v1"},
+	}
+
+	empty := make([]registry.CrdRef, 0)
+	removed := computeRemoved(empty, empty, currentCrds)
+	assert.Len(t, removed, 0)
+}
+
+func TestExtractCrdRefs(t *testing.T) {
+	// Test with empty slice
+	builder := Builder{}
+	refs := builder.extractCrdRefs(nil)
+	assert.Empty(t, refs)
+
+	refs = builder.extractCrdRefs([]crd.Crd{})
+	assert.Empty(t, refs)
 }
 
 func TestOperationCategory(t *testing.T) {

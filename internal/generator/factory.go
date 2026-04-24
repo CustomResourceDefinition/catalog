@@ -73,7 +73,7 @@ func (builder Builder) Build() error {
 	}
 
 	start := time.Now()
-	latestVersion, isUpdated, err := builder.registryStatus()
+	latestVersion, isUpdated, entry, err := builder.registryStatus()
 	builder.stats.Record(timing.CategoryMisc, timing.OperationTypeStatus, "registry_status", time.Since(start), err == nil, start)
 	if err != nil {
 		return err
@@ -93,27 +93,48 @@ func (builder Builder) Build() error {
 		return err
 	}
 
+	savedPastRefs := make([]registry.CrdRef, 0)
 	missing, known := verifyKnownMetadata(metadata, builder.schemaRepository)
-	if known {
-		fmt.Fprintf(logger, " - complete -> render only latest version.\n")
-		versions = []string{latestVersion}
-	} else {
+	if !known {
 		fmt.Fprintf(logger, " - missing %s -> render all versions.\n", missing)
-	}
-
-	for _, version := range versions {
-		runtime.GC()
-
-		if err := builder.renderVersion(logger, version); err != nil {
-			continue
+	} else {
+		if entry == nil {
+			fmt.Fprintf(logger, " - complete -> render only latest version.\n")
+			versions = []string{latestVersion}
+		} else if len(entry.Refs) == 0 {
+			fmt.Fprintf(logger, " - missing reference metadata -> render all versions.\n")
+		} else {
+			fmt.Fprintf(logger, " - complete -> render only latest version.\n")
+			savedPastRefs = entry.PastRefs
+			versions = []string{latestVersion}
 		}
 	}
 
+	refs, pastRefs := builder.render(versions, savedPastRefs, logger)
+
 	start = time.Now()
-	builder.updateRegistry(latestVersion)
+	builder.updateRegistry(latestVersion, refs, pastRefs)
 	builder.stats.Record(timing.CategoryMisc, timing.OperationTypeUpdate, "update_registry", time.Since(start), true, start)
 
 	return nil
+}
+
+func (builder Builder) render(versions []string, pastRefs []registry.CrdRef, logger io.Writer) ([]registry.CrdRef, []registry.CrdRef) {
+	currentRefs := make([]registry.CrdRef, 0)
+	previousRefs := pastRefs
+	for _, version := range versions {
+		runtime.GC()
+
+		refs, err := builder.renderVersion(logger, version)
+		if err != nil {
+			continue
+		}
+
+		currentRefs = refs
+		pastRefs = computeRemoved(pastRefs, previousRefs, refs)
+		previousRefs = refs
+	}
+	return currentRefs, pastRefs
 }
 
 func (builder Builder) fetchVersions(logger io.Writer) ([]string, error) {
@@ -140,30 +161,48 @@ func (builder Builder) fetchMetadata(logger io.Writer, latestVersion string) ([]
 	return metadata, nil
 }
 
-func (builder Builder) renderVersion(logger io.Writer, version string) error {
+func (builder Builder) renderVersion(logger io.Writer, version string) ([]registry.CrdRef, error) {
 	fmt.Fprintf(logger, " - render version %s.\n", version)
 
 	crds, err := builder.generateCrds(version)
 	if err != nil {
 		fmt.Fprintf(logger, " - - discarded due to error: %s.\n", err.Error())
-		return err
+		return nil, err
 	}
 
 	schemas := builder.extractSchemas(logger, crds)
 
 	if len(crds) > 0 {
 		if err := builder.writeDefinitions(crds); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if len(schemas) > 0 {
 		if err := builder.writeSchemas(schemas); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return builder.extractCrdRefs(crds), nil
+}
+
+func (builder Builder) extractCrdRefs(crds []crd.Crd) []registry.CrdRef {
+	refs := make([]registry.CrdRef, 0)
+	for _, c := range crds {
+		meta, err := c.MetaSchema()
+		if err != nil {
+			continue
+		}
+		for _, m := range meta {
+			refs = append(refs, registry.CrdRef{
+				Group:   m.Group,
+				Kind:    m.Kind,
+				Version: m.Version,
+			})
+		}
+	}
+	return refs
 }
 
 func (builder Builder) generateCrds(version string) ([]crd.Crd, error) {
@@ -245,29 +284,84 @@ func (builder Builder) operationCategory() timing.Category {
 
 // registryStatus reports on the state in registry based on the latest version
 // available and only uses the decided interface method for latest version information
-func (builder Builder) registryStatus() (string, bool, error) {
+func (builder Builder) registryStatus() (string, bool, *registry.SourceEntry, error) {
 	version, err := builder.generator.LatestVersion()
 	if err != nil {
-		return "", false, fmt.Errorf("unable to check registry: %w", err)
+		return "", false, nil, fmt.Errorf("unable to check registry: %w", err)
 	}
 
 	if builder.registry == nil {
-		return version, false, nil
+		return version, false, nil, nil
 	}
 
 	if entry, ok := builder.registry.Get(builder.config.Name); ok {
-		return version, entry.Kind == string(builder.config.Kind) && entry.Version == version, nil
+		return version,
+			entry.Kind == string(builder.config.Kind) && entry.Version == version,
+			&entry,
+			nil
 	}
 
-	return version, false, nil
+	return version, false, &registry.SourceEntry{}, nil
 }
 
-func (builder Builder) updateRegistry(version string) {
+func (builder Builder) updateRegistry(version string, refs, pastRefs []registry.CrdRef) {
 	if builder.registry == nil {
 		return
 	}
+	sortRefs(refs)
+	sortRefs(pastRefs)
+	builder.registry.Set(builder.config.Name, string(builder.config.Kind), version, refs, pastRefs)
+}
 
-	builder.registry.Set(builder.config.Name, string(builder.config.Kind), version)
+func computeRemoved(pastCrds, previousCrds, currentCrds []registry.CrdRef) []registry.CrdRef {
+	everProduced := make(map[registry.CrdRef]bool)
+	for _, c := range pastCrds {
+		everProduced[c] = true
+	}
+	for _, c := range previousCrds {
+		everProduced[c] = true
+	}
+	for _, c := range currentCrds {
+		everProduced[c] = true
+	}
+
+	currentSet := make(map[registry.CrdRef]bool)
+	for _, c := range currentCrds {
+		currentSet[c] = true
+	}
+
+	removed := make([]registry.CrdRef, 0)
+	for crd := range everProduced {
+		if !currentSet[crd] {
+			removed = append(removed, crd)
+		}
+	}
+
+	return removed
+}
+
+func sortRefs(refs []registry.CrdRef) {
+	slices.SortFunc(refs, func(a, b registry.CrdRef) int {
+		if a.Group != b.Group {
+			if a.Group < b.Group {
+				return -1
+			}
+			return 1
+		}
+		if a.Kind != b.Kind {
+			if a.Kind < b.Kind {
+				return -1
+			}
+			return 1
+		}
+		if a.Version < b.Version {
+			return -1
+		}
+		if a.Version > b.Version {
+			return 1
+		}
+		return 0
+	})
 }
 
 func resolveGenerator(config configuration.Configuration, reader crd.CrdReader, logger io.Writer) (Generator, error) {
