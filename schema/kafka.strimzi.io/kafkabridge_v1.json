@@ -120,6 +120,11 @@
           "description": "The image of the init container used for initializing the `client.rack`.",
           "type": "string"
         },
+        "config": {
+          "description": "Additional configuration for the HTTP bridge. The following prefixes cannot be set: kafka., http., bridge.metrics. The following options cannot be set: bridge.id, bridge.tracing, bridge.metrics.",
+          "type": "object",
+          "x-kubernetes-preserve-unknown-fields": true
+        },
         "consumer": {
           "description": "Kafka consumer related configuration.",
           "type": "object",
@@ -173,6 +178,45 @@
               "description": "Port the server listens on.",
               "type": "integer",
               "minimum": 1023
+            },
+            "tls": {
+              "description": "TLS configuration for clients connections to the HTTP Bridge.",
+              "type": "object",
+              "required": [
+                "certificateAndKey"
+              ],
+              "properties": {
+                "certificateAndKey": {
+                  "description": "Reference to the `Secret` which holds the certificate and private key pair.",
+                  "type": "object",
+                  "required": [
+                    "secretName",
+                    "certificate",
+                    "key"
+                  ],
+                  "properties": {
+                    "certificate": {
+                      "description": "The name of the file certificate in the Secret.",
+                      "type": "string"
+                    },
+                    "key": {
+                      "description": "The name of the private key in the secret. The private key must be in unencrypted PKCS #8 format. For more information, see RFC 5208: https://datatracker.ietf.org/doc/html/rfc5208.",
+                      "type": "string"
+                    },
+                    "secretName": {
+                      "description": "The name of the Secret containing the certificate.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "config": {
+                  "description": "Additional configuration for the HTTP server TLS. Properties with the following prefixes cannot be set: ssl. (with the exception of: ssl.enabled.cipher.suites, ssl.enabled.protocols).",
+                  "type": "object",
+                  "x-kubernetes-preserve-unknown-fields": true
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -387,17 +431,36 @@
         "rack": {
           "description": "Configuration of the node label which will be used as the client.rack consumer configuration.",
           "type": "object",
-          "required": [
-            "topologyKey"
-          ],
           "properties": {
+            "envVarName": {
+              "description": "The name of the environment variable that defines the rack ID. Its value sets the `broker.rack` configuration for Kafka brokers and the `client.rack` configuration for Kafka Connect or MirrorMaker 2.",
+              "type": "string"
+            },
             "topologyKey": {
               "description": "A key that matches labels assigned to the Kubernetes cluster nodes. The value of the label is used to set a broker's `broker.rack` config, and the `client.rack` config for Kafka Connect or MirrorMaker 2.",
               "type": "string",
               "example": "topology.kubernetes.io/zone"
+            },
+            "type": {
+              "description": "Specifies the rack awareness type. Supported types are `topology-label` and `environment-variable`. `topology-label` uses a Kubernetes worker node label to set the `broker.rack` configuration for Kafka brokers and the `client.rack` configuration for Kafka Connect and MirrorMaker 2. `environment-variable` uses an environment variable to set the `broker.rack` configuration for Kafka brokers and the `client.rack` configuration for Kafka Connect and MirrorMaker 2. When not specified, `topology-label` type is used by default.",
+              "type": "string",
+              "enum": [
+                "topology-label",
+                "environment-variable"
+              ]
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(has(self.type) \u0026\u0026 self.type != \"topology-label\") || self.topologyKey != \"\"",
+              "message": "topologyKey property is required"
+            },
+            {
+              "rule": "has(self.type) == false || self.type != \"environment-variable\" || self.envVarName != \"\"",
+              "message": "envVarName property is required"
+            }
+          ]
         },
         "readinessProbe": {
           "description": "Pod readiness checking.",
