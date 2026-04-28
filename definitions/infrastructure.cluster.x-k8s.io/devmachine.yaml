@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.18.0
+    controller-gen.kubebuilder.io/version: v0.20.0
   labels:
     cluster.x-k8s.io/v1beta1: v1beta1
     cluster.x-k8s.io/v1beta2: v1beta2
@@ -18,7 +18,6 @@ spec:
           path: /convert
       conversionReviewVersions:
       - v1
-      - v1beta1
   group: infrastructure.cluster.x-k8s.io
   names:
     categories:
@@ -415,17 +414,28 @@ spec:
       jsonPath: .metadata.labels['cluster\.x-k8s\.io/cluster-name']
       name: Cluster
       type: string
-    - description: Machine object which owns with this DevMachine
-      jsonPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
-      name: Machine
-      type: string
     - description: Provider ID
       jsonPath: .spec.providerID
-      name: ProviderID
+      name: Provider ID
+      priority: 10
       type: string
-    - description: Machine ready status
+    - description: The failure domain where the VSphereMachine has been scheduled
+      jsonPath: .status.failureDomain
+      name: Failure domain
+      type: string
+    - description: IP of the Machine
+      jsonPath: .status.addresses[?(@.type=="InternalIP")].address
+      name: IP
+      priority: 10
+      type: string
+    - description: Reconciliation paused
+      jsonPath: .status.conditions[?(@.type=="Paused")].status
+      name: Paused
+      priority: 10
+      type: string
+    - description: DevMachine is provisioned
       jsonPath: .status.initialization.provisioned
-      name: Ready
+      name: Provisioned
       type: string
     - description: Time duration since creation of the DevMachine
       jsonPath: .metadata.creationTimestamp
@@ -741,8 +751,10 @@ spec:
 
                           Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
                         items:
-                          description: Condition defines an observation of a Cluster
-                            API resource operational state.
+                          description: |-
+                            Condition defines an observation of a Cluster API resource operational state.
+
+                            Deprecated: This type is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
                           properties:
                             lastTransitionTime:
                               description: |-
@@ -793,6 +805,12 @@ spec:
                         type: array
                     type: object
                 type: object
+              failureDomain:
+                description: failureDomain is the unique identifier of the failure
+                  domain where this Machine has been placed in.
+                maxLength: 256
+                minLength: 1
+                type: string
               initialization:
                 description: |-
                   initialization provides observations of the DevMachine initialization process.
