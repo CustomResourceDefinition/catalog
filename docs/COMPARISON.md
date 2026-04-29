@@ -9,9 +9,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.55% | 3526 | 10624 | 82 |
+| 99.52% | 3530 | 10624 | 83 |
 
 ### Missing Schemas
+
+| apps.gitlab.com | |
+| --- | --- |
+| runner | v1beta2 |
 
 | compute.cnrm.cloud.google.com | |
 | --- | --- |
@@ -132,6 +136,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | policy.linkerd.io | httproute | v1 |
 | postgresql.cnpg.io | cluster | v3 |
 | rbacmanager.reactiveops.io | rbacdefinitions | v1alpha1 |
+| rke-machine-config.cattle.io | hetznerconfig | v1 |
 | talos.dev | serviceaccount | v1alpha1 |
 | templates.kluctl.io | objecthandler | v1alpha1 |
 | uds.dev | exemption | v1alpha1 |
