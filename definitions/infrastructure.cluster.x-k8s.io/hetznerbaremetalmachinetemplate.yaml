@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.20.0
   labels:
     cluster.x-k8s.io/v1beta1: v1beta1
   name: hetznerbaremetalmachinetemplates.infrastructure.cluster.x-k8s.io
@@ -13,8 +13,8 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: webhook-service
-          namespace: system
+          name: caph-webhook-service
+          namespace: caph-system
           path: /convert
       conversionReviewVersions:
       - v1
@@ -155,6 +155,17 @@ spec:
                                   txz image.
                                 type: string
                             type: object
+                          imageURLCommand:
+                            description: |-
+                              ImageURLCommand is the basename of a command file below /shared on the controller pod which
+                              provisions a machine from Image.URL. CAPH copies that command into the rescue system and
+                              executes it there.
+
+                              Docs: https://syself.com/docs/caph/developers/image-url-command
+
+                              ImageURLCommand must be set if the machine should be provisioned from Image.URL without
+                              installimage. The command name must start with image-url-command-.
+                            type: string
                           logicalVolumeDefinitions:
                             description: LVMDefinitions defines the logical volume
                               definitions to be created.
@@ -248,17 +259,27 @@ spec:
                         type: object
                       providerID:
                         description: |-
-                          ProviderID will be the hetznerbaremetalmachine which is set by the controller
-                          in the `hcloud://bm-<server-id>` format.
+                          ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
+                          `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
+                          this will never change. If the ProviderID is empty, the controller sets it to the old format
+                          by default (hcloud://bm-NNNN), except the Annotation
+                          `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
+                          `"true"`.
                         type: string
                       sshSpec:
                         description: SSHSpec gives a reference on the secret where
                           SSH details are specified as well as ports for SSH.
                         properties:
+                          noSSHAfterInstallImage:
+                            description: |-
+                              NoSSHAfterInstallImage disables SSH access to the machine after installimage
+                              completed successfully.
+                            type: boolean
                           portAfterCloudInit:
                             description: |-
-                              PortAfterCloudInit specifies the port that has to be used to connect to the machine
-                              by reaching the server via SSH after the successful completion of cloud init.
+                              PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
+
+                              Deprecated: This field is not used anymore.
                             type: integer
                           portAfterInstallImage:
                             default: 22
