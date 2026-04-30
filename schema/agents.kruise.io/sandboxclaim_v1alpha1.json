@@ -37,7 +37,37 @@
         },
         "createOnNoStock": {
           "description": "CreateOnNoStock allows to create new sandbox if no stock available",
-          "type": "boolean"
+          "type": "boolean",
+          "default": true
+        },
+        "dynamicVolumesMount": {
+          "description": "DynamicVolumesMount specifies the dynamic volumes to be mounted into the sandbox",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "mountPath",
+              "pvName"
+            ],
+            "properties": {
+              "mountID": {
+                "type": "string"
+              },
+              "mountPath": {
+                "type": "string"
+              },
+              "pvName": {
+                "type": "string"
+              },
+              "readOnly": {
+                "type": "boolean"
+              },
+              "subPath": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
         },
         "envVars": {
           "description": "EnvVars contains environment variables to be injected into the sandbox\nThese will be passed to the sandbox's init endpoint (envd) after claiming\nOnly applicable if the SandboxSet has envd enabled",
@@ -49,13 +79,49 @@
         "inplaceUpdate": {
           "description": "InplaceUpdate allows to perform inplace update for sandbox while claiming",
           "type": "object",
-          "required": [
-            "image"
-          ],
           "properties": {
             "image": {
-              "description": "Image specifies the new image to update to",
+              "description": "Image specifies the new image to update to.",
               "type": "string"
+            },
+            "resources": {
+              "description": "Resources specifies in-place resource update options.",
+              "type": "object",
+              "properties": {
+                "limits": {
+                  "description": "Limits specifies the target resource limits for each container.\nOnly CPU is supported for now. The container's original limit must already be set;\notherwise the value is ignored.\nThe new value must not change the Pod's QoS class; otherwise the claim will be rejected.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "x-kubernetes-int-or-string": true
+                  }
+                },
+                "requests": {
+                  "description": "Requests specifies the target resource requests for each container.\nOnly CPU is supported for now. The container's original request must already be set;\notherwise the value is ignored.\nThe new value must not change the Pod's QoS class; otherwise the claim will be rejected.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "x-kubernetes-int-or-string": true
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -84,19 +150,40 @@
           "description": "Set ReserveFailedSandbox to true to reserve failed sandboxes",
           "type": "boolean"
         },
+        "runtimes": {
+          "description": "Runtimes - Runtime configuration for sandbox object",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "shutdownTime": {
           "description": "ShutdownTime specifies the absolute time when the sandbox should be shut down\nThis will be set as spec.shutdownTime (absolute time) on the Sandbox",
           "type": "string",
           "format": "date-time"
+        },
+        "skipInitRuntime": {
+          "description": "SkipInitRuntime allows to skip init runtime for sandbox while claiming",
+          "type": "boolean",
+          "default": false
         },
         "templateName": {
           "description": "TemplateName specifies which SandboxSet pool to claim from",
           "type": "string"
         },
         "ttlAfterCompleted": {
-          "description": "TTLAfterCompleted specifies the time to live after the claim reaches Completed phase\nAfter this duration, the SandboxClaim will be automatically deleted.\nNote: Only the SandboxClaim resource will be deleted; the claimed sandboxes will NOT be deleted",
+          "description": "TTLAfterCompleted specifies the time to live after the claim reaches Completed phase\nAfter this duration, the SandboxClaim will be automatically deleted.\nNote: Only the SandboxClaim resource will be deleted; the claimed sandboxes will NOT be deleted\nSet to a negative value (e.g., \"-1s\") to disable automatic deletion (never delete).",
           "type": "string",
-          "default": "5m"
+          "default": "60m"
         },
         "waitReadyTimeout": {
           "description": "WaitReadyTimeout specifies the maximum duration for waiting claimed sandbox ready. Default: 30s.\nA waiting happens when an inplace update happens, a new sandbox created, etc.\nFormat: duration string (e.g., \"3h\", \"200s\", \"15m\")",

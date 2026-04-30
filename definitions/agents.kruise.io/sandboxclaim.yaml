@@ -72,9 +72,30 @@ spec:
                     whether all replicas were successfully claimed
                   type: string
                 createOnNoStock:
+                  default: true
                   description: CreateOnNoStock allows to create new sandbox if no stock
                     available
                   type: boolean
+                dynamicVolumesMount:
+                  description: DynamicVolumesMount specifies the dynamic volumes to
+                    be mounted into the sandbox
+                  items:
+                    properties:
+                      mountID:
+                        type: string
+                      mountPath:
+                        type: string
+                      pvName:
+                        type: string
+                      readOnly:
+                        type: boolean
+                      subPath:
+                        type: string
+                    required:
+                      - mountPath
+                      - pvName
+                    type: object
+                  type: array
                 envVars:
                   additionalProperties:
                     type: string
@@ -88,10 +109,38 @@ spec:
                     while claiming
                   properties:
                     image:
-                      description: Image specifies the new image to update to
+                      description: Image specifies the new image to update to.
                       type: string
-                  required:
-                    - image
+                    resources:
+                      description: Resources specifies in-place resource update options.
+                      properties:
+                        limits:
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: |-
+                            Limits specifies the target resource limits for each container.
+                            Only CPU is supported for now. The container's original limit must already be set;
+                            otherwise the value is ignored.
+                            The new value must not change the Pod's QoS class; otherwise the claim will be rejected.
+                          type: object
+                        requests:
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: |-
+                            Requests specifies the target resource requests for each container.
+                            Only CPU is supported for now. The container's original request must already be set;
+                            otherwise the value is ignored.
+                            The new value must not change the Pod's QoS class; otherwise the claim will be rejected.
+                          type: object
+                      type: object
                   type: object
                 labels:
                   additionalProperties:
@@ -115,22 +164,38 @@ spec:
                 reserveFailedSandbox:
                   description: Set ReserveFailedSandbox to true to reserve failed sandboxes
                   type: boolean
+                runtimes:
+                  description: Runtimes - Runtime configuration for sandbox object
+                  items:
+                    properties:
+                      name:
+                        type: string
+                    required:
+                      - name
+                    type: object
+                  type: array
                 shutdownTime:
                   description: |-
                     ShutdownTime specifies the absolute time when the sandbox should be shut down
                     This will be set as spec.shutdownTime (absolute time) on the Sandbox
                   format: date-time
                   type: string
+                skipInitRuntime:
+                  default: false
+                  description: SkipInitRuntime allows to skip init runtime for sandbox
+                    while claiming
+                  type: boolean
                 templateName:
                   description: TemplateName specifies which SandboxSet pool to claim
                     from
                   type: string
                 ttlAfterCompleted:
-                  default: 5m
+                  default: 60m
                   description: |-
                     TTLAfterCompleted specifies the time to live after the claim reaches Completed phase
                     After this duration, the SandboxClaim will be automatically deleted.
                     Note: Only the SandboxClaim resource will be deleted; the claimed sandboxes will NOT be deleted
+                    Set to a negative value (e.g., "-1s") to disable automatic deletion (never delete).
                   type: string
                 waitReadyTimeout:
                   default: 30s
@@ -245,4 +310,5 @@ spec:
       served: true
       storage: true
       subresources:
-        status: {}
+        status: { }
+
