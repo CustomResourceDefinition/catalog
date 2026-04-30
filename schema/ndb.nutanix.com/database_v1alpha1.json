@@ -178,7 +178,7 @@
               "type": "string"
             },
             "databaseNames": {
-              "description": "Name(s) of the database(s) to be provisiond inside the database instance\ndefault [ \"database_one\", \"database_two\", \"database_three\" ]",
+              "description": "Name(s) of the database(s) to be provisioned inside the database instance\ndefault [ \"database_one\", \"database_two\", \"database_three\" ]",
               "type": "array",
               "items": {
                 "type": "string"
@@ -187,6 +187,98 @@
             "description": {
               "description": "Description of the database instance",
               "type": "string"
+            },
+            "haConfig": {
+              "description": "HA configuration for Postgres HA instances (multi-cluster topology).\nWhen set, provisions a clustered Postgres instance with HAProxy and Patroni.",
+              "type": "object",
+              "required": [
+                "clusterName",
+                "nodes"
+              ],
+              "properties": {
+                "clusterName": {
+                  "description": "Display name for the NDB HA cluster",
+                  "type": "string"
+                },
+                "enableSynchronousMode": {
+                  "description": "Enable synchronous replication mode",
+                  "type": "boolean"
+                },
+                "nodes": {
+                  "description": "Node placement and role definitions for all VMs in the HA cluster",
+                  "type": "array",
+                  "items": {
+                    "description": "InstanceHANode describes the placement and role of a single VM in an HA cluster.",
+                    "type": "object",
+                    "required": [
+                      "nodeType",
+                      "vmName"
+                    ],
+                    "properties": {
+                      "clusterId": {
+                        "description": "Id of the PE cluster this node should be placed on.\nEither clusterId or clusterName must be provided.",
+                        "type": "string"
+                      },
+                      "clusterName": {
+                        "description": "Name of the PE cluster this node should be placed on.\nEither clusterId or clusterName must be provided.",
+                        "type": "string"
+                      },
+                      "failoverMode": {
+                        "description": "Failover mode for database nodes (default \"Automatic\")",
+                        "type": "string"
+                      },
+                      "nodeType": {
+                        "description": "Type of this node: \"haproxy\" or \"database\"",
+                        "type": "string",
+                        "enum": [
+                          "haproxy",
+                          "database"
+                        ]
+                      },
+                      "role": {
+                        "description": "Role of this node (database nodes only): \"Primary\" or \"Secondary\"",
+                        "type": "string"
+                      },
+                      "vmName": {
+                        "description": "Name of the VM to be created",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "postgres": {
+                  "description": "Postgres contains Patroni and HAProxy settings specific to Postgres HA.\nRequired when the database type is \"postgres\".",
+                  "type": "object",
+                  "required": [
+                    "patroniClusterName"
+                  ],
+                  "properties": {
+                    "patroniClusterName": {
+                      "description": "Name used by Patroni for DCS cluster coordination",
+                      "type": "string"
+                    },
+                    "provisionVirtualIP": {
+                      "description": "ProvisionVirtualIP controls whether NDB provisions a Virtual IP for the HAProxy layer.\nSet to true only when all HAProxy VMs are on the same Nutanix cluster (non-stretched VLAN).\nDefaults to false; use false when HAProxy nodes span multiple PE clusters.",
+                      "type": "boolean"
+                    },
+                    "readPort": {
+                      "description": "HAProxy read (replica) port. Defaults to 5001.",
+                      "type": "integer",
+                      "format": "int32",
+                      "default": 5001
+                    },
+                    "writePort": {
+                      "description": "HAProxy write (primary) port. Defaults to 5000.",
+                      "type": "integer",
+                      "format": "int32",
+                      "default": 5000
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
             },
             "name": {
               "description": "Name of the database instance",
@@ -341,6 +433,13 @@
       "properties": {
         "creationOperationId": {
           "type": "string"
+        },
+        "dbServerDeletionOperationIds": {
+          "description": "DBServerDeletionOperationIds holds the NDB operation ID returned by the DPC (DBServerCluster) deletion.\nPopulated when HA deletion starts; polled until the operation completes before the finalizer is removed.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "dbServerId": {
           "type": "string"
