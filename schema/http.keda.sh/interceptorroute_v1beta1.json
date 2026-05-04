@@ -33,37 +33,47 @@
           ],
           "properties": {
             "fallback": {
-              "description": "Fallback service to route to when the target is scaling from zero\nand the wait timeout expires.",
+              "description": "Fallback target to route to when the primary backend does not become\nready within the readiness timeout.",
               "type": "object",
               "required": [
                 "service"
               ],
               "properties": {
-                "port": {
-                  "description": "Port number on the Service. Mutually exclusive with portName.",
-                  "type": "integer",
-                  "format": "int32",
-                  "maximum": 65535,
-                  "minimum": 1
-                },
-                "portName": {
-                  "description": "Named port on the Service. Mutually exclusive with port.",
-                  "type": "string",
-                  "minLength": 1
-                },
                 "service": {
-                  "description": "Name of the Kubernetes Service.",
-                  "type": "string",
-                  "minLength": 1
+                  "description": "Kubernetes Service to use as the fallback target.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name of the Kubernetes Service.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "port": {
+                      "description": "Port number on the Service. Mutually exclusive with portName.",
+                      "type": "integer",
+                      "format": "int32",
+                      "maximum": 65535,
+                      "minimum": 1
+                    },
+                    "portName": {
+                      "description": "Named port on the Service. Mutually exclusive with port.",
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "has(self.port) != has(self.portName)",
+                      "message": "exactly one of 'port' or 'portName' must be set"
+                    }
+                  ]
                 }
               },
-              "additionalProperties": false,
-              "x-kubernetes-validations": [
-                {
-                  "rule": "has(self.port) != has(self.portName)",
-                  "message": "exactly one of 'port' or 'portName' must be set"
-                }
-              ]
+              "additionalProperties": false
             }
           },
           "additionalProperties": false,
@@ -148,12 +158,14 @@
             "concurrency": {
               "description": "Scale based on concurrent request count.",
               "type": "object",
+              "required": [
+                "targetValue"
+              ],
               "properties": {
                 "targetValue": {
                   "description": "Target concurrent request count per replica.",
                   "type": "integer",
                   "format": "int32",
-                  "default": 100,
                   "minimum": 1
                 }
               },
@@ -162,6 +174,9 @@
             "requestRate": {
               "description": "Scale based on request rate.",
               "type": "object",
+              "required": [
+                "targetValue"
+              ],
               "properties": {
                 "granularity": {
                   "description": "Bucket size for rate calculation within the window.",
@@ -172,7 +187,6 @@
                   "description": "Target request rate per replica.",
                   "type": "integer",
                   "format": "int32",
-                  "default": 100,
                   "minimum": 1
                 },
                 "window": {
@@ -224,6 +238,25 @@
               "message": "exactly one of 'port' or 'portName' must be set"
             }
           ]
+        },
+        "timeouts": {
+          "description": "Timeout configuration for request handling.",
+          "type": "object",
+          "properties": {
+            "readiness": {
+              "description": "Time to wait for the backend to become ready (e.g. scale-from-zero).\nUnset: uses the global KEDA_HTTP_READINESS_TIMEOUT (default: disabled).\nSet to \"0s\" to disable the dedicated readiness deadline so the full\nrequest budget is available for cold starts. When a fallback service\nis configured and this is \"0s\", a 30s default is applied.",
+              "type": "string"
+            },
+            "request": {
+              "description": "Total time allowed for the entire request lifecycle.\nUnset: uses the global KEDA_HTTP_REQUEST_TIMEOUT (default: disabled).\nSet to \"0s\" to disable the request deadline.",
+              "type": "string"
+            },
+            "responseHeader": {
+              "description": "Max time to wait for the response headers from the backend after the\nrequest has been fully sent. Does not include cold-start wait time.\nUnset: uses the global KEDA_HTTP_RESPONSE_HEADER_TIMEOUT (default: 300s).\nSet to \"0s\" to disable the response header deadline.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
