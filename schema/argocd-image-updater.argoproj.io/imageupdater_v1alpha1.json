@@ -258,12 +258,33 @@
                         "description": "Branch to commit updates to.\nRequired if write-back method is Git and this is not specified at the spec level.",
                         "type": "string"
                       },
+                      "pullRequest": {
+                        "description": "PullRequest configures creation of pull requests when writing back image updates to Git.\nWhen set, the controller opens a PR instead of pushing to the branch.\nIf not specified write back config method is `git`.",
+                        "type": "object",
+                        "properties": {
+                          "github": {
+                            "description": "GitHub configures PR creation via the GitHub API.",
+                            "type": "object"
+                          },
+                          "gitlab": {
+                            "description": "GitLab configures MR creation via the GitLab API.",
+                            "type": "object"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-validations": [
+                          {
+                            "rule": "(has(self.github) ? 1 : 0) + (has(self.gitlab) ? 1 : 0) == 1",
+                            "message": "Exactly one of github or gitlab must be set"
+                          }
+                        ]
+                      },
                       "repository": {
                         "description": "Repository URL to commit changes to.\nIf not specified here or at the spec level, the controller MUST infer it from the\nArgo CD Application's `spec.source.repoURL`. This field allows overriding that.",
                         "type": "string"
                       },
                       "writeBackTarget": {
-                        "description": "WriteBackTarget defines the path and type of file to update in the Git repository.\nExamples: \"helmvalues:./helm/values.yaml\", \"kustomization:./kustomize/overlays/production\".\nFor ApplicationSet usage, `\"{{ .app.path.path }}\"` should be resolved by ApplicationSet\nbefore this CR is generated, resulting in a concrete path here.\nRequired if write-back method is Git and this is not specified at the spec level.",
+                        "description": "WriteBackTarget defines the path and type of file to update in the Git repository.\nExamples: \"helmvalues:./helm/values.yaml\", \"kustomization:./kustomize/overlays/production\".\nFor ApplicationSet usage, `{{ .app.path.path }}` should be resolved by ApplicationSet\nbefore this CR is generated, resulting in a concrete path here.\nRequired if write-back method is Git and this is not specified at the spec level.",
                         "type": "string"
                       }
                     },
@@ -333,10 +354,6 @@
           },
           "additionalProperties": false
         },
-        "namespace": {
-          "description": "Namespace indicates the target namespace of the applications.\n\nDeprecated: This field is deprecated and will be removed in a future release.\nThe controller now uses the ImageUpdater CR's namespace (metadata.namespace)\nto determine which namespace to search for applications. This field is ignored.",
-          "type": "string"
-        },
         "writeBackConfig": {
           "description": "WriteBackConfig provides global default settings for how and where to write back image updates.\nThis can be overridden at the ApplicationRef level.",
           "type": "object",
@@ -352,12 +369,33 @@
                   "description": "Branch to commit updates to.\nRequired if write-back method is Git and this is not specified at the spec level.",
                   "type": "string"
                 },
+                "pullRequest": {
+                  "description": "PullRequest configures creation of pull requests when writing back image updates to Git.\nWhen set, the controller opens a PR instead of pushing to the branch.\nIf not specified write back config method is `git`.",
+                  "type": "object",
+                  "properties": {
+                    "github": {
+                      "description": "GitHub configures PR creation via the GitHub API.",
+                      "type": "object"
+                    },
+                    "gitlab": {
+                      "description": "GitLab configures MR creation via the GitLab API.",
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "(has(self.github) ? 1 : 0) + (has(self.gitlab) ? 1 : 0) == 1",
+                      "message": "Exactly one of github or gitlab must be set"
+                    }
+                  ]
+                },
                 "repository": {
                   "description": "Repository URL to commit changes to.\nIf not specified here or at the spec level, the controller MUST infer it from the\nArgo CD Application's `spec.source.repoURL`. This field allows overriding that.",
                   "type": "string"
                 },
                 "writeBackTarget": {
-                  "description": "WriteBackTarget defines the path and type of file to update in the Git repository.\nExamples: \"helmvalues:./helm/values.yaml\", \"kustomization:./kustomize/overlays/production\".\nFor ApplicationSet usage, `\"{{ .app.path.path }}\"` should be resolved by ApplicationSet\nbefore this CR is generated, resulting in a concrete path here.\nRequired if write-back method is Git and this is not specified at the spec level.",
+                  "description": "WriteBackTarget defines the path and type of file to update in the Git repository.\nExamples: \"helmvalues:./helm/values.yaml\", \"kustomization:./kustomize/overlays/production\".\nFor ApplicationSet usage, `{{ .app.path.path }}` should be resolved by ApplicationSet\nbefore this CR is generated, resulting in a concrete path here.\nRequired if write-back method is Git and this is not specified at the spec level.",
                   "type": "string"
                 }
               },
@@ -379,7 +417,14 @@
       "description": "ImageUpdaterStatus defines the observed state of ImageUpdater",
       "type": "object",
       "properties": {
+        "applicationsMatched": {
+          "description": "ApplicationsMatched is the number of Argo CD applications matched by this CR's selectors.",
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0
+        },
         "conditions": {
+          "description": "Conditions represent the latest available observations of the resource's state.",
           "type": "array",
           "items": {
             "description": "Condition contains details for one aspect of the current state of this API Resource.",
@@ -432,58 +477,79 @@
               }
             },
             "additionalProperties": false
-          }
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
         },
-        "imageStatus": {
-          "description": "ImageStatus indicates the detailed status for the list of managed images",
+        "imagesManaged": {
+          "description": "ImagesManaged is the number of images that were eligible for update checking.",
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0
+        },
+        "lastCheckedAt": {
+          "description": "LastCheckedAt indicates when the controller last checked for image updates.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastUpdatedAt": {
+          "description": "LastUpdatedAt indicates when the controller last performed an image update.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the most recent generation observed by the controller.",
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "recentUpdates": {
+          "description": "RecentUpdates contains the list of image updates performed during the last update cycle.",
           "type": "array",
           "items": {
-            "description": "ImageStatus contains information for an image:version and its update status in hosting applications",
+            "description": "RecentUpdate records a single image update performed during the last update.",
             "type": "object",
             "required": [
-              "name",
-              "version"
+              "alias",
+              "applicationsUpdated",
+              "image",
+              "newVersion",
+              "updatedAt"
             ],
             "properties": {
-              "applications": {
-                "description": "Applications contains a list of applications and when the image was last updated therein",
-                "type": "array",
-                "items": {
-                  "description": "ImageApplicationLastUpdated contains information for an application and when the image was last updated therein",
-                  "type": "object",
-                  "required": [
-                    "appName"
-                  ],
-                  "properties": {
-                    "appName": {
-                      "description": "AppName indicates and namespace and the application name",
-                      "type": "string"
-                    },
-                    "lastUpdatedAt": {
-                      "description": "LastUpdatedAt indicates when the image in this application was last updated",
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "name": {
-                "description": "Name indicates the image name",
+              "alias": {
+                "description": "Alias is the alias of the image configuration that was updated.",
                 "type": "string"
               },
-              "version": {
-                "description": "Version indicates the image version",
+              "applicationsUpdated": {
+                "description": "ApplicationsUpdated is the number of applications in which this image was updated.",
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "image": {
+                "description": "Image is the full image reference.",
                 "type": "string"
+              },
+              "message": {
+                "description": "Message provides a human-readable description of the update action.",
+                "type": "string"
+              },
+              "newVersion": {
+                "description": "NewVersion is the new tag or digest the image was updated to.",
+                "type": "string"
+              },
+              "updatedAt": {
+                "description": "UpdatedAt is the timestamp when the update was applied.",
+                "type": "string",
+                "format": "date-time"
               }
             },
             "additionalProperties": false
-          }
-        },
-        "reconciledAt": {
-          "description": "LastUpdatedAt indicates when the image updater last ran",
-          "type": "string",
-          "format": "date-time"
+          },
+          "x-kubernetes-list-type": "atomic"
         }
       },
       "additionalProperties": false
