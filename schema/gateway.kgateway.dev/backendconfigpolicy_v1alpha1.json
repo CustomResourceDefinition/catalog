@@ -46,6 +46,10 @@
               "type": "integer",
               "format": "int32",
               "minimum": 0
+            },
+            "trackRemaining": {
+              "description": "TrackRemaining controls whether Envoy tracks the remaining resource\ngauges for this circuit breaker threshold group. When enabled, the\nremaining_cx, remaining_pending, remaining_rq, and remaining_retries\nstatistics are populated. Enabling this has a performance cost.\nIf not specified, defaults to false.",
+              "type": "boolean"
             }
           },
           "additionalProperties": false,
@@ -102,6 +106,47 @@
             {
               "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
               "message": "invalid duration value"
+            }
+          ]
+        },
+        "dns": {
+          "description": "DNS contains DNS configuration. Note that this only applies to backends that resolve to Envoy DNS clusters, i.e.,\nBackends of type Static, AWS, or GCP.",
+          "type": "object",
+          "properties": {
+            "jitter": {
+              "description": "Jitter adds a random delay of up to this duration before each DNS refresh,\nspreading query load over time and helping prevent thundering-herd spikes.\nMust be less than or equal to refreshRate when both are set.",
+              "type": "string",
+              "x-kubernetes-validations": [
+                {
+                  "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
+                  "message": "invalid duration value"
+                }
+              ]
+            },
+            "refreshRate": {
+              "description": "RefreshRate controls how frequently Envoy polls DNS for this backend's hostnames.\n\nMinimum value is 1ms. If unset, Envoy's default of 5s is used.\nWhen Envoy respects DNS TTLs, lower TTL values effectively override this setting,\nso RefreshRate acts as the maximum polling interval.\nRecommended value for large-scale deployments is 60s or higher.",
+              "type": "string",
+              "x-kubernetes-validations": [
+                {
+                  "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
+                  "message": "invalid duration value"
+                },
+                {
+                  "rule": "duration(self) \u003e= duration('1ms')",
+                  "message": "refreshRate must be at least 1ms"
+                }
+              ]
+            },
+            "respectTTL": {
+              "description": "RespectTTL instructs Envoy to honor TTL values returned by DNS responses.\nWhen enabled, TTLs lower than RefreshRate effectively become the refresh interval.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!(has(self.jitter) \u0026\u0026 has(self.refreshRate)) || duration(self.jitter) \u003c= duration(self.refreshRate)",
+              "message": "jitter must be less than or equal to refreshRate"
             }
           ]
         },
@@ -265,10 +310,11 @@
               ]
             },
             "maxConcurrentStreams": {
-              "description": "The maximum number of concurrent streams that the connection can have.",
+              "description": "The maximum number of concurrent streams that the connection can have.\nEnvoy defaults to 1024.",
               "type": "integer",
               "format": "int32",
-              "minimum": 0
+              "maximum": 2147483647,
+              "minimum": 1
             },
             "overrideStreamErrorOnInvalidHttpMessage": {
               "description": "Allows invalid HTTP messaging and headers. When disabled (default), then\nthe whole HTTP/2 connection is terminated upon receiving invalid HEADERS frame.\nWhen enabled, only the offending stream is terminated.",
@@ -919,9 +965,9 @@
             "wellKnownCACertificates": {
               "description": "WellKnownCACertificates specifies whether to use a well-known set of CA\ncertificates for validating the backend's certificate chain. Currently,\nonly the system certificate pool is supported via SDS.",
               "type": "string",
-              "enum": [
-                "System"
-              ]
+              "maxLength": 253,
+              "minLength": 1,
+              "pattern": "^(System|([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]))$"
             }
           },
           "additionalProperties": false,
@@ -931,6 +977,32 @@
               "message": "exactly one of the fields in [secretRef files insecureSkipVerify wellKnownCACertificates] must be set"
             }
           ]
+        },
+        "upstreamProxyProtocol": {
+          "description": "UpstreamProxyProtocol configures the PROXY protocol for upstream connections to the backend.\nWhen enabled, the proxy protocol header is prepended to upstream connections,\nallowing backend services to see the original client connection information.\nSee [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/proxy_protocol/v3/upstream_proxy_protocol.proto) for more details.",
+          "type": "object",
+          "properties": {
+            "version": {
+              "description": "Version is the PROXY protocol version to use.",
+              "type": "string",
+              "default": "V1",
+              "allOf": [
+                {
+                  "enum": [
+                    "V1",
+                    "V2"
+                  ]
+                },
+                {
+                  "enum": [
+                    "V1",
+                    "V2"
+                  ]
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false,

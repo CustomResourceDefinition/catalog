@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.1-0.20251023132335-bf7d6b742e6a
+    controller-gen.kubebuilder.io/version: v0.20.1
   labels:
     app: kgateway
     app.kubernetes.io/name: kgateway
@@ -62,9 +62,93 @@ spec:
                   Default specifies default listener configuration for all Listeners, unless a per-port
                   configuration is defined.
                 properties:
+                  clientCertificateValidation:
+                    description: |-
+                      ClientCertificateValidation configures mutual TLS (mTLS) client certificate validation for the listener.
+                      This enables per-listener configuration of CA certificates for client certificate validation,
+                      allowing different listeners on the same port to enforce different mTLS trust boundaries.
+                      When configured on a ListenerPolicy targeting a specific listener (via sectionName),
+                      it overrides any Gateway-level mTLS configuration for that listener.
+
+                      Security Note: Per-listener CA certificate validation can be bypassed in scenarios where
+                      wildcard listeners (e.g., *.example.com) overlap with more specific hostnames on the same port,
+                      due to TLS connection coalescing. For deployments with non-overlapping hostnames per listener,
+                      this security concern does not apply. See GEP-91 and GEP-3567 for more details.
+                      Reference: https://gateway-api.sigs.k8s.io/geps/gep-91/
+                      Reference: https://github.com/kubernetes-sigs/gateway-api/issues/3567
+                    properties:
+                      caCertificateRefs:
+                        description: |-
+                          CACertificateRefs contains references to Kubernetes Secrets or ConfigMaps containing
+                          CA certificates. Multiple references will be combined into a single trusted CA pool for the listener.
+                          The referenced Secrets/ConfigMaps must have a ca.crt key containing the PEM data
+                        items:
+                          description: |-
+                            ObjectReference identifies an API object including its namespace.
+
+                            The API object must be valid in the cluster; the Group and Kind must
+                            be registered in the cluster for this reference to be valid.
+
+                            References to objects with invalid Group and Kind are not valid, and must
+                            be rejected by the implementation, with appropriate Conditions set
+                            on the containing object.
+                          properties:
+                            group:
+                              description: |-
+                                Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                                When set to the empty string, core API group is inferred.
+                              maxLength: 253
+                              pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                            kind:
+                              description: Kind is kind of the referent. For example
+                                "ConfigMap" or "Service".
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                              type: string
+                            name:
+                              description: Name is the name of the referent.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace is the namespace of the referenced object. When unspecified, the local
+                                namespace is inferred.
+
+                                Note that when a namespace different than the local namespace is specified,
+                                a ReferenceGrant object is required in the referent namespace to allow that
+                                namespace's owner to accept the reference. See the ReferenceGrant
+                                documentation for details.
+
+                                Support: Core
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          type: object
+                        maxItems: 8
+                        minItems: 1
+                        type: array
+                      mode:
+                        description: Mode specifies how the listener should enforce
+                          client certificate validation.
+                        enum:
+                        - Require
+                        - Optional
+                        type: string
+                    required:
+                    - caCertificateRefs
+                    - mode
+                    type: object
                   httpSettings:
                     description: |-
-                      HTTPListenerPolicy is intended to be used for configuring the Envoy `HttpConnectionManager` and any other config or policy
+                      HTTPSettings is intended to be used for configuring the Envoy `HttpConnectionManager` and any other config or policy
                       that should map 1-to-1 with a given HTTP listener, such as the Envoy health check HTTP filter.
                     properties:
                       acceptHttp10:
@@ -241,8 +325,14 @@ spec:
                                                 - RegularExpression
                                                 type: string
                                               value:
-                                                description: Value is the value of
-                                                  HTTP Header to be matched.
+                                                description: |-
+                                                  Value is the value of HTTP Header to be matched.
+                                                  <gateway:experimental:description>
+                                                  Must consist of printable US-ASCII characters, optionally separated
+                                                  by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                                  </gateway:experimental:description>
+
+                                                  <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                                 maxLength: 4096
                                                 minLength: 1
                                                 type: string
@@ -270,6 +360,51 @@ spec:
                                             type: array
                                         required:
                                         - flags
+                                        type: object
+                                      runtimeFilter:
+                                        description: |-
+                                          Filters for random sampling of access logs.
+                                          Based on: https://www.envoyproxy.io/docs/envoy/v1.33.0/api-v3/config/accesslog/v3/accesslog.proto#config-accesslog-v3-runtimefilter
+                                        properties:
+                                          percentSampled:
+                                            description: |-
+                                              By default, the runtime filter will log on every request when the runtime key is set.
+                                              If this field is set, it additionally applies a fractional percent check so that only a
+                                              fraction of requests are logged.
+                                            properties:
+                                              denominator:
+                                                description: |-
+                                                  Specifies the denominator. If the denominator specified is less than the numerator,
+                                                  the final fractional percentage is capped at 1 (100%).
+                                                  Defaults to HUNDRED.
+                                                enum:
+                                                - HUNDRED
+                                                - TEN_THOUSAND
+                                                - MILLION
+                                                type: string
+                                              numerator:
+                                                description: Specifies the numerator.
+                                                  Defaults to 0.
+                                                format: int32
+                                                minimum: 0
+                                                type: integer
+                                            required:
+                                            - numerator
+                                            type: object
+                                          runtimeKey:
+                                            description: |-
+                                              The runtime key to look up in the runtime implementation. This key determines whether
+                                              the access log is enabled. When the runtime key value is set, the filter checks this key
+                                              at runtime to decide whether to log each request.
+                                            minLength: 1
+                                            type: string
+                                          useIndependentRandomness:
+                                            description: |-
+                                              If set to true, the filter uses Envoy's independent randomness source.
+                                              When false (the default), the filter uses the runtime key lookup.
+                                            type: boolean
+                                        required:
+                                        - runtimeKey
                                         type: object
                                       statusCodeFilter:
                                         description: |-
@@ -417,8 +552,14 @@ spec:
                                           - RegularExpression
                                           type: string
                                         value:
-                                          description: Value is the value of HTTP
-                                            Header to be matched.
+                                          description: |-
+                                            Value is the value of HTTP Header to be matched.
+                                            <gateway:experimental:description>
+                                            Must consist of printable US-ASCII characters, optionally separated
+                                            by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                            </gateway:experimental:description>
+
+                                            <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                           maxLength: 4096
                                           minLength: 1
                                           type: string
@@ -561,8 +702,14 @@ spec:
                                                 - RegularExpression
                                                 type: string
                                               value:
-                                                description: Value is the value of
-                                                  HTTP Header to be matched.
+                                                description: |-
+                                                  Value is the value of HTTP Header to be matched.
+                                                  <gateway:experimental:description>
+                                                  Must consist of printable US-ASCII characters, optionally separated
+                                                  by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                                  </gateway:experimental:description>
+
+                                                  <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                                 maxLength: 4096
                                                 minLength: 1
                                                 type: string
@@ -590,6 +737,51 @@ spec:
                                             type: array
                                         required:
                                         - flags
+                                        type: object
+                                      runtimeFilter:
+                                        description: |-
+                                          Filters for random sampling of access logs.
+                                          Based on: https://www.envoyproxy.io/docs/envoy/v1.33.0/api-v3/config/accesslog/v3/accesslog.proto#config-accesslog-v3-runtimefilter
+                                        properties:
+                                          percentSampled:
+                                            description: |-
+                                              By default, the runtime filter will log on every request when the runtime key is set.
+                                              If this field is set, it additionally applies a fractional percent check so that only a
+                                              fraction of requests are logged.
+                                            properties:
+                                              denominator:
+                                                description: |-
+                                                  Specifies the denominator. If the denominator specified is less than the numerator,
+                                                  the final fractional percentage is capped at 1 (100%).
+                                                  Defaults to HUNDRED.
+                                                enum:
+                                                - HUNDRED
+                                                - TEN_THOUSAND
+                                                - MILLION
+                                                type: string
+                                              numerator:
+                                                description: Specifies the numerator.
+                                                  Defaults to 0.
+                                                format: int32
+                                                minimum: 0
+                                                type: integer
+                                            required:
+                                            - numerator
+                                            type: object
+                                          runtimeKey:
+                                            description: |-
+                                              The runtime key to look up in the runtime implementation. This key determines whether
+                                              the access log is enabled. When the runtime key value is set, the filter checks this key
+                                              at runtime to decide whether to log each request.
+                                            minLength: 1
+                                            type: string
+                                          useIndependentRandomness:
+                                            description: |-
+                                              If set to true, the filter uses Envoy's independent randomness source.
+                                              When false (the default), the filter uses the runtime key lookup.
+                                            type: boolean
+                                        required:
+                                        - runtimeKey
                                         type: object
                                       statusCodeFilter:
                                         description: |-
@@ -634,6 +826,51 @@ spec:
                                       type: array
                                   required:
                                   - flags
+                                  type: object
+                                runtimeFilter:
+                                  description: |-
+                                    Filters for random sampling of access logs.
+                                    Based on: https://www.envoyproxy.io/docs/envoy/v1.33.0/api-v3/config/accesslog/v3/accesslog.proto#config-accesslog-v3-runtimefilter
+                                  properties:
+                                    percentSampled:
+                                      description: |-
+                                        By default, the runtime filter will log on every request when the runtime key is set.
+                                        If this field is set, it additionally applies a fractional percent check so that only a
+                                        fraction of requests are logged.
+                                      properties:
+                                        denominator:
+                                          description: |-
+                                            Specifies the denominator. If the denominator specified is less than the numerator,
+                                            the final fractional percentage is capped at 1 (100%).
+                                            Defaults to HUNDRED.
+                                          enum:
+                                          - HUNDRED
+                                          - TEN_THOUSAND
+                                          - MILLION
+                                          type: string
+                                        numerator:
+                                          description: Specifies the numerator. Defaults
+                                            to 0.
+                                          format: int32
+                                          minimum: 0
+                                          type: integer
+                                      required:
+                                      - numerator
+                                      type: object
+                                    runtimeKey:
+                                      description: |-
+                                        The runtime key to look up in the runtime implementation. This key determines whether
+                                        the access log is enabled. When the runtime key value is set, the filter checks this key
+                                        at runtime to decide whether to log each request.
+                                      minLength: 1
+                                      type: string
+                                    useIndependentRandomness:
+                                      description: |-
+                                        If set to true, the filter uses Envoy's independent randomness source.
+                                        When false (the default), the filter uses the runtime key lookup.
+                                      type: boolean
+                                  required:
+                                  - runtimeKey
                                   type: object
                                 statusCodeFilter:
                                   description: |-
@@ -1207,8 +1444,14 @@ spec:
                                   pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                   type: string
                                 value:
-                                  description: Value is the value of HTTP Header to
-                                    be matched.
+                                  description: |-
+                                    Value is the value of HTTP Header to be matched.
+                                    <gateway:experimental:description>
+                                    Must consist of printable US-ASCII characters, optionally separated
+                                    by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                    </gateway:experimental:description>
+
+                                    <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                   maxLength: 4096
                                   minLength: 1
                                   type: string
@@ -1281,8 +1524,14 @@ spec:
                                   pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                   type: string
                                 value:
-                                  description: Value is the value of HTTP Header to
-                                    be matched.
+                                  description: |-
+                                    Value is the value of HTTP Header to be matched.
+                                    <gateway:experimental:description>
+                                    Must consist of printable US-ASCII characters, optionally separated
+                                    by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                    </gateway:experimental:description>
+
+                                    <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                   maxLength: 4096
                                   minLength: 1
                                   type: string
@@ -1313,6 +1562,42 @@ spec:
                             type: string
                         required:
                         - path
+                        type: object
+                      http2ProtocolOptions:
+                        description: |-
+                          Http2ProtocolOptions configures downstream HTTP/2 behavior on the listener's
+                          HttpConnectionManager.
+                          See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#config-core-v3-http2protocoloptions
+                        properties:
+                          initialConnectionWindowSize:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              InitialConnectionWindowSize is similar to InitialStreamWindowSize, but for the connection level.
+                              Same range and default value as InitialStreamWindowSize.
+                              Values can be specified with units like "64Ki".
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          initialStreamWindowSize:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              InitialStreamWindowSize is the initial window size for the stream.
+                              Valid values range from 65535 (2^16 - 1, HTTP/2 default) to 2147483647 (2^31 - 1, HTTP/2 maximum).
+                              Defaults to 268435456 (256 * 1024 * 1024).
+                              Values can be specified with units like "64Ki".
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          maxConcurrentStreams:
+                            description: |-
+                              The maximum number of concurrent streams that the connection can have.
+                              Envoy defaults to 1024.
+                            format: int32
+                            maximum: 2147483647
+                            minimum: 1
+                            type: integer
                         type: object
                       idleTimeout:
                         description: |-
@@ -1351,6 +1636,12 @@ spec:
                         - AppendIfAbsent
                         - PassThrough
                         type: string
+                      skipXFFAppend:
+                        description: |-
+                          SkipXffAppend specifies whether to skip adding the downstream's remote IP address to the X-Forwarded-For HTTP header.
+                          Note: If omitted, this effectively will default to true when UseRemoteAddress is false, such that Envoy acts as a "transparent proxy".
+                          See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-field-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-skip-xff-append
+                        type: boolean
                       streamIdleTimeout:
                         description: |-
                           StreamIdleTimeout is the idle timeout for HTTP streams.
@@ -1703,8 +1994,17 @@ spec:
                                       minProperties: 1
                                       properties:
                                         environmentResourceDetector:
-                                          description: EnvironmentResourceDetectorConfig
-                                            specified the EnvironmentResourceDetector
+                                          description: |-
+                                            EnvironmentResourceDetector sets OpenTelemetry resource attributes from the OTEL_RESOURCE_ATTRIBUTES
+                                            environment variable in the Envoy container.
+                                            Default enabled if not set. If multiple are set, the last will take precedence.
+                                          properties:
+                                            enable:
+                                              default: true
+                                              description: Enable controls whether
+                                                the EnvironmentResourceDetector is
+                                                used.
+                                              type: boolean
                                           type: object
                                       type: object
                                     type: array
@@ -1770,17 +2070,58 @@ spec:
                           Note: If this field is omitted, it will fallback to the default value of 'true', which we set for all Envoy HCMs.
                           Thus, setting this explicitly to true is unnecessary (but will not cause any harm).
                           When true, Envoy will use the remote address of the connection as the client address.
-                          When false, Envoy will use the X-Forwarded-For header to determine the client address.
+                          When false, Envoy will use the X-Forwarded-For header to determine the client address. Furthermore, SkipXffAppend will implicitly be set to true unless explicitly configured.
                           See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-field-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-use-remote-address
                         type: boolean
+                      uuidRequestIdConfig:
+                        description: |-
+                          UuidRequestIdConfig configures the behavior of the UUID request ID extension.
+                          This extension sets the x-request-id header to a UUID value.
+                        properties:
+                          packTraceReason:
+                            description: |-
+                              PackTraceReason determines if the trace sampling decision is embedded into the UUID.
+                              Defaults to true. Set to false to prevent Envoy from mutating the Request ID,
+                              which is useful when preserving exact UUIDs from external systems.
+                            type: boolean
+                          useRequestIdForTraceSampling:
+                            description: |-
+                              UseRequestIDForTraceSampling determines if the Request ID is used to calculate the
+                              trace sampling decision. Defaults to true. This ensures consistent sampling decisions
+                              for a given Request ID across the mesh.
+                            type: boolean
+                        type: object
                       xffNumTrustedHops:
                         description: |-
                           XffNumTrustedHops is the number of additional ingress proxy hops from the right side of the X-Forwarded-For HTTP header to trust when determining the origin client's IP address.
+                          This is mutually exclusive with XffTrustedCIDRs.
                           See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-field-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-xff-num-trusted-hops
                         format: int32
                         minimum: 0
                         type: integer
+                      xffTrustedCIDRs:
+                        description: |-
+                          XffTrustedCIDRs are ranges of IPs that may appear in the X-Forwarded-For HTTP header and are trusted when determining the origin client's IP address.
+                          This is mutually exclusive with XffNumTrustedHops and requires UseRemoteAddress to be set to false.
+                          See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/http/original_ip_detection/xff/v3/xff.proto#envoy-v3-api-field-extensions-http-original-ip-detection-xff-v3-xffconfig-xff-trusted-cidrs
+                        items:
+                          description: |-
+                            CIDR can be used wherever an address range in CIDR notation is expected.
+                            Note: The regex for the IP validation patterns was taken from https://www.ditig.com/validating-ipv4-and-ipv6-addresses-with-regexp
+                          format: cidr
+                          pattern: ^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}\/([0-9]|[1-2][0-9]|3[0-2])$|^((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,5}(?::[0-9A-Fa-f]{1,4}){1,2}|(?:[0-9A-Fa-f]{1,4}:){1,4}(?::[0-9A-Fa-f]{1,4}){1,3}|(?:[0-9A-Fa-f]{1,4}:){1,3}(?::[0-9A-Fa-f]{1,4}){1,4}|(?:[0-9A-Fa-f]{1,4}:){1,2}(?::[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:(?:(?::[0-9A-Fa-f]{1,4}){1,6})|:(?:(?::[0-9A-Fa-f]{1,4}){1,6}))\/(12[0-8]|1[0-1][0-9]|[1-9][0-9]|[0-9])$
+                          type: string
+                        minItems: 1
+                        type: array
                     type: object
+                    x-kubernetes-validations:
+                    - message: useRemoteAddress must be set to false if xffTrustedCIDRs
+                        is set
+                      rule: '!has(self.xffTrustedCIDRs) || (has(self.useRemoteAddress)
+                        && !self.useRemoteAddress)'
+                    - message: only one of xffNumTrustedHops and xffTrustedCIDRs may
+                        be set
+                      rule: '!has(self.xffNumTrustedHops) || !has(self.xffTrustedCIDRs)'
                   perConnectionBufferLimitBytes:
                     description: |-
                       PerConnectionBufferLimitBytes sets the per-connection buffer limit for all listeners on the gateway.
@@ -1795,9 +2136,57 @@ spec:
                   proxyProtocol:
                     description: |-
                       ProxyProtocol configures the PROXY protocol listener filter.
-                      When set, Envoy will expect connections to include the PROXY protocol header.
+                      By default, when set, Envoy will require connections to include the PROXY
+                      protocol header. This behavior can be relaxed by setting
+                      allowRequestsWithoutProxyProtocol to true, which allows the listener to
+                      also accept connections without the PROXY protocol header.
                       This is commonly used when kgateway is behind a load balancer that preserves client IP information.
                       See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
+                    properties:
+                      allowRequestsWithoutProxyProtocol:
+                        description: |-
+                          AllowRequestsWithoutProxyProtocol, when true, configures the PROXY protocol
+                          listener filter to accept connections that do not include a PROXY protocol
+                          header in addition to those that do. This allows a single listener to serve
+                          mixed traffic, e.g. PROXY-preserving load balancer traffic plus direct
+                          in-cluster traffic on the same port.
+
+                          Security: accepting connections without a PROXY header is non-conformant
+                          with the PROXY protocol spec and allows clients to spoof the perceived
+                          source address. Only enable this when every source that can reach the
+                          listener is trusted. See
+                          https://www.haproxy.org/download/2.1/doc/proxy-protocol.txt.
+
+                          Defaults to false.
+                        type: boolean
+                    type: object
+                  tcpKeepalive:
+                    description: TCPKeepalive configures OS-level TCP keepalive checks
+                      for downstream client connections accepted by this listener.
+                    properties:
+                      keepAliveInterval:
+                        description: The number of seconds between keep-alive probes.
+                        type: string
+                        x-kubernetes-validations:
+                        - message: invalid duration value
+                          rule: matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')
+                        - message: keepAliveInterval must be at least 1 second
+                          rule: duration(self) >= duration('1s')
+                      keepAliveProbes:
+                        description: Maximum number of keep-alive probes to send before
+                          dropping the connection.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      keepAliveTime:
+                        description: The number of seconds a connection needs to be
+                          idle before keep-alive probes start being sent.
+                        type: string
+                        x-kubernetes-validations:
+                        - message: invalid duration value
+                          rule: matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')
+                        - message: keepAliveTime must be at least 1 second
+                          rule: duration(self) >= duration('1s')
                     type: object
                 type: object
               perPort:
@@ -1814,7 +2203,7 @@ spec:
                       properties:
                         httpSettings:
                           description: |-
-                            HTTPListenerPolicy is intended to be used for configuring the Envoy `HttpConnectionManager` and any other config or policy
+                            HTTPSettings is intended to be used for configuring the Envoy `HttpConnectionManager` and any other config or policy
                             that should map 1-to-1 with a given HTTP listener, such as the Envoy health check HTTP filter.
                           properties:
                             acceptHttp10:
@@ -1992,8 +2381,14 @@ spec:
                                                       - RegularExpression
                                                       type: string
                                                     value:
-                                                      description: Value is the value
-                                                        of HTTP Header to be matched.
+                                                      description: |-
+                                                        Value is the value of HTTP Header to be matched.
+                                                        <gateway:experimental:description>
+                                                        Must consist of printable US-ASCII characters, optionally separated
+                                                        by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                                        </gateway:experimental:description>
+
+                                                        <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                                       maxLength: 4096
                                                       minLength: 1
                                                       type: string
@@ -2021,6 +2416,51 @@ spec:
                                                   type: array
                                               required:
                                               - flags
+                                              type: object
+                                            runtimeFilter:
+                                              description: |-
+                                                Filters for random sampling of access logs.
+                                                Based on: https://www.envoyproxy.io/docs/envoy/v1.33.0/api-v3/config/accesslog/v3/accesslog.proto#config-accesslog-v3-runtimefilter
+                                              properties:
+                                                percentSampled:
+                                                  description: |-
+                                                    By default, the runtime filter will log on every request when the runtime key is set.
+                                                    If this field is set, it additionally applies a fractional percent check so that only a
+                                                    fraction of requests are logged.
+                                                  properties:
+                                                    denominator:
+                                                      description: |-
+                                                        Specifies the denominator. If the denominator specified is less than the numerator,
+                                                        the final fractional percentage is capped at 1 (100%).
+                                                        Defaults to HUNDRED.
+                                                      enum:
+                                                      - HUNDRED
+                                                      - TEN_THOUSAND
+                                                      - MILLION
+                                                      type: string
+                                                    numerator:
+                                                      description: Specifies the numerator.
+                                                        Defaults to 0.
+                                                      format: int32
+                                                      minimum: 0
+                                                      type: integer
+                                                  required:
+                                                  - numerator
+                                                  type: object
+                                                runtimeKey:
+                                                  description: |-
+                                                    The runtime key to look up in the runtime implementation. This key determines whether
+                                                    the access log is enabled. When the runtime key value is set, the filter checks this key
+                                                    at runtime to decide whether to log each request.
+                                                  minLength: 1
+                                                  type: string
+                                                useIndependentRandomness:
+                                                  description: |-
+                                                    If set to true, the filter uses Envoy's independent randomness source.
+                                                    When false (the default), the filter uses the runtime key lookup.
+                                                  type: boolean
+                                              required:
+                                              - runtimeKey
                                               type: object
                                             statusCodeFilter:
                                               description: |-
@@ -2169,8 +2609,14 @@ spec:
                                                 - RegularExpression
                                                 type: string
                                               value:
-                                                description: Value is the value of
-                                                  HTTP Header to be matched.
+                                                description: |-
+                                                  Value is the value of HTTP Header to be matched.
+                                                  <gateway:experimental:description>
+                                                  Must consist of printable US-ASCII characters, optionally separated
+                                                  by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                                  </gateway:experimental:description>
+
+                                                  <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                                 maxLength: 4096
                                                 minLength: 1
                                                 type: string
@@ -2314,8 +2760,14 @@ spec:
                                                       - RegularExpression
                                                       type: string
                                                     value:
-                                                      description: Value is the value
-                                                        of HTTP Header to be matched.
+                                                      description: |-
+                                                        Value is the value of HTTP Header to be matched.
+                                                        <gateway:experimental:description>
+                                                        Must consist of printable US-ASCII characters, optionally separated
+                                                        by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                                        </gateway:experimental:description>
+
+                                                        <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                                       maxLength: 4096
                                                       minLength: 1
                                                       type: string
@@ -2343,6 +2795,51 @@ spec:
                                                   type: array
                                               required:
                                               - flags
+                                              type: object
+                                            runtimeFilter:
+                                              description: |-
+                                                Filters for random sampling of access logs.
+                                                Based on: https://www.envoyproxy.io/docs/envoy/v1.33.0/api-v3/config/accesslog/v3/accesslog.proto#config-accesslog-v3-runtimefilter
+                                              properties:
+                                                percentSampled:
+                                                  description: |-
+                                                    By default, the runtime filter will log on every request when the runtime key is set.
+                                                    If this field is set, it additionally applies a fractional percent check so that only a
+                                                    fraction of requests are logged.
+                                                  properties:
+                                                    denominator:
+                                                      description: |-
+                                                        Specifies the denominator. If the denominator specified is less than the numerator,
+                                                        the final fractional percentage is capped at 1 (100%).
+                                                        Defaults to HUNDRED.
+                                                      enum:
+                                                      - HUNDRED
+                                                      - TEN_THOUSAND
+                                                      - MILLION
+                                                      type: string
+                                                    numerator:
+                                                      description: Specifies the numerator.
+                                                        Defaults to 0.
+                                                      format: int32
+                                                      minimum: 0
+                                                      type: integer
+                                                  required:
+                                                  - numerator
+                                                  type: object
+                                                runtimeKey:
+                                                  description: |-
+                                                    The runtime key to look up in the runtime implementation. This key determines whether
+                                                    the access log is enabled. When the runtime key value is set, the filter checks this key
+                                                    at runtime to decide whether to log each request.
+                                                  minLength: 1
+                                                  type: string
+                                                useIndependentRandomness:
+                                                  description: |-
+                                                    If set to true, the filter uses Envoy's independent randomness source.
+                                                    When false (the default), the filter uses the runtime key lookup.
+                                                  type: boolean
+                                              required:
+                                              - runtimeKey
                                               type: object
                                             statusCodeFilter:
                                               description: |-
@@ -2387,6 +2884,51 @@ spec:
                                             type: array
                                         required:
                                         - flags
+                                        type: object
+                                      runtimeFilter:
+                                        description: |-
+                                          Filters for random sampling of access logs.
+                                          Based on: https://www.envoyproxy.io/docs/envoy/v1.33.0/api-v3/config/accesslog/v3/accesslog.proto#config-accesslog-v3-runtimefilter
+                                        properties:
+                                          percentSampled:
+                                            description: |-
+                                              By default, the runtime filter will log on every request when the runtime key is set.
+                                              If this field is set, it additionally applies a fractional percent check so that only a
+                                              fraction of requests are logged.
+                                            properties:
+                                              denominator:
+                                                description: |-
+                                                  Specifies the denominator. If the denominator specified is less than the numerator,
+                                                  the final fractional percentage is capped at 1 (100%).
+                                                  Defaults to HUNDRED.
+                                                enum:
+                                                - HUNDRED
+                                                - TEN_THOUSAND
+                                                - MILLION
+                                                type: string
+                                              numerator:
+                                                description: Specifies the numerator.
+                                                  Defaults to 0.
+                                                format: int32
+                                                minimum: 0
+                                                type: integer
+                                            required:
+                                            - numerator
+                                            type: object
+                                          runtimeKey:
+                                            description: |-
+                                              The runtime key to look up in the runtime implementation. This key determines whether
+                                              the access log is enabled. When the runtime key value is set, the filter checks this key
+                                              at runtime to decide whether to log each request.
+                                            minLength: 1
+                                            type: string
+                                          useIndependentRandomness:
+                                            description: |-
+                                              If set to true, the filter uses Envoy's independent randomness source.
+                                              When false (the default), the filter uses the runtime key lookup.
+                                            type: boolean
+                                        required:
+                                        - runtimeKey
                                         type: object
                                       statusCodeFilter:
                                         description: |-
@@ -2973,8 +3515,14 @@ spec:
                                         pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                         type: string
                                       value:
-                                        description: Value is the value of HTTP Header
-                                          to be matched.
+                                        description: |-
+                                          Value is the value of HTTP Header to be matched.
+                                          <gateway:experimental:description>
+                                          Must consist of printable US-ASCII characters, optionally separated
+                                          by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                          </gateway:experimental:description>
+
+                                          <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                         maxLength: 4096
                                         minLength: 1
                                         type: string
@@ -3047,8 +3595,14 @@ spec:
                                         pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                         type: string
                                       value:
-                                        description: Value is the value of HTTP Header
-                                          to be matched.
+                                        description: |-
+                                          Value is the value of HTTP Header to be matched.
+                                          <gateway:experimental:description>
+                                          Must consist of printable US-ASCII characters, optionally separated
+                                          by single tabs or spaces. See: https://tools.ietf.org/html/rfc7230#section-3.2
+                                          </gateway:experimental:description>
+
+                                          <gateway:experimental:validation:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`>
                                         maxLength: 4096
                                         minLength: 1
                                         type: string
@@ -3079,6 +3633,42 @@ spec:
                                   type: string
                               required:
                               - path
+                              type: object
+                            http2ProtocolOptions:
+                              description: |-
+                                Http2ProtocolOptions configures downstream HTTP/2 behavior on the listener's
+                                HttpConnectionManager.
+                                See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#config-core-v3-http2protocoloptions
+                              properties:
+                                initialConnectionWindowSize:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  description: |-
+                                    InitialConnectionWindowSize is similar to InitialStreamWindowSize, but for the connection level.
+                                    Same range and default value as InitialStreamWindowSize.
+                                    Values can be specified with units like "64Ki".
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                initialStreamWindowSize:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  description: |-
+                                    InitialStreamWindowSize is the initial window size for the stream.
+                                    Valid values range from 65535 (2^16 - 1, HTTP/2 default) to 2147483647 (2^31 - 1, HTTP/2 maximum).
+                                    Defaults to 268435456 (256 * 1024 * 1024).
+                                    Values can be specified with units like "64Ki".
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                maxConcurrentStreams:
+                                  description: |-
+                                    The maximum number of concurrent streams that the connection can have.
+                                    Envoy defaults to 1024.
+                                  format: int32
+                                  maximum: 2147483647
+                                  minimum: 1
+                                  type: integer
                               type: object
                             idleTimeout:
                               description: |-
@@ -3117,6 +3707,12 @@ spec:
                               - AppendIfAbsent
                               - PassThrough
                               type: string
+                            skipXFFAppend:
+                              description: |-
+                                SkipXffAppend specifies whether to skip adding the downstream's remote IP address to the X-Forwarded-For HTTP header.
+                                Note: If omitted, this effectively will default to true when UseRemoteAddress is false, such that Envoy acts as a "transparent proxy".
+                                See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-field-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-skip-xff-append
+                              type: boolean
                             streamIdleTimeout:
                               description: |-
                                 StreamIdleTimeout is the idle timeout for HTTP streams.
@@ -3485,8 +4081,17 @@ spec:
                                             minProperties: 1
                                             properties:
                                               environmentResourceDetector:
-                                                description: EnvironmentResourceDetectorConfig
-                                                  specified the EnvironmentResourceDetector
+                                                description: |-
+                                                  EnvironmentResourceDetector sets OpenTelemetry resource attributes from the OTEL_RESOURCE_ATTRIBUTES
+                                                  environment variable in the Envoy container.
+                                                  Default enabled if not set. If multiple are set, the last will take precedence.
+                                                properties:
+                                                  enable:
+                                                    default: true
+                                                    description: Enable controls whether
+                                                      the EnvironmentResourceDetector
+                                                      is used.
+                                                    type: boolean
                                                 type: object
                                             type: object
                                           type: array
@@ -3552,17 +4157,58 @@ spec:
                                 Note: If this field is omitted, it will fallback to the default value of 'true', which we set for all Envoy HCMs.
                                 Thus, setting this explicitly to true is unnecessary (but will not cause any harm).
                                 When true, Envoy will use the remote address of the connection as the client address.
-                                When false, Envoy will use the X-Forwarded-For header to determine the client address.
+                                When false, Envoy will use the X-Forwarded-For header to determine the client address. Furthermore, SkipXffAppend will implicitly be set to true unless explicitly configured.
                                 See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-field-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-use-remote-address
                               type: boolean
+                            uuidRequestIdConfig:
+                              description: |-
+                                UuidRequestIdConfig configures the behavior of the UUID request ID extension.
+                                This extension sets the x-request-id header to a UUID value.
+                              properties:
+                                packTraceReason:
+                                  description: |-
+                                    PackTraceReason determines if the trace sampling decision is embedded into the UUID.
+                                    Defaults to true. Set to false to prevent Envoy from mutating the Request ID,
+                                    which is useful when preserving exact UUIDs from external systems.
+                                  type: boolean
+                                useRequestIdForTraceSampling:
+                                  description: |-
+                                    UseRequestIDForTraceSampling determines if the Request ID is used to calculate the
+                                    trace sampling decision. Defaults to true. This ensures consistent sampling decisions
+                                    for a given Request ID across the mesh.
+                                  type: boolean
+                              type: object
                             xffNumTrustedHops:
                               description: |-
                                 XffNumTrustedHops is the number of additional ingress proxy hops from the right side of the X-Forwarded-For HTTP header to trust when determining the origin client's IP address.
+                                This is mutually exclusive with XffTrustedCIDRs.
                                 See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-field-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-xff-num-trusted-hops
                               format: int32
                               minimum: 0
                               type: integer
+                            xffTrustedCIDRs:
+                              description: |-
+                                XffTrustedCIDRs are ranges of IPs that may appear in the X-Forwarded-For HTTP header and are trusted when determining the origin client's IP address.
+                                This is mutually exclusive with XffNumTrustedHops and requires UseRemoteAddress to be set to false.
+                                See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/http/original_ip_detection/xff/v3/xff.proto#envoy-v3-api-field-extensions-http-original-ip-detection-xff-v3-xffconfig-xff-trusted-cidrs
+                              items:
+                                description: |-
+                                  CIDR can be used wherever an address range in CIDR notation is expected.
+                                  Note: The regex for the IP validation patterns was taken from https://www.ditig.com/validating-ipv4-and-ipv6-addresses-with-regexp
+                                format: cidr
+                                pattern: ^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}\/([0-9]|[1-2][0-9]|3[0-2])$|^((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,5}(?::[0-9A-Fa-f]{1,4}){1,2}|(?:[0-9A-Fa-f]{1,4}:){1,4}(?::[0-9A-Fa-f]{1,4}){1,3}|(?:[0-9A-Fa-f]{1,4}:){1,3}(?::[0-9A-Fa-f]{1,4}){1,4}|(?:[0-9A-Fa-f]{1,4}:){1,2}(?::[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:(?:(?::[0-9A-Fa-f]{1,4}){1,6})|:(?:(?::[0-9A-Fa-f]{1,4}){1,6}))\/(12[0-8]|1[0-1][0-9]|[1-9][0-9]|[0-9])$
+                                type: string
+                              minItems: 1
+                              type: array
                           type: object
+                          x-kubernetes-validations:
+                          - message: useRemoteAddress must be set to false if xffTrustedCIDRs
+                              is set
+                            rule: '!has(self.xffTrustedCIDRs) || (has(self.useRemoteAddress)
+                              && !self.useRemoteAddress)'
+                          - message: only one of xffNumTrustedHops and xffTrustedCIDRs
+                              may be set
+                            rule: '!has(self.xffNumTrustedHops) || !has(self.xffTrustedCIDRs)'
                         perConnectionBufferLimitBytes:
                           description: |-
                             PerConnectionBufferLimitBytes sets the per-connection buffer limit for all listeners on the gateway.
@@ -3577,9 +4223,59 @@ spec:
                         proxyProtocol:
                           description: |-
                             ProxyProtocol configures the PROXY protocol listener filter.
-                            When set, Envoy will expect connections to include the PROXY protocol header.
+                            By default, when set, Envoy will require connections to include the PROXY
+                            protocol header. This behavior can be relaxed by setting
+                            allowRequestsWithoutProxyProtocol to true, which allows the listener to
+                            also accept connections without the PROXY protocol header.
                             This is commonly used when kgateway is behind a load balancer that preserves client IP information.
                             See here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
+                          properties:
+                            allowRequestsWithoutProxyProtocol:
+                              description: |-
+                                AllowRequestsWithoutProxyProtocol, when true, configures the PROXY protocol
+                                listener filter to accept connections that do not include a PROXY protocol
+                                header in addition to those that do. This allows a single listener to serve
+                                mixed traffic, e.g. PROXY-preserving load balancer traffic plus direct
+                                in-cluster traffic on the same port.
+
+                                Security: accepting connections without a PROXY header is non-conformant
+                                with the PROXY protocol spec and allows clients to spoof the perceived
+                                source address. Only enable this when every source that can reach the
+                                listener is trusted. See
+                                https://www.haproxy.org/download/2.1/doc/proxy-protocol.txt.
+
+                                Defaults to false.
+                              type: boolean
+                          type: object
+                        tcpKeepalive:
+                          description: TCPKeepalive configures OS-level TCP keepalive
+                            checks for downstream client connections accepted by this
+                            listener.
+                          properties:
+                            keepAliveInterval:
+                              description: The number of seconds between keep-alive
+                                probes.
+                              type: string
+                              x-kubernetes-validations:
+                              - message: invalid duration value
+                                rule: matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')
+                              - message: keepAliveInterval must be at least 1 second
+                                rule: duration(self) >= duration('1s')
+                            keepAliveProbes:
+                              description: Maximum number of keep-alive probes to
+                                send before dropping the connection.
+                              format: int32
+                              minimum: 0
+                              type: integer
+                            keepAliveTime:
+                              description: The number of seconds a connection needs
+                                to be idle before keep-alive probes start being sent.
+                              type: string
+                              x-kubernetes-validations:
+                              - message: invalid duration value
+                                rule: matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')
+                              - message: keepAliveTime must be at least 1 second
+                                rule: duration(self) >= duration('1s')
                           type: object
                       type: object
                     port:
@@ -3610,7 +4306,7 @@ spec:
                   Only supports `Gateway` resources
                 items:
                   description: |-
-                    Select the object to attach the policy by Group, Kind, and Name.
+                    Select the object to attach the policy by Group, Kind, Name and SectionName.
                     The object must be in the same namespace as the policy.
                     You can target only one object at a time.
                   properties:
@@ -3634,6 +4330,12 @@ spec:
                       maxLength: 253
                       minLength: 1
                       type: string
+                    sectionName:
+                      description: The section name of the target resource.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
                   required:
                   - group
                   - kind
@@ -3651,7 +4353,7 @@ spec:
                   `Gateway` resources to attach the policy to.
                 items:
                   description: |-
-                    LocalPolicyTargetSelector selects the object to attach the policy by Group, Kind, and MatchLabels.
+                    LocalPolicyTargetSelectorWithSectionName the object to attach the policy by Group, Kind, MatchLabels, and optionally SectionName.
                     The object must be in the same namespace as the policy and match the
                     specified labels.
                     Do not use targetSelectors when reconciliation times are critical, especially if you
@@ -3678,6 +4380,12 @@ spec:
                         type: string
                       description: Label selector to select the target resource.
                       type: object
+                    sectionName:
+                      description: The section name of the target resource.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
                   required:
                   - group
                   - kind
