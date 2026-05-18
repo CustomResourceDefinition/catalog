@@ -118,6 +118,26 @@
           "type": "string",
           "maxLength": 8
         },
+        "migrationSecretSource": {
+          "description": "Reference to a Secret containing migration credentials.\nSecret keys must match userConfig.migration JSON field names.\nMutually exclusive with userConfig.migration.\nValues must not contain leading or trailing whitespace; such values are rejected.",
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "deleteAfterMigration": {
+              "description": "When true, the operator deletes the referenced Kubernetes Secret after\nmigration completes successfully. Defaults to false.\nThe field remains mutable post-migration: flipping false→true on a Done\nresource deletes the Secret on the next reconcile.\nFlipping true→false after deletion is a no-op.",
+              "type": "boolean",
+              "default": false
+            },
+            "name": {
+              "description": "Name of the Secret containing migration credentials",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
         "plan": {
           "description": "Subscription plan.",
           "type": "string",
@@ -503,6 +523,20 @@
                   "maximum": 3600,
                   "minimum": 0
                 },
+                "lower_case_table_names": {
+                  "description": "Sets how table and database names are stored and compared. 0 = case-sensitive (default), 1 = names stored lowercase, comparisons are case-insensitive. This option can only be set when creating the service and cannot be changed later. See https://dev.mysql.com/doc/refman/8.0/en/identifier-case-sensitivity.html for details.",
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1
+                  ],
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self == oldSelf",
+                      "message": "Value is immutable"
+                    }
+                  ]
+                },
                 "max_allowed_packet": {
                   "description": "Size of the largest message in bytes that can be received by the server. Default is 67108864 (64M)",
                   "type": "integer",
@@ -588,7 +622,7 @@
               "additionalProperties": false
             },
             "mysql_version": {
-              "description": "Available versions: `8`. Newer versions may also be available.\nMySQL major version",
+              "description": "Available versions: `8`, `8.4`. Newer versions may also be available.\nMySQL major version",
               "type": "string"
             },
             "private_access": {
@@ -697,6 +731,10 @@
       },
       "additionalProperties": false,
       "x-kubernetes-validations": [
+        {
+          "rule": "!(has(self.migrationSecretSource) \u0026\u0026 has(self.userConfig) \u0026\u0026 has(self.userConfig.migration))",
+          "message": "migrationSecretSource and userConfig.migration are mutually exclusive; set only one"
+        },
         {
           "rule": "has(oldSelf.connInfoSecretTargetDisabled) == has(self.connInfoSecretTargetDisabled)",
           "message": "connInfoSecretTargetDisabled can only be set during resource creation."

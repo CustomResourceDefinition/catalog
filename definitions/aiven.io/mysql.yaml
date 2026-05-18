@@ -138,6 +138,29 @@ spec:
                     UTC time in HH:mm:ss format.
                   maxLength: 8
                   type: string
+                migrationSecretSource:
+                  description: |-
+                    Reference to a Secret containing migration credentials.
+                    Secret keys must match userConfig.migration JSON field names.
+                    Mutually exclusive with userConfig.migration.
+                    Values must not contain leading or trailing whitespace; such values are rejected.
+                  properties:
+                    deleteAfterMigration:
+                      default: false
+                      description: |-
+                        When true, the operator deletes the referenced Kubernetes Secret after
+                        migration completes successfully. Defaults to false.
+                        The field remains mutable post-migration: flipping false→true on a Done
+                        resource deletes the Secret on the next reconcile.
+                        Flipping true→false after deletion is a no-op.
+                      type: boolean
+                    name:
+                      description: Name of the Secret containing migration credentials
+                      minLength: 1
+                      type: string
+                  required:
+                    - name
+                  type: object
                 plan:
                   description: Subscription plan.
                   maxLength: 128
@@ -545,6 +568,21 @@ spec:
                           maximum: 3600
                           minimum: 0
                           type: number
+                        lower_case_table_names:
+                          description:
+                            Sets how table and database names are stored
+                            and compared. 0 = case-sensitive (default), 1 = names stored
+                            lowercase, comparisons are case-insensitive. This option
+                            can only be set when creating the service and cannot be
+                            changed later. See https://dev.mysql.com/doc/refman/8.0/en/identifier-case-sensitivity.html
+                            for details.
+                          enum:
+                            - 0
+                            - 1
+                          type: integer
+                          x-kubernetes-validations:
+                            - message: Value is immutable
+                              rule: self == oldSelf
                         max_allowed_packet:
                           description:
                             Size of the largest message in bytes that can
@@ -649,7 +687,7 @@ spec:
                       type: object
                     mysql_version:
                       description: |-
-                        Available versions: `8`. Newer versions may also be available.
+                        Available versions: `8`, `8.4`. Newer versions may also be available.
                         MySQL major version
                       type: string
                     private_access:
@@ -758,6 +796,12 @@ spec:
                 - project
               type: object
               x-kubernetes-validations:
+                - message:
+                    migrationSecretSource and userConfig.migration are mutually
+                    exclusive; set only one
+                  rule:
+                    "!(has(self.migrationSecretSource) && has(self.userConfig) &&
+                    has(self.userConfig.migration))"
                 - message:
                     connInfoSecretTargetDisabled can only be set during resource
                     creation.

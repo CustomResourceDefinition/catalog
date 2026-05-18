@@ -75,6 +75,12 @@
                       "smallest"
                     ]
                   },
+                  "auto_offset_reset_by_duration_ms": {
+                    "description": "When set to a non-zero value and there are no committed offsets, the consumer starts from the offset corresponding to (now - auto_offset_reset_by_duration_ms). This overrides auto_offset_reset when set. Requires ClickHouse \u003e= 25.8.",
+                    "type": "integer",
+                    "maximum": 2147483647,
+                    "minimum": 0
+                  },
                   "columns": {
                     "description": "Array of column definitions that specify the structure of the ClickHouse table. Each column maps to a field in the Kafka messages.",
                     "type": "array",
@@ -139,12 +145,82 @@
                     "minLength": 1
                   },
                   "handle_error_mode": {
-                    "description": "Defines how ClickHouse should handle errors when processing Kafka messages. 'default' stops on errors, 'stream' continues processing and logs errors.",
+                    "description": "Defines how ClickHouse should handle errors when processing Kafka messages. 'default' stops on errors, 'stream' continues processing and logs errors, 'dead_letter_queue' saves error data to system.dead_letter_queue (requires ClickHouse 25.8+).",
                     "type": "string",
                     "enum": [
+                      "dead_letter_queue",
                       "default",
                       "stream"
                     ]
+                  },
+                  "materialized_view": {
+                    "description": "Optional materialized view that persists data from the Kafka engine table into a MergeTree-family table. When specified, a ClickHouse materialized view is created that automatically reads from the Kafka table and inserts into a durable target table.",
+                    "type": "object",
+                    "required": [
+                      "order_by",
+                      "view_name"
+                    ],
+                    "properties": {
+                      "database_name": {
+                        "description": "The database to create the materialized view in. Must not be the Kafka integration database as it is not replicated and may be dropped.",
+                        "type": "string",
+                        "maxLength": 40,
+                        "minLength": 1
+                      },
+                      "engine": {
+                        "description": "The MergeTree-family engine for the materialized view's target table.",
+                        "type": "string",
+                        "enum": [
+                          "AggregatingMergeTree",
+                          "CollapsingMergeTree",
+                          "MergeTree",
+                          "ReplacingMergeTree",
+                          "SummingMergeTree",
+                          "VersionedCollapsingMergeTree"
+                        ]
+                      },
+                      "engine_params": {
+                        "description": "Column names passed as engine arguments, e.g. the sign column for CollapsingMergeTree or the sign and version columns for VersionedCollapsingMergeTree.",
+                        "type": "array",
+                        "maxItems": 10,
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "local_disk_ttl_days": {
+                        "description": "Number of days after which data is moved from local disk to remote storage (tiered storage). Must be specified together with ttl_column.",
+                        "type": "integer",
+                        "maximum": 36500,
+                        "minimum": 1
+                      },
+                      "order_by": {
+                        "description": "Columns for the ORDER BY clause of the target table. Determines the sort order and primary index.",
+                        "type": "array",
+                        "maxItems": 100,
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "ttl_column": {
+                        "description": "Date or DateTime column used for both row deletion TTL and local disk tiered storage TTL. Must be specified when ttl_days or local_disk_ttl_days is set.",
+                        "type": "string",
+                        "maxLength": 40,
+                        "minLength": 1
+                      },
+                      "ttl_days": {
+                        "description": "Number of days after which rows are deleted, calculated from the TTL column value. Must be specified together with ttl_column.",
+                        "type": "integer",
+                        "maximum": 36500,
+                        "minimum": 1
+                      },
+                      "view_name": {
+                        "description": "The name of the materialized view to create.",
+                        "type": "string",
+                        "maxLength": 40,
+                        "minLength": 1
+                      }
+                    },
+                    "additionalProperties": false
                   },
                   "max_block_size": {
                     "description": "Maximum number of rows to collect before flushing data between Kafka and ClickHouse.",
@@ -576,8 +652,6 @@
             "kafka_logs",
             "kafka_mirrormaker",
             "logs",
-            "m3aggregator",
-            "m3coordinator",
             "metrics",
             "opensearch_cross_cluster_replication",
             "opensearch_cross_cluster_search",
@@ -814,6 +888,10 @@
                     },
                     "gather_process_list": {
                       "description": "Gather thread state counts from INFORMATION_SCHEMA.PROCESSLIST",
+                      "type": "boolean"
+                    },
+                    "gather_replica_status": {
+                      "description": "Gather metrics from SHOW REPLICA STATUS command output",
                       "type": "boolean"
                     },
                     "gather_slave_status": {
