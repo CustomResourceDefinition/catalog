@@ -168,6 +168,31 @@
         },
         "phase": {
           "type": "string"
+        },
+        "snapshot": {
+          "description": "Snapshot describes the artefact the backup-agent wrote.\nPopulated by the controller after the backup Job reaches\nphase=Succeeded, parsed from the agent's terminal\n\"snapshot uploaded: ...\" / \"snapshot written: ...\" pod-log\nmarker. Empty while the backup is in progress, on failure\nbefore the write step, or when the Job pod's log has been GC'd\nbefore the controller observed it.",
+          "type": "object",
+          "required": [
+            "uri"
+          ],
+          "properties": {
+            "checksum": {
+              "description": "Checksum is \"\u003calgo\u003e:\u003chex\u003e\" of the snapshot bytes, computed by\nthe agent while streaming. Currently always \"sha256:\u003chex\u003e\"\n(64 hex chars) when the controller populates BackupSnapshot at\nall; consumers MUST tolerate other algorithms via the prefix.\nThe controller's marker regex requires sha256=\u003c64 hex\u003e to be\npresent, so this field is non-empty whenever the enclosing\nBackupSnapshot is set.\n\nThe pattern admits hyphenated algorithm names (e.g.\n\"sha3-256:...\", \"blake2b-256:...\", \"blake3-256:...\") so a\nfuture agent build can adopt a stronger hash without an API\nbreak, and bounds the hex run to 32–128 chars (128-bit to\n512-bit digests) so a truncated emit cannot satisfy the\npattern with a meaningless short hash.",
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]*:[a-f0-9]{32,128}$"
+            },
+            "sizeBytes": {
+              "description": "SizeBytes is the snapshot size in bytes, as observed by the\nbackup-agent at write time. Populated whenever the enclosing\nBackupSnapshot is set: a successful marker parse always\nproduces a value here. The only way SizeBytes==0 lands with\nBackupSnapshot set is the strconv.ParseInt overflow fallback\nin the marker scanner — i.e. an agent-emitted size larger\nthan int64, which is unreachable in practice. In that one\ncase the scanner deliberately STILL lands a populated\nBackupSnapshot (with SizeBytes=0, URI and Checksum\npreserved) rather than discarding it: the URI + checksum are\nthe load-bearing fields for a future restore, and a\nreviewer reading status sees the snapshot exists. When the\nagent log was GC'd or never contained a marker, the entire\nBackupSnapshot stays nil rather than being set with a zero\nSizeBytes.",
+              "type": "integer",
+              "format": "int64"
+            },
+            "uri": {
+              "description": "URI is an OBSERVATIONAL identifier of the snapshot the agent\nwrote — intended for humans, dashboards, and out-of-band\ntooling. For S3 destinations: \"s3://\u003cbucket\u003e/\u003ckey\u003e\" where\n\u003ckey\u003e is the FULL object name (with any BACKUP_INCLUDE_REVISION\n/ BACKUP_TIMESTAMP suffix the agent injected at write time).\nFor PVC destinations: \"file:///\u003cabs-path\u003e\" — note the triple\nslash, which is the literal output of joining the \"file://\"\nscheme with an absolute in-container path. The path is\nin-container (rooted at the operator-injected /backup/data\nmount of spec.destination.pvc.claimName) and is not directly\nreadable from outside the pod.\n\nThis field is NOT a stable contract for programmatic restore\ncallers. The S3 form omits endpoint / region / path-style flags\nthat are required to address non-AWS endpoints (MinIO, Ceph\nRGW, Wasabi, ...) and the PVC form omits the PVC claimName and\nnamespace. A future RestoreSpec consumer must read those values\nfrom the originating EtcdBackup.spec.destination — not from\nthis string. The URI format may evolve in subsequent versions\nto expose richer addressing; consumers should treat unfamiliar\nschemes as opaque rather than parsing.",
+              "type": "string",
+              "pattern": "^(s3|file)://.+"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
