@@ -1,0 +1,430 @@
+{
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "spec": {
+      "description": "Extend the functionality provided by the Istio proxy through WebAssembly or Lua filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/traffic_extension.html",
+      "type": "object",
+      "oneOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "wasm"
+                ]
+              },
+              {
+                "required": [
+                  "lua"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "wasm"
+          ]
+        },
+        {
+          "required": [
+            "lua"
+          ]
+        }
+      ],
+      "properties": {
+        "lua": {
+          "description": "Lua filter configuration.",
+          "type": "object",
+          "required": [
+            "inlineCode"
+          ],
+          "properties": {
+            "inlineCode": {
+              "description": "The inline Lua code to be executed.",
+              "type": "string",
+              "maxLength": 65536,
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "match": {
+          "description": "Specifies the criteria to determine which traffic is passed to TrafficExtension.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "description": "Criteria for selecting traffic by their direction.\n\nValid Options: CLIENT, SERVER, CLIENT_AND_SERVER",
+                "type": "string",
+                "enum": [
+                  "UNDEFINED",
+                  "CLIENT",
+                  "SERVER",
+                  "CLIENT_AND_SERVER"
+                ]
+              },
+              "ports": {
+                "description": "Criteria for selecting traffic by their destination port.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "number"
+                  ],
+                  "properties": {
+                    "number": {
+                      "type": "integer",
+                      "maximum": 65535,
+                      "minimum": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "x-kubernetes-list-map-keys": [
+                  "number"
+                ],
+                "x-kubernetes-list-type": "map"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "phase": {
+          "description": "Determines where in the filter chain this `TrafficExtension` is to be injected.\n\nValid Options: AUTHN, AUTHZ, STATS",
+          "type": "string",
+          "enum": [
+            "UNSPECIFIED",
+            "AUTHN",
+            "AUTHZ",
+            "STATS"
+          ]
+        },
+        "priority": {
+          "description": "Determines ordering of `TrafficExtensions` in the same `phase`.",
+          "type": "integer",
+          "format": "int32",
+          "nullable": true
+        },
+        "selector": {
+          "description": "Optional.",
+          "type": "object",
+          "properties": {
+            "matchLabels": {
+              "description": "One or more labels that indicate a specific set of pods/VMs on which a policy should be applied.",
+              "type": "object",
+              "maxProperties": 4096,
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 63,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "!self.contains(\"*\")",
+                    "message": "wildcard not allowed in label value match"
+                  }
+                ]
+              },
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(key, !key.contains(\"*\"))",
+                  "message": "wildcard not allowed in label key match"
+                },
+                {
+                  "rule": "self.all(key, key.size() != 0)",
+                  "message": "key must not be empty"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "targetRefs": {
+          "description": "Optional.",
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "name"
+            ],
+            "properties": {
+              "group": {
+                "description": "group is the group of the target resource.",
+                "type": "string",
+                "maxLength": 253,
+                "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+              },
+              "kind": {
+                "description": "kind is kind of the target resource.",
+                "type": "string",
+                "maxLength": 63,
+                "minLength": 1,
+                "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
+              },
+              "name": {
+                "description": "name is the name of the target resource.",
+                "type": "string",
+                "maxLength": 253,
+                "minLength": 1
+              },
+              "namespace": {
+                "description": "namespace is the namespace of the referent.",
+                "type": "string",
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "self.size() == 0",
+                    "message": "cross namespace referencing is not currently supported"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "wasm": {
+          "description": "WebAssembly filter configuration.",
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "failStrategy": {
+              "description": "Specifies the failure behavior for the plugin due to fatal errors.\n\nValid Options: FAIL_CLOSE, FAIL_OPEN, FAIL_RELOAD",
+              "type": "string",
+              "enum": [
+                "FAIL_CLOSE",
+                "FAIL_OPEN",
+                "FAIL_RELOAD"
+              ]
+            },
+            "imagePullPolicy": {
+              "description": "The pull behaviour to be applied when fetching Wasm module by either OCI image or `http/https`.\n\nValid Options: IfNotPresent, Always",
+              "type": "string",
+              "enum": [
+                "UNSPECIFIED_POLICY",
+                "IfNotPresent",
+                "Always"
+              ]
+            },
+            "imagePullSecret": {
+              "description": "Credentials to use for OCI image pulling.",
+              "type": "string",
+              "maxLength": 253,
+              "minLength": 1
+            },
+            "pluginConfig": {
+              "description": "The configuration that will be passed on to the plugin.",
+              "type": "object",
+              "x-kubernetes-preserve-unknown-fields": true
+            },
+            "pluginName": {
+              "description": "The plugin name to be used in the Envoy configuration (used to be called `rootID`).",
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1
+            },
+            "sha256": {
+              "description": "SHA256 checksum that will be used to verify Wasm module or OCI container.",
+              "type": "string",
+              "pattern": "(^$|^[a-f0-9]{64}$)"
+            },
+            "type": {
+              "description": "Specifies the type of Wasm Extension to be used.\n\nValid Options: HTTP, NETWORK",
+              "type": "string",
+              "enum": [
+                "UNSPECIFIED_PLUGIN_TYPE",
+                "HTTP",
+                "NETWORK"
+              ]
+            },
+            "url": {
+              "description": "URL of a Wasm module or OCI container.",
+              "type": "string",
+              "minLength": 1,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "isURL(self) ? (url(self).getScheme() in [\"\", \"http\", \"https\", \"file\", \"oci\"]) : (isURL(\"http://\" + self) \u0026\u0026\nurl(\"http://\" + self).getScheme() in [\"\", \"http\", \"https\", \"file\", \"oci\"])",
+                  "message": "url must have schema one of [http, https, file, oci]"
+                }
+              ]
+            },
+            "verificationKey": {
+              "type": "string"
+            },
+            "vmConfig": {
+              "description": "Configuration for a Wasm VM.",
+              "type": "object",
+              "properties": {
+                "env": {
+                  "description": "Specifies environment variables to be injected to this VM.",
+                  "type": "array",
+                  "maxItems": 256,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "description": "Name of the environment variable.",
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1
+                      },
+                      "value": {
+                        "description": "Value for the environment variable.",
+                        "type": "string",
+                        "maxLength": 2048
+                      },
+                      "valueFrom": {
+                        "description": "Source for the environment variable's value.\n\nValid Options: INLINE, HOST",
+                        "type": "string",
+                        "enum": [
+                          "INLINE",
+                          "HOST"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "(has(self.valueFrom) ? self.valueFrom : \"\") != \"HOST\" || !has(self.value)",
+                        "message": "value may only be set when valueFrom is INLINE"
+                      }
+                    ]
+                  },
+                  "x-kubernetes-list-map-keys": [
+                    "name"
+                  ],
+                  "x-kubernetes-list-type": "map"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "(has(self.selector) ? 1 : 0) + (has(self.targetRefs) ? 1 : 0) \u003c= 1",
+          "message": "only one of targetRefs or selector can be set"
+        },
+        {
+          "rule": "has(self.wasm) != has(self.lua)",
+          "message": "exactly one of wasm or lua must be set"
+        }
+      ]
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Current service state of the resource.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lastProbeTime": {
+                "description": "Last time we probed the condition.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "lastTransitionTime": {
+                "description": "Last time the condition transitioned from one status to another.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "Human-readable message indicating details about last transition.",
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "Resource Generation to which the Condition refers.",
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "x-kubernetes-int-or-string": true
+              },
+              "reason": {
+                "description": "Unique, one-word, CamelCase reason for the condition's last transition.",
+                "type": "string"
+              },
+              "status": {
+                "description": "Status is the status of the condition.",
+                "type": "string"
+              },
+              "type": {
+                "description": "Type is the type of the condition.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "observedGeneration": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "x-kubernetes-int-or-string": true
+        },
+        "validationMessages": {
+          "description": "Includes any errors or warnings detected by Istio's analyzers.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "documentationUrl": {
+                "description": "A url pointing to the Istio documentation for this specific error type.",
+                "type": "string"
+              },
+              "level": {
+                "description": "Represents how severe a message is.\n\nValid Options: UNKNOWN, ERROR, WARNING, INFO",
+                "type": "string",
+                "enum": [
+                  "UNKNOWN",
+                  "ERROR",
+                  "WARNING",
+                  "INFO"
+                ]
+              },
+              "type": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "description": "A 7 character code matching `^IST[0-9]{4}$` intended to uniquely identify the message type.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "A human-readable name for the message type.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-preserve-unknown-fields": true
+    }
+  }
+}
