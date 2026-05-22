@@ -4,41 +4,41 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: sandboxes.agents.kruise.io
+  name: sandboxupdateops.agents.kruise.io
 spec:
   group: agents.kruise.io
   names:
-    kind: Sandbox
-    listKind: SandboxList
-    plural: sandboxes
+    kind: SandboxUpdateOps
+    listKind: SandboxUpdateOpsList
+    plural: sandboxupdateops
     shortNames:
-      - sbx
-    singular: sandbox
+      - suo
+    singular: sandboxupdateops
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
         - jsonPath: .status.phase
-          name: Status
+          name: Phase
           type: string
+        - jsonPath: .status.replicas
+          name: Total
+          type: integer
+        - jsonPath: .status.updatedReplicas
+          name: Updated
+          type: integer
+        - jsonPath: .status.updatingReplicas
+          name: Updating
+          type: integer
+        - jsonPath: .status.failedReplicas
+          name: Failed
+          type: integer
         - jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
-        - jsonPath: .metadata.labels.agents\.kruise\.io/sandbox-claimed
-          name: Claimed
-          type: string
-        - jsonPath: .spec.shutdownTime
-          name: shutdown_time
-          type: string
-        - jsonPath: .spec.pauseTime
-          name: pause_time
-          type: string
-        - jsonPath: .status.message
-          name: Message
-          type: string
       name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: Sandbox is the Schema for the sandboxes API
+          description: SandboxUpdateOps is the Schema for batch sandbox update operations.
           properties:
             apiVersion:
               description: |-
@@ -58,10 +58,11 @@ spec:
             metadata:
               type: object
             spec:
-              description: spec defines the desired state of Sandbox
+              description: Spec defines the desired update operation.
               properties:
                 lifecycle:
-                  description: Lifecycle defines lifecycle hooks for sandbox upgrade.
+                  description: Lifecycle defines pre/post upgrade hooks to set on each
+                    sandbox during upgrade.
                   properties:
                     postUpgrade:
                       description: |-
@@ -124,86 +125,80 @@ spec:
                           type: integer
                       type: object
                   type: object
-                pauseTime:
-                  description: PauseTime - Absolute time when the sandbox will be paused
-                    automatically.
-                  format: date-time
-                  type: string
+                patch:
+                  description: |-
+                    Patch defines the changes to apply to each selected sandbox's template.
+                    The patch is applied as a Strategic Merge Patch on the sandbox's PodTemplateSpec.
+                  x-kubernetes-preserve-unknown-fields: true
                 paused:
-                  description: Paused indicates whether pause the sandbox pod.
+                  description: Paused indicates whether the update operation is paused.
                   type: boolean
-                persistentContents:
-                  description: 'PersistentContents indicates resume pod with persistent
-                  content, Enum: ip, memory, filesystem'
-                  items:
-                    type: string
-                  type: array
-                  x-kubernetes-list-type: atomic
-                runtimes:
-                  description: Runtimes - Runtime configuration for sandbox object
-                  items:
-                    properties:
-                      name:
+                selector:
+                  description: Selector selects the target sandboxes to update by label.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: |-
+                          A label selector requirement is a selector that contains values, a key, and an operator that
+                          relates the key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: |-
+                              operator represents a key's relationship to a set of values.
+                              Valid operators are In, NotIn, Exists and DoesNotExist.
+                            type: string
+                          values:
+                            description: |-
+                              values is an array of string values. If the operator is In or NotIn,
+                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                              the values array must be empty. This array is replaced during a strategic
+                              merge patch.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                          - key
+                          - operator
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    matchLabels:
+                      additionalProperties:
                         type: string
-                    required:
-                      - name
-                    type: object
-                  type: array
-                  x-kubernetes-list-type: atomic
-                shutdownTime:
-                  description: |-
-                    ShutdownTime - Absolute time when the sandbox is deleted.
-                    If a time in the past is provided, the sandbox will be deleted immediately.
-                  format: date-time
-                  type: string
-                template:
-                  description: |-
-                    Template describes the pods that will be created.
-                    Template is mutual exclusive with TemplateRef
-                  x-kubernetes-preserve-unknown-fields: true
-                templateRef:
-                  description: TemplateRef references a SandboxTemplate, which will
-                    be used to create the sandbox.
-                  properties:
-                    apiVersion:
                       description: |-
-                        name of the SandboxTemplate apiVersion
-                        Default to v1
-                      type: string
-                    kind:
-                      description: |-
-                        name of the SandboxTemplate kind
-                        Default to PodTemplate
-                      type: string
-                    name:
-                      description: name of the SandboxTemplate
-                      type: string
-                  required:
-                    - name
+                        matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                        map is equivalent to an element of matchExpressions, whose key field is "key", the
+                        operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      type: object
                   type: object
-                upgradePolicy:
-                  description: UpgradePolicy defines the upgrade strategy for the sandbox.
+                  x-kubernetes-map-type: atomic
+                updateStrategy:
+                  description: UpdateStrategy defines the strategy for the batch update.
                   properties:
-                    type:
+                    maxUnavailable:
+                      anyOf:
+                        - type: integer
+                        - type: string
                       description: |-
-                        Type specifies the upgrade policy type.
-                        When empty (default), upgrading is disabled.
-                        Supported values: Recreate.
-                      type: string
+                        MaxUnavailable is the maximum number of sandboxes that can be upgrading at the same time.
+                        Value can be an absolute number (e.g., 5) or a percentage of total sandboxes (e.g., 10%).
+                      x-kubernetes-int-or-string: true
                   type: object
-                volumeClaimTemplates:
-                  description: VolumeClaimTemplates is a list of PVC templates to create
-                    for this Sandbox.
-                  x-kubernetes-preserve-unknown-fields: true
+              required:
+                - selector
               type: object
             status:
-              description: status defines the observed state of Sandbox
+              description: Status defines the observed state.
               properties:
                 conditions:
-                  description: |-
-                    conditions represent the current state of the Sandbox resource.
-                    Each condition has a unique type and reflects the status of a specific aspect of the resource.
-                    The status of each condition is one of True, False, or Unknown.
+                  description: Conditions represents the latest available observations.
                   items:
                     description: Condition contains details for one aspect of the current
                       state of this API Resource.
@@ -262,52 +257,38 @@ spec:
                   x-kubernetes-list-map-keys:
                     - type
                   x-kubernetes-list-type: map
-                message:
-                  description: message
-                  type: string
-                nodeName:
-                  description: NodeName indicates in which node this sandbox is scheduled.
-                  type: string
+                failedReplicas:
+                  description: FailedReplicas is the number of sandboxes that failed
+                    to update.
+                  format: int32
+                  type: integer
                 observedGeneration:
-                  description: |-
-                    observedGeneration is the most recent generation observed for this Sandbox. It corresponds to the
-                    Sandbox's generation, which is updated on mutation by the API Server.
+                  description: ObservedGeneration is the most recent generation observed.
                   format: int64
                   type: integer
                 phase:
-                  description: Sandbox Phase
+                  description: Phase is the current phase of the update operation.
                   type: string
-                podInfo:
-                  description: Pod Info
-                  properties:
-                    annotations:
-                      additionalProperties:
-                        type: string
-                      description: Annotations contains pod important annotations
-                      type: object
-                      x-kubernetes-map-type: granular
-                    labels:
-                      additionalProperties:
-                        type: string
-                      description: Labels contains pod important labels
-                      type: object
-                      x-kubernetes-map-type: granular
-                    nodeName:
-                      description: NodeName indicates in which node this pod is scheduled.
-                      type: string
-                    podIP:
-                      description: PodIP address allocated to the pod.
-                      type: string
-                    podUID:
-                      description: PodUID is pod uid.
-                      type: string
-                  type: object
-                sandboxIp:
-                  description: SandboxIp is the ip address allocated to the sandbox.
-                  type: string
-                updateRevision:
-                  description: UpdateRevision is the template-hash calculated from `spec.template`.
-                  type: string
+                replicas:
+                  description: Replicas is the total number of sandboxes selected for
+                    update.
+                  format: int32
+                  type: integer
+                updatedReplicas:
+                  description: UpdatedReplicas is the number of sandboxes that have
+                    been successfully updated.
+                  format: int32
+                  type: integer
+                updatingReplicas:
+                  description: UpdatingReplicas is the number of sandboxes currently
+                    being updated.
+                  format: int32
+                  type: integer
+              required:
+                - failedReplicas
+                - replicas
+                - updatedReplicas
+                - updatingReplicas
               type: object
           required:
             - spec
