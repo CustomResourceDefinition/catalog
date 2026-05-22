@@ -1,0 +1,559 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: sveltosclusters.lib.projectsveltos.io
+spec:
+  group: lib.projectsveltos.io
+  names:
+    kind: SveltosCluster
+    listKind: SveltosClusterList
+    plural: sveltosclusters
+    singular: sveltoscluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Indicates whether cluster is ready to be managed by sveltos
+      jsonPath: .status.ready
+      name: Ready
+      type: boolean
+    - description: Kubernetes version associated with this Cluster
+      jsonPath: .status.version
+      name: Version
+      type: string
+    - description: Time duration since creation of SveltosCluster
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - description: Cluster Shard
+      jsonPath: .metadata.annotations['sharding\.projectsveltos\.io/key']
+      name: Shard
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: SveltosCluster is the Schema for the SveltosCluster API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SveltosClusterSpec defines the desired state of SveltosCluster
+            properties:
+              activeWindow:
+                description: |-
+                  ActiveWindow is an optional field for automatically pausing and unpausing
+                  the cluster.
+                  If not specified, the cluster will not be paused or unpaused automatically.
+                properties:
+                  from:
+                    description: |-
+                      From in Cron format, see https://en.wikipedia.org/wiki/Cron.
+                      Indicates when to un-pause the cluster (cluster in paused state receives no update from sveltos).
+                    minLength: 1
+                    type: string
+                  to:
+                    description: |-
+                      To in Cron format, see https://en.wikipedia.org/Cron.
+                      Indicates when to pause the cluster (cluster in paused state receives no update from sveltos).
+                    minLength: 1
+                    type: string
+                required:
+                - from
+                - to
+                type: object
+              consecutiveFailureThreshold:
+                default: 3
+                description: |-
+                  ConsecutiveFailureThreshold is the maximum number of consecutive connection
+                  failures before setting the problem status in Status.ConnectionStatus
+                type: integer
+              data:
+                additionalProperties:
+                  type: string
+                description: ArbitraryData allows for arbitrary nested structures
+                type: object
+              kubeconfigKeyName:
+                description: |-
+                  KubeconfigKeyName specifies the key within the Secret that holds the kubeconfig.
+                  If not specified, Sveltos will use first key in the Secret.
+                type: string
+              kubeconfigName:
+                description: |-
+                  KubeconfigName allows overriding the default Sveltos convention which expected a valid kubeconfig
+                  to be hosted in a secret with the pattern ${sveltosClusterName}-sveltos-kubeconfig.
+
+                  When a value is specified, the referenced Kubernetes Secret object must exist,
+                  and will be used to connect to the Kubernetes cluster.
+                type: string
+              livenessChecks:
+                description: |-
+                  LivenessChecks is an optional list of custom checks to verify cluster
+                  is healthy
+                items:
+                  properties:
+                    condition:
+                      description: |-
+                        This field is  used to specify a Lua function that will be used to evaluate
+                        this check.
+                        The function will receive the array of resources selected by ResourceSelectors.
+                        The Lua function name is evaluate and must return a struct with:
+                        - "result" field: boolean indicating whether check passed or failed;
+                        - "message" field: (optional) message.
+                      type: string
+                    name:
+                      description: |-
+                        Name of the cluster check.
+                        Must be a DNS_LABEL and unique within the ClusterChecks.
+                      type: string
+                    resourceSelectors:
+                      description: ResourceSelectors identifies what Kubernetes resources
+                        to select
+                      items:
+                        description: ResourceSelector defines what resources are a
+                          match
+                        properties:
+                          evaluate:
+                            description: |-
+                              Evaluate contains a function "evaluate" in lua language.
+                              The function will be passed one of the object selected based on
+                              above criteria.
+                              Must return struct with field "matching" representing whether
+                              object is a match and an optional "message" field.
+                            type: string
+                          evaluateCEL:
+                            description: |-
+                              EvaluateCEL contains a list of named CEL (Common Expression Language) rules.
+                              Each rule will be evaluated in order against each object selected based on
+                              the criteria defined above. Each rule's expression must return a boolean value
+                              indicating whether the object is a match.
+
+                              Evaluation stops at the first rule that returns true; subsequent
+                              rules will not be evaluated.
+                            items:
+                              description: CELRule defines a named CEL rule used in
+                                EvaluateCEL.
+                              properties:
+                                name:
+                                  description: Name is a human-readable identifier
+                                    for the rule.
+                                  type: string
+                                rule:
+                                  description: |-
+                                    Rule is the CEL (Common Expression Language) expression to evaluate.
+                                    It must return a bool
+                                  type: string
+                              required:
+                              - name
+                              - rule
+                              type: object
+                            type: array
+                          group:
+                            description: Group of the resource deployed in the Cluster.
+                            type: string
+                          kind:
+                            description: Kind of the resource deployed in the Cluster.
+                            minLength: 1
+                            type: string
+                          labelFilters:
+                            description: LabelFilters allows to filter resources based
+                              on current labels.
+                            items:
+                              properties:
+                                key:
+                                  description: Key is the label key
+                                  type: string
+                                operation:
+                                  description: Operation is the comparison operation
+                                  enum:
+                                  - Equal
+                                  - Different
+                                  - Has
+                                  - DoesNotHave
+                                  type: string
+                                value:
+                                  description: Value is the label value
+                                  type: string
+                              required:
+                              - key
+                              - operation
+                              type: object
+                            type: array
+                          name:
+                            description: Name of the resource deployed in the  Cluster.
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace of the resource deployed in the  Cluster.
+                              Empty for resources scoped at cluster level.
+                              For namespaced resources, an empty string "" indicates all namespaces.
+                            type: string
+                          selector:
+                            description: |-
+                              Selector is a standard Kubernetes label selector. Resources are selected
+                              if their labels match the selector. This field uses the standard
+                              Kubernetes label matching syntax (e.g., {"environment": "production"}).
+                              If both LabelFilters and Selector are specified, the requirements from
+                              both are logically ANDed.
+                            properties:
+                              matchExpressions:
+                                description: matchExpressions is a list of label selector
+                                  requirements. The requirements are ANDed.
+                                items:
+                                  description: |-
+                                    A label selector requirement is a selector that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the label key that the selector
+                                        applies to.
+                                      type: string
+                                    operator:
+                                      description: |-
+                                        operator represents a key's relationship to a set of values.
+                                        Valid operators are In, NotIn, Exists and DoesNotExist.
+                                      type: string
+                                    values:
+                                      description: |-
+                                        values is an array of string values. If the operator is In or NotIn,
+                                        the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                        the values array must be empty. This array is replaced during a strategic
+                                        merge patch.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: |-
+                                  matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                  map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                  operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                type: object
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          version:
+                            description: Version of the resource deployed in the Cluster.
+                            type: string
+                        required:
+                        - group
+                        - kind
+                        - version
+                        type: object
+                      type: array
+                  required:
+                  - condition
+                  - name
+                  - resourceSelectors
+                  type: object
+                type: array
+              paused:
+                description: |-
+                  Paused can be used to prevent controllers from processing the
+                  SveltosCluster and all its associated objects.
+                type: boolean
+              pullMode:
+                default: false
+                description: |-
+                  PullMode indicates whether the cluster is in pull mode.
+                  If true, the agent in the managed cluster will fetch the configuration.
+                  If false (default), the management cluster will push the configuration.
+                type: boolean
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
+              readinessChecks:
+                description: |-
+                  ReadinessChecks is an optional list of custom checks to verify cluster
+                  readiness
+                items:
+                  properties:
+                    condition:
+                      description: |-
+                        This field is  used to specify a Lua function that will be used to evaluate
+                        this check.
+                        The function will receive the array of resources selected by ResourceSelectors.
+                        The Lua function name is evaluate and must return a struct with:
+                        - "result" field: boolean indicating whether check passed or failed;
+                        - "message" field: (optional) message.
+                      type: string
+                    name:
+                      description: |-
+                        Name of the cluster check.
+                        Must be a DNS_LABEL and unique within the ClusterChecks.
+                      type: string
+                    resourceSelectors:
+                      description: ResourceSelectors identifies what Kubernetes resources
+                        to select
+                      items:
+                        description: ResourceSelector defines what resources are a
+                          match
+                        properties:
+                          evaluate:
+                            description: |-
+                              Evaluate contains a function "evaluate" in lua language.
+                              The function will be passed one of the object selected based on
+                              above criteria.
+                              Must return struct with field "matching" representing whether
+                              object is a match and an optional "message" field.
+                            type: string
+                          evaluateCEL:
+                            description: |-
+                              EvaluateCEL contains a list of named CEL (Common Expression Language) rules.
+                              Each rule will be evaluated in order against each object selected based on
+                              the criteria defined above. Each rule's expression must return a boolean value
+                              indicating whether the object is a match.
+
+                              Evaluation stops at the first rule that returns true; subsequent
+                              rules will not be evaluated.
+                            items:
+                              description: CELRule defines a named CEL rule used in
+                                EvaluateCEL.
+                              properties:
+                                name:
+                                  description: Name is a human-readable identifier
+                                    for the rule.
+                                  type: string
+                                rule:
+                                  description: |-
+                                    Rule is the CEL (Common Expression Language) expression to evaluate.
+                                    It must return a bool
+                                  type: string
+                              required:
+                              - name
+                              - rule
+                              type: object
+                            type: array
+                          group:
+                            description: Group of the resource deployed in the Cluster.
+                            type: string
+                          kind:
+                            description: Kind of the resource deployed in the Cluster.
+                            minLength: 1
+                            type: string
+                          labelFilters:
+                            description: LabelFilters allows to filter resources based
+                              on current labels.
+                            items:
+                              properties:
+                                key:
+                                  description: Key is the label key
+                                  type: string
+                                operation:
+                                  description: Operation is the comparison operation
+                                  enum:
+                                  - Equal
+                                  - Different
+                                  - Has
+                                  - DoesNotHave
+                                  type: string
+                                value:
+                                  description: Value is the label value
+                                  type: string
+                              required:
+                              - key
+                              - operation
+                              type: object
+                            type: array
+                          name:
+                            description: Name of the resource deployed in the  Cluster.
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace of the resource deployed in the  Cluster.
+                              Empty for resources scoped at cluster level.
+                              For namespaced resources, an empty string "" indicates all namespaces.
+                            type: string
+                          selector:
+                            description: |-
+                              Selector is a standard Kubernetes label selector. Resources are selected
+                              if their labels match the selector. This field uses the standard
+                              Kubernetes label matching syntax (e.g., {"environment": "production"}).
+                              If both LabelFilters and Selector are specified, the requirements from
+                              both are logically ANDed.
+                            properties:
+                              matchExpressions:
+                                description: matchExpressions is a list of label selector
+                                  requirements. The requirements are ANDed.
+                                items:
+                                  description: |-
+                                    A label selector requirement is a selector that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the label key that the selector
+                                        applies to.
+                                      type: string
+                                    operator:
+                                      description: |-
+                                        operator represents a key's relationship to a set of values.
+                                        Valid operators are In, NotIn, Exists and DoesNotExist.
+                                      type: string
+                                    values:
+                                      description: |-
+                                        values is an array of string values. If the operator is In or NotIn,
+                                        the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                        the values array must be empty. This array is replaced during a strategic
+                                        merge patch.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: |-
+                                  matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                  map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                  operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                type: object
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          version:
+                            description: Version of the resource deployed in the Cluster.
+                            type: string
+                        required:
+                        - group
+                        - kind
+                        - version
+                        type: object
+                      type: array
+                  required:
+                  - condition
+                  - name
+                  - resourceSelectors
+                  type: object
+                type: array
+              tokenRequestRenewalOption:
+                description: TokenRequestRenewalOption contains options describing
+                  how to renew TokenRequest
+                properties:
+                  kubeconfigKeyName:
+                    description: |-
+                      KubeconfigKeyName is the name of the key in the Secret where the renewed
+                      kubeconfig will be stored.
+                      If nil, Sveltos defaults to "re-kubeconfig" and updates SveltosCluster.Spec.KubeconfigKeyName.
+                      If set, Sveltos writes to this key. To prevent GitOps drift, set this to the
+                      same value as SveltosCluster.Spec.KubeconfigKeyName.
+                    type: string
+                  renewTokenRequestInterval:
+                    description: RenewTokenRequestInterval is the interval at which
+                      to renew the TokenRequest
+                    type: string
+                  saName:
+                    description: |-
+                      SAName is name of the ServiceAccount to renew the token for.
+                      If specified, ServiceAccount must exist in the managed cluster.
+                      If not specified, sveltos will try to deduce it from current kubeconfig
+                    type: string
+                  saNamespace:
+                    description: |-
+                      SANamespace is the namespace of the ServiceAccount to renew the token for.
+                      If specified, ServiceAccount must exist in the managed cluster.
+                      If not specified, sveltos will try to deduce it from current kubeconfig
+                    type: string
+                  tokenDuration:
+                    description: |-
+                      TokenDuration is the duration the requested token will be valid for.
+                      If not specified, the value of RenewTokenRequestInterval will be used.
+                      This allows the token to remain valid beyond the renewal interval,
+                      providing a buffer in case of connectivity loss.
+                      Example: renew every hour, token lasts 3 hours (buffer for disconnection)
+                        renewTokenRequestInterval: 1h
+                        tokenDuration: 3h
+                    type: string
+                required:
+                - renewTokenRequestInterval
+                type: object
+            type: object
+          status:
+            description: SveltosClusterStatus defines the status of SveltosCluster
+            properties:
+              activeWindowHash:
+                description: |-
+                  ActiveWindowHash is the hash of the SveltosCluster Spec.ActiveWindow.
+                  This is used to detect if the ActiveWindow configuration has changed
+                  and requires recalculation of NextPause and NextUnpause.
+                format: byte
+                type: string
+              agentLastReportTime:
+                description: |-
+                  AgentLastReportTime indicates the last time the Sveltos agent in the managed cluster
+                  successfully reported its status to the management cluster's API server.
+                  This field is updated exclusively when Sveltos operates in pull mode,
+                  serving as a heartbeat from the agent's perspective.
+                format: date-time
+                type: string
+              connectionFailures:
+                default: 0
+                description: |-
+                  connectionFailures is the number of consecutive failed attempts to connect
+                  to the remote cluster.
+                type: integer
+              connectionStatus:
+                description: |-
+                  ConnectionStatus indicates whether connection from the management cluster
+                  to the managed cluster is healthy
+                enum:
+                - Healthy
+                - Down
+                type: string
+              failureMessage:
+                description: |-
+                  FailureMessage is a human consumable message explaining the
+                  misconfiguration
+                type: string
+              lastReconciledTokenRequestAt:
+                description: |-
+                  LastReconciledTokenRequestAt is the last time the TokenRequest
+                  was renewed.
+                type: string
+              nextPause:
+                description: Information when next pause cluster is scheduled
+                format: date-time
+                type: string
+              nextUnpause:
+                description: Information when next unpause cluster is scheduled
+                format: date-time
+                type: string
+              ready:
+                description: Ready is the state of the cluster.
+                type: boolean
+              version:
+                description: The Kubernetes version of the cluster.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
