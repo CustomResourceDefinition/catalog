@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.54% | 3733 | 10753 | 83 |
+| 98.95% | 3812 | 10753 | 83 |
 
 ### Missing Schemas
 
@@ -25,6 +25,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | nodepool | v1alpha1 |
 
+| controlplane.cluster.x-k8s.io | |
+| --- | --- |
+| kamajicontrolplane | v1alpha1 |
+| kamajicontrolplanetemplate | v1alpha1 |
+
 | eks.amazonaws.com | |
 | --- | --- |
 | ingressclassparams | v1 |
@@ -32,9 +37,28 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
 
+| eventing.knative.dev | |
+| --- | --- |
+| broker | v1 |
+| eventpolicy | v1alpha1 |
+| eventtransform | v1alpha1 |
+| eventtype | v1beta1, v1beta2, v1beta3 |
+| requestreply | v1alpha1 |
+| trigger | v1 |
+
+| flows.knative.dev | |
+| --- | --- |
+| parallel | v1 |
+| sequence | v1 |
+
 | infrastructure.cluster.x-k8s.io | |
 | --- | --- |
 | gcpcluster | v1alpha2 |
+
+| messaging.knative.dev | |
+| --- | --- |
+| channel | v1 |
+| subscription | v1 |
 
 | networking.gke.io | |
 | --- | --- |
@@ -50,6 +74,23 @@ This page lists missing CRD validation schemas that are present in alternative c
 | secret-sync.gke.io | |
 | --- | --- |
 | secretsync | v1 |
+
+| sinks.knative.dev | |
+| --- | --- |
+| integrationsink | v1alpha1 |
+| jobsink | v1alpha1 |
+
+| source.extensions.fluxcd.io | |
+| --- | --- |
+| artifactgenerator | v1beta1 |
+
+| sources.knative.dev | |
+| --- | --- |
+| apiserversource | v1 |
+| containersource | v1 |
+| integrationsource | v1alpha1 |
+| pingsource | v1, v1beta2 |
+| sinkbinding | v1 |
 
 ### Ignored Schemas
 
