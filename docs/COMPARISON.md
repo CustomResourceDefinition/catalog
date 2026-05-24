@@ -9,13 +9,27 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.95% | 3812 | 10753 | 83 |
+| 98.59% | 3834 | 10753 | 83 |
 
 ### Missing Schemas
 
 | apps.gitlab.com | |
 | --- | --- |
 | runner | v1beta2 |
+
+| autoscaling.internal.knative.dev | |
+| --- | --- |
+| metric | v1alpha1 |
+| podautoscaler | v1alpha1 |
+
+| caching.internal.knative.dev | |
+| --- | --- |
+| image | v1alpha1 |
+
+| capsule.clastix.io | |
+| --- | --- |
+| globalproxysettings | v1beta1 |
+| proxysetting | v1beta1 |
 
 | compute.cnrm.cloud.google.com | |
 | --- | --- |
@@ -71,9 +85,24 @@ This page lists missing CRD validation schemas that are present in alternative c
 | servicefunctionchain | v1 |
 | trafficselector | v1 |
 
+| networking.internal.knative.dev | |
+| --- | --- |
+| certificate | v1alpha1 |
+| clusterdomainclaim | v1alpha1 |
+| ingress | v1alpha1 |
+| serverlessservice | v1alpha1 |
+
 | secret-sync.gke.io | |
 | --- | --- |
 | secretsync | v1 |
+
+| serving.knative.dev | |
+| --- | --- |
+| configuration | v1 |
+| domainmapping | v1beta1 |
+| revision | v1 |
+| route | v1 |
+| service | v1 |
 
 | sinks.knative.dev | |
 | --- | --- |
