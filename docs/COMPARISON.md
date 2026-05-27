@@ -9,14 +9,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.45% | 3834 | 10828 | 83 |
+| 99.53% | 3834 | 10832 | 83 |
 
 ### Missing Schemas
-
-| capsule.clastix.io | |
-| --- | --- |
-| globalproxysettings | v1beta1 |
-| proxysetting | v1beta1 |
 
 | compute.cnrm.cloud.google.com | |
 | --- | --- |
@@ -56,10 +51,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | secret-sync.gke.io | |
 | --- | --- |
 | secretsync | v1 |
-
-| source.extensions.fluxcd.io | |
-| --- | --- |
-| artifactgenerator | v1beta1 |
 
 ### Ignored Schemas
 
