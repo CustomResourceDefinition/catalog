@@ -9,22 +9,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 98.59% | 3834 | 10759 | 83 |
+| 99.45% | 3834 | 10828 | 83 |
 
 ### Missing Schemas
-
-| apps.gitlab.com | |
-| --- | --- |
-| runner | v1beta2 |
-
-| autoscaling.internal.knative.dev | |
-| --- | --- |
-| metric | v1alpha1 |
-| podautoscaler | v1alpha1 |
-
-| caching.internal.knative.dev | |
-| --- | --- |
-| image | v1alpha1 |
 
 | capsule.clastix.io | |
 | --- | --- |
@@ -51,28 +38,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
 
-| eventing.knative.dev | |
-| --- | --- |
-| broker | v1 |
-| eventpolicy | v1alpha1 |
-| eventtransform | v1alpha1 |
-| eventtype | v1beta1, v1beta2, v1beta3 |
-| requestreply | v1alpha1 |
-| trigger | v1 |
-
-| flows.knative.dev | |
-| --- | --- |
-| parallel | v1 |
-| sequence | v1 |
-
 | infrastructure.cluster.x-k8s.io | |
 | --- | --- |
 | gcpcluster | v1alpha2 |
-
-| messaging.knative.dev | |
-| --- | --- |
-| channel | v1 |
-| subscription | v1 |
 
 | networking.gke.io | |
 | --- | --- |
@@ -85,41 +53,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 | servicefunctionchain | v1 |
 | trafficselector | v1 |
 
-| networking.internal.knative.dev | |
-| --- | --- |
-| certificate | v1alpha1 |
-| clusterdomainclaim | v1alpha1 |
-| ingress | v1alpha1 |
-| serverlessservice | v1alpha1 |
-
 | secret-sync.gke.io | |
 | --- | --- |
 | secretsync | v1 |
 
-| serving.knative.dev | |
-| --- | --- |
-| configuration | v1 |
-| domainmapping | v1beta1 |
-| revision | v1 |
-| route | v1 |
-| service | v1 |
-
-| sinks.knative.dev | |
-| --- | --- |
-| integrationsink | v1alpha1 |
-| jobsink | v1alpha1 |
-
 | source.extensions.fluxcd.io | |
 | --- | --- |
 | artifactgenerator | v1beta1 |
-
-| sources.knative.dev | |
-| --- | --- |
-| apiserversource | v1 |
-| containersource | v1 |
-| integrationsource | v1alpha1 |
-| pingsource | v1, v1beta2 |
-| sinkbinding | v1 |
 
 ### Ignored Schemas
 
