@@ -1,9 +1,6 @@
 {
   "description": "Tenant is the Schema for the tenants API.",
   "type": "object",
-  "required": [
-    "spec"
-  ],
   "properties": {
     "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
@@ -84,7 +81,7 @@
           }
         },
         "containerRegistries": {
-          "description": "Specifies the trusted Image Registries assigned to the Tenant. Capsule assures that all Pods resources created in the Tenant can use only one of the allowed trusted registries. Optional.",
+          "description": "Deprecated: Use Enforcement.Registries instead\n\nSpecifies the trusted Image Registries assigned to the Tenant. Capsule assures that all Pods resources created in the Tenant can use only one of the allowed trusted registries. Optional.",
           "type": "object",
           "properties": {
             "allowed": {
@@ -105,6 +102,10 @@
           "description": "Toggling the Tenant resources cordoning, when enable resources cannot be deleted.",
           "type": "boolean",
           "default": false
+        },
+        "data": {
+          "description": "Specify additional data relating to the tenant.\nMainly useable in templating and more accessible than labels/annotations.",
+          "x-kubernetes-preserve-unknown-fields": true
         },
         "deviceClasses": {
           "description": "Specifies options for the DeviceClass resources.",
@@ -236,7 +237,7 @@
           "additionalProperties": false
         },
         "imagePullPolicies": {
-          "description": "Specify the allowed values for the imagePullPolicies option in Pod resources. Capsule assures that all Pod resources created in the Tenant can use only one of the allowed policy. Optional.",
+          "description": "Deprecated: Use Enforcement.Registries instead\n\nSpecify the allowed values for the imagePullPolicies option in Pod resources. Capsule assures that all Pod resources created in the Tenant can use only one of the allowed policy. Optional.",
           "type": "array",
           "items": {
             "type": "string",
@@ -601,6 +602,27 @@
               "type": "integer",
               "format": "int32",
               "minimum": 1
+            },
+            "requiredMetadata": {
+              "description": "Required Metadata for namespace within this tenant",
+              "type": "object",
+              "properties": {
+                "annotations": {
+                  "description": "Annotations that must be defined for each namespace",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "labels": {
+                  "description": "Labels that must be defined for each namespace",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -1123,6 +1145,11 @@
           "description": "Specify Permissions for the Tenant.",
           "type": "object",
           "properties": {
+            "allowOwnerPromotion": {
+              "description": "ClusterRoles granted to the promoted ServiceAccounts across the Tenant",
+              "type": "boolean",
+              "default": true
+            },
             "matchOwners": {
               "description": "Matches TenantOwner objects which are promoted to owners of this tenant\nThe elements are OR operations and independent. You can see the resulting Tenant Owners\nin the Status.Owners specification of the Tenant.",
               "type": "array",
@@ -1359,6 +1386,182 @@
             }
           },
           "additionalProperties": false
+        },
+        "rules": {
+          "description": "Specify enforcement specifications for the scope of the Tenant.\n We are moving all configuration enforcement. per namespace into a rule construct.\n It's currently not final.\n\nRead More: https://projectcapsule.dev/docs/tenants/rules/",
+          "type": "array",
+          "items": {
+            "description": "Rules Distributed via Tenants",
+            "type": "object",
+            "properties": {
+              "enforce": {
+                "description": "Enforcement for given rule",
+                "type": "object",
+                "properties": {
+                  "registries": {
+                    "description": "Define registries which are allowed to be used within this tenant\nThe rules are aggregated, since you can use Regular Expressions the match registry endpoints",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "url"
+                      ],
+                      "properties": {
+                        "policy": {
+                          "description": "Allowed PullPolicy for the given registry. Supplying no value allows all policies.",
+                          "type": "array",
+                          "items": {
+                            "description": "PullPolicy describes a policy for if/when to pull a container image",
+                            "type": "string"
+                          }
+                        },
+                        "url": {
+                          "description": "OCI Registry endpoint, is treated as regular expression.",
+                          "type": "string"
+                        },
+                        "validation": {
+                          "description": "Requesting Resources",
+                          "type": "array",
+                          "default": [
+                            "pod/images",
+                            "pod/volumes"
+                          ],
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "pod/images",
+                              "pod/volumes"
+                            ]
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "namespaceSelector": {
+                "description": "Select namespaces which are going to be targeted with this rule",
+                "type": "object",
+                "properties": {
+                  "matchExpressions": {
+                    "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                    "type": "array",
+                    "items": {
+                      "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                      "type": "object",
+                      "required": [
+                        "key",
+                        "operator"
+                      ],
+                      "properties": {
+                        "key": {
+                          "description": "key is the label key that the selector applies to.",
+                          "type": "string"
+                        },
+                        "operator": {
+                          "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                          "type": "string"
+                        },
+                        "values": {
+                          "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "x-kubernetes-list-type": "atomic"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "x-kubernetes-list-type": "atomic"
+                  },
+                  "matchLabels": {
+                    "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-map-type": "atomic"
+              },
+              "permissions": {
+                "description": "Permissions for given rule",
+                "type": "object",
+                "properties": {
+                  "rules": {
+                    "description": "Define Promotion Rules which distributed additional ClusterRoles across the Tenant\nfor promoted ServiceAccounts.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "clusterRoles": {
+                          "description": "ClusterRoles granted to the promoted ServiceAccounts across the Tenant\nkubebuilder:validation:Minimum=1",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "selector": {
+                          "description": "Match ServiceAccounts which are promoted which are granted these additional ClusterRoles\nacross the Tenant",
+                          "type": "object",
+                          "properties": {
+                            "matchExpressions": {
+                              "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                              "type": "array",
+                              "items": {
+                                "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                                "type": "object",
+                                "required": [
+                                  "key",
+                                  "operator"
+                                ],
+                                "properties": {
+                                  "key": {
+                                    "description": "key is the label key that the selector applies to.",
+                                    "type": "string"
+                                  },
+                                  "operator": {
+                                    "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "x-kubernetes-list-type": "atomic"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "x-kubernetes-list-type": "atomic"
+                            },
+                            "matchLabels": {
+                              "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-map-type": "atomic"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
         },
         "runtimeClasses": {
           "description": "Specifies the allowed RuntimeClasses assigned to the Tenant.\nCapsule assures that all Pods resources created in the Tenant can use only one of the allowed RuntimeClasses.\nOptional.",
@@ -1734,6 +1937,51 @@
             "additionalProperties": false
           }
         },
+        "promotions": {
+          "description": "Promoted ServiceAccounts across the Tenant",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "name"
+            ],
+            "properties": {
+              "clusterRoles": {
+                "description": "Defines additional cluster-roles for the specific Owner.",
+                "type": "array",
+                "default": [
+                  "admin",
+                  "capsule-namespace-deleter"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "kind": {
+                "description": "Kind of entity. Possible values are \"User\", \"Group\", and \"ServiceAccount\"",
+                "type": "string",
+                "enum": [
+                  "User",
+                  "Group",
+                  "ServiceAccount"
+                ]
+              },
+              "name": {
+                "description": "Name of the entity.",
+                "type": "string"
+              },
+              "targets": {
+                "description": "Defines additional cluster-roles for the specific Owner.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "size": {
           "description": "How many namespaces are assigned to the Tenant.",
           "type": "integer"
@@ -1804,6 +2052,53 @@
                   "additionalProperties": false
                 }
               },
+              "enforce": {
+                "description": "Managed Metadata",
+                "type": "object",
+                "properties": {
+                  "registry": {
+                    "description": "Registries which are allowed within this namespace",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "url"
+                      ],
+                      "properties": {
+                        "policy": {
+                          "description": "Allowed PullPolicy for the given registry. Supplying no value allows all policies.",
+                          "type": "array",
+                          "items": {
+                            "description": "PullPolicy describes a policy for if/when to pull a container image",
+                            "type": "string"
+                          }
+                        },
+                        "url": {
+                          "description": "OCI Registry endpoint, is treated as regular expression.",
+                          "type": "string"
+                        },
+                        "validation": {
+                          "description": "Requesting Resources",
+                          "type": "array",
+                          "default": [
+                            "pod/images",
+                            "pod/volumes"
+                          ],
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "pod/images",
+                              "pod/volumes"
+                            ]
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
               "metadata": {
                 "description": "Managed Metadata",
                 "type": "object",
@@ -1838,12 +2133,13 @@
           }
         },
         "state": {
-          "description": "The operational state of the Tenant. Possible values are \"Active\", \"Cordoned\".",
+          "description": "The operational state of the Tenant. Possible values are \"Active\", \"Cordoned\" or \"Terminating\".",
           "type": "string",
           "default": "Active",
           "enum": [
             "Cordoned",
-            "Active"
+            "Active",
+            "Terminating"
           ]
         }
       },
