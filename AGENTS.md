@@ -103,6 +103,7 @@ Follow the settings in `.editorconfig`.
 /schema          # Generated OpenAPI schema files
 /definitions     # Generated definition files (for kopium)
 /configuration.yaml  # CRD sources configuration
+/configuration-ignore.yaml  # Ignored CRDs configuration
 /registry.yaml   # Tracks source versions
 /internal/       # Go source code
   /command/      # CLI commands (compare, update, verify)
