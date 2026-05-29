@@ -9,22 +9,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.53% | 3844 | 10842 | 83 |
+| 99.61% | 3844 | 10844 | 84 |
 
 ### Missing Schemas
-
-| compute.cnrm.cloud.google.com | |
-| --- | --- |
-| computeclass | v1 |
 
 | compute.coreweave.com | |
 | --- | --- |
 | nodepool | v1alpha1 |
-
-| controlplane.cluster.x-k8s.io | |
-| --- | --- |
-| kamajicontrolplane | v1alpha1 |
-| kamajicontrolplanetemplate | v1alpha1 |
 
 | eks.amazonaws.com | |
 | --- | --- |
@@ -92,6 +83,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 | cluster.x-k8s.io | machineclass | v1alpha1 |
 | cluster.x-k8s.io | machinedeployment | v1alpha1 |
 | cluster.x-k8s.io | machineset | v1alpha1 |
+| compute.cnrm.cloud.google.com | computeclass | v1 |
 | dex.coreos.com | authcode | v1 |
 | dex.coreos.com | authrequest | v1 |
 | dex.coreos.com | connector | v1 |
