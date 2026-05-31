@@ -1,6 +1,5 @@
 .PHONY: all clean test build
 
-COMPOSE_RUN = docker compose run --rm --quiet-pull
 export DOCKER_CLI_HINTS=false
 
 DOWNLOADER := $(shell \
@@ -12,3 +11,5 @@ DOWNLOADER := $(shell \
 )
 
 include make.d/*.mk
+
+all: clean help build check comparison tags test schema-check update

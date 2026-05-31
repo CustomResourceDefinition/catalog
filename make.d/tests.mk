@@ -9,7 +9,7 @@ test-go:
 	go mod tidy -diff
 
 	@echo 'Checking for incorrectly formatted files ...'
-	@test -z "$$(gofmt -l .)"
+	test -z "$$(gofmt -l .)"
 
 ifneq ($(TOOL_VERSION),$(MOD_VERSION))
 	@echo 'Mismatched go versions'
@@ -70,7 +70,8 @@ endif
 
 test-editorcheck:
 	@echo 'Checking general formatting of all files ...'
-	$(COMPOSE_RUN) editorconfig ec -exclude '^schema/|^\.git/|.DS_Store|^build/|^definitions/'
+	docker run --rm -v $(CURDIR):/workspace:ro -w /workspace mstruebing/editorconfig-checker \
+		ec -exclude '^schema/|^\.git/|.DS_Store|^build/|^definitions/|^schema/'
 	@printf $(GREEN) "OK"
 
 test-docker:
@@ -80,13 +81,13 @@ test-docker:
 
 test-makefile:
 	@echo 'Checking formatting of Makefile and *.mk files ...'
-	$(COMPOSE_RUN) checkmake
+	test -z "$$(make -n all 1>/dev/null)"
 	@printf $(GREEN) "OK"
 
 build/schemastore/dependabot-2.0.json:
-	@mkdir -p build/schemastore
+	mkdir -p build/schemastore
 	$(DOWNLOADER) $@ https://json.schemastore.org/dependabot-2.0.json
 
 build/schemastore/github-workflow.json:
-	@mkdir -p build/schemastore
+	mkdir -p build/schemastore
 	$(DOWNLOADER) $@ https://json.schemastore.org/github-workflow.json
