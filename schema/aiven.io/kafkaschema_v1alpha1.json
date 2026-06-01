@@ -1,5 +1,5 @@
 {
-  "description": "KafkaSchema is the Schema for the kafkaschemas API",
+  "description": "KafkaSchema is the Schema for the kafkaschemas API.\n\nSelf-references (A -\u003e A) are blocked at admission; transitive cycles\n(A -\u003e B -\u003e A) are not detected at admission time.\n\nDeletion: the operator performs a soft delete followed by a hard delete on\nthe subject. The subject disappears from the registry's listing, re-applying a KafkaSchema with the same subjectName\nafter deletion starts a brand-new subject at version 1.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -68,38 +68,65 @@
           ]
         },
         "references": {
-          "description": "Schema references for Protobuf or JSON schemas that import other schemas",
+          "description": "Schema references for Protobuf or JSON schemas that import other schemas.\nReferences must form a directed acyclic graph (DAG); cycles are not allowed.",
           "type": "array",
+          "maxItems": 100,
           "items": {
-            "description": "SchemaReference is a reference to another schema in the registry",
+            "description": "SchemaReference is a reference to another schema in the registry.\nExactly one of {subject+version} or kafkaSchemaRef must be set.",
             "type": "object",
             "required": [
-              "name",
-              "subject",
-              "version"
+              "name"
             ],
             "properties": {
+              "kafkaSchemaRef": {
+                "description": "Reference to another KafkaSchema resource in the same namespace.\nMutually exclusive with subject/version.\n\nCleanup order matters: delete the dependent before the referent.",
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "description": "Name of the KafkaSchema resource in the same namespace.",
+                    "type": "string",
+                    "maxLength": 253,
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              },
               "name": {
                 "description": "Name used to reference the schema (e.g., the import path in Protobuf)",
                 "type": "string",
+                "maxLength": 512,
                 "minLength": 1
               },
               "subject": {
-                "description": "Subject name of the referenced schema in the registry",
+                "description": "Subject name of the referenced schema in the registry. Mutually exclusive with kafkaSchemaRef.",
                 "type": "string",
+                "maxLength": 512,
                 "minLength": 1
               },
               "version": {
-                "description": "Version of the referenced schema",
+                "description": "Version of the referenced schema. Mutually exclusive with kafkaSchemaRef.",
                 "type": "integer",
                 "minimum": 1
               }
             },
-            "additionalProperties": false
-          }
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "(has(self.subject) \u0026\u0026 has(self.version) \u0026\u0026 !has(self.kafkaSchemaRef)) || (!has(self.subject) \u0026\u0026 !has(self.version) \u0026\u0026 has(self.kafkaSchemaRef))",
+                "message": "set both subject and version, or set kafkaSchemaRef, but not both"
+              }
+            ]
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
         },
         "schema": {
-          "description": "Kafka Schema configuration should be a valid Avro Schema JSON format",
+          "description": "Kafka Schema definition. Format depends on schemaType (AVRO/JSON/PROTOBUF)",
           "type": "string"
         },
         "schemaType": {
@@ -224,5 +251,11 @@
       },
       "additionalProperties": false
     }
-  }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "!has(self.spec.references) || self.spec.references.all(r, !has(r.kafkaSchemaRef) || r.kafkaSchemaRef.name != self.metadata.name)",
+      "message": "kafkaSchemaRef cannot point to the KafkaSchema itself"
+    }
+  ]
 }
