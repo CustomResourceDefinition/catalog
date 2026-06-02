@@ -4,7 +4,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
   labels:
-    cluster.x-k8s.io/v1beta1: v1alpha1
+    cluster.x-k8s.io/v1beta2: v1alpha2
   name: kamajicontrolplanetemplates.controlplane.cluster.x-k8s.io
 spec:
   group: controlplane.cluster.x-k8s.io
@@ -20,7 +20,7 @@ spec:
     singular: kamajicontrolplanetemplate
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: v1alpha2
     schema:
       openAPIV3Schema:
         description: KamajiControlPlaneTemplate is the Schema for the kamajicontrolplanetemplates
@@ -55,6 +55,7 @@ spec:
                     description: |-
                       Standard object's metadata.
                       More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+                    minProperties: 1
                     properties:
                       annotations:
                         additionalProperties:
@@ -7491,6 +7492,60 @@ spec:
                         description: Configure how the TenantControlPlane should be
                           exposed.
                         properties:
+                          additionalServicePorts:
+                            description: |-
+                              AdditionalServicePorts adds extra ports to the Service that fronts the
+                              TenantControlPlane Pods. Useful when sidecars (such as a CSR signer)
+                              running alongside the kube-apiserver need to be reachable from tenant
+                              workers through the same Service endpoint.
+                            items:
+                              properties:
+                                appProtocol:
+                                  description: |-
+                                    The application protocol for this port.
+                                    This is used as a hint for implementations to offer richer behavior for protocols that they understand.
+                                    This field follows standard Kubernetes label syntax.
+                                    Valid values are either:
+
+                                    * Un-prefixed protocol names - reserved for IANA standard service names (as per
+                                    RFC-6335 and https://www.iana.org/assignments/service-names).
+                                  type: string
+                                name:
+                                  description: |-
+                                    The name of this port within the Service created by Kamaji.
+                                    This must be a DNS_LABEL, must have unique names, and cannot be `kube-apiserver`, or `konnectivity-server`.
+                                  type: string
+                                port:
+                                  description: The port that will be exposed by this
+                                    service.
+                                  format: int32
+                                  type: integer
+                                protocol:
+                                  default: TCP
+                                  description: The IP protocol for this port. Supports
+                                    "TCP", "UDP", and "SCTP".
+                                  enum:
+                                  - TCP
+                                  - UDP
+                                  - SCTP
+                                  type: string
+                                targetPort:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  description: |-
+                                    Number or name of the port to access on the pods of the Tenant Control Plane.
+                                    Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+                                    If this is a string, it will be looked up as a named port in the
+                                    target Pod's container ports. If this is not specified, the value
+                                    of the 'port' field is used (an identity map).
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - name
+                              - port
+                              - targetPort
+                              type: object
+                            type: array
                           advertiseAddress:
                             description: |-
                               AdvertiseAddress is the address advertised to tenant-side consumers (workers, konnectivity).
@@ -7545,6 +7600,26 @@ spec:
                               namespace:
                                 description: Defines the Gateway API namespace for
                                   the Gateway object.
+                                minLength: 1
+                                type: string
+                              port:
+                                description: |-
+                                  Port selects the listener port on the target Gateway (mapped to
+                                  ParentReference.Port of the generated TLSRoute). When unset, the first
+                                  listener of the Gateway that accepts the Route is used. When set together
+                                  with SectionName, both must match the target listener.
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              sectionName:
+                                description: |-
+                                  SectionName selects a specific listener on the target Gateway for the
+                                  kube-apiserver TLSRoute to attach to (mapped to ParentReference.SectionName
+                                  of the generated TLSRoute). Required when the Gateway exposes multiple
+                                  listeners: the upstream Kamaji controller needs it to resolve the
+                                  Gateway listener when publishing the kube-apiserver access point status.
+                                maxLength: 253
                                 minLength: 1
                                 type: string
                             required:
@@ -7609,6 +7684,10 @@ spec:
                                   type: string
                                 type: array
                             type: object
+                            x-kubernetes-validations:
+                            - message: LoadBalancerClass cannot be set or unset at
+                                runtime
+                              rule: has(self.loadBalancerClass) == has(oldSelf.loadBalancerClass)
                           serviceAddress:
                             description: |-
                               This field can be used in case of pre-assigned address, such as a VIP,
@@ -7642,11 +7721,6 @@ spec:
                             service type
                           rule: '!has(self.loadBalancerConfig) || !has(self.loadBalancerConfig.loadBalancerClass)
                             || self.serviceType == ''LoadBalancer'''
-                        - message: LoadBalancerClass cannot be set or unset at runtime
-                          rule: self.serviceType != 'LoadBalancer' || (oldSelf.serviceType
-                            != 'LoadBalancer' && self.serviceType == 'LoadBalancer')
-                            || !has(self.loadBalancerConfig) || has(self.loadBalancerConfig)
-                            && has(self.loadBalancerConfig.loadBalancerClass) == has(oldSelf.loadBalancerConfig.loadBalancerClass)
                       registry:
                         default: registry.k8s.io
                         description: |-

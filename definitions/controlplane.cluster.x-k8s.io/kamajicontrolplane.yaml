@@ -4,7 +4,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
   labels:
-    cluster.x-k8s.io/v1beta1: v1alpha1
+    cluster.x-k8s.io/v1beta2: v1alpha2
   name: kamajicontrolplanes.controlplane.cluster.x-k8s.io
 spec:
   group: controlplane.cluster.x-k8s.io
@@ -26,7 +26,7 @@ spec:
       name: Version
       type: string
     - description: Check if the Kamaji Control Plane has been initialized
-      jsonPath: .status.initialized
+      jsonPath: .status.initialization.controlPlaneInitialized
       name: Initialized
       type: boolean
     - description: Check if the Kamaji Control Plane is up and running
@@ -37,7 +37,7 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: v1alpha2
     schema:
       openAPIV3Schema:
         description: KamajiControlPlane is the Schema for the kamajicontrolplanes
@@ -609,18 +609,19 @@ spec:
               controlPlaneEndpoint:
                 description: ControlPlaneEndpoint propagates the endpoint the Kubernetes
                   API Server managed by Kamaji is located.
+                minProperties: 1
                 properties:
                   host:
                     description: host is the hostname on which the API server is serving.
                     maxLength: 512
+                    minLength: 1
                     type: string
                   port:
                     description: port is the port on which the API server is serving.
                     format: int32
+                    maximum: 65535
+                    minimum: 1
                     type: integer
-                required:
-                - host
-                - port
                 type: object
               controllerManager:
                 description: ControlPlaneComponent allows the customization for the
@@ -7400,6 +7401,59 @@ spec:
                   serviceType: LoadBalancer
                 description: Configure how the TenantControlPlane should be exposed.
                 properties:
+                  additionalServicePorts:
+                    description: |-
+                      AdditionalServicePorts adds extra ports to the Service that fronts the
+                      TenantControlPlane Pods. Useful when sidecars (such as a CSR signer)
+                      running alongside the kube-apiserver need to be reachable from tenant
+                      workers through the same Service endpoint.
+                    items:
+                      properties:
+                        appProtocol:
+                          description: |-
+                            The application protocol for this port.
+                            This is used as a hint for implementations to offer richer behavior for protocols that they understand.
+                            This field follows standard Kubernetes label syntax.
+                            Valid values are either:
+
+                            * Un-prefixed protocol names - reserved for IANA standard service names (as per
+                            RFC-6335 and https://www.iana.org/assignments/service-names).
+                          type: string
+                        name:
+                          description: |-
+                            The name of this port within the Service created by Kamaji.
+                            This must be a DNS_LABEL, must have unique names, and cannot be `kube-apiserver`, or `konnectivity-server`.
+                          type: string
+                        port:
+                          description: The port that will be exposed by this service.
+                          format: int32
+                          type: integer
+                        protocol:
+                          default: TCP
+                          description: The IP protocol for this port. Supports "TCP",
+                            "UDP", and "SCTP".
+                          enum:
+                          - TCP
+                          - UDP
+                          - SCTP
+                          type: string
+                        targetPort:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: |-
+                            Number or name of the port to access on the pods of the Tenant Control Plane.
+                            Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+                            If this is a string, it will be looked up as a named port in the
+                            target Pod's container ports. If this is not specified, the value
+                            of the 'port' field is used (an identity map).
+                          x-kubernetes-int-or-string: true
+                      required:
+                      - name
+                      - port
+                      - targetPort
+                      type: object
+                    type: array
                   advertiseAddress:
                     description: |-
                       AdvertiseAddress is the address advertised to tenant-side consumers (workers, konnectivity).
@@ -7453,6 +7507,26 @@ spec:
                       namespace:
                         description: Defines the Gateway API namespace for the Gateway
                           object.
+                        minLength: 1
+                        type: string
+                      port:
+                        description: |-
+                          Port selects the listener port on the target Gateway (mapped to
+                          ParentReference.Port of the generated TLSRoute). When unset, the first
+                          listener of the Gateway that accepts the Route is used. When set together
+                          with SectionName, both must match the target listener.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                      sectionName:
+                        description: |-
+                          SectionName selects a specific listener on the target Gateway for the
+                          kube-apiserver TLSRoute to attach to (mapped to ParentReference.SectionName
+                          of the generated TLSRoute). Required when the Gateway exposes multiple
+                          listeners: the upstream Kamaji controller needs it to resolve the
+                          Gateway listener when publishing the kube-apiserver access point status.
+                        maxLength: 253
                         minLength: 1
                         type: string
                     required:
@@ -7515,6 +7589,9 @@ spec:
                           type: string
                         type: array
                     type: object
+                    x-kubernetes-validations:
+                    - message: LoadBalancerClass cannot be set or unset at runtime
+                      rule: has(self.loadBalancerClass) == has(oldSelf.loadBalancerClass)
                   serviceAddress:
                     description: |-
                       This field can be used in case of pre-assigned address, such as a VIP,
@@ -7548,11 +7625,6 @@ spec:
                     type
                   rule: '!has(self.loadBalancerConfig) || !has(self.loadBalancerConfig.loadBalancerClass)
                     || self.serviceType == ''LoadBalancer'''
-                - message: LoadBalancerClass cannot be set or unset at runtime
-                  rule: self.serviceType != 'LoadBalancer' || (oldSelf.serviceType
-                    != 'LoadBalancer' && self.serviceType == 'LoadBalancer') || !has(self.loadBalancerConfig)
-                    || has(self.loadBalancerConfig) && has(self.loadBalancerConfig.loadBalancerClass)
-                    == has(oldSelf.loadBalancerConfig.loadBalancerClass)
               registry:
                 default: registry.k8s.io
                 description: |-
@@ -7827,6 +7899,11 @@ spec:
           status:
             description: KamajiControlPlaneStatus defines the observed state of KamajiControlPlane.
             properties:
+              availableReplicas:
+                description: Total number of available control plane instances targeted
+                  by this control plane.
+                format: int32
+                type: integer
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
@@ -7896,9 +7973,15 @@ spec:
                 description: Share the failed process of the KamajiControlPlane provider
                   which wasn't able to complete the reconciliation for the given resource.
                 type: string
-              initialized:
-                description: The TenantControlPlane has completed initialization.
-                type: boolean
+              initialization:
+                description: Initialization contains the initialization status of
+                  the KamajiControlPlane.
+                properties:
+                  controlPlaneInitialized:
+                    description: ControlPlaneInitialized is true when the control
+                      plane provider reports the control plane has been initialized.
+                    type: boolean
+                type: object
               ready:
                 description: The Kamaji Control Plane is ready to link Cluster API
                   with the Tenant Control Plane.
@@ -7914,13 +7997,7 @@ spec:
                 type: integer
               selector:
                 type: string
-              unavailableReplicas:
-                description: |-
-                  Total number of unavailable TenantControlPlane instances targeted by this control plane,
-                  equal to the desired number of control plane instances - ready instances.
-                format: int32
-                type: integer
-              updatedReplicas:
+              upToDateReplicas:
                 description: Total number of non-terminated Pods targeted by this
                   control plane that have the desired template spec.
                 format: int32
@@ -7931,13 +8008,7 @@ spec:
                 type: string
             required:
             - externalManagedControlPlane
-            - initialized
             - ready
-            - readyReplicas
-            - replicas
-            - selector
-            - unavailableReplicas
-            - updatedReplicas
             - version
             type: object
         type: object
