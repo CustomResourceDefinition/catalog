@@ -18,7 +18,28 @@
     },
     "spec": {
       "description": "spec contains the desired OSImageStream config configuration.",
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "defaultStream": {
+          "description": "defaultStream is the desired name of the stream that should be used as the\ndefault when no specific stream is requested by a MachineConfigPool.\n\nThis field is set by the installer during installation. Users may need to\nupdate it if the currently selected stream is no longer available, for\nexample when the stream has reached its End of Life.\nThe MachineConfigOperator uses this value to determine which stream from\nstatus.availableStreams to apply as the default for MachineConfigPools\nthat do not specify a stream override.\n\nWhen status.availableStreams has been populated by the operator, updating\nthis field requires that the new value references the name of one of the\nstreams in status.availableStreams. Status-only updates by the operator\nare not subject to this constraint, allowing the operator to update\navailableStreams independently of this field.\nDuring initial creation, before the operator has populated status, any\nvalid value is accepted.\n\nWhen omitted, the operator determines the default stream automatically.\nOnce set, this field cannot be removed.\n\nIt must be a valid RFC 1123 subdomain between 1 and 253 characters in length,\nconsisting of lowercase alphanumeric characters, hyphens ('-'), and periods ('.').",
+          "type": "string",
+          "maxLength": 253,
+          "minLength": 1,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!format.dns1123Subdomain().validate(self).hasValue()",
+              "message": "a RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character."
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(oldSelf.defaultStream) || has(self.defaultStream)",
+          "message": "spec.defaultStream cannot be removed once set"
+        }
+      ]
     },
     "status": {
       "description": "status describes the last observed state of this OSImageStream.\nPopulated by the MachineConfigOperator after reading release metadata.\nWhen not present, the controller has not yet reconciled this resource.",
@@ -119,6 +140,10 @@
     {
       "rule": "self.metadata.name == 'cluster'",
       "message": "osimagestream is a singleton, .metadata.name must be 'cluster'"
+    },
+    {
+      "rule": "self.spec == oldSelf.spec || !has(self.spec.defaultStream) || !has(self.status) || self.spec.defaultStream in self.status.availableStreams.map(s, s.name)",
+      "message": "spec.defaultStream must reference an existing stream name from status.availableStreams"
     }
   ]
 }
