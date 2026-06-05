@@ -38,6 +38,9 @@
                 "endpointUrl": {
                   "type": "string"
                 },
+                "prefix": {
+                  "type": "string"
+                },
                 "storageClass": {
                   "type": "string"
                 }
@@ -282,14 +285,34 @@
                   "additionalProperties": false,
                   "x-kubernetes-map-type": "atomic"
                 },
+                "checksumAlgorithm": {
+                  "type": "string",
+                  "enum": [
+                    "CRC64NVME",
+                    "CRC32",
+                    "CRC32C",
+                    "SHA1",
+                    "SHA256",
+                    "MD5"
+                  ]
+                },
                 "credentialsSecret": {
                   "type": "string"
                 },
                 "endpointUrl": {
                   "type": "string"
                 },
+                "forcePathStyle": {
+                  "type": "boolean"
+                },
+                "prefix": {
+                  "type": "string"
+                },
                 "region": {
                   "type": "string"
+                },
+                "skipBucketExistsCheck": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -504,6 +527,9 @@
                       "type": "string"
                     },
                     "endpointUrl": {
+                      "type": "string"
+                    },
+                    "prefix": {
                       "type": "string"
                     },
                     "storageClass": {
@@ -750,14 +776,34 @@
                       "additionalProperties": false,
                       "x-kubernetes-map-type": "atomic"
                     },
+                    "checksumAlgorithm": {
+                      "type": "string",
+                      "enum": [
+                        "CRC64NVME",
+                        "CRC32",
+                        "CRC32C",
+                        "SHA1",
+                        "SHA256",
+                        "MD5"
+                      ]
+                    },
                     "credentialsSecret": {
                       "type": "string"
                     },
                     "endpointUrl": {
                       "type": "string"
                     },
+                    "forcePathStyle": {
+                      "type": "boolean"
+                    },
+                    "prefix": {
+                      "type": "string"
+                    },
                     "region": {
                       "type": "string"
+                    },
+                    "skipBucketExistsCheck": {
+                      "type": "boolean"
                     }
                   },
                   "additionalProperties": false
@@ -790,13 +836,42 @@
               "type": "string"
             },
             "gtid": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 1024
             },
             "type": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "latest",
+                "date",
+                "transaction",
+                "skip"
+              ]
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type != 'date' || (has(self.date) \u0026\u0026 self.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$'))",
+              "message": "Date is required for type 'date' and should be in format YYYY-MM-DD HH:MM:SS with valid ranges (MM: 01-12, DD: 01-31, HH: 00-23, MM/SS: 00-59)"
+            },
+            {
+              "rule": "(self.type != 'transaction' \u0026\u0026 self.type != 'skip') || (has(self.gtid) \u0026\u0026 size(self.gtid) \u003e 0)",
+              "message": "GTID is required for types 'transaction' and 'skip'"
+            },
+            {
+              "rule": "self.type != 'latest' || ((!has(self.date) || size(self.date) == 0) \u0026\u0026 (!has(self.gtid) || size(self.gtid) == 0))",
+              "message": "Date and GTID should not be set when type is 'latest'"
+            },
+            {
+              "rule": "self.type != 'transaction' || self.gtid.matches('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[1-9][0-9]*$')",
+              "message": "GTID for type 'transaction' must be a single transaction identifier in the form 'UUID:N' (e.g. 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:42')"
+            },
+            {
+              "rule": "self.type != 'skip' || self.gtid.matches('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?(:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?)*(,[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?(:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?)*)*$')",
+              "message": "GTID for type 'skip' must be a valid MySQL GTID set (e.g. 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1-10', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:Domain_1:1-10', or 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1,bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee:1-5')"
+            }
+          ]
         },
         "pxcCluster": {
           "type": "string"
