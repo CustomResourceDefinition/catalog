@@ -4,32 +4,26 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
     helm.sh/resource-policy: keep
-  name: s3credentials.seaweed.seaweedfs.com
+  name: s3oidcproviders.seaweed.seaweedfs.com
 spec:
   group: seaweed.seaweedfs.com
   names:
     categories:
       - seaweedfs
-    kind: S3Credentials
-    listKind: S3CredentialsList
-    plural: s3credentials
+    kind: S3OIDCProvider
+    listKind: S3OIDCProviderList
+    plural: s3oidcproviders
     shortNames:
-      - s3cred
-    singular: s3credentials
+      - s3oidc
+    singular: s3oidcprovider
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
         - jsonPath: .spec.seaweedRef.name
           name: Cluster
           type: string
-        - jsonPath: .spec.identityRef.name
-          name: Identity
-          type: string
-        - jsonPath: .status.accessKey
-          name: AccessKey
-          type: string
-        - jsonPath: .status.secretName
-          name: Secret
+        - jsonPath: .spec.issuerURL
+          name: Issuer
           type: string
         - jsonPath: .status.phase
           name: Phase
@@ -49,17 +43,20 @@ spec:
               type: object
             spec:
               properties:
-                identityRef:
-                  properties:
-                    name:
-                      maxLength: 256
-                      minLength: 1
-                      type: string
-                  required:
-                    - name
-                  type: object
+                clientIDs:
+                  items:
+                    minLength: 1
+                    type: string
+                  minItems: 1
+                  type: array
+                  x-kubernetes-list-type: set
+                issuerURL:
+                  maxLength: 2048
+                  minLength: 1
+                  pattern: ^https://
+                  type: string
                   x-kubernetes-validations:
-                    - message: identityRef is immutable
+                    - message: issuerURL is immutable
                       rule: self == oldSelf
                 reclaimPolicy:
                   default: Delete
@@ -77,30 +74,19 @@ spec:
                   required:
                     - name
                   type: object
-                secretRef:
-                  properties:
-                    accessKeyField:
-                      default: accessKey
-                      minLength: 1
-                      type: string
-                    name:
-                      maxLength: 253
-                      type: string
-                    namespace:
-                      type: string
-                    secretKeyField:
-                      default: secretKey
-                      minLength: 1
-                      type: string
-                  type: object
+                thumbprints:
+                  items:
+                    pattern: ^[A-Fa-f0-9]{40}$
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: set
               required:
-                - identityRef
+                - clientIDs
+                - issuerURL
                 - seaweedRef
               type: object
             status:
               properties:
-                accessKey:
-                  type: string
                 conditions:
                   items:
                     properties:
@@ -150,7 +136,7 @@ spec:
                     - Failed
                     - Terminating
                   type: string
-                secretName:
+                providerArn:
                   type: string
               type: object
           type: object
