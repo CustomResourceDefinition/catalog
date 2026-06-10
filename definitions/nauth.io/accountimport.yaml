@@ -4,27 +4,37 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
     helm.sh/resource-policy: keep
-  name: natsclusters.nauth.io
+  name: accountimports.nauth.io
 spec:
   group: nauth.io
   names:
-    kind: NatsCluster
-    listKind: NatsClusterList
-    plural: natsclusters
-    singular: natscluster
+    kind: AccountImport
+    listKind: AccountImportList
+    plural: accountimports
+    singular: accountimport
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
-      name: Message
+    - jsonPath: .status.conditions[?(@.type=="ValidRules")].reason
+      name: Rules
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="BoundToAccount")].reason
+      name: Account
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="BoundToExportAccount")].reason
+      name: Export
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="AdoptedByAccount")].reason
+      name: Adopted
       type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: NatsCluster is the Schema for the natsclusters API
+        description: AccountImport is a component resource for imports in the accounts
+          API.
         properties:
           apiVersion:
             description: |-
@@ -44,77 +54,69 @@ spec:
           metadata:
             type: object
           spec:
-            description: NatsClusterSpec defines the desired state of NatsCluster
+            description: AccountImportSpec defines the desired state of AccountImport.
             properties:
-              operatorSigningKeySecretRef:
-                description: SecretKeyReference contains information to locate a secret
-                  in the same namespace
-                properties:
-                  key:
-                    description: Key in the Secret, when not specified an implementation-specific
-                      default key is used.
-                    type: string
-                  name:
-                    description: Name of the Secret.
-                    type: string
-                required:
-                - name
-                type: object
-              systemAccountUserCredsSecretRef:
-                description: SecretKeyReference contains information to locate a secret
-                  in the same namespace
-                properties:
-                  key:
-                    description: Key in the Secret, when not specified an implementation-specific
-                      default key is used.
-                    type: string
-                  name:
-                    description: Name of the Secret.
-                    type: string
-                required:
-                - name
-                type: object
-              url:
-                description: URL is the NATS server URL for this cluster. Mutually
-                  exclusive with urlFrom.
+              accountName:
+                description: AccountName refers to the Account in the same namespace
+                  to which this import applies.
                 type: string
-              urlFrom:
-                description: URLFrom loads the NATS URL from a ConfigMap or Secret.
-                  Mutually exclusive with url.
+              exportAccountRef:
+                description: |-
+                  ExportAccountRef refers to the Account from which the exports are imported.
+                  This reference may point to an Account in another namespace.
                 properties:
-                  key:
-                    description: Key in the ConfigMap or Secret whose value is the
-                      NATS URL.
-                    type: string
-                  kind:
-                    description: 'Kind is the type of resource to load from: ConfigMap
-                      or Secret.'
-                    enum:
-                    - ConfigMap
-                    - Secret
-                    type: string
                   name:
-                    description: Name of the ConfigMap or Secret.
                     type: string
                   namespace:
-                    description: Namespace of the resource. When empty, defaults to
-                      the NatsCluster's namespace.
                     type: string
                 required:
-                - key
-                - kind
                 - name
+                - namespace
                 type: object
+              rules:
+                description: Rules defines the import rules for this AccountImport.
+                items:
+                  properties:
+                    allowTrace:
+                      type: boolean
+                    localSubject:
+                      description: LocalSubject remaps the imported subject locally
+                        in the importing account.
+                      type: string
+                    name:
+                      type: string
+                    share:
+                      type: boolean
+                    subject:
+                      description: |-
+                        Subject is the exported subject to import.
+                        It must be identical to or a subset of the exported subject.
+                      type: string
+                    type:
+                      description: Type defines whether the import is a stream or
+                        service import.
+                      enum:
+                      - stream
+                      - service
+                      type: string
+                  required:
+                  - subject
+                  - type
+                  type: object
+                minItems: 1
+                type: array
             required:
-            - operatorSigningKeySecretRef
-            - systemAccountUserCredsSecretRef
+            - accountName
+            - exportAccountRef
+            - rules
             type: object
-            x-kubernetes-validations:
-            - message: exactly one of url or urlFrom must be specified
-              rule: has(self.url) != has(self.urlFrom)
           status:
-            description: NatsClusterStatus defines the observed state of NatsCluster.
+            description: AccountImportStatus defines the observed state of AccountImport.
             properties:
+              accountID:
+                description: AccountID is the resolved ID of the Account referenced
+                  by spec.accountName.
+                type: string
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
@@ -174,6 +176,58 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              desiredClaim:
+                description: DesiredClaim is the normalized claim for Account to use.
+                properties:
+                  observedGeneration:
+                    format: int64
+                    type: integer
+                  rules:
+                    description: Rules contains import rules that have been validated
+                      and are ready to be used by Account.
+                    items:
+                      properties:
+                        account:
+                          description: Account is the resolved export account ID used
+                            for this import rule.
+                          type: string
+                        allowTrace:
+                          type: boolean
+                        localSubject:
+                          description: LocalSubject remaps the imported subject locally
+                            in the importing account.
+                          type: string
+                        name:
+                          type: string
+                        share:
+                          type: boolean
+                        subject:
+                          description: |-
+                            Subject is the exported subject to import.
+                            It must be identical to or a subset of the exported subject.
+                          type: string
+                        type:
+                          description: Type defines whether the import is a stream
+                            or service import.
+                          enum:
+                          - stream
+                          - service
+                          type: string
+                      required:
+                      - account
+                      - subject
+                      - type
+                      type: object
+                    minItems: 1
+                    type: array
+                required:
+                - observedGeneration
+                - rules
+                type: object
+              exportAccountID:
+                description: ExportAccountID is the resolved ID of the Account referenced
+                  by spec.exportAccountRef.
+                type: string
               observedGeneration:
                 format: int64
                 type: integer

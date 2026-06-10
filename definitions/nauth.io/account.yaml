@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.21.0
     helm.sh/resource-policy: keep
   name: accounts.nauth.io
 spec:
@@ -24,7 +24,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Account is the Schema for the accounts API.
+        description: Account is the composite resource for the accounts API.
         properties:
           apiVersion:
             description: |-
@@ -176,6 +176,11 @@ spec:
                   - accountRef
                   type: object
                 type: array
+              jetStreamEnabled:
+                description: |-
+                  JetStreamEnabled indicates whether JetStream should be explicitly enabled or disabled.
+                  If absent, JetStream will be implicitly enabled/disabled based on the effective JetStreamLimits.
+                type: boolean
               jetStreamLimits:
                 properties:
                   consumer:
@@ -212,8 +217,9 @@ spec:
                 type: object
               natsClusterRef:
                 description: |-
-                  NatsClusterRef references the NatsCluster to use for this account
-                  If not specified, defaults to legacy behavior
+                  NatsClusterRef references the NatsCluster to use for this account.
+                  If not specified, the controller uses the operator-level NATS_CLUSTER_REF when configured.
+                  Otherwise, reconciliation fails because the target NatsCluster cannot be resolved.
                 properties:
                   name:
                     description: Name of the NatsCluster
@@ -243,6 +249,133 @@ spec:
           status:
             description: AccountStatus defines the observed state of Account.
             properties:
+              adoptions:
+                description: AccountAdoptions defines the status of child resources
+                  that have been adopted or are candidates for adoption by this account.
+                properties:
+                  exports:
+                    description: Exports defines adoptions of type `AccountExport`
+                      that are bound to the account.
+                    items:
+                      properties:
+                        name:
+                          description: Name the child resource name
+                          minLength: 1
+                          type: string
+                        observedGeneration:
+                          description: ObservedGeneration refers to the observed generation
+                            of the child resource.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        status:
+                          description: Status of the adoption
+                          properties:
+                            desiredClaimObservedGeneration:
+                              description: DesiredClaimObservedGeneration refers to
+                                the observed generation of the child resource desired
+                                claim.
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            message:
+                              description: Message is a human-readable message indicating
+                                details about the adoption.
+                              maxLength: 32768
+                              type: string
+                            reason:
+                              description: |-
+                                Reason contains a programmatic identifier indicating the reason for the adoption's last transition.
+                                The value should be a CamelCase string.
+                                This field may not be empty.
+                              maxLength: 1024
+                              minLength: 1
+                              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                              type: string
+                            status:
+                              description: Status of the adoption, one of True, False,
+                                Unknown.
+                              enum:
+                              - "True"
+                              - "False"
+                              - Unknown
+                              type: string
+                          required:
+                          - reason
+                          - status
+                          type: object
+                        uid:
+                          description: UID of the child resource UID
+                          type: string
+                      required:
+                      - name
+                      - observedGeneration
+                      - status
+                      - uid
+                      type: object
+                    type: array
+                  imports:
+                    description: Imports defines adoptions of type `AccountImport`
+                      that are bound to the account.
+                    items:
+                      properties:
+                        name:
+                          description: Name the child resource name
+                          minLength: 1
+                          type: string
+                        observedGeneration:
+                          description: ObservedGeneration refers to the observed generation
+                            of the child resource.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        status:
+                          description: Status of the adoption
+                          properties:
+                            desiredClaimObservedGeneration:
+                              description: DesiredClaimObservedGeneration refers to
+                                the observed generation of the child resource desired
+                                claim.
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            message:
+                              description: Message is a human-readable message indicating
+                                details about the adoption.
+                              maxLength: 32768
+                              type: string
+                            reason:
+                              description: |-
+                                Reason contains a programmatic identifier indicating the reason for the adoption's last transition.
+                                The value should be a CamelCase string.
+                                This field may not be empty.
+                              maxLength: 1024
+                              minLength: 1
+                              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                              type: string
+                            status:
+                              description: Status of the adoption, one of True, False,
+                                Unknown.
+                              enum:
+                              - "True"
+                              - "False"
+                              - Unknown
+                              type: string
+                          required:
+                          - reason
+                          - status
+                          type: object
+                        uid:
+                          description: UID of the child resource UID
+                          type: string
+                      required:
+                      - name
+                      - observedGeneration
+                      - status
+                      - uid
+                      type: object
+                    type: array
+                type: object
               claims:
                 properties:
                   accountLimits:
@@ -374,6 +507,8 @@ spec:
                       - accountRef
                       type: object
                     type: array
+                  jetStreamEnabled:
+                    type: boolean
                   jetStreamLimits:
                     properties:
                       consumer:
@@ -431,6 +566,11 @@ spec:
                       type: object
                     type: array
                 type: object
+              claimsHash:
+                description: ClaimsHash is a hash of the Account JWT claims, used
+                  to determine if the claims have changed and a new JWT needs to be
+                  generated.
+                type: string
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
