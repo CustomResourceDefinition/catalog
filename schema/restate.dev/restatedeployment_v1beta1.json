@@ -14,6 +14,11 @@
         "template"
       ],
       "properties": {
+        "autoscaling": {
+          "description": "Optional autoscaling for draining (non-latest) versions. ReplicaSet mode only.\n\nWhen set, the operator creates one HorizontalPodAutoscaler per non-latest\nversion that still has active invocations, so old versions shed compute as\ntheir load falls instead of holding full replicas for the entire (possibly\nmulti-hour) drain window. The HPA is removed — and the version then scaled\nto zero by the operator — once Restate reports the version has no remaining\ninvocations.\n\nThis is a pass-through HorizontalPodAutoscaler `.spec`: provide\n`minReplicas`, `maxReplicas`, `metrics` and optionally `behavior`. The\noperator injects `scaleTargetRef` per version, so it must be omitted.\n\nNotes:\n- The latest version is autoscaled separately, via an HPA targeting the\n  RestateDeployment scale subresource; it is not covered here.\n- `minReplicas` is floored at 1 (there is no scale-to-zero in ReplicaSet\n  mode); a value below 1 is raised to 1.\n- CPU/memory metrics require container resource `requests` to be set;\n  prefer CPU over memory (memory does not scale back down).",
+          "type": "object",
+          "x-kubernetes-preserve-unknown-fields": true
+        },
         "deploymentMode": {
           "description": "Deployment mode: replicaset (default) or knative.\nThis field is immutable after creation.",
           "type": "string",
@@ -170,6 +175,15 @@
               "type": "string",
               "nullable": true
             },
+            "tunnelMode": {
+              "description": "How Restate Cloud reaches this deployment. Only takes effect with\n`register.cloud` (`in-process` requires it, and is not supported in Knative\nmode).\n- `external` (default): invocations are forwarded to this deployment's Service\n  by the tunnel-client pods managed by the RestateCloudEnvironment.\n- `in-process`: the deployment's pods hold their own outbound tunnel connections\n  (e.g. with @restatedev/restate-sdk-tunnel), so no inbound networking to them is\n  needed. The operator injects RESTATE_INPROC_* environment variables identifying\n  the revision into the pod template and registers the per-revision tunnel URL.",
+              "type": "string",
+              "enum": [
+                "external",
+                "in-process"
+              ],
+              "nullable": true
+            },
             "useHttp11": {
               "description": "Force the use of HTTP/1.1 when registering with Restate",
               "type": "boolean",
@@ -271,7 +285,13 @@
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.autoscaling) || !has(self.deploymentMode) || self.deploymentMode != 'knative'",
+          "message": "spec.autoscaling is only supported in replicaset mode (not knative)"
+        }
+      ]
     },
     "status": {
       "description": "Status of the RestateDeployment\nThis is set and managed automatically by the controller",
