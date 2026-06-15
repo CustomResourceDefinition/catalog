@@ -28,9 +28,6 @@
         "coldStart": {
           "description": "Cold start behavior when scaling from zero.",
           "type": "object",
-          "required": [
-            "fallback"
-          ],
           "properties": {
             "fallback": {
               "description": "Fallback target to route to when the primary backend does not become\nready within the readiness timeout.",
@@ -74,13 +71,75 @@
                 }
               },
               "additionalProperties": false
+            },
+            "placeholder": {
+              "description": "Placeholder response to serve while the target has no ready endpoints.",
+              "type": "object",
+              "required": [
+                "response"
+              ],
+              "properties": {
+                "response": {
+                  "description": "Static response to return immediately when the backend has no ready endpoints.",
+                  "type": "object",
+                  "properties": {
+                    "body": {
+                      "description": "Inline response body.",
+                      "type": "string",
+                      "maxLength": 32768
+                    },
+                    "bodyFromConfigMap": {
+                      "description": "Response body from a ConfigMap in the same namespace. The ConfigMap must\ncarry the label \"http.keda.sh/response-body: true\". A missing ConfigMap\nor a missing explicit key returns HTTP 500.",
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "key": {
+                          "description": "Key within the ConfigMap. When omitted, the key is the request path\nwithout the leading \"/\" (defaulting to \"index.html\" for \"/\").\nThe Content-Type header is auto-detected from the key's file extension\nunless explicitly set in headers.",
+                          "type": "string"
+                        },
+                        "name": {
+                          "description": "Name of the ConfigMap.",
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "headers": {
+                      "description": "HTTP response headers.",
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "statusCode": {
+                      "description": "HTTP status code.",
+                      "type": "integer",
+                      "format": "int32",
+                      "default": 503,
+                      "maximum": 599,
+                      "minimum": 100
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "!(has(self.body) \u0026\u0026 has(self.bodyFromConfigMap))",
+                      "message": "at most one of 'body' or 'bodyFromConfigMap' may be set"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "has(self.fallback)",
-              "message": "'fallback' must be set"
+              "rule": "has(self.fallback) || has(self.placeholder)",
+              "message": "at least one of 'fallback' or 'placeholder' must be set"
             }
           ]
         },
