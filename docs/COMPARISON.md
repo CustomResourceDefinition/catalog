@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.64% | 3858 | 10937 | 85 |
+| 99.61% | 3859 | 10937 | 85 |
 
 ### Missing Schemas
 
@@ -38,6 +38,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | secret-sync.gke.io | |
 | --- | --- |
 | secretsync | v1 |
+
+| tinkerbell.org | |
+| --- | --- |
+| workflowruleset | v1alpha1 |
 
 ### Ignored Schemas
 
