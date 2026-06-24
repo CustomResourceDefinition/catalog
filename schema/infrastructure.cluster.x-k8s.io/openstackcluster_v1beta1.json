@@ -426,20 +426,32 @@
                   "type": "object",
                   "required": [
                     "cloudName",
-                    "name"
+                    "name",
+                    "type"
                   ],
                   "properties": {
                     "cloudName": {
                       "description": "CloudName specifies the name of the entry in the clouds.yaml file to use.",
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "name": {
-                      "description": "Name is the name of a secret in the same namespace as the resource being provisioned.\nThe secret must contain a key named `clouds.yaml` which contains an OpenStack clouds.yaml file.\nThe secret may optionally contain a key named `cacert` containing a PEM-encoded CA certificate.",
-                      "type": "string"
+                      "description": "Name is the name of a Secret (type=Secret) in the same namespace as the resource being provisioned,\nor the name of an OpenStackClusterIdentity (type=ClusterIdentity).\nThe Secret must contain a key named `clouds.yaml` which contains an OpenStack clouds.yaml file.\nThe Secret may optionally contain a key named `cacert` containing a PEM-encoded CA certificate.",
+                      "type": "string",
+                      "minLength": 1
                     },
                     "region": {
                       "description": "Region specifies an OpenStack region to use. If specified, it overrides\nany value in clouds.yaml. If specified for an OpenStackMachine, its\nvalue will be included in providerID.",
                       "type": "string"
+                    },
+                    "type": {
+                      "description": "Type specifies the identity reference type. Defaults to Secret for backward compatibility.",
+                      "type": "string",
+                      "default": "Secret",
+                      "enum": [
+                        "Secret",
+                        "ClusterIdentity"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -1180,10 +1192,6 @@
         "controlPlaneEndpoint": {
           "description": "ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.\nIt is normally populated automatically by the OpenStackCluster\ncontroller during cluster provisioning. If it is set on creation the\ncontrol plane endpoint will use the values set here in preference to\nvalues set elsewhere.\nControlPlaneEndpoint cannot be modified after ControlPlaneEndpoint.Host has been set.",
           "type": "object",
-          "required": [
-            "host",
-            "port"
-          ],
           "properties": {
             "host": {
               "description": "host is the hostname on which the API server is serving.",
@@ -1402,20 +1410,32 @@
           "type": "object",
           "required": [
             "cloudName",
-            "name"
+            "name",
+            "type"
           ],
           "properties": {
             "cloudName": {
               "description": "CloudName specifies the name of the entry in the clouds.yaml file to use.",
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             },
             "name": {
-              "description": "Name is the name of a secret in the same namespace as the resource being provisioned.\nThe secret must contain a key named `clouds.yaml` which contains an OpenStack clouds.yaml file.\nThe secret may optionally contain a key named `cacert` containing a PEM-encoded CA certificate.",
-              "type": "string"
+              "description": "Name is the name of a Secret (type=Secret) in the same namespace as the resource being provisioned,\nor the name of an OpenStackClusterIdentity (type=ClusterIdentity).\nThe Secret must contain a key named `clouds.yaml` which contains an OpenStack clouds.yaml file.\nThe Secret may optionally contain a key named `cacert` containing a PEM-encoded CA certificate.",
+              "type": "string",
+              "minLength": 1
             },
             "region": {
               "description": "Region specifies an OpenStack region to use. If specified, it overrides\nany value in clouds.yaml. If specified for an OpenStackMachine, its\nvalue will be included in providerID.",
               "type": "string"
+            },
+            "type": {
+              "description": "Type specifies the identity reference type. Defaults to Secret for backward compatibility.",
+              "type": "string",
+              "default": "Secret",
+              "enum": [
+                "Secret",
+                "ClusterIdentity"
+              ]
             }
           },
           "additionalProperties": false,
@@ -2331,6 +2351,54 @@
           },
           "additionalProperties": false
         },
+        "conditions": {
+          "description": "Conditions defines current service state of the OpenStackCluster.\nThis field surfaces into Cluster's status.conditions[InfrastructureReady] condition.\nThe Ready condition must surface issues during the entire lifecycle of the OpenStackCluster\n(both during initial provisioning and after the initial provisioning is completed).",
+          "type": "array",
+          "items": {
+            "description": "Condition defines an observation of a Cluster API resource operational state.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed. If that is not known, then using the time when\nthe API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis field may be empty.",
+                "type": "string",
+                "maxLength": 10240,
+                "minLength": 1
+              },
+              "reason": {
+                "description": "reason is the reason for the condition's last transition in CamelCase.\nThe specific API may choose whether or not this field is considered a guaranteed API.\nThis field may be empty.",
+                "type": "string",
+                "maxLength": 256,
+                "minLength": 1
+              },
+              "severity": {
+                "description": "severity provides an explicit classification of Reason code, so the users or machines can immediately\nunderstand the current situation and act accordingly.\nThe Severity field MUST be set only when Status=False.",
+                "type": "string",
+                "maxLength": 32
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string"
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.\nMany .condition.type values are consistent across resources like Available, but because arbitrary conditions\ncan be useful (see .node.status.conditions), the ability to deconflict is important.",
+                "type": "string",
+                "maxLength": 256,
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "controlPlaneSecurityGroup": {
           "description": "ControlPlaneSecurityGroup contains the information about the\nOpenStack Security Group that needs to be applied to control plane\nnodes.",
           "type": "object",
@@ -2395,12 +2463,23 @@
           }
         },
         "failureMessage": {
-          "description": "FailureMessage will be set in the event that there is a terminal problem\nreconciling the OpenStackCluster and will contain a more verbose string suitable\nfor logging and human consumption.\n\nThis field should not be set for transitive errors that a controller\nfaces that are expected to be fixed automatically over\ntime (like service outages), but instead indicate that something is\nfundamentally wrong with the OpenStackCluster's spec or the configuration of\nthe controller, and that manual intervention is required. Examples\nof terminal errors would be invalid combinations of settings in the\nspec, values that are unsupported by the controller, or the\nresponsible controller itself being critically misconfigured.\n\nAny transient errors that occur during the reconciliation of\nOpenStackClusters can be added as events to the OpenStackCluster object\nand/or logged in the controller's output.",
+          "description": "FailureMessage will be set in the event that there is a terminal problem\nreconciling the OpenStackCluster and will contain a more verbose string suitable\nfor logging and human consumption.\n\nThis field should not be set for transitive errors that a controller\nfaces that are expected to be fixed automatically over\ntime (like service outages), but instead indicate that something is\nfundamentally wrong with the OpenStackCluster's spec or the configuration of\nthe controller, and that manual intervention is required. Examples\nof terminal errors would be invalid combinations of settings in the\nspec, values that are unsupported by the controller, or the\nresponsible controller itself being critically misconfigured.\n\nAny transient errors that occur during the reconciliation of\nOpenStackClusters can be added as events to the OpenStackCluster object\nand/or logged in the controller's output.\n\nDeprecated: This field is deprecated and will be removed in a future API version.\nUse status.conditions to report failures.",
           "type": "string"
         },
         "failureReason": {
-          "description": "FailureReason will be set in the event that there is a terminal problem\nreconciling the OpenStackCluster and will contain a succinct value suitable\nfor machine interpretation.\n\nThis field should not be set for transitive errors that a controller\nfaces that are expected to be fixed automatically over\ntime (like service outages), but instead indicate that something is\nfundamentally wrong with the OpenStackCluster's spec or the configuration of\nthe controller, and that manual intervention is required. Examples\nof terminal errors would be invalid combinations of settings in the\nspec, values that are unsupported by the controller, or the\nresponsible controller itself being critically misconfigured.\n\nAny transient errors that occur during the reconciliation of\nOpenStackClusters can be added as events to the OpenStackCluster object\nand/or logged in the controller's output.",
+          "description": "FailureReason will be set in the event that there is a terminal problem\nreconciling the OpenStackCluster and will contain a succinct value suitable\nfor machine interpretation.\n\nThis field should not be set for transitive errors that a controller\nfaces that are expected to be fixed automatically over\ntime (like service outages), but instead indicate that something is\nfundamentally wrong with the OpenStackCluster's spec or the configuration of\nthe controller, and that manual intervention is required. Examples\nof terminal errors would be invalid combinations of settings in the\nspec, values that are unsupported by the controller, or the\nresponsible controller itself being critically misconfigured.\n\nAny transient errors that occur during the reconciliation of\nOpenStackClusters can be added as events to the OpenStackCluster object\nand/or logged in the controller's output.\n\nDeprecated: This field is deprecated and will be removed in a future API version.\nUse status.conditions to report failures.",
           "type": "string"
+        },
+        "initialization": {
+          "description": "Initialization contains information about the initialization status of the cluster.",
+          "type": "object",
+          "properties": {
+            "provisioned": {
+              "description": "Provisioned is set to true when the initial provisioning of the cluster infrastructure is completed.\nThe value of this field is never updated after provisioning is completed.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
         },
         "network": {
           "description": "Network contains information about the created OpenStack Network.",
@@ -2457,7 +2536,7 @@
           "additionalProperties": false
         },
         "ready": {
-          "description": "Ready is true when the cluster infrastructure is ready.",
+          "description": "Ready is true when the cluster infrastructure is ready.\n\nDeprecated: This field is deprecated and will be removed in a future API version.\nUse status.conditions to determine the ready state of the cluster.",
           "type": "boolean",
           "default": false
         },
