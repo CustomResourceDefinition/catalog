@@ -597,7 +597,7 @@
               "additionalProperties": false
             },
             "type": {
-              "description": "type is the underlying infrastructure provider for the cluster. This\nvalue controls whether infrastructure automation such as service load\nbalancers, dynamic volume provisioning, machine creation and deletion, and\nother integrations are enabled. If None, no infrastructure automation is\nenabled. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"Libvirt\",\n\"OpenStack\", \"VSphere\", \"oVirt\", \"KubeVirt\", \"EquinixMetal\", \"PowerVS\",\n\"AlibabaCloud\", \"Nutanix\" and \"None\". Individual components may not support all platforms,\nand must handle unrecognized platforms as None if they do not support that platform.",
+              "description": "type is the underlying infrastructure provider for the cluster. This\nvalue controls whether infrastructure automation such as service load\nbalancers, dynamic volume provisioning, machine creation and deletion, and\nother integrations are enabled. If None, no infrastructure automation is\nenabled. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"Libvirt\",\n\"OpenStack\", \"VSphere\", \"oVirt\", \"IBMCloud\", \"KubeVirt\", \"EquinixMetal\",\n\"PowerVS\", \"AlibabaCloud\", \"Nutanix\", \"External\", and \"None\". Individual\ncomponents may not support all platforms, and must handle unrecognized\nplatforms as None if they do not support that platform.",
               "type": "string",
               "enum": [
                 "",
@@ -958,10 +958,10 @@
                   "additionalProperties": false
                 },
                 "vcenters": {
-                  "description": "vcenters holds the connection details for services to communicate with vCenter.\nCurrently, only a single vCenter is supported, but in tech preview 3 vCenters are supported.\nOnce the cluster has been installed, you are unable to change the current number of defined\nvCenters except in the case where the cluster has been upgraded from a version of OpenShift\nwhere the vsphere platform spec was not present.  You may make modifications to the existing\nvCenters that are defined in the vcenters list in order to match with any added or modified\nfailure domains.",
+                  "description": "vcenters holds the connection details for services to communicate with vCenter.\nUp to 3 vCenters are supported.\nOnce the cluster has been installed, you are unable to change the current number of defined\nvCenters except when 1.) the cluster has been upgraded from a version of OpenShift\nwhere the vsphere platform spec was not present or 2.) in TechPreview you are able to add and\nremove vCenters but may not remove all vCenters.  You may make modifications to the existing\nvCenters that are defined in the vcenters list in order to match with any added or modified\nfailure domains.",
                   "type": "array",
                   "maxItems": 3,
-                  "minItems": 0,
+                  "minItems": 1,
                   "items": {
                     "description": "VSpherePlatformVCenterSpec stores the vCenter connection fields.\nThis is used by the vSphere CCM.",
                     "type": "object",
@@ -1008,8 +1008,16 @@
                   "x-kubernetes-list-type": "atomic",
                   "x-kubernetes-validations": [
                     {
-                      "rule": "size(self) != size(oldSelf) ? size(oldSelf) == 0 \u0026\u0026 size(self) \u003c 2 : true",
-                      "message": "vcenters cannot be added or removed once set"
+                      "rule": "size(self) \u003e= size(oldSelf) ? oldSelf.all(x, self.exists(y, y.server == x.server)) : true",
+                      "message": "Cannot add and remove vCenters at the same time"
+                    },
+                    {
+                      "rule": "size(self) \u003c size(oldSelf) ? self.all(x, oldSelf.exists(y, y.server == x.server)) : true",
+                      "message": "Cannot add and remove vCenters at the same time"
+                    },
+                    {
+                      "rule": "self.all(x, self.exists_one(y, y.server == x.server))",
+                      "message": "vcenters must have unique server values"
                     }
                   ]
                 }
@@ -1023,10 +1031,6 @@
                 {
                   "rule": "!has(oldSelf.ingressIPs) || has(self.ingressIPs)",
                   "message": "ingressIPs list is required once set"
-                },
-                {
-                  "rule": "!has(oldSelf.vcenters) \u0026\u0026 has(self.vcenters) ? size(self.vcenters) \u003c 2 : true",
-                  "message": "vcenters can have at most 1 item when configured post-install"
                 }
               ]
             }
@@ -1034,8 +1038,8 @@
           "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "!has(oldSelf.vsphere) \u0026\u0026 has(self.vsphere) ? size(self.vsphere.vcenters) \u003c 2 : true",
-              "message": "vcenters can have at most 1 item when configured post-install"
+              "rule": "oldSelf.?vsphere.vcenters.hasValue() ? self.?vsphere.vcenters.hasValue() : true",
+              "message": "vcenters is required once set and cannot be removed"
             }
           ]
         }
@@ -1055,7 +1059,7 @@
           "type": "string"
         },
         "controlPlaneTopology": {
-          "description": "controlPlaneTopology expresses the expectations for operands that normally run on control nodes.\nThe default is 'HighlyAvailable', which represents the behavior operators have in a \"normal\" cluster.\nThe 'SingleReplica' mode will be used in single-node deployments\nand the operators should not configure the operand for highly-available operation\nThe 'External' mode indicates that the control plane is hosted externally to the cluster and that\nits components are not visible within the cluster.",
+          "description": "controlPlaneTopology expresses the expectations for operands that normally run on control nodes.\nThe default is 'HighlyAvailable', which represents the behavior operators have in a \"normal\" cluster.\nThe 'SingleReplica' mode will be used in single-node deployments\nand the operators should not configure the operand for highly-available operation\nThe 'External' mode indicates that the control plane is hosted externally to the cluster and that\nits components are not visible within the cluster.\nThe 'HighlyAvailableArbiter' mode indicates that the control plane will consist of 2 control-plane nodes\nthat run conventional services and 1 smaller sized arbiter node that runs a bare minimum of services to maintain quorum.",
           "type": "string",
           "default": "HighlyAvailable",
           "enum": [

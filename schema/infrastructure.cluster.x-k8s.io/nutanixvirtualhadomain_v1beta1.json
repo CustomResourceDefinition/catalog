@@ -34,25 +34,31 @@
           "x-kubernetes-map-type": "atomic",
           "x-kubernetes-validations": [
             {
+              "rule": "self == oldSelf",
+              "message": "metroRef is immutable once set"
+            },
+            {
               "rule": "self.name != \"\"",
               "message": "metroRef.name must not be empty"
             }
           ]
         },
         "movementGroups": {
-          "description": "movementGroups defines the named groups of entities that move together within this\nvirtual HA domain. Each key is a user-defined group name (for example \"default\") and\nthe value describes the entities belonging to that group.",
-          "type": "object",
-          "additionalProperties": {
-            "description": "NutanixMovementGroup defines a group of entities that are moved together as part of a\nvirtual HA domain failover or migration. It maps each category to the recovery plan\nthat protects the entities belonging to that category.",
+          "description": "movementGroups defines the named groups of entities that move together within this virtual HA domain.",
+          "type": "array",
+          "items": {
+            "description": "NutanixMovementGroup defines a named group of entities that are moved together as part of a\nvirtual HA domain failover or migration. It maps each category to the recovery plan\nthat protects the entities associated with that category.",
             "type": "object",
             "required": [
-              "categoryRecoveryPlans"
+              "categoryRecoveryPlans",
+              "name"
             ],
             "properties": {
               "categoryRecoveryPlans": {
                 "description": "categoryRecoveryPlans is the list of category-to-recovery-plan mappings whose\nmember entities belong to this movement group.",
                 "type": "array",
-                "minItems": 1,
+                "maxItems": 2,
+                "minItems": 2,
                 "items": {
                   "description": "NutanixCategoryRecoveryPlan maps a category to the recovery plan that protects the\nentities belonging to that category within a movement group, on a given Prism Element.",
                   "type": "object",
@@ -74,7 +80,8 @@
                           "description": "value is the category value linked to the category key in PC",
                           "type": "string"
                         }
-                      }
+                      },
+                      "additionalProperties": false
                     },
                     "failureDomainRef": {
                       "description": "failureDomainRef is a reference to the NutanixFailureDomain object that identifies the\nPrism Element cluster for this category-to-recovery-plan mapping.",
@@ -86,6 +93,7 @@
                           "default": ""
                         }
                       },
+                      "additionalProperties": false,
                       "x-kubernetes-map-type": "atomic",
                       "x-kubernetes-validations": [
                         {
@@ -122,6 +130,7 @@
                           "minLength": 36
                         }
                       },
+                      "additionalProperties": false,
                       "x-kubernetes-validations": [
                         {
                           "rule": "self.type == 'name' ? has(self.name) : !has(self.name)",
@@ -133,62 +142,65 @@
                         }
                       ]
                     }
-                  }
+                  },
+                  "additionalProperties": false
                 },
                 "x-kubernetes-list-type": "atomic"
+              },
+              "name": {
+                "description": "name is the name of the movement group",
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
               }
-            }
-          }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
         },
-        "protectionGroup": {
-          "description": "protectionGroup identifies the protection policy applied to this virtual HA domain.",
+        "protectionPolicy": {
+          "description": "protectionPolicy identifies the protection policy PC resource applied to this virtual HA domain.",
           "type": "object",
           "required": [
-            "protectionPolicy"
+            "type"
           ],
           "properties": {
-            "protectionPolicy": {
-              "description": "protectionPolicy identifies the protection policy applied to this virtual HA domain.",
-              "type": "object",
-              "required": [
-                "type"
-              ],
-              "properties": {
-                "name": {
-                  "description": "name is the resource name in the PC",
-                  "type": "string",
-                  "minLength": 1
-                },
-                "type": {
-                  "description": "Type is the identifier type to use for this resource.",
-                  "type": "string",
-                  "enum": [
-                    "uuid",
-                    "name"
-                  ]
-                },
-                "uuid": {
-                  "description": "uuid is the UUID of the resource in the PC.",
-                  "type": "string",
-                  "format": "uuid",
-                  "maxLength": 36,
-                  "minLength": 36
-                }
-              },
-              "additionalProperties": false,
-              "x-kubernetes-validations": [
-                {
-                  "rule": "self.type == 'name' ? has(self.name) : !has(self.name)",
-                  "message": "'name' must be set when type is 'name', and forbidden otherwise"
-                },
-                {
-                  "rule": "self.type == 'uuid' ? has(self.uuid) \u0026\u0026 self.uuid.contains('-') : !has(self.uuid)",
-                  "message": "'uuid' must be set when type is 'uuid', and forbidden otherwise"
-                }
+            "name": {
+              "description": "name is the resource name in the PC",
+              "type": "string",
+              "minLength": 1
+            },
+            "type": {
+              "description": "Type is the identifier type to use for this resource.",
+              "type": "string",
+              "enum": [
+                "uuid",
+                "name"
               ]
+            },
+            "uuid": {
+              "description": "uuid is the UUID of the resource in the PC.",
+              "type": "string",
+              "format": "uuid",
+              "maxLength": 36,
+              "minLength": 36
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type == 'name' ? has(self.name) : !has(self.name)",
+              "message": "'name' must be set when type is 'name', and forbidden otherwise"
+            },
+            {
+              "rule": "self.type == 'uuid' ? has(self.uuid) \u0026\u0026 self.uuid.contains('-') : !has(self.uuid)",
+              "message": "'uuid' must be set when type is 'uuid', and forbidden otherwise"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -254,24 +266,6 @@
               }
             },
             "additionalProperties": false
-          }
-        },
-        "movementGroups": {
-          "description": "movementGroups captures the observed state of each movement group defined in the\nspec, keyed by the movement group name.",
-          "type": "object",
-          "additionalProperties": {
-            "description": "NutanixMovementGroupStatus captures the observed state of a movement group within a virtual HA domain.",
-            "type": "object",
-            "required": [
-              "ready"
-            ],
-            "properties": {
-              "ready": {
-                "description": "ready is set to true when the movement group PC resources (categories, recovery plans) are valid and ready.",
-                "type": "boolean",
-                "default": false
-              }
-            }
           }
         },
         "ready": {
