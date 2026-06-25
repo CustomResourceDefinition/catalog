@@ -27,7 +27,7 @@
             ],
             "properties": {
               "image": {
-                "description": "Image indicates the image of the container to update.\nWhen Image updated, pod.spec.containers[*].image will be updated immediately.",
+                "description": "Image indicates the image of the container to update.\nWhen Image is updated, pod.spec.containers[*].image will be updated immediately.",
                 "type": "string"
               },
               "name": {
@@ -35,7 +35,7 @@
                 "type": "string"
               },
               "resources": {
-                "description": "Resources indicates the resources of the container to update.\nWhen Resources updated, pod.spec.containers[*].Resources will be not updated immediately,\nwhich will be updated when pod recreate.",
+                "description": "Resources indicates the resources of the container to update.\nWhen Resources are updated, pod.spec.containers[*].Resources will not be updated immediately,\nwhich will be updated when the pod is recreated.",
                 "type": "object",
                 "properties": {
                   "claims": {
@@ -50,6 +50,10 @@
                       "properties": {
                         "name": {
                           "description": "Name must match the name of one entry in pod.spec.resourceClaims of\nthe Pod where this field is used. It makes that resource available\ninside a container.",
+                          "type": "string"
+                        },
+                        "request": {
+                          "description": "Request is the name chosen for a request in the referenced claim.\nIf empty, everything from the claim is made available, otherwise\nonly the result of this request.",
                           "type": "string"
                         }
                       },
@@ -155,7 +159,7 @@
                 "format": "date-time"
               },
               "message": {
-                "description": "Human-readable message indicating details about last transition.",
+                "description": "Human-readable message indicating details about the last transition.",
                 "type": "string"
               },
               "reason": {
@@ -420,6 +424,53 @@
                       "x-kubernetes-int-or-string": true
                     }
                   },
+                  "allocatedResourcesStatus": {
+                    "description": "AllocatedResourcesStatus represents the status of various resources\nallocated for this Pod.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "description": "Name of the resource. Must be unique within the pod and match one of the resources from the pod spec.",
+                          "type": "string"
+                        },
+                        "resources": {
+                          "description": "List of unique Resources health. Each element in the list contains an unique resource ID and resource health.\nAt a minimum, ResourceID must uniquely identify the Resource\nallocated to the Pod on the Node for the lifetime of a Pod.\nSee ResourceID type for it's definition.",
+                          "type": "array",
+                          "items": {
+                            "description": "ResourceHealth represents the health of a resource. It has the latest device health information.\nThis is a part of KEP https://kep.k8s.io/4680 and historical health changes are planned to be added in future iterations of a KEP.",
+                            "type": "object",
+                            "required": [
+                              "resourceID"
+                            ],
+                            "properties": {
+                              "health": {
+                                "description": "Health of the resource.\ncan be one of:\n - Healthy: operates as normal\n - Unhealthy: reported unhealthy. We consider this a temporary health issue\n              since we do not have a mechanism today to distinguish\n              temporary and permanent issues.\n - Unknown: The status cannot be determined.\n            For example, Device Plugin got unregistered and hasn't been re-registered since.\n\nIn future we may want to introduce the PermanentlyUnhealthy Status.",
+                                "type": "string"
+                              },
+                              "resourceID": {
+                                "description": "ResourceID is the unique identifier of the resource. See the ResourceID type for more information.",
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "x-kubernetes-list-map-keys": [
+                            "resourceID"
+                          ],
+                          "x-kubernetes-list-type": "map"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "x-kubernetes-list-map-keys": [
+                      "name"
+                    ],
+                    "x-kubernetes-list-type": "map"
+                  },
                   "containerID": {
                     "description": "ContainerID is the ID of the container in the format '\u003ctype\u003e://\u003ccontainer_id\u003e'.\nWhere type is a container runtime identifier, returned from Version call of CRI API\n(for example \"containerd\").",
                     "type": "string"
@@ -532,6 +583,10 @@
                           "properties": {
                             "name": {
                               "description": "Name must match the name of one entry in pod.spec.resourceClaims of\nthe Pod where this field is used. It makes that resource available\ninside a container.",
+                              "type": "string"
+                            },
+                            "request": {
+                              "description": "Request is the name chosen for a request in the referenced claim.\nIf empty, everything from the claim is made available, otherwise\nonly the result of this request.",
                               "type": "string"
                             }
                           },
@@ -655,6 +710,43 @@
                           "reason": {
                             "description": "(brief) reason the container is not yet running.",
                             "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "user": {
+                    "description": "User represents user identity information initially attached to the first process of the container",
+                    "type": "object",
+                    "properties": {
+                      "linux": {
+                        "description": "Linux holds user identity information initially attached to the first process of the containers in Linux.\nNote that the actual running identity can be changed if the process has enough privilege to do so.",
+                        "type": "object",
+                        "required": [
+                          "gid",
+                          "uid"
+                        ],
+                        "properties": {
+                          "gid": {
+                            "description": "GID is the primary gid initially attached to the first process in the container",
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "supplementalGroups": {
+                            "description": "SupplementalGroups are the supplemental groups initially attached to the first process in the container",
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "x-kubernetes-list-type": "atomic"
+                          },
+                          "uid": {
+                            "description": "UID is the primary uid initially attached to the first process in the container",
+                            "type": "integer",
+                            "format": "int64"
                           }
                         },
                         "additionalProperties": false
@@ -732,6 +824,53 @@
                       "x-kubernetes-int-or-string": true
                     }
                   },
+                  "allocatedResourcesStatus": {
+                    "description": "AllocatedResourcesStatus represents the status of various resources\nallocated for this Pod.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "description": "Name of the resource. Must be unique within the pod and match one of the resources from the pod spec.",
+                          "type": "string"
+                        },
+                        "resources": {
+                          "description": "List of unique Resources health. Each element in the list contains an unique resource ID and resource health.\nAt a minimum, ResourceID must uniquely identify the Resource\nallocated to the Pod on the Node for the lifetime of a Pod.\nSee ResourceID type for it's definition.",
+                          "type": "array",
+                          "items": {
+                            "description": "ResourceHealth represents the health of a resource. It has the latest device health information.\nThis is a part of KEP https://kep.k8s.io/4680 and historical health changes are planned to be added in future iterations of a KEP.",
+                            "type": "object",
+                            "required": [
+                              "resourceID"
+                            ],
+                            "properties": {
+                              "health": {
+                                "description": "Health of the resource.\ncan be one of:\n - Healthy: operates as normal\n - Unhealthy: reported unhealthy. We consider this a temporary health issue\n              since we do not have a mechanism today to distinguish\n              temporary and permanent issues.\n - Unknown: The status cannot be determined.\n            For example, Device Plugin got unregistered and hasn't been re-registered since.\n\nIn future we may want to introduce the PermanentlyUnhealthy Status.",
+                                "type": "string"
+                              },
+                              "resourceID": {
+                                "description": "ResourceID is the unique identifier of the resource. See the ResourceID type for more information.",
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "x-kubernetes-list-map-keys": [
+                            "resourceID"
+                          ],
+                          "x-kubernetes-list-type": "map"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "x-kubernetes-list-map-keys": [
+                      "name"
+                    ],
+                    "x-kubernetes-list-type": "map"
+                  },
                   "containerID": {
                     "description": "ContainerID is the ID of the container in the format '\u003ctype\u003e://\u003ccontainer_id\u003e'.\nWhere type is a container runtime identifier, returned from Version call of CRI API\n(for example \"containerd\").",
                     "type": "string"
@@ -844,6 +983,10 @@
                           "properties": {
                             "name": {
                               "description": "Name must match the name of one entry in pod.spec.resourceClaims of\nthe Pod where this field is used. It makes that resource available\ninside a container.",
+                              "type": "string"
+                            },
+                            "request": {
+                              "description": "Request is the name chosen for a request in the referenced claim.\nIf empty, everything from the claim is made available, otherwise\nonly the result of this request.",
                               "type": "string"
                             }
                           },
@@ -967,6 +1110,43 @@
                           "reason": {
                             "description": "(brief) reason the container is not yet running.",
                             "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "user": {
+                    "description": "User represents user identity information initially attached to the first process of the container",
+                    "type": "object",
+                    "properties": {
+                      "linux": {
+                        "description": "Linux holds user identity information initially attached to the first process of the containers in Linux.\nNote that the actual running identity can be changed if the process has enough privilege to do so.",
+                        "type": "object",
+                        "required": [
+                          "gid",
+                          "uid"
+                        ],
+                        "properties": {
+                          "gid": {
+                            "description": "GID is the primary gid initially attached to the first process in the container",
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "supplementalGroups": {
+                            "description": "SupplementalGroups are the supplemental groups initially attached to the first process in the container",
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "x-kubernetes-list-type": "atomic"
+                          },
+                          "uid": {
+                            "description": "UID is the primary uid initially attached to the first process in the container",
+                            "type": "integer",
+                            "format": "int64"
                           }
                         },
                         "additionalProperties": false
@@ -1067,6 +1247,53 @@
                       "x-kubernetes-int-or-string": true
                     }
                   },
+                  "allocatedResourcesStatus": {
+                    "description": "AllocatedResourcesStatus represents the status of various resources\nallocated for this Pod.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "description": "Name of the resource. Must be unique within the pod and match one of the resources from the pod spec.",
+                          "type": "string"
+                        },
+                        "resources": {
+                          "description": "List of unique Resources health. Each element in the list contains an unique resource ID and resource health.\nAt a minimum, ResourceID must uniquely identify the Resource\nallocated to the Pod on the Node for the lifetime of a Pod.\nSee ResourceID type for it's definition.",
+                          "type": "array",
+                          "items": {
+                            "description": "ResourceHealth represents the health of a resource. It has the latest device health information.\nThis is a part of KEP https://kep.k8s.io/4680 and historical health changes are planned to be added in future iterations of a KEP.",
+                            "type": "object",
+                            "required": [
+                              "resourceID"
+                            ],
+                            "properties": {
+                              "health": {
+                                "description": "Health of the resource.\ncan be one of:\n - Healthy: operates as normal\n - Unhealthy: reported unhealthy. We consider this a temporary health issue\n              since we do not have a mechanism today to distinguish\n              temporary and permanent issues.\n - Unknown: The status cannot be determined.\n            For example, Device Plugin got unregistered and hasn't been re-registered since.\n\nIn future we may want to introduce the PermanentlyUnhealthy Status.",
+                                "type": "string"
+                              },
+                              "resourceID": {
+                                "description": "ResourceID is the unique identifier of the resource. See the ResourceID type for more information.",
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "x-kubernetes-list-map-keys": [
+                            "resourceID"
+                          ],
+                          "x-kubernetes-list-type": "map"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "x-kubernetes-list-map-keys": [
+                      "name"
+                    ],
+                    "x-kubernetes-list-type": "map"
+                  },
                   "containerID": {
                     "description": "ContainerID is the ID of the container in the format '\u003ctype\u003e://\u003ccontainer_id\u003e'.\nWhere type is a container runtime identifier, returned from Version call of CRI API\n(for example \"containerd\").",
                     "type": "string"
@@ -1179,6 +1406,10 @@
                           "properties": {
                             "name": {
                               "description": "Name must match the name of one entry in pod.spec.resourceClaims of\nthe Pod where this field is used. It makes that resource available\ninside a container.",
+                              "type": "string"
+                            },
+                            "request": {
+                              "description": "Request is the name chosen for a request in the referenced claim.\nIf empty, everything from the claim is made available, otherwise\nonly the result of this request.",
                               "type": "string"
                             }
                           },
@@ -1302,6 +1533,43 @@
                           "reason": {
                             "description": "(brief) reason the container is not yet running.",
                             "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "user": {
+                    "description": "User represents user identity information initially attached to the first process of the container",
+                    "type": "object",
+                    "properties": {
+                      "linux": {
+                        "description": "Linux holds user identity information initially attached to the first process of the containers in Linux.\nNote that the actual running identity can be changed if the process has enough privilege to do so.",
+                        "type": "object",
+                        "required": [
+                          "gid",
+                          "uid"
+                        ],
+                        "properties": {
+                          "gid": {
+                            "description": "GID is the primary gid initially attached to the first process in the container",
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "supplementalGroups": {
+                            "description": "SupplementalGroups are the supplemental groups initially attached to the first process in the container",
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "x-kubernetes-list-type": "atomic"
+                          },
+                          "uid": {
+                            "description": "UID is the primary uid initially attached to the first process in the container",
+                            "type": "integer",
+                            "format": "int64"
                           }
                         },
                         "additionalProperties": false
@@ -1414,7 +1682,7 @@
                     "type": "string"
                   },
                   "resourceClaimName": {
-                    "description": "ResourceClaimName is the name of the ResourceClaim that was\ngenerated for the Pod in the namespace of the Pod. It this is\nunset, then generating a ResourceClaim was not necessary. The\npod.spec.resourceClaims entry can be ignored in this case.",
+                    "description": "ResourceClaimName is the name of the ResourceClaim that was\ngenerated for the Pod in the namespace of the Pod. If this is\nunset, then generating a ResourceClaim was not necessary. The\npod.spec.resourceClaims entry can be ignored in this case.",
                     "type": "string"
                   }
                 },
@@ -1457,7 +1725,7 @@
                 "type": "string"
               },
               "result": {
-                "description": "Result indicate the probe message returned by the script",
+                "description": "Result indicates the probe message returned by the script",
                 "type": "string"
               },
               "status": {
