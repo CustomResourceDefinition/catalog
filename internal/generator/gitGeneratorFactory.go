@@ -40,6 +40,10 @@ func (f *gitGeneratorFactory) Build() (Generator, error) {
 		if token != "" {
 			versions, err := f.fetchGitHubVersions(owner, repo, token)
 			if err == nil {
+				fmt.Fprintf(f.logger, "  Build: PreparedGitGenerator with %d versions\n", len(versions))
+				for _, v := range versions {
+					fmt.Fprintf(f.logger, "    version name=%s time=%d\n", v.name, v.timestamp)
+				}
 				return NewPreparedGitGenerator(generator, versions, f.filter), nil
 			}
 			fmt.Fprintf(f.logger, "Use git fallback instead of GitHub APIs for %s: %s\n", f.config.Name, err.Error())
@@ -62,6 +66,11 @@ func (f *gitGeneratorFactory) fetchGitHubVersions(owner, repo, token string) ([]
 	versions := make([]versionInfo, 0, len(tags)+len(branches))
 	versions = append(versions, tags...)
 	versions = append(versions, branches...)
+
+	fmt.Fprintf(f.logger, "  fetchGitHubVersions tags=%d branches=%d total=%d\n", len(tags), len(branches), len(versions))
+	for _, v := range versions {
+		fmt.Fprintf(f.logger, "    version name=%s time=%d\n", v.name, v.timestamp)
+	}
 
 	return versions, nil
 }
@@ -149,12 +158,18 @@ func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]ve
 			return nil, fmt.Errorf("failed to unmarshal response for prefix %s: %w", prefix, err)
 		}
 
+		fmt.Fprintf(f.logger, "    fetchRefs prefix=%s nodes=%d\n", prefix, len(result.Data.Repository.Refs.Nodes))
+		if len(result.Data.Repository.Refs.Nodes) == 0 {
+			fmt.Fprintf(f.logger, "    raw response: %s\n", string(resp))
+		}
+
 		for _, node := range result.Data.Repository.Refs.Nodes {
 			dateStr := findCommitDate(node)
 			ts, err := parseGitHubDate(dateStr)
 			if err != nil {
 				return nil, err
 			}
+			fmt.Fprintf(f.logger, "      node name=%s\n", node.Name)
 			versions = append(versions, versionInfo{
 				name:      node.Name,
 				timestamp: ts,
@@ -168,6 +183,8 @@ func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]ve
 			hasNextPage = false
 		}
 	}
+
+	fmt.Fprintf(f.logger, "    fetchRefs prefix=%s total=%d\n", prefix, len(versions))
 
 	return versions, nil
 }
