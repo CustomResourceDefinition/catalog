@@ -2,6 +2,7 @@ package generator
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -124,6 +125,41 @@ func TestGitGeneratorFactoryBuildGitHubFailure(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	originalEndpoint := graphQLEndpoint
+	graphQLEndpoint = server.URL
+	defer func() {
+		graphQLEndpoint = originalEndpoint
+	}()
+
+	config := configuration.Configuration{
+		Kind:       configuration.Git,
+		Repository: "https://github.com/owner/repo",
+	}
+
+	generator, err := NewGitGeneratorFactory(config, nil, regexp.MustCompile(".*"), logger).Build()
+	assert.Nil(t, err)
+	defer generator.Close()
+	assert.IsType(t, &GitGenerator{}, generator)
+}
+
+func TestGitGeneratorFactoryBuildGitHubGraphQLError(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "test-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{
+			"data": nil,
+			"errors": []map[string]any{
+				{
+					"type":    "FORBIDDEN",
+					"message": "IP allow list enabled and your IP is not permitted",
+				},
+			},
+		})
 	}))
 	defer server.Close()
 
