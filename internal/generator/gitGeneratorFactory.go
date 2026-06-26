@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -147,6 +148,14 @@ func (f *gitGeneratorFactory) fetchRefs(owner, repo, token, prefix string) ([]ve
 
 		if err := json.Unmarshal(resp, &result); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal response for prefix %s: %w", prefix, err)
+		}
+
+		if len(result.Errors) > 0 {
+			errs := make([]error, len(result.Errors))
+			for i, e := range result.Errors {
+				errs[i] = fmt.Errorf("%s: %s", e.Type, e.Message)
+			}
+			return nil, fmt.Errorf("graphql errors for prefix %s: %w", prefix, errors.Join(errs...))
 		}
 
 		for _, node := range result.Data.Repository.Refs.Nodes {
@@ -305,6 +314,12 @@ type githubData struct {
 	Repository githubRepository `json:"repository"`
 }
 
+type graphqlError struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
+
 type githubResponse struct {
-	Data githubData `json:"data"`
+	Data   githubData     `json:"data"`
+	Errors []graphqlError `json:"errors"`
 }
