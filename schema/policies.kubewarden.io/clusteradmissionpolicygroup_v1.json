@@ -1,0 +1,386 @@
+{
+  "description": "ClusterAdmissionPolicyGroup is the Schema for the clusteradmissionpolicies API",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "ClusterAdmissionPolicyGroupSpec defines the desired state of ClusterAdmissionPolicyGroup.",
+      "type": "object",
+      "required": [
+        "expression",
+        "message",
+        "policies",
+        "rules"
+      ],
+      "properties": {
+        "allowInsideAdmissionControllerNamespace": {
+          "description": "AllowInsideAdmissionControllerNamespace controls whether the policy should also be\nevaluated for resources in the namespace where Kubewarden is deployed.\nBy default (false), an exclusion rule is added to the webhook so that the\nKubewarden namespace is never targeted, protecting against an accidental\nlockout. Set this to true only if you deliberately want the policy to apply\ninside the Kubewarden namespace.\nWarning: setting this to true may cause a deadlock if the policy prevents\nKubewarden components from starting.",
+          "type": "boolean"
+        },
+        "backgroundAudit": {
+          "description": "BackgroundAudit indicates whether a policy should be used or skipped when\nperforming audit checks. If false, the policy cannot produce meaningful\nevaluation results during audit checks and will be skipped.\nThe default is \"true\".",
+          "type": "boolean",
+          "default": true
+        },
+        "expression": {
+          "description": "Expression is the evaluation expression to accept or reject the\nadmission request under evaluation. This field uses CEL as the\nexpression language for the policy groups. Each policy in the group\nwill be represented as a function call in the expression with the\nsame name as the policy defined in the group. The expression field\nshould be a valid CEL expression that evaluates to a boolean value.\nIf the expression evaluates to true, the group policy will be\nconsidered as accepted, otherwise, it will be considered as\nrejected. This expression allows grouping policies calls and perform\nlogical operations on the results of the policies. See Kubewarden\ndocumentation to learn about all the features available.",
+          "type": "string"
+        },
+        "failurePolicy": {
+          "description": "FailurePolicy defines how unrecognized errors and timeout errors from the\npolicy are handled. Allowed values are \"Ignore\" or \"Fail\".\n* \"Ignore\" means that an error calling the webhook is ignored and the API\n  request is allowed to continue.\n* \"Fail\" means that an error calling the webhook causes the admission to\n  fail and the API request to be rejected.\nThe default behaviour is \"Fail\"",
+          "type": "string"
+        },
+        "matchConditions": {
+          "description": "MatchConditions are a list of conditions that must be met for a request to be\nvalidated. Match conditions filter requests that have already been matched by\nthe rules, namespaceSelector, and objectSelector. An empty list of\nmatchConditions matches all requests. There are a maximum of 64 match\nconditions allowed. If a parameter object is provided, it can be accessed via\nthe `params` handle in the same manner as validation expressions. The exact\nmatching logic is (in order): 1. If ANY matchCondition evaluates to FALSE,\nthe policy is skipped. 2. If ALL matchConditions evaluate to TRUE, the policy\nis evaluated. 3. If any matchCondition evaluates to an error (but none are\nFALSE): - If failurePolicy=Fail, reject the request - If\nfailurePolicy=Ignore, the policy is skipped.\nOnly available if the feature gate AdmissionWebhookMatchConditions is enabled.",
+          "type": "array",
+          "items": {
+            "description": "MatchCondition represents a condition which must by fulfilled for a request to be sent to a webhook.",
+            "type": "object",
+            "required": [
+              "expression",
+              "name"
+            ],
+            "properties": {
+              "expression": {
+                "description": "expression represents the expression which will be evaluated by CEL. Must evaluate to bool.\nCEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:\n\n'object' - The object from the incoming request. The value is null for DELETE requests.\n'oldObject' - The existing object. The value is null for CREATE requests.\n'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).\n'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the\n  request resource.\nDocumentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/\n\nRequired.",
+                "type": "string"
+              },
+              "name": {
+                "description": "name is an identifier for this match condition, used for strategic merging of MatchConditions,\nas well as providing an identifier for logging purposes. A good name should be descriptive of\nthe associated expression.\nName must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and\nmust start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or\n'123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an\noptional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')\n\nRequired.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "matchPolicy": {
+          "description": "matchPolicy defines how the \"rules\" list is used to match incoming requests.\nAllowed values are \"Exact\" or \"Equivalent\".\n\u003cul\u003e\n\u003cli\u003e\nExact: match a request only if it exactly matches a specified rule.\nFor example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,\nbut \"rules\" only included `apiGroups:[\"apps\"], apiVersions:[\"v1\"], resources: [\"deployments\"]`,\na request to apps/v1beta1 or extensions/v1beta1 would not be sent to the webhook.\n\u003c/li\u003e\n\u003cli\u003e\nEquivalent: match a request if modifies a resource listed in rules, even via another API group or version.\nFor example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,\nand \"rules\" only included `apiGroups:[\"apps\"], apiVersions:[\"v1\"], resources: [\"deployments\"]`,\na request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the webhook.\n\u003c/li\u003e\n\u003c/ul\u003e\nDefaults to \"Equivalent\"",
+          "type": "string"
+        },
+        "message": {
+          "description": "Message is  used to specify the message that will be returned when\nthe policy group is rejected. The specific policy results will be\nreturned in the warning field of the response.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "Mode defines the execution mode of this policy. Can be set to\neither \"protect\" or \"monitor\". If it's empty, it is defaulted to\n\"protect\".\nTransitioning this setting from \"monitor\" to \"protect\" is\nallowed, but is disallowed to transition from \"protect\" to\n\"monitor\". To perform this transition, the policy should be\nrecreated in \"monitor\" mode instead.",
+          "type": "string",
+          "default": "protect",
+          "enum": [
+            "protect",
+            "monitor"
+          ]
+        },
+        "namespaceSelector": {
+          "description": "NamespaceSelector decides whether to run the webhook on an object based\non whether the namespace for that object matches the selector. If the\nobject itself is a namespace, the matching is performed on\nobject.metadata.labels. If the object is another cluster scoped resource,\nit never skips the webhook.\n\u003cbr/\u003e\u003cbr/\u003e\nFor example, to run the webhook on any objects whose namespace is not\nassociated with \"runlevel\" of \"0\" or \"1\";  you will set the selector as\nfollows:\n\u003cpre\u003e\n\"namespaceSelector\": \\{\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\"matchExpressions\": [\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\\{\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"key\": \"runlevel\",\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"operator\": \"NotIn\",\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"values\": [\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"0\",\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"1\"\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;]\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\\}\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;]\u003cbr/\u003e\n\\}\n\u003c/pre\u003e\nIf instead you want to only run the webhook on any objects whose\nnamespace is associated with the \"environment\" of \"prod\" or \"staging\";\nyou will set the selector as follows:\n\u003cpre\u003e\n\"namespaceSelector\": \\{\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\"matchExpressions\": [\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\\{\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"key\": \"environment\",\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"operator\": \"In\",\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"values\": [\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"prod\",\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\"staging\"\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;]\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;\u0026nbsp;\u0026nbsp;\\}\u003cbr/\u003e\n\u0026nbsp;\u0026nbsp;]\u003cbr/\u003e\n\\}\n\u003c/pre\u003e\nSee\nhttps://kubernetes.io/docs/concepts/overview/working-with-objects/labels\nfor more examples of label selectors.\n\u003cbr/\u003e\u003cbr/\u003e\nDefault to the empty LabelSelector, which matches everything.",
+          "type": "object",
+          "properties": {
+            "matchExpressions": {
+              "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+              "type": "array",
+              "items": {
+                "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                "type": "object",
+                "required": [
+                  "key",
+                  "operator"
+                ],
+                "properties": {
+                  "key": {
+                    "description": "key is the label key that the selector applies to.",
+                    "type": "string"
+                  },
+                  "operator": {
+                    "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                    "type": "string"
+                  },
+                  "values": {
+                    "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "x-kubernetes-list-type": "atomic"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-list-type": "atomic"
+            },
+            "matchLabels": {
+              "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-map-type": "atomic"
+        },
+        "objectSelector": {
+          "description": "ObjectSelector decides whether to run the webhook based on if the\nobject has matching labels. objectSelector is evaluated against both\nthe oldObject and newObject that would be sent to the webhook, and\nis considered to match if either object matches the selector. A null\nobject (oldObject in the case of create, or newObject in the case of\ndelete) or an object that cannot have labels (like a\nDeploymentRollback or a PodProxyOptions object) is not considered to\nmatch.\nUse the object selector only if the webhook is opt-in, because end\nusers may skip the admission webhook by setting the labels.\nDefault to the empty LabelSelector, which matches everything.",
+          "type": "object",
+          "properties": {
+            "matchExpressions": {
+              "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+              "type": "array",
+              "items": {
+                "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                "type": "object",
+                "required": [
+                  "key",
+                  "operator"
+                ],
+                "properties": {
+                  "key": {
+                    "description": "key is the label key that the selector applies to.",
+                    "type": "string"
+                  },
+                  "operator": {
+                    "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                    "type": "string"
+                  },
+                  "values": {
+                    "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "x-kubernetes-list-type": "atomic"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-list-type": "atomic"
+            },
+            "matchLabels": {
+              "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-map-type": "atomic"
+        },
+        "policies": {
+          "description": "Policies is a list of policies that are part of the group that will\nbe available to be called in the evaluation expression field.\nEach policy in the group should be a Kubewarden policy.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "module"
+            ],
+            "properties": {
+              "contextAwareResources": {
+                "description": "List of Kubernetes resources the policy is allowed to access at evaluation time.\nAccess to these resources is done using the `ServiceAccount` of the PolicyServer\nthe policy is assigned to.",
+                "type": "array",
+                "items": {
+                  "description": "ContextAwareResource identifies a Kubernetes resource.",
+                  "type": "object",
+                  "required": [
+                    "apiVersion",
+                    "kind"
+                  ],
+                  "properties": {
+                    "apiVersion": {
+                      "description": "apiVersion of the resource (v1 for core group, groupName/groupVersions for other).",
+                      "type": "string"
+                    },
+                    "kind": {
+                      "description": "Singular PascalCase name of the resource",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "module": {
+                "description": "Module is the location of the WASM module to be loaded. Can be a\nlocal file (file://), a remote file served by an HTTP server\n(http://, https://), or an artifact served by an OCI-compatible\nregistry (registry://).\nIf prefix is missing, it will default to registry:// and use that\ninternally.",
+                "type": "string"
+              },
+              "settings": {
+                "description": "Settings is a free-form object that contains the policy configuration\nvalues.\nx-kubernetes-embedded-resource: false",
+                "type": "object",
+                "nullable": true,
+                "x-kubernetes-preserve-unknown-fields": true
+              },
+              "timeoutEvalSeconds": {
+                "description": "TimeoutEvalSeconds specifies the timeout for the policy evaluation. After\nthe timeout passes, the policy evaluation call will fail based on the\nfailure policy.\nThe timeout value must be between 2 and 30 seconds.",
+                "type": "integer",
+                "format": "int32",
+                "maximum": 30,
+                "minimum": 2
+              }
+            }
+          }
+        },
+        "policyServer": {
+          "description": "PolicyServer identifies an existing PolicyServer resource.",
+          "type": "string",
+          "default": "default"
+        },
+        "rules": {
+          "description": "Rules describes what operations on what resources/subresources the webhook cares about.\nThe webhook cares about an operation if it matches _any_ Rule.",
+          "type": "array",
+          "items": {
+            "description": "RuleWithOperations is a tuple of Operations and Resources. It is recommended to make\nsure that all the tuple expansions are valid.",
+            "type": "object",
+            "properties": {
+              "apiGroups": {
+                "description": "apiGroups is the API groups the resources belong to. '*' is all groups.\nIf '*' is present, the length of the slice must be one.\nRequired.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "x-kubernetes-list-type": "atomic"
+              },
+              "apiVersions": {
+                "description": "apiVersions is the API versions the resources belong to. '*' is all versions.\nIf '*' is present, the length of the slice must be one.\nRequired.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "x-kubernetes-list-type": "atomic"
+              },
+              "operations": {
+                "description": "operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *\nfor all of those operations and any future admission operations that are added.\nIf '*' is present, the length of the slice must be one.\nRequired.",
+                "type": "array",
+                "items": {
+                  "description": "OperationType specifies an operation for a request.",
+                  "type": "string"
+                },
+                "x-kubernetes-list-type": "atomic"
+              },
+              "resources": {
+                "description": "resources is a list of resources this rule applies to.\n\nFor example:\n'pods' means pods.\n'pods/log' means the log subresource of pods.\n'*' means all resources, but not subresources.\n'pods/*' means all subresources of pods.\n'*/scale' means all scale subresources.\n'*/*' means all resources and their subresources.\n\nIf wildcard is present, the validation rule will ensure resources do not\noverlap with each other.\n\nDepending on the enclosing object, subresources might not be allowed.\nRequired.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "x-kubernetes-list-type": "atomic"
+              },
+              "scope": {
+                "description": "scope specifies the scope of this rule.\nValid values are \"Cluster\", \"Namespaced\", and \"*\"\n\"Cluster\" means that only cluster-scoped resources will match this rule.\nNamespace API objects are cluster-scoped.\n\"Namespaced\" means that only namespaced resources will match this rule.\n\"*\" means that there are no scope restrictions.\nSubresources match the scope of their parent resource.\nDefault is \"*\".",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "sideEffects": {
+          "description": "SideEffects states whether this webhook has side effects.\nAcceptable values are: None, NoneOnDryRun (webhooks created via v1beta1 may also specify Some or Unknown).\nWebhooks with side effects MUST implement a reconciliation system, since a request may be\nrejected by a future step in the admission change and the side effects therefore need to be undone.\nRequests with the dryRun attribute will be auto-rejected if they match a webhook with\nsideEffects == Unknown or Some.",
+          "type": "string"
+        },
+        "timeoutSeconds": {
+          "description": "TimeoutSeconds specifies the timeout for this webhook. After the timeout passes,\nthe webhook call will be ignored or the API call will fail based on the\nfailure policy.\nThe timeout value must be between 2 and 30 seconds.\nDefault to 10 seconds.",
+          "type": "integer",
+          "format": "int32",
+          "default": 10,
+          "maximum": 30,
+          "minimum": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "PolicyStatus defines the observed state of ClusterAdmissionPolicy and AdmissionPolicy.",
+      "type": "object",
+      "required": [
+        "policyStatus"
+      ],
+      "properties": {
+        "conditions": {
+          "description": "Conditions represent the observed conditions of the\nClusterAdmissionPolicy resource.  Known .status.conditions.types\nare: \"PolicyServerSecretReconciled\",\n\"PolicyServerConfigMapReconciled\",\n\"PolicyServerDeploymentReconciled\",\n\"PolicyServerServiceReconciled\" and\n\"AdmissionPolicyActive\"",
+          "type": "array",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "mode": {
+          "description": "PolicyMode represents the observed policy mode of this policy in\nthe associated PolicyServer configuration",
+          "type": "string",
+          "enum": [
+            "protect",
+            "monitor",
+            "unknown"
+          ]
+        },
+        "policyStatus": {
+          "description": "PolicyStatus represents the observed status of the policy",
+          "type": "string",
+          "enum": [
+            "unscheduled",
+            "scheduled",
+            "pending",
+            "active"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

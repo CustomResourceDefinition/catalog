@@ -1,0 +1,181 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: listeners.skupper.io
+spec:
+  group: skupper.io
+  names:
+    kind: Listener
+    plural: listeners
+    shortNames:
+    - lnr
+    singular: listener
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The key that ties connectors and listeners together
+      jsonPath: .spec.routingKey
+      name: Routing Key
+      type: string
+    - description: The port the service listens on
+      jsonPath: .spec.port
+      name: Port
+      type: integer
+    - description: The name of the service
+      jsonPath: .spec.host
+      name: Host
+      type: string
+    - description: The status of the listener
+      jsonPath: .status.status
+      name: Status
+      type: string
+    - description: Whether there is at least one connector in the network with a matching
+        routing key.
+      jsonPath: .status.hasMatchingConnector
+      name: Has Matching Connector
+      type: boolean
+    - description: Any human readable message relevant to the listener
+      jsonPath: .status.message
+      name: Message
+      type: string
+    name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          A listener binds a local connection endpoint to connectors in remote sites.
+          Listeners and connector are matched by routing key.
+
+          A Listener resource specifies a host and port for accepting connections
+          from local client. To expose a multi-port service, create multiple listeners
+          with the same host value.
+        properties:
+          spec:
+            properties:
+              exposePodsByName:
+                description: |-
+                  If true, expose each pod as an individual service. This allows individual
+                  pods to be directly connected across a network. The pod names will be used
+                  to create each service.
+                type: boolean
+              host:
+                description: |-
+                  The hostname or IP address of the local listener. Clients at this
+                  site use the listener host and port to establish connections to the
+                  remote service.
+                type: string
+              observer:
+                description: |-
+                  The listener observer controls how the listener inspects network traffic for  application-level protocol information.
+                   When unset or set to `auto`, the listener inspects traffic to detect known  application protocols and produces telemetry events for that application  traffic.
+                  Set to a specific protocol (`http1` or `http2`) to restrict inspection to that  protocol only.
+                  Set to `none` to disable protocol inspection and reduce overhead from traffic  inspection and application-level telemetry.
+                enum:
+                - auto
+                - none
+                - http1
+                - http2
+                type: string
+              port:
+                description: |-
+                  The port of the local listener. Clients at this site use the listener
+                  host and port to establish connections to the remote service.
+                type: integer
+              routingKey:
+                description: |-
+                  The identifier to route traffic from listeners to connectors. To
+                  enable connecting to a service at a remote site, the local listener
+                  and the remote connector must have matching routingKeys.
+                type: string
+              settings:
+                additionalProperties:
+                  type: string
+                description: |-
+                  A map containing additional settings. Each map entry has a string name and a string value.
+
+                  **Note:** In general, we recommend not changing settings from
+                  their default values.
+                type: object
+              tlsCredentials:
+                description: |-
+                  The name of a bundle of TLS certificates used for secure client-to-router
+                  communication. The bundle contains the server certificate and key. It
+                  optionally includes the trusted client certificate (usually a CA) for
+                  mutual TLS.
+
+                  On Kubernetes, the value is the name of a Secret in the current namespace.
+                  On Docker, Podman, and Linux, the value is the name of a directory under
+                  input/certs/ in the current namespace.
+                type: string
+              type:
+                description: Currently only supports tcp.
+                type: string
+            required:
+            - routingKey
+            - host
+            - port
+            type: object
+          status:
+            properties:
+              conditions:
+                description: |-
+                  A set of named conditions describing the current state of the resource.
+
+                  - `Configured`: The listener configuration has been applied to the router.
+                  - `Operational`: There is at least one connector corresponding to this listener.
+                  - `Ready`: The listener is ready for use. All other conditions are true.
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              hasMatchingConnector:
+                description: True if there is at least one connector with a matching
+                  routing key (usually in a remote site).
+                type: boolean
+              message:
+                description: A human-readable status message. Error messages are reported
+                  here.
+                type: string
+              status:
+                description: |-
+                  The current state of the resource.
+                  - `Pending`: The resource is being processed.
+                  - `Error`: There was an error processing the resource. See `message` for more information.
+                  - `Ready`: The resource is ready to use.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

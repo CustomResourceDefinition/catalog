@@ -1,0 +1,215 @@
+{
+  "description": "A site is a place on the network where application workloads are\nrunning. Sites are joined by links.\n\nThe Site resource is the basis for site configuration. It is the\nparent of all Skupper resources in its namespace. There can be only\none active Site resource per namespace.",
+  "type": "object",
+  "properties": {
+    "spec": {
+      "type": "object",
+      "properties": {
+        "defaultIssuer": {
+          "description": "Advanced. The name of a Kubernetes secret containing the\nsigning CA used to generate a certificate from a token. A\nsecret is generated if none is specified.\n\nThis issuer is used by AccessGrant and RouterAccess if a\nspecific issuer is not set. Defaults to `skupper-site-ca`",
+          "type": "string"
+        },
+        "edge": {
+          "description": "Advanced. Configure the site to operate in edge mode. Edge\nsites cannot accept links from remote sites.\n\nEdge mode can help you scale your network to large numbers\nof sites. However, for networks with 16 or fewer sites,\nthere is little benefit.\n\nCurrently, edge sites cannot also have HA enabled.",
+          "type": "boolean"
+        },
+        "ha": {
+          "description": "Configure the site for high availability (HA). HA sites\nhave two active routers.\n\nNote that Skupper routers are stateless, and they restart\nafter failure. This already provides a high level of\navailability. Enabling HA goes further and reduces the\nwindow of downtime caused by restarts.\n\nBy default, Pod anti-affinity will be configured on the router\nDeployments when HA is enabled. To overwrite this behavior\nsee the `disable-anti-affinity` Site setting.",
+          "type": "boolean"
+        },
+        "linkAccess": {
+          "description": "Configure external access for links from remote sites. When\nset, implies a RouterAccess resource with accessType set\naccording to the linkAccess value.\n\nSites and links are the basis for creating application\nnetworks. In a simple two-site network, at least one of the\nsites must have link access enabled. Choices include:\n- `none`: No linking to this site is enabled.\n- `default`: Use the default link access for the current platform. For OpenShift, the default is `route`. For other Kubernetes flavors, the default is `loadbalancer`.\n- `route`: Use an OpenShift route.\n- `loadbalancer`: Use a Kubernetes load balancer.\n- `ingress` / `ingress-nginx`: When enabled on the controller, use a Kubernetes Ingress. Use `ingress` for generic controllers; `ingress-nginx` adds NGINX-specific TLS annotations. Set `ingressClassName` via RouterAccess `spec.settings` or controller `SKUPPER_INGRESS_CLASS_NAME`.",
+          "type": "string"
+        },
+        "serviceAccount": {
+          "description": "Advanced. The name of the Kubernetes service account under\nwhich to run the Skupper router. A service account is\ngenerated if none is specified.",
+          "type": "string"
+        },
+        "settings": {
+          "description": "Advanced. A map containing additional settings. Each map\nentry has a string name and a string value.\n\n**Note:** In  general, we recommend not changing `settings`\nfrom their default values.\n\n- `routerDataConnections`: Set the number of router worker threads. Minimum 2.\n- `routerLogging`: Set the number of router logging level. Options are \"info\", \"warning\", \"error\".\n- `disable-anti-affinity`: Set to \"true\" in order to prevent skupper from specifying router pod affinity.\n- `size`: The desired site sizing profile to use for constraining pod resources. Corresponds to a ConfigMap with matching `skupper.io/site-sizing` label.\n- `tls-prior-valid-revisions`: Set the number of revisions to TLS Secrets backing Site Link connections that are permissible to hold open to preserve established service connections. An unsigned integer defaults to 1. Set to 0 to immediately disrupt connections secured with old TLS configurations.\n- `ingressClassName`: When using `ingress` or `ingress-nginx` link access, sets the Kubernetes IngressClass for Skupper-managed Ingress resources (also copied to RouterAccess). Overrides controller `SKUPPER_INGRESS_CLASS_NAME`. Use empty string to clear a previously set class.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "A set of named conditions describing the current state of the resource.\n\n- `Configured`: The output resources for this resource have been created.\n- `Running`: There is at least one router pod running.\n- `Resolved`: The hostname or IP address for link access is available.\n- `Ready`: The site is ready for use. All other conditions are true.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "controller": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "namespace": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "defaultIssuer": {
+          "description": "The name of the Kubernetes secret containing the active default signing CA.",
+          "type": "string"
+        },
+        "endpoints": {
+          "description": "An array of connection endpoints. Each item has a name, host, port, and group. These include connection endpoints for link access.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "group": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "port": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "message": {
+          "description": "A human-readable status message. Error messages are reported here.",
+          "type": "string"
+        },
+        "network": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "links": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "operational": {
+                      "type": "boolean"
+                    },
+                    "remoteSiteId": {
+                      "type": "string"
+                    },
+                    "remoteSiteName": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "name": {
+                "type": "string"
+              },
+              "namespace": {
+                "type": "string"
+              },
+              "platform": {
+                "type": "string"
+              },
+              "services": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "connectors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "listeners": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "routingKey": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "sitesInNetwork": {
+          "type": "integer"
+        },
+        "status": {
+          "description": "The current state of the resource.\n- `Pending`: The resource is being processed.\n- `Error`: There was an error processing the resource. See `message` for more information.\n- `Ready`: The resource is ready to use.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
