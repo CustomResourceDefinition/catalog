@@ -1,0 +1,241 @@
+{
+  "type": "object",
+  "properties": {
+    "spec": {
+      "type": "object",
+      "required": [
+        "deploymentRollout",
+        "query"
+      ],
+      "properties": {
+        "cooldownSeconds": {
+          "description": "Suppress re-firing for the same Deployment within this many seconds (0 = disabled)",
+          "type": "integer",
+          "default": 0,
+          "minimum": 0
+        },
+        "delaySeconds": {
+          "description": "How long to wait after a rollout before running the check (seconds). Gives the rollout time to finish and problems time to surface. Default 300 (5 min); 0 = check immediately; up to 604800 (7 days). The wait is saved on the resource and survives operator restarts.",
+          "type": "integer",
+          "default": 300,
+          "maximum": 604800,
+          "minimum": 0
+        },
+        "deploymentRollout": {
+          "description": "Fire when a matching Deployment rolls out a new pod template",
+          "type": "object",
+          "properties": {
+            "selector": {
+              "description": "Select which Deployments to watch (empty matches all in the namespace)",
+              "type": "object",
+              "properties": {
+                "matchLabels": {
+                  "description": "Deployment labels that must all match",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "destinations": {
+          "description": "Alert destinations for failed checks (only used in alert mode)",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "config": {
+                "description": "Destination-specific configuration",
+                "type": "object",
+                "x-kubernetes-preserve-unknown-fields": true
+              },
+              "type": {
+                "description": "Destination type (e.g., 'slack', 'pagerduty')",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "enabled": {
+          "description": "Whether the trigger is active",
+          "type": "boolean",
+          "default": true
+        },
+        "mode": {
+          "description": "Execution mode: 'alert' sends notifications on failure, 'monitor' logs only",
+          "type": "string",
+          "default": "monitor",
+          "enum": [
+            "alert",
+            "monitor"
+          ]
+        },
+        "model": {
+          "description": "Override default LLM model for this check",
+          "type": "string"
+        },
+        "query": {
+          "description": "Natural language question. Supports tokens {{ .deployment }}, {{ .namespace }}, {{ .old.image }}, {{ .new.image }}",
+          "type": "string",
+          "maxLength": 5000,
+          "minLength": 1
+        },
+        "timeout": {
+          "description": "Execution timeout in seconds",
+          "type": "integer",
+          "default": 120,
+          "maximum": 300,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Standard Kubernetes conditions",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "type",
+              "status"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "status": {
+                "description": "Condition status: True, False, or Unknown",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "Condition type (e.g., 'Ready', 'TriggerFailed')",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "cooldowns": {
+          "description": "Per-Deployment last-fire times used to enforce cooldownSeconds",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "deployment",
+              "lastTriggerTime"
+            ],
+            "properties": {
+              "deployment": {
+                "type": "string"
+              },
+              "lastTriggerTime": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "history": {
+          "description": "Recent triggered executions (last N)",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "triggerTime",
+              "deployment",
+              "checkName"
+            ],
+            "properties": {
+              "checkName": {
+                "type": "string"
+              },
+              "deployment": {
+                "type": "string"
+              },
+              "newImage": {
+                "type": "string"
+              },
+              "oldImage": {
+                "type": "string"
+              },
+              "triggerTime": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "lastTriggerDeployment": {
+          "description": "Deployment whose rollout last fired the trigger",
+          "type": "string"
+        },
+        "lastTriggerTime": {
+          "description": "Last time the trigger fired",
+          "type": "string",
+          "format": "date-time"
+        },
+        "pending": {
+          "description": "Delayed checks scheduled to run later (delaySeconds), persisted to survive operator restarts",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "deployment",
+              "fireAt"
+            ],
+            "properties": {
+              "deployment": {
+                "type": "string"
+              },
+              "fireAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "newImage": {
+                "type": "string"
+              },
+              "oldImage": {
+                "type": "string"
+              },
+              "scheduledAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "triggerCount": {
+          "description": "Total number of times the trigger has fired",
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
