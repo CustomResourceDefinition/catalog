@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -170,6 +171,8 @@ func (builder Builder) renderVersion(logger io.Writer, version string) ([]regist
 		return nil, err
 	}
 
+	crds = builder.exclude(crds)
+
 	schemas := builder.extractSchemas(logger, crds)
 
 	if len(crds) > 0 {
@@ -210,6 +213,26 @@ func (builder Builder) generateCrds(version string) ([]crd.Crd, error) {
 	crds, err := builder.generator.Crds(version)
 	builder.stats.Record(builder.operationCategory(), timing.OperationTypeGenerate, fmt.Sprintf("crds_%s", version), time.Since(start), err == nil, start)
 	return crds, err
+}
+
+func (builder Builder) exclude(crds []crd.Crd) []crd.Crd {
+	if len(builder.config.Exclude) == 0 {
+		return crds
+	}
+	filtered := make([]crd.Crd, 0, len(crds))
+	for _, c := range crds {
+		excluded := false
+		for _, e := range builder.config.Exclude {
+			if strings.EqualFold(c.Group, e.Group) && strings.EqualFold(c.Kind, e.Kind) {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
 }
 
 func (builder Builder) extractSchemas(logger io.Writer, crds []crd.Crd) []crd.CrdSchema {

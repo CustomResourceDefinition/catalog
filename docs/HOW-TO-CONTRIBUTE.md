@@ -60,6 +60,9 @@ To add CRDs for [eks-anywhere](https://github.com/aws/eks-anywhere) you should a
   #   - crds
   # genPaths: # paths to recursively find go files to generate CRDs from
   #   - api
+  # exclude: # list of group/kind pairs of CRDs to exclude from this source
+  #   - group: example.com
+  #     kind: something
 ```
 
 The `versionPattern` is a regex that must contain a capture group for the semver major.minor.patch version.
