@@ -207,6 +207,7 @@
           "description": "Resources contains the list of Kubernetes resources to reconcile.",
           "type": "array",
           "items": {
+            "type": "object",
             "x-kubernetes-preserve-unknown-fields": true
           }
         },
@@ -218,12 +219,73 @@
           "description": "The name of the Kubernetes service account to impersonate\nwhen reconciling the generated resources.",
           "type": "string"
         },
+        "steps": {
+          "description": "Steps contains an ordered list of named steps to reconcile in sequence.\nEach step's resources are applied and health-checked before the next\nstep starts. Mutually exclusive with Resources and ResourcesTemplate.",
+          "type": "array",
+          "maxItems": 20,
+          "minItems": 1,
+          "items": {
+            "description": "ResourceSetStep defines a named step in the ResourceSet reconciliation\nsequence. The step's resources are applied and health-checked before\nthe next step starts.",
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name of the step, must be unique within the ResourceSet.",
+                "type": "string",
+                "maxLength": 63,
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+              },
+              "resources": {
+                "description": "Resources contains the list of Kubernetes resources to reconcile.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "x-kubernetes-preserve-unknown-fields": true
+                }
+              },
+              "resourcesTemplate": {
+                "description": "ResourcesTemplate is a Go template that generates the list of\nKubernetes resources to reconcile. The template is rendered\nas multi-document YAML, the resources should be separated by '---'.\nWhen both Resources and ResourcesTemplate are set, the resulting\nobjects are merged and deduplicated, with the ones from Resources taking precedence.",
+                "type": "string"
+              },
+              "timeout": {
+                "description": "Timeout is the maximum time to wait for the step's resources to\nbecome ready. When not set, the ResourceSet reconciliation\ntimeout is used.",
+                "type": "string",
+                "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
+              }
+            },
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "has(self.resources) || has(self.resourcesTemplate)",
+                "message": "at least one of resources or resourcesTemplate must be set"
+              }
+            ]
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.all(s, self.exists_one(t, t.name == s.name))",
+              "message": "step names must be unique"
+            }
+          ]
+        },
         "wait": {
           "description": "Wait instructs the controller to check the health\nof all the reconciled resources.",
           "type": "boolean"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.steps) || (!has(self.resources) \u0026\u0026 !has(self.resourcesTemplate))",
+          "message": "steps is mutually exclusive with resources and resourcesTemplate"
+        },
+        {
+          "rule": "has(self.steps) || has(self.resources) || has(self.resourcesTemplate)",
+          "message": "at least one of steps, resources or resourcesTemplate must be set"
+        }
+      ]
     },
     "status": {
       "description": "ResourceSetStatus defines the observed state of ResourceSet.",
