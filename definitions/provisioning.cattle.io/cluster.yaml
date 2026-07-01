@@ -30,7 +30,7 @@ spec:
       type: date
     - jsonPath: .status.clientSecretName
       name: Kubeconfig
-      type: string
+      type: date
     - jsonPath: .status.ready
       name: Ready
       type: string
@@ -128,10 +128,9 @@ spec:
                         operator:
                           description: |-
                             Operator represents a key's relationship to the value.
-                            Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
+                            Valid operators are Exists and Equal. Defaults to Equal.
                             Exists is equivalent to wildcard for value, so that a pod can
                             tolerate all taints of a particular category.
-                            Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                           type: string
                         tolerationSeconds:
                           description: |-
@@ -725,8 +724,8 @@ spec:
                               most preferred is the one with the greatest sum of weights, i.e.
                               for each node that meets all of the scheduling requirements (resource
                               request, requiredDuringScheduling anti-affinity expressions, etc.),
-                              compute a sum by iterating through the elements of this field and subtracting
-                              "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                              compute a sum by iterating through the elements of this field and adding
+                              "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
                               node(s) with the highest sum are the most preferred.
                             items:
                               description: The weights of all of the matched WeightedPodAffinityTerm
@@ -1082,7 +1081,7 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-                          This field depends on the
+                          This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
 
                           This field is immutable. It can only be set for containers.
@@ -1246,10 +1245,9 @@ spec:
                         operator:
                           description: |-
                             Operator represents a key's relationship to the value.
-                            Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
+                            Valid operators are Exists and Equal. Defaults to Equal.
                             Exists is equivalent to wildcard for value, so that a pod can
                             tolerate all taints of a particular category.
-                            Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                           type: string
                         tolerationSeconds:
                           description: |-
@@ -1843,8 +1841,8 @@ spec:
                               most preferred is the one with the greatest sum of weights, i.e.
                               for each node that meets all of the scheduling requirements (resource
                               request, requiredDuringScheduling anti-affinity expressions, etc.),
-                              compute a sum by iterating through the elements of this field and subtracting
-                              "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                              compute a sum by iterating through the elements of this field and adding
+                              "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
                               node(s) with the highest sum are the most preferred.
                             items:
                               description: The weights of all of the matched WeightedPodAffinityTerm
@@ -2200,7 +2198,7 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-                          This field depends on the
+                          This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
 
                           This field is immutable. It can only be set for containers.
@@ -2459,14 +2457,6 @@ spec:
                               If this field is not explicitly set, the 'defaultRegion' value from the referenced CloudCredential will be used.
                             nullable: true
                             type: string
-                          retention:
-                            description: |-
-                              Retention defines the number of snapshots to retain in the S3 bucket.
-                              Older snapshots beyond this retention count will be deleted.
-                              If this field is not explicitly set, the retention value from the etcd retention will be used.
-                            minimum: 0
-                            nullable: true
-                            type: integer
                           skipSSLVerify:
                             description: |-
                               SkipSSLVerify defines whether TLS certificate verification is disabled.
@@ -2603,20 +2593,6 @@ spec:
                       description: RKEMachinePool is the configuration for a RKE2/K3s
                         machine pool within a provisioning cluster.
                       properties:
-                        autoscalingMaxSize:
-                          description: |-
-                            AutoscalingMaxSize is the autoscaler max node size, this maps
-                            to the autoscaling annotations which are mapped to the CAPI machineDeployment object
-                          format: int32
-                          nullable: true
-                          type: integer
-                        autoscalingMinSize:
-                          description: |-
-                            AutoscalingMinSize is the autoscaler min node size, this maps
-                            to the autoscaling annotations which are mapped to the CAPI machineDeployment object
-                          format: int32
-                          nullable: true
-                          type: integer
                         cloudCredentialSecretName:
                           description: |-
                             CloudCredentialSecretName is the id of the secret used to provision
@@ -2870,8 +2846,9 @@ spec:
                                   to a node.
                                 type: string
                               timeAdded:
-                                description: TimeAdded represents the time at which
-                                  the taint was added.
+                                description: |-
+                                  TimeAdded represents the time at which the taint was added.
+                                  It is only written for NoExecute taints.
                                 format: date-time
                                 type: string
                               value:
@@ -2897,33 +2874,6 @@ spec:
                             MachineHealthCheck is allowed to remediate.
                           nullable: true
                           type: string
-                        userdata:
-                          description: |-
-                            Additional userdata to merge with rancher-defined userdata.
-
-                            Currently, this field is only supported for external CAPI
-                            infrastructure providers, and will have no effect for
-                            Rancher-provisioned nodes. Userdata for Rancher-provisioned nodes
-                            can be set in the machine configuration.
-
-                            WARNING: Do not include sensitive data, this field is visible
-                            in non-Secret API objects.
-
-                            EXPERIMENTAL: this field is experimental and future compatibility
-                            is not guaranteed.
-                          nullable: true
-                          properties:
-                            inlineUserdata:
-                              description: |-
-                                Userdata string in cloud-config format.
-
-                                WARNING: Do not include sensitive data, this field is visible
-                                in non-Secret API objects.
-
-                                EXPERIMENTAL: this field is experimental and future compatibility
-                                is not guaranteed.
-                              type: string
-                          type: object
                         workerRole:
                           description: |-
                             WorkerRole defines whether the machines provisioned by this pool
@@ -2933,24 +2883,6 @@ spec:
                       - machineConfigRef
                       - name
                       type: object
-                      x-kubernetes-validations:
-                      - message: AutoscalingMinSize must be greater than 0 when ControlPlaneRole
-                          is true
-                        rule: '!has(self.controlPlaneRole) || !self.controlPlaneRole
-                          || !has(self.autoscalingMinSize) || self.autoscalingMinSize
-                          > 0'
-                      - message: AutoscalingMinSize must be greater than 0 when EtcdRole
-                          is true
-                        rule: '!has(self.etcdRole) || !self.etcdRole || !has(self.autoscalingMinSize)
-                          || self.autoscalingMinSize > 0'
-                      - message: AutoscalingMinSize must be less than or equal to
-                          AutoscalingMaxSize when both are non-nil
-                        rule: '!has(self.autoscalingMaxSize) || !has(self.autoscalingMinSize)
-                          || self.autoscalingMinSize <= self.autoscalingMaxSize'
-                      - message: AutoscalingMinSize and AutoscalingMaxSize must both
-                          be set if enabling cluster-autoscaling
-                        rule: (has(self.autoscalingMinSize) && has(self.autoscalingMaxSize))
-                          || (!has(self.autoscalingMinSize) && !has(self.autoscalingMaxSize))
                     maxItems: 1000
                     nullable: true
                     type: array
