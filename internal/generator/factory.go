@@ -25,6 +25,13 @@ type Builder struct {
 	generator            Generator
 	registry             *registry.SourceRegistry
 	stats                *timing.Stats
+	includePatterns      []patternFilter
+	excludePatterns      []patternFilter
+}
+
+type patternFilter struct {
+	group *regexp.Regexp
+	kind  *regexp.Regexp
 }
 
 func NewBuilder(
@@ -39,7 +46,7 @@ func NewBuilder(
 		return nil, err
 	}
 
-	return &Builder{
+	b := &Builder{
 		config:               config,
 		generator:            generator,
 		logger:               logger,
@@ -48,7 +55,13 @@ func NewBuilder(
 		definitionRepository: definitionRepository,
 		registry:             reg,
 		stats:                timing.NewStats(),
-	}, nil
+	}
+
+	if err := b.compilePatterns(); err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 func defaultVersionPattern(kind configuration.Kind) string {
@@ -170,6 +183,9 @@ func (builder Builder) renderVersion(logger io.Writer, version string) ([]regist
 		return nil, err
 	}
 
+	crds = builder.include(crds)
+	crds = builder.exclude(crds)
+
 	schemas := builder.extractSchemas(logger, crds)
 
 	if len(crds) > 0 {
@@ -210,6 +226,72 @@ func (builder Builder) generateCrds(version string) ([]crd.Crd, error) {
 	crds, err := builder.generator.Crds(version)
 	builder.stats.Record(builder.operationCategory(), timing.OperationTypeGenerate, fmt.Sprintf("crds_%s", version), time.Since(start), err == nil, start)
 	return crds, err
+}
+
+func (builder *Builder) compilePatterns() error {
+	for _, e := range builder.config.IncludePatterns {
+		g, err := regexp.Compile(e.Group)
+		if err != nil {
+			return fmt.Errorf("invalid include group pattern %q: %w", e.Group, err)
+		}
+		k, err := regexp.Compile(e.Kind)
+		if err != nil {
+			return fmt.Errorf("invalid include kind pattern %q: %w", e.Kind, err)
+		}
+		builder.includePatterns = append(builder.includePatterns, patternFilter{group: g, kind: k})
+	}
+	for _, e := range builder.config.ExcludePatterns {
+		g, err := regexp.Compile(e.Group)
+		if err != nil {
+			return fmt.Errorf("invalid exclude group pattern %q: %w", e.Group, err)
+		}
+		k, err := regexp.Compile(e.Kind)
+		if err != nil {
+			return fmt.Errorf("invalid exclude kind pattern %q: %w", e.Kind, err)
+		}
+		builder.excludePatterns = append(builder.excludePatterns, patternFilter{group: g, kind: k})
+	}
+	return nil
+}
+
+func (builder Builder) exclude(crds []crd.Crd) []crd.Crd {
+	if len(builder.excludePatterns) == 0 {
+		return crds
+	}
+	filtered := make([]crd.Crd, 0)
+	for _, c := range crds {
+		excluded := false
+		for _, e := range builder.excludePatterns {
+			if e.group.MatchString(c.Group) && e.kind.MatchString(c.Kind) {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
+}
+
+func (builder Builder) include(crds []crd.Crd) []crd.Crd {
+	if len(builder.includePatterns) == 0 {
+		return crds
+	}
+	filtered := make([]crd.Crd, 0)
+	for _, c := range crds {
+		included := false
+		for _, e := range builder.includePatterns {
+			if e.group.MatchString(c.Group) && e.kind.MatchString(c.Kind) {
+				included = true
+				break
+			}
+		}
+		if included {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
 }
 
 func (builder Builder) extractSchemas(logger io.Writer, crds []crd.Crd) []crd.CrdSchema {
