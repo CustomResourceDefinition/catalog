@@ -22,22 +22,23 @@ const (
 )
 
 type Configuration struct {
-	ApiGroups      []string                `yaml:"apiGroups"`
-	Downloads      []ConfigurationDownload `yaml:"crds"`
-	Entries        []string                `yaml:"entries"`
-	Exclude        []ConfigurationExclude  `yaml:"exclude"`
-	GenPaths       []string                `yaml:"genPaths"`
-	Kind           Kind                    `yaml:"kind"`
-	KustomizePaths []string                `yaml:"kustomizationPaths"`
-	Name           string                  `yaml:"name"`
-	Namespace      string                  `yaml:"namespace"`
-	Repository     string                  `yaml:"repository"`
-	SearchPaths    []string                `yaml:"searchPaths"`
-	Values         []ConfigurationValues   `yaml:"valuesFiles"`
-	VersionPattern string                  `yaml:"versionPattern"`
+	ApiGroups       []string                `yaml:"apiGroups"`
+	Downloads       []ConfigurationDownload `yaml:"crds"`
+	Entries         []string                `yaml:"entries"`
+	ExcludePatterns []ConfigurationFilter   `yaml:"excludePattern"`
+	IncludePatterns []ConfigurationFilter   `yaml:"includePattern"`
+	GenPaths        []string                `yaml:"genPaths"`
+	Kind            Kind                    `yaml:"kind"`
+	KustomizePaths  []string                `yaml:"kustomizationPaths"`
+	Name            string                  `yaml:"name"`
+	Namespace       string                  `yaml:"namespace"`
+	Repository      string                  `yaml:"repository"`
+	SearchPaths     []string                `yaml:"searchPaths"`
+	Values          []ConfigurationValues   `yaml:"valuesFiles"`
+	VersionPattern  string                  `yaml:"versionPattern"`
 }
 
-type ConfigurationExclude struct {
+type ConfigurationFilter struct {
 	Group string `yaml:"group"`
 	Kind  string `yaml:"kind"`
 }

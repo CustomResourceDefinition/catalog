@@ -597,8 +597,8 @@ func TestExcludeFiltersMatchingCrd(t *testing.T) {
 				Paths:   []string{"any"},
 			},
 		},
-		Exclude: []configuration.ConfigurationExclude{
-			{Group: "other.example.com", Kind: "other"},
+		ExcludePatterns: []configuration.ConfigurationFilter{
+			{Group: "^other\\.example\\.com$", Kind: "^other$"},
 		},
 	}
 
@@ -641,8 +641,141 @@ func TestExcludeNoMatchKeepsAllCrds(t *testing.T) {
 				Paths:   []string{"any"},
 			},
 		},
-		Exclude: []configuration.ConfigurationExclude{
-			{Group: "unrelated.example.com", Kind: "something"},
+		ExcludePatterns: []configuration.ConfigurationFilter{
+			{Group: "^unrelated\\.example\\.com$", Kind: "^something$"},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
+	assert.Nil(t, err)
+
+	err = builder.Build()
+	assert.Nil(t, err)
+
+	_, err = os.Stat(path.Join(tmpDir, "crd.example.com", "test_v1.json"))
+	assert.Nil(t, err)
+
+	_, err = os.Stat(path.Join(tmpDir, "other.example.com", "other_v1.json"))
+	assert.Nil(t, err)
+}
+
+func TestIncludeFiltersMatchingCrd(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd-multi.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"crd.example.com"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "1.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+		IncludePatterns: []configuration.ConfigurationFilter{
+			{Group: "^crd\\.example\\.com$", Kind: "^test$"},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
+	assert.Nil(t, err)
+
+	err = builder.Build()
+	assert.Nil(t, err)
+
+	_, err = os.Stat(path.Join(tmpDir, "crd.example.com", "test_v1.json"))
+	assert.Nil(t, err)
+
+	_, err = os.Stat(path.Join(tmpDir, "other.example.com", "other_v1.json"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestIncludeNoMatchFiltersAllCrds(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd-multi.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"crd.example.com"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "1.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+		IncludePatterns: []configuration.ConfigurationFilter{
+			{Group: "^unrelated\\.example\\.com$", Kind: "^something$"},
+		},
+	}
+
+	reader, err := crd.NewCrdReader(setupLogger())
+	assert.Nil(t, err)
+
+	tmpDir := t.TempDir()
+
+	builder, err := NewBuilder(config, reader, tmpDir, tmpDir, tmpDir, setupLogger(), nil)
+	assert.Nil(t, err)
+
+	err = builder.Build()
+	assert.Nil(t, err)
+
+	_, err = os.Stat(path.Join(tmpDir, "crd.example.com", "test_v1.json"))
+	assert.True(t, os.IsNotExist(err))
+
+	_, err = os.Stat(path.Join(tmpDir, "other.example.com", "other_v1.json"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestIncludeMultipleMatchesKeepsAll(t *testing.T) {
+	b, err := os.ReadFile("testdata/test-crd-multi.yaml")
+	assert.Nil(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+	defer server.Close()
+
+	config := configuration.Configuration{
+		Kind:      configuration.Http,
+		Name:      "test",
+		ApiGroups: []string{"crd.example.com"},
+		Downloads: []configuration.ConfigurationDownload{
+			{
+				BaseUri: server.URL,
+				Version: "1.0.0",
+				Paths:   []string{"any"},
+			},
+		},
+		IncludePatterns: []configuration.ConfigurationFilter{
+			{Group: "^crd\\.example\\.com$", Kind: "^test$"},
+			{Group: "^other\\.example\\.com$", Kind: "^other$"},
 		},
 	}
 
