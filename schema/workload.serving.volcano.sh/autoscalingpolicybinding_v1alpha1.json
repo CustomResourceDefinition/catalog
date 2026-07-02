@@ -1,0 +1,373 @@
+{
+  "description": "AutoscalingPolicyBinding binds AutoscalingPolicy rules to specific ModelServing deployments.\nIt enables either traditional metric-based scaling or multi-target optimization across heterogeneous hardware deployments.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "AutoscalingPolicyBindingSpec defines the desired state of AutoscalingPolicyBinding.",
+      "type": "object",
+      "required": [
+        "policyRef"
+      ],
+      "properties": {
+        "heterogeneousTarget": {
+          "description": "HeterogeneousTarget enables optimization-based scaling across multiple ModelServing deployments with different hardware capabilities.\nThis approach dynamically adjusts replica distribution across heterogeneous resources (e.g., H100/A100 GPUs) based on overall computing requirements.",
+          "type": "object",
+          "properties": {
+            "costExpansionRatePercent": {
+              "description": "CostExpansionRatePercent defines the percentage rate at which the cost expands during optimization calculations.",
+              "type": "integer",
+              "format": "int32",
+              "default": 200,
+              "minimum": 0
+            },
+            "params": {
+              "description": "Params defines the configuration parameters for multiple ModelServing groups to be optimized.",
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "description": "HeterogeneousTargetParam defines the configuration parameters for a specific deployment type in heterogeneous scaling.",
+                "type": "object",
+                "required": [
+                  "maxReplicas",
+                  "minReplicas"
+                ],
+                "properties": {
+                  "cost": {
+                    "description": "Cost defines the relative cost factor used in optimization calculations.\nThis factor balances performance requirements against deployment costs.",
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  },
+                  "maxReplicas": {
+                    "description": "MaxReplicas defines the maximum number of replicas allowed for this deployment type.",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 1000000,
+                    "minimum": 1
+                  },
+                  "minReplicas": {
+                    "description": "MinReplicas defines the minimum number of replicas to maintain for this deployment type.",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 1000000,
+                    "minimum": 0
+                  },
+                  "target": {
+                    "description": "Target defines the scaling instance configuration for this deployment type.",
+                    "type": "object",
+                    "required": [
+                      "targetRef"
+                    ],
+                    "properties": {
+                      "metricEndpoint": {
+                        "description": "MetricEndpoint defines the configuration for scraping metrics from the target pods.",
+                        "type": "object",
+                        "properties": {
+                          "labelSelector": {
+                            "description": "LabelSelector defines additional label-based filtering for pods that expose metric endpoints.\nFor example: Ray Leader Pods expose metrics but worker pods don't, so use `ray.io/ray-node-type: 'raylet'`.\nWhen targetRef kind is `ModelServing` or `ModelServing/Role`, `modelserving.volcano.sh/entry: 'true'` is added by default.",
+                            "type": "object",
+                            "properties": {
+                              "matchExpressions": {
+                                "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                                "type": "array",
+                                "items": {
+                                  "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                                  "type": "object",
+                                  "required": [
+                                    "key",
+                                    "operator"
+                                  ],
+                                  "properties": {
+                                    "key": {
+                                      "description": "key is the label key that the selector applies to.",
+                                      "type": "string"
+                                    },
+                                    "operator": {
+                                      "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                      "type": "string"
+                                    },
+                                    "values": {
+                                      "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "x-kubernetes-list-type": "atomic"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "x-kubernetes-list-type": "atomic"
+                              },
+                              "matchLabels": {
+                                "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "additionalProperties": false,
+                            "x-kubernetes-map-type": "atomic"
+                          },
+                          "port": {
+                            "description": "Port defines the network port where metrics are exposed by the pods.",
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 8100
+                          },
+                          "uri": {
+                            "description": "Uri defines the HTTP path where metrics are exposed (e.g., \"/metrics\").",
+                            "type": "string",
+                            "default": "/metrics"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "subTargets": {
+                        "description": "SubTarget defines the sub-target object to be monitored and scaled.\nCurrently supported kinds: `Role` when TargetRef kind is ModelServing.",
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "targetRef": {
+                        "description": "TargetRef references the target object to be monitored and scaled.\nDefault target GVK is ModelServing. Currently supported kinds: ModelServing.",
+                        "type": "object",
+                        "properties": {
+                          "apiVersion": {
+                            "description": "API version of the referent.",
+                            "type": "string"
+                          },
+                          "fieldPath": {
+                            "description": "If referring to a piece of an object instead of an entire object, this string\nshould contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].\nFor example, if the object reference is to a container within a pod, this would take on a value like:\n\"spec.containers{name}\" (where \"name\" refers to the name of the container that triggered\nthe event) or if no container name is specified \"spec.containers[2]\" (container with\nindex 2 in this pod). This syntax is chosen only to have some well-defined way of\nreferencing a part of an object.",
+                            "type": "string"
+                          },
+                          "kind": {
+                            "description": "Kind of the referent.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+                            "type": "string"
+                          },
+                          "name": {
+                            "description": "Name of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "description": "Namespace of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
+                            "type": "string"
+                          },
+                          "resourceVersion": {
+                            "description": "Specific resourceVersion to which this reference is made, if any.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency",
+                            "type": "string"
+                          },
+                          "uid": {
+                            "description": "UID of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "homogeneousTarget": {
+          "description": "HomogeneousTarget enables traditional metric-based scaling for a single ModelServing deployment.\nThis approach adjusts replica count based on monitoring metrics and their target values.",
+          "type": "object",
+          "required": [
+            "maxReplicas",
+            "minReplicas"
+          ],
+          "properties": {
+            "maxReplicas": {
+              "description": "MaxReplicas defines the maximum number of replicas allowed.",
+              "type": "integer",
+              "format": "int32",
+              "maximum": 1000000,
+              "minimum": 1
+            },
+            "minReplicas": {
+              "description": "MinReplicas defines the minimum number of replicas to maintain.",
+              "type": "integer",
+              "format": "int32",
+              "maximum": 1000000,
+              "minimum": 0
+            },
+            "target": {
+              "description": "Target defines the object to be monitored and scaled.",
+              "type": "object",
+              "required": [
+                "targetRef"
+              ],
+              "properties": {
+                "metricEndpoint": {
+                  "description": "MetricEndpoint defines the configuration for scraping metrics from the target pods.",
+                  "type": "object",
+                  "properties": {
+                    "labelSelector": {
+                      "description": "LabelSelector defines additional label-based filtering for pods that expose metric endpoints.\nFor example: Ray Leader Pods expose metrics but worker pods don't, so use `ray.io/ray-node-type: 'raylet'`.\nWhen targetRef kind is `ModelServing` or `ModelServing/Role`, `modelserving.volcano.sh/entry: 'true'` is added by default.",
+                      "type": "object",
+                      "properties": {
+                        "matchExpressions": {
+                          "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                          "type": "array",
+                          "items": {
+                            "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                            "type": "object",
+                            "required": [
+                              "key",
+                              "operator"
+                            ],
+                            "properties": {
+                              "key": {
+                                "description": "key is the label key that the selector applies to.",
+                                "type": "string"
+                              },
+                              "operator": {
+                                "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                "type": "string"
+                              },
+                              "values": {
+                                "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "x-kubernetes-list-type": "atomic"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "x-kubernetes-list-type": "atomic"
+                        },
+                        "matchLabels": {
+                          "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "additionalProperties": false,
+                      "x-kubernetes-map-type": "atomic"
+                    },
+                    "port": {
+                      "description": "Port defines the network port where metrics are exposed by the pods.",
+                      "type": "integer",
+                      "format": "int32",
+                      "default": 8100
+                    },
+                    "uri": {
+                      "description": "Uri defines the HTTP path where metrics are exposed (e.g., \"/metrics\").",
+                      "type": "string",
+                      "default": "/metrics"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "subTargets": {
+                  "description": "SubTarget defines the sub-target object to be monitored and scaled.\nCurrently supported kinds: `Role` when TargetRef kind is ModelServing.",
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "targetRef": {
+                  "description": "TargetRef references the target object to be monitored and scaled.\nDefault target GVK is ModelServing. Currently supported kinds: ModelServing.",
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "description": "API version of the referent.",
+                      "type": "string"
+                    },
+                    "fieldPath": {
+                      "description": "If referring to a piece of an object instead of an entire object, this string\nshould contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].\nFor example, if the object reference is to a container within a pod, this would take on a value like:\n\"spec.containers{name}\" (where \"name\" refers to the name of the container that triggered\nthe event) or if no container name is specified \"spec.containers[2]\" (container with\nindex 2 in this pod). This syntax is chosen only to have some well-defined way of\nreferencing a part of an object.",
+                      "type": "string"
+                    },
+                    "kind": {
+                      "description": "Kind of the referent.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Name of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
+                      "type": "string"
+                    },
+                    "resourceVersion": {
+                      "description": "Specific resourceVersion to which this reference is made, if any.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency",
+                      "type": "string"
+                    },
+                    "uid": {
+                      "description": "UID of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-map-type": "atomic"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "policyRef": {
+          "description": "PolicyRef references the AutoscalingPolicy that defines the scaling rules and metrics.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+              "type": "string",
+              "default": ""
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-map-type": "atomic"
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "has(self.heterogeneousTarget) != has(self.homogeneousTarget)",
+          "message": "Either heterogeneousTarget or homogeneousTarget must be set, but not both."
+        }
+      ]
+    },
+    "status": {
+      "description": "AutoscalingPolicyBindingStatus defines the observed state of AutoscalingPolicyBinding.",
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,169 @@
+{
+  "description": "ResourceInterpreterCustomization describes the configuration of a specific\nresource for Karmada to get the structure.\nIt has higher precedence than the default interpreter and the interpreter\nwebhook.",
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "Spec describes the configuration in detail.",
+      "type": "object",
+      "required": [
+        "customizations",
+        "target"
+      ],
+      "properties": {
+        "customizations": {
+          "description": "Customizations describe the interpretation rules.",
+          "type": "object",
+          "properties": {
+            "componentResource": {
+              "description": "ComponentResource describes the rules for Karmada to discover the resource requirements\nfor multiple components from the given object.\nThis is designed for CRDs with multiple components (e.g., FlinkDeployment), but\ncan also be used for single-component resources like Deployment.\nIf implemented, the controller will use this to obtain per-component replica and resource\nrequirements, and will not call ReplicaResource.\nIf not implemented, the controller will fall back to ReplicaResource for backward compatibility.\nThis will only be used when the feature gate 'MultiplePodTemplatesScheduling' is enabled.",
+              "type": "object",
+              "required": [
+                "luaScript"
+              ],
+              "properties": {
+                "luaScript": {
+                  "description": "LuaScript holds the Lua script that is used to extract the desired replica count and resource\nrequirements for each component of the resource.\n\nThe script should implement a function as follows:\n\n```\n  luaScript: \u003e\n      function GetComponents(desiredObj)\n          local components = {}\n\n          local jobManagerComponent = {\n              name = \"jobmanager\",\n              replicas = desiredObj.spec.jobManager.replicas\n          }\n          table.insert(components, jobManagerComponent)\n\n          local taskManagerComponent = {\n              name = \"taskmanager\",\n              replicas = desiredObj.spec.taskManager.replicas\n          }\n          table.insert(components, taskManagerComponent)\n\n          return components\n      end\n```\n\nThe content of the LuaScript needs to be a whole function including both\ndeclaration and implementation.\n\nThe parameters will be supplied by the system:\n  - desiredObj: the object represents the configuration to be applied\n      to the member cluster.\n\nThe function expects one return value:\n  - components: the resource requirements for each component.\nThe returned value will be set into a ResourceBinding or ClusterResourceBinding.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "dependencyInterpretation": {
+              "description": "DependencyInterpretation describes the rules for Karmada to analyze the\ndependent resources.\nKarmada provides built-in rules for several standard Kubernetes types, see:\nhttps://karmada.io/docs/userguide/globalview/customizing-resource-interpreter/#interpretdependency\nIf DependencyInterpretation is set, the built-in rules will be ignored.",
+              "type": "object",
+              "required": [
+                "luaScript"
+              ],
+              "properties": {
+                "luaScript": {
+                  "description": "LuaScript holds the Lua script that is used to interpret the dependencies of\na specific resource.\nThe script should implement a function as follows:\n\n```\n  luaScript: \u003e\n      function GetDependencies(desiredObj)\n          dependencies = {}\n          serviceAccountName = desiredObj.spec.template.spec.serviceAccountName\n          if serviceAccountName ~= nil and serviceAccountName ~= \"default\" then\n              dependency = {}\n              dependency.apiVersion = \"v1\"\n              dependency.kind = \"ServiceAccount\"\n              dependency.name = serviceAccountName\n              dependency.namespace = desiredObj.metadata.namespace\n              dependencies[1] = dependency\n          end\n          return dependencies\n      end\n```\n\nThe content of the LuaScript needs to be a whole function including both\ndeclaration and implementation.\n\nThe parameters will be supplied by the system:\n  - desiredObj: the object represents the configuration to be applied\n      to the member cluster.\n\nThe returned value should be expressed by a slice of DependentObjectReference.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "healthInterpretation": {
+              "description": "HealthInterpretation describes the health assessment rules by which Karmada\ncan assess the health state of the resource type.",
+              "type": "object",
+              "required": [
+                "luaScript"
+              ],
+              "properties": {
+                "luaScript": {
+                  "description": "LuaScript holds the Lua script that is used to assess the health state of\na specific resource.\nThe script should implement a function as follows:\n\n```\n  luaScript: \u003e\n      function InterpretHealth(observedObj)\n          if observedObj.status.readyReplicas == observedObj.spec.replicas then\n              return true\n          end\n      end\n```\n\nThe content of the LuaScript needs to be a whole function including both\ndeclaration and implementation.\n\nThe parameters will be supplied by the system:\n  - observedObj: the object represents the configuration that is observed\n      from a specific member cluster.\n\nThe returned boolean value indicates the health status.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "replicaResource": {
+              "description": "ReplicaResource describes the rules for Karmada to discover the resource's\nreplica as well as resource requirements.\nIt would be useful for those CRD resources that declare workload types like\nDeployment.\nIt is usually not needed for Kubernetes native resources(Deployment, Job) as\nKarmada knows how to discover info from them. But if it is set, the built-in\ndiscovery rules will be ignored.",
+              "type": "object",
+              "required": [
+                "luaScript"
+              ],
+              "properties": {
+                "luaScript": {
+                  "description": "LuaScript holds the Lua script that is used to discover the resource's\nreplica as well as resource requirements\n\nThe script should implement a function as follows:\n\n```\n  luaScript: \u003e\n      function GetReplicas(desiredObj)\n          replica = desiredObj.spec.replicas\n          requirement = {}\n          requirement.nodeClaim = {}\n          requirement.nodeClaim.nodeSelector = desiredObj.spec.template.spec.nodeSelector\n          requirement.nodeClaim.tolerations = desiredObj.spec.template.spec.tolerations\n          requirement.resourceRequest = desiredObj.spec.template.spec.containers[1].resources.limits\n          return replica, requirement\n      end\n```\n\nThe content of the LuaScript needs to be a whole function including both\ndeclaration and implementation.\n\nThe parameters will be supplied by the system:\n  - desiredObj: the object represents the configuration to be applied\n      to the member cluster.\n\nThe function expects two return values:\n  - replica: the declared replica number\n  - requirement: the resource required by each replica expressed with a\n      ResourceBindingSpec.ReplicaRequirements.\nThe returned values will be set into a ResourceBinding or ClusterResourceBinding.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "replicaRevision": {
+              "description": "ReplicaRevision describes the rules for Karmada to revise the resource's replica.\nIt would be useful for those CRD resources that declare workload types like\nDeployment.\nIt is usually not needed for Kubernetes native resources(Deployment, Job) as\nKarmada knows how to revise replicas for them. But if it is set, the built-in\nrevision rules will be ignored.",
+              "type": "object",
+              "required": [
+                "luaScript"
+              ],
+              "properties": {
+                "luaScript": {
+                  "description": "LuaScript holds the Lua script that is used to revise replicas in the desired specification.\nThe script should implement a function as follows:\n\n```\n  luaScript: \u003e\n      function ReviseReplica(desiredObj, desiredReplica)\n          desiredObj.spec.replicas = desiredReplica\n          return desiredObj\n      end\n```\n\nThe content of the LuaScript needs to be a whole function including both\ndeclaration and implementation.\n\nThe parameters will be supplied by the system:\n  - desiredObj: the object represents the configuration to be applied\n      to the member cluster.\n  - desiredReplica: the replica number should be applied with.\n\nThe returned object should be a revised configuration which will be\napplied to member cluster eventually.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "retention": {
+              "description": "Retention describes the desired behavior that Karmada should react on\nthe changes made by member cluster components. This avoids system\nrunning into a meaningless loop that Karmada resource controller and\nthe member cluster component continually applying opposite values of a field.\nFor example, the \"replicas\" of Deployment might be changed by the HPA\ncontroller on member cluster. In this case, Karmada should retain the \"replicas\"\nand not try to change it.",
+              "type": "object",
+              "required": [
+                "luaScript"
+              ],
+              "properties": {
+                "luaScript": {
+                  "description": "LuaScript holds the Lua script that is used to retain runtime values\nto the desired specification.\n\nThe script should implement a function as follows:\n\n```\n  luaScript: \u003e\n      function Retain(desiredObj, observedObj)\n          desiredObj.spec.fieldFoo = observedObj.spec.fieldFoo\n          return desiredObj\n      end\n```\n\nThe content of the LuaScript needs to be a whole function including both\ndeclaration and implementation.\n\nThe parameters will be supplied by the system:\n  - desiredObj: the object represents the configuration to be applied\n      to the member cluster.\n  - observedObj: the object represents the configuration that is observed\n      from a specific member cluster.\n\nThe returned object should be a retained configuration which will be\napplied to member cluster eventually.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "statusAggregation": {
+              "description": "StatusAggregation describes the rules for Karmada to aggregate status\ncollected from member clusters to resource template.\nKarmada provides built-in rules for several standard Kubernetes types, see:\nhttps://karmada.io/docs/userguide/globalview/customizing-resource-interpreter/#aggregatestatus\nIf StatusAggregation is set, the built-in rules will be ignored.",
+              "type": "object",
+              "required": [
+                "luaScript"
+              ],
+              "properties": {
+                "luaScript": {
+                  "description": "LuaScript holds the Lua script that is used to aggregate decentralized statuses\nto the desired specification.\nThe script should implement a function as follows:\n\n```\n  luaScript: \u003e\n      function AggregateStatus(desiredObj, statusItems)\n          for i = 1, #statusItems do\n              desiredObj.status.readyReplicas = desiredObj.status.readyReplicas + items[i].readyReplicas\n          end\n          return desiredObj\n      end\n```\n\nThe content of the LuaScript needs to be a whole function including both\ndeclaration and implementation.\n\nThe parameters will be supplied by the system:\n  - desiredObj: the object represents a resource template.\n  - statusItems: the slice of status expressed with AggregatedStatusItem.\n\nThe returned object should be a whole object with status aggregated.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "statusReflection": {
+              "description": "StatusReflection describes the rules for Karmada to pick the resource's status.\nKarmada provides built-in rules for several standard Kubernetes types, see:\nhttps://karmada.io/docs/userguide/globalview/customizing-resource-interpreter/#interpretstatus\nIf StatusReflection is set, the built-in rules will be ignored.",
+              "type": "object",
+              "required": [
+                "luaScript"
+              ],
+              "properties": {
+                "luaScript": {
+                  "description": "LuaScript holds the Lua script that is used to get the status from the observed specification.\nThe script should implement a function as follows:\n\n```\n  luaScript: \u003e\n      function ReflectStatus(observedObj)\n          status = {}\n          status.readyReplicas = observedObj.status.observedObj\n          return status\n      end\n```\n\nThe content of the LuaScript needs to be a whole function including both\ndeclaration and implementation.\n\nThe parameters will be supplied by the system:\n  - observedObj: the object represents the configuration that is observed\n      from a specific member cluster.\n\nThe returned status could be the whole status or part of it and will\nbe set into both Work and ResourceBinding(ClusterResourceBinding).",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "target": {
+          "description": "CustomizationTarget represents the resource type that the customization applies to.",
+          "type": "object",
+          "required": [
+            "apiVersion",
+            "kind"
+          ],
+          "properties": {
+            "apiVersion": {
+              "description": "APIVersion represents the API version of the target resource.",
+              "type": "string"
+            },
+            "kind": {
+              "description": "Kind represents the Kind of target resources.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

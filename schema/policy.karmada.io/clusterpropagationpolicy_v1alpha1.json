@@ -1,0 +1,956 @@
+{
+  "description": "ClusterPropagationPolicy represents the cluster-wide policy that propagates a group of resources to one or more clusters.\nDifferent with PropagationPolicy that could only propagate resources in its own namespace, ClusterPropagationPolicy\nis able to propagate cluster level resources and resources in any namespace other than system reserved ones.\nSystem reserved namespaces are: karmada-system, karmada-cluster, karmada-es-*.",
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "Spec represents the desired behavior of ClusterPropagationPolicy.",
+      "type": "object",
+      "required": [
+        "resourceSelectors"
+      ],
+      "properties": {
+        "activationPreference": {
+          "description": "ActivationPreference indicates how the referencing resource template will\nbe propagated, in case of policy changes.\n\nIf empty, the resource template will respond to policy changes\nimmediately, in other words, any policy changes will drive the resource\ntemplate to be propagated immediately as per the current propagation rules.\n\nIf the value is 'Lazy' means the policy changes will not take effect for now\nbut defer to the resource template changes, in other words, the resource\ntemplate will not be propagated as per the current propagation rules until\nthere is an update on it.\nThis is an experimental feature that might help in a scenario where a policy\nmanages huge amount of resource templates, changes to a policy typically\naffect numerous applications simultaneously. A minor misconfiguration\ncould lead to widespread failures. With this feature, the change can be\ngradually rolled out through iterative modifications of resource templates.",
+          "type": "string",
+          "enum": [
+            "Lazy"
+          ]
+        },
+        "association": {
+          "description": "Association tells if relevant resources should be selected automatically.\ne.g. a ConfigMap referred by a Deployment.\ndefault false.\nDeprecated: in favor of PropagateDeps.",
+          "type": "boolean"
+        },
+        "conflictResolution": {
+          "description": "ConflictResolution declares how potential conflict should be handled when\na resource that is being propagated already exists in the target cluster.\n\nIt defaults to \"Abort\" which means stop propagating to avoid unexpected\noverwrites. The \"Overwrite\" might be useful when migrating legacy cluster\nresources to Karmada, in which case conflict is predictable and can be\ninstructed to Karmada take over the resource by overwriting.",
+          "type": "string",
+          "default": "Abort",
+          "enum": [
+            "Abort",
+            "Overwrite"
+          ]
+        },
+        "dependentOverrides": {
+          "description": "DependentOverrides represents the list of overrides(OverridePolicy)\nwhich must present before the current PropagationPolicy takes effect.\n\nIt used to explicitly specify overrides which current PropagationPolicy rely on.\nA typical scenario is the users create OverridePolicy(ies) and resources at the same time,\nthey want to ensure the new-created policies would be adopted.\n\nNote: For the overrides, OverridePolicy(ies) in current namespace and ClusterOverridePolicy(ies),\nwhich not present in this list will still be applied if they matches the resources.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "failover": {
+          "description": "Failover indicates how Karmada migrates applications in case of failures.\nIf this value is nil, failover is disabled.",
+          "type": "object",
+          "properties": {
+            "application": {
+              "description": "Application indicates failover behaviors in case of application failure.\nIf this value is nil, failover is disabled.\nIf set, the PropagateDeps should be true so that the dependencies could\nbe migrated along with the application.",
+              "type": "object",
+              "required": [
+                "decisionConditions"
+              ],
+              "properties": {
+                "decisionConditions": {
+                  "description": "DecisionConditions indicates the decision conditions of performing the failover process.\nOnly when all conditions are met can the failover process be performed.\nCurrently, DecisionConditions includes several conditions:\n- TolerationSeconds (optional)",
+                  "type": "object",
+                  "properties": {
+                    "tolerationSeconds": {
+                      "description": "TolerationSeconds represents the period of time Karmada should wait\nafter reaching the desired state before performing failover process.\nIf not specified, Karmada will immediately perform failover process.\nDefaults to 300s.",
+                      "type": "integer",
+                      "format": "int32",
+                      "default": 300
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "gracePeriodSeconds": {
+                  "description": "GracePeriodSeconds is the maximum waiting duration in seconds before\napplication on the migrated cluster should be deleted.\nRequired only when PurgeMode is \"Graciously\" and defaults to 600s.\nIf the application on the new cluster cannot reach a Healthy state,\nKarmada will delete the application after GracePeriodSeconds is reached.\nValue must be positive integer.",
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "purgeMode": {
+                  "description": "PurgeMode represents how to deal with the legacy applications on the\ncluster from which the application is migrated.\nValid options are \"Directly\", \"Gracefully\", \"Never\", \"Immediately\"(deprecated),\nand \"Graciously\"(deprecated).\nDefaults to \"Gracefully\".",
+                  "type": "string",
+                  "default": "Gracefully",
+                  "enum": [
+                    "Directly",
+                    "Gracefully",
+                    "Never",
+                    "Immediately",
+                    "Graciously"
+                  ]
+                },
+                "statePreservation": {
+                  "description": "StatePreservation defines the policy for preserving and restoring state data\nduring failover events for stateful applications.\n\nWhen an application fails over from one cluster to another, this policy enables\nthe extraction of critical data from the original resource configuration.\nUpon successful migration, the extracted data is then re-injected into the new\nresource, ensuring that the application can resume operation with its previous\nstate intact.\nThis is particularly useful for stateful applications where maintaining data\nconsistency across failover events is crucial.\nIf not specified, means no state data will be preserved.\n\nNote: This requires the StatefulFailoverInjection feature gate to be enabled,\nwhich is alpha.",
+                  "type": "object",
+                  "required": [
+                    "rules"
+                  ],
+                  "properties": {
+                    "rules": {
+                      "description": "Rules contains a list of StatePreservationRule configurations.\nEach rule specifies a JSONPath expression targeting specific pieces of\nstate data to be preserved during failover events. An AliasLabelName is associated\nwith each rule, serving as a label key when the preserved data is passed\nto the new cluster.",
+                      "type": "array",
+                      "items": {
+                        "description": "StatePreservationRule defines a single rule for state preservation.\nIt includes a JSONPath expression and an alias name that will be used\nas a label key when passing state information to the new cluster.",
+                        "type": "object",
+                        "required": [
+                          "aliasLabelName",
+                          "jsonPath"
+                        ],
+                        "properties": {
+                          "aliasLabelName": {
+                            "description": "AliasLabelName is the name that will be used as a label key when the preserved\ndata is passed to the new cluster. This facilitates the injection of the\npreserved state back into the application resources during recovery.",
+                            "type": "string"
+                          },
+                          "jsonPath": {
+                            "description": "JSONPath is the JSONPath template used to identify the state data\nto be preserved from the original resource configuration.\nThe JSONPath syntax follows the Kubernetes specification:\nhttps://kubernetes.io/docs/reference/kubectl/jsonpath/\n\nNote: The JSONPath expression will start searching from the \"status\" field of\nthe API resource object by default. For example, to extract the \"availableReplicas\"\nfrom a Deployment, the JSONPath expression should be \"{.availableReplicas}\", not\n\"{.status.availableReplicas}\".",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "cluster": {
+              "description": "Cluster indicates failover behaviors in case of cluster failure.\nIf this value is nil, the failover behavior in case of cluster failure\nwill be controlled by the controller's no-execute-taint-eviction-purge-mode\nparameter.\nIf set, the failover behavior in case of cluster failure will be defined\nby this value.",
+              "type": "object",
+              "properties": {
+                "purgeMode": {
+                  "description": "PurgeMode represents how to deal with the legacy applications on the\ncluster from which the application is migrated.\nValid options are \"Directly\", \"Gracefully\".\nDefaults to \"Gracefully\".",
+                  "type": "string",
+                  "default": "Gracefully",
+                  "enum": [
+                    "Directly",
+                    "Gracefully"
+                  ]
+                },
+                "statePreservation": {
+                  "description": "StatePreservation defines the policy for preserving and restoring state data\nduring failover events for stateful applications.\n\nWhen an application fails over from one cluster to another, this policy enables\nthe extraction of critical data from the original resource configuration.\nUpon successful migration, the extracted data is then re-injected into the new\nresource, ensuring that the application can resume operation with its previous\nstate intact.\nThis is particularly useful for stateful applications where maintaining data\nconsistency across failover events is crucial.\nIf not specified, means no state data will be preserved.\n\nNote: This requires the StatefulFailoverInjection feature gate to be enabled,\nwhich is alpha.",
+                  "type": "object",
+                  "required": [
+                    "rules"
+                  ],
+                  "properties": {
+                    "rules": {
+                      "description": "Rules contains a list of StatePreservationRule configurations.\nEach rule specifies a JSONPath expression targeting specific pieces of\nstate data to be preserved during failover events. An AliasLabelName is associated\nwith each rule, serving as a label key when the preserved data is passed\nto the new cluster.",
+                      "type": "array",
+                      "items": {
+                        "description": "StatePreservationRule defines a single rule for state preservation.\nIt includes a JSONPath expression and an alias name that will be used\nas a label key when passing state information to the new cluster.",
+                        "type": "object",
+                        "required": [
+                          "aliasLabelName",
+                          "jsonPath"
+                        ],
+                        "properties": {
+                          "aliasLabelName": {
+                            "description": "AliasLabelName is the name that will be used as a label key when the preserved\ndata is passed to the new cluster. This facilitates the injection of the\npreserved state back into the application resources during recovery.",
+                            "type": "string"
+                          },
+                          "jsonPath": {
+                            "description": "JSONPath is the JSONPath template used to identify the state data\nto be preserved from the original resource configuration.\nThe JSONPath syntax follows the Kubernetes specification:\nhttps://kubernetes.io/docs/reference/kubectl/jsonpath/\n\nNote: The JSONPath expression will start searching from the \"status\" field of\nthe API resource object by default. For example, to extract the \"availableReplicas\"\nfrom a Deployment, the JSONPath expression should be \"{.availableReplicas}\", not\n\"{.status.availableReplicas}\".",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "placement": {
+          "description": "Placement represents the rule for select clusters to propagate resources.",
+          "type": "object",
+          "properties": {
+            "clusterAffinities": {
+              "description": "ClusterAffinities represents scheduling restrictions to multiple cluster\ngroups that indicated by ClusterAffinityTerm.\n\nThe scheduler will evaluate these groups one by one in the order they\nappear in the spec, the group that does not satisfy scheduling restrictions\nwill be ignored which means all clusters in this group will not be selected\nunless it also belongs to the next group(a cluster could belong to multiple\ngroups).\n\nIf none of the groups satisfy the scheduling restrictions, then scheduling\nfails, which means no cluster will be selected.\n\nNote:\n  1. ClusterAffinities can not co-exist with ClusterAffinity.\n  2. If both ClusterAffinity and ClusterAffinities are not set, any cluster\n     can be scheduling candidates.\n\nPotential use case 1:\nThe private clusters in the local data center could be the main group, and\nthe managed clusters provided by cluster providers could be the secondary\ngroup. So that the Karmada scheduler would prefer to schedule workloads\nto the main group and the second group will only be considered in case of\nthe main group does not satisfy restrictions(like, lack of resources).\n\nPotential use case 2:\nFor the disaster recovery scenario, the clusters could be organized to\nprimary and backup groups, the workloads would be scheduled to primary\nclusters firstly, and when primary cluster fails(like data center power off),\nKarmada scheduler could migrate workloads to the backup clusters.",
+              "type": "array",
+              "items": {
+                "description": "ClusterAffinityTerm selects a set of cluster.",
+                "type": "object",
+                "required": [
+                  "affinityName"
+                ],
+                "properties": {
+                  "affinityName": {
+                    "description": "AffinityName is the name of the cluster group.",
+                    "type": "string",
+                    "maxLength": 32,
+                    "minLength": 1
+                  },
+                  "clusterNames": {
+                    "description": "ClusterNames is the list of clusters to be selected.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "exclude": {
+                    "description": "ExcludedClusters is the list of clusters to be ignored.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "fieldSelector": {
+                    "description": "FieldSelector is a filter to select member clusters by fields.\nThe key(field) of the match expression should be 'provider', 'region', or 'zone',\nand the operator of the match expression should be 'In' or 'NotIn'.\nIf non-nil and non-empty, only the clusters match this filter will be selected.",
+                    "type": "object",
+                    "properties": {
+                      "matchExpressions": {
+                        "description": "A list of field selector requirements.",
+                        "type": "array",
+                        "items": {
+                          "description": "A node selector requirement is a selector that contains values, a key, and an operator\nthat relates the key and values.",
+                          "type": "object",
+                          "required": [
+                            "key",
+                            "operator"
+                          ],
+                          "properties": {
+                            "key": {
+                              "description": "The label key that the selector applies to.",
+                              "type": "string"
+                            },
+                            "operator": {
+                              "description": "Represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.",
+                              "type": "string"
+                            },
+                            "values": {
+                              "description": "An array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. If the operator is Gt or Lt, the values\narray must have a single element, which will be interpreted as an integer.\nThis array is replaced during a strategic merge patch.",
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "x-kubernetes-list-type": "atomic"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "labelSelector": {
+                    "description": "LabelSelector is a filter to select member clusters by labels.\nIf non-nil and non-empty, only the clusters match this filter will be selected.",
+                    "type": "object",
+                    "properties": {
+                      "matchExpressions": {
+                        "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                        "type": "array",
+                        "items": {
+                          "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                          "type": "object",
+                          "required": [
+                            "key",
+                            "operator"
+                          ],
+                          "properties": {
+                            "key": {
+                              "description": "key is the label key that the selector applies to.",
+                              "type": "string"
+                            },
+                            "operator": {
+                              "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                              "type": "string"
+                            },
+                            "values": {
+                              "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "x-kubernetes-list-type": "atomic"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "x-kubernetes-list-type": "atomic"
+                      },
+                      "matchLabels": {
+                        "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-map-type": "atomic"
+                  },
+                  "overflowAffinities": {
+                    "description": "OverflowAffinities defines additional cluster groups that the scheduler\ncan progressively include when the primary group (defined by the inline\nClusterAffinity) has insufficient resources. Groups are expanded in order\nand contracted in reverse during scale-down.\nCan only be used together with the inline ClusterAffinity (the inline\nClusterAffinity serves as the primary/preferred group).\nIf a cluster appears in multiple OverflowClusterAffinity entries, it is\nscheduled according to the first entry in which it appears; subsequent\noccurrences of the same cluster are ignored.",
+                    "type": "array",
+                    "items": {
+                      "description": "OverflowClusterAffinity represents an overflow tier of candidate clusters.",
+                      "type": "object",
+                      "required": [
+                        "affinityName"
+                      ],
+                      "properties": {
+                        "affinityName": {
+                          "description": "AffinityName is the name of the cluster group.",
+                          "type": "string",
+                          "maxLength": 32,
+                          "minLength": 1
+                        },
+                        "clusterNames": {
+                          "description": "ClusterNames is the list of clusters to be selected.",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "exclude": {
+                          "description": "ExcludedClusters is the list of clusters to be ignored.",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "fieldSelector": {
+                          "description": "FieldSelector is a filter to select member clusters by fields.\nThe key(field) of the match expression should be 'provider', 'region', or 'zone',\nand the operator of the match expression should be 'In' or 'NotIn'.\nIf non-nil and non-empty, only the clusters match this filter will be selected.",
+                          "type": "object",
+                          "properties": {
+                            "matchExpressions": {
+                              "description": "A list of field selector requirements.",
+                              "type": "array",
+                              "items": {
+                                "description": "A node selector requirement is a selector that contains values, a key, and an operator\nthat relates the key and values.",
+                                "type": "object",
+                                "required": [
+                                  "key",
+                                  "operator"
+                                ],
+                                "properties": {
+                                  "key": {
+                                    "description": "The label key that the selector applies to.",
+                                    "type": "string"
+                                  },
+                                  "operator": {
+                                    "description": "Represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.",
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "description": "An array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. If the operator is Gt or Lt, the values\narray must have a single element, which will be interpreted as an integer.\nThis array is replaced during a strategic merge patch.",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "x-kubernetes-list-type": "atomic"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "labelSelector": {
+                          "description": "LabelSelector is a filter to select member clusters by labels.\nIf non-nil and non-empty, only the clusters match this filter will be selected.",
+                          "type": "object",
+                          "properties": {
+                            "matchExpressions": {
+                              "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                              "type": "array",
+                              "items": {
+                                "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                                "type": "object",
+                                "required": [
+                                  "key",
+                                  "operator"
+                                ],
+                                "properties": {
+                                  "key": {
+                                    "description": "key is the label key that the selector applies to.",
+                                    "type": "string"
+                                  },
+                                  "operator": {
+                                    "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "x-kubernetes-list-type": "atomic"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "x-kubernetes-list-type": "atomic"
+                            },
+                            "matchLabels": {
+                              "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-map-type": "atomic"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "clusterAffinity": {
+              "description": "ClusterAffinity represents scheduling restrictions to a certain set of clusters.\nNote:\n  1. ClusterAffinity can not co-exist with ClusterAffinities.\n  2. If both ClusterAffinity and ClusterAffinities are not set, any cluster\n     can be scheduling candidates.",
+              "type": "object",
+              "properties": {
+                "clusterNames": {
+                  "description": "ClusterNames is the list of clusters to be selected.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "exclude": {
+                  "description": "ExcludedClusters is the list of clusters to be ignored.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "fieldSelector": {
+                  "description": "FieldSelector is a filter to select member clusters by fields.\nThe key(field) of the match expression should be 'provider', 'region', or 'zone',\nand the operator of the match expression should be 'In' or 'NotIn'.\nIf non-nil and non-empty, only the clusters match this filter will be selected.",
+                  "type": "object",
+                  "properties": {
+                    "matchExpressions": {
+                      "description": "A list of field selector requirements.",
+                      "type": "array",
+                      "items": {
+                        "description": "A node selector requirement is a selector that contains values, a key, and an operator\nthat relates the key and values.",
+                        "type": "object",
+                        "required": [
+                          "key",
+                          "operator"
+                        ],
+                        "properties": {
+                          "key": {
+                            "description": "The label key that the selector applies to.",
+                            "type": "string"
+                          },
+                          "operator": {
+                            "description": "Represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.",
+                            "type": "string"
+                          },
+                          "values": {
+                            "description": "An array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. If the operator is Gt or Lt, the values\narray must have a single element, which will be interpreted as an integer.\nThis array is replaced during a strategic merge patch.",
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "x-kubernetes-list-type": "atomic"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "labelSelector": {
+                  "description": "LabelSelector is a filter to select member clusters by labels.\nIf non-nil and non-empty, only the clusters match this filter will be selected.",
+                  "type": "object",
+                  "properties": {
+                    "matchExpressions": {
+                      "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                      "type": "array",
+                      "items": {
+                        "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                        "type": "object",
+                        "required": [
+                          "key",
+                          "operator"
+                        ],
+                        "properties": {
+                          "key": {
+                            "description": "key is the label key that the selector applies to.",
+                            "type": "string"
+                          },
+                          "operator": {
+                            "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                            "type": "string"
+                          },
+                          "values": {
+                            "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "x-kubernetes-list-type": "atomic"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "x-kubernetes-list-type": "atomic"
+                    },
+                    "matchLabels": {
+                      "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-map-type": "atomic"
+                }
+              },
+              "additionalProperties": false
+            },
+            "clusterTolerations": {
+              "description": "ClusterTolerations represents the tolerations.",
+              "type": "array",
+              "items": {
+                "description": "The pod this Toleration is attached to tolerates any taint that matches\nthe triple \u003ckey,value,effect\u003e using the matching operator \u003coperator\u003e.",
+                "type": "object",
+                "properties": {
+                  "effect": {
+                    "description": "Effect indicates the taint effect to match. Empty means match all taint effects.\nWhen specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.",
+                    "type": "string"
+                  },
+                  "key": {
+                    "description": "Key is the taint key that the toleration applies to. Empty means match all taint keys.\nIf the key is empty, operator must be Exists; this combination means to match all values and all keys.",
+                    "type": "string"
+                  },
+                  "operator": {
+                    "description": "Operator represents a key's relationship to the value.\nValid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.\nLt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).",
+                    "type": "string"
+                  },
+                  "tolerationSeconds": {
+                    "description": "TolerationSeconds represents the period of time the toleration (which must be\nof effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,\nit is not set, which means tolerate the taint forever (do not evict). Zero and\nnegative values will be treated as 0 (evict immediately) by the system.",
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "value": {
+                    "description": "Value is the taint value the toleration matches to.\nIf the operator is Exists, the value should be empty, otherwise just a regular string.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "replicaScheduling": {
+              "description": "ReplicaScheduling represents the scheduling policy on dealing with the number of replicas\nwhen propagating resources that have replicas in spec (e.g. deployments, statefulsets) to member clusters.",
+              "type": "object",
+              "properties": {
+                "replicaDivisionPreference": {
+                  "description": "ReplicaDivisionPreference determines how the replicas is divided\nwhen ReplicaSchedulingType is \"Divided\". Valid options are Aggregated and Weighted.\n\"Aggregated\" divides replicas into clusters as few as possible,\nwhile respecting clusters' resource availabilities during the division.\n\"Weighted\" divides replicas by weight according to WeightPreference.",
+                  "type": "string",
+                  "enum": [
+                    "Aggregated",
+                    "Weighted"
+                  ]
+                },
+                "replicaSchedulingType": {
+                  "description": "ReplicaSchedulingType determines how the replicas is scheduled when karmada propagating\na resource. Valid options are Duplicated and Divided.\n\"Duplicated\" duplicates the same replicas to each candidate member cluster from resource.\n\"Divided\" divides replicas into parts according to number of valid candidate member\nclusters, and exact replicas for each cluster are determined by ReplicaDivisionPreference.",
+                  "type": "string",
+                  "default": "Divided",
+                  "enum": [
+                    "Duplicated",
+                    "Divided"
+                  ]
+                },
+                "weightPreference": {
+                  "description": "WeightPreference describes weight for each cluster or for each group of cluster\nIf ReplicaDivisionPreference is set to \"Weighted\", and WeightPreference is not set, scheduler will weight all clusters the same.",
+                  "type": "object",
+                  "properties": {
+                    "dynamicWeight": {
+                      "description": "DynamicWeight specifies the factor to generates dynamic weight list.\nIf specified, StaticWeightList will be ignored.",
+                      "type": "string",
+                      "enum": [
+                        "AvailableReplicas"
+                      ]
+                    },
+                    "staticWeightList": {
+                      "description": "StaticWeightList defines the static cluster weight.",
+                      "type": "array",
+                      "items": {
+                        "description": "StaticClusterWeight defines the static cluster weight.",
+                        "type": "object",
+                        "required": [
+                          "targetCluster",
+                          "weight"
+                        ],
+                        "properties": {
+                          "targetCluster": {
+                            "description": "TargetCluster describes the filter to select clusters.",
+                            "type": "object",
+                            "properties": {
+                              "clusterNames": {
+                                "description": "ClusterNames is the list of clusters to be selected.",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "exclude": {
+                                "description": "ExcludedClusters is the list of clusters to be ignored.",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "fieldSelector": {
+                                "description": "FieldSelector is a filter to select member clusters by fields.\nThe key(field) of the match expression should be 'provider', 'region', or 'zone',\nand the operator of the match expression should be 'In' or 'NotIn'.\nIf non-nil and non-empty, only the clusters match this filter will be selected.",
+                                "type": "object",
+                                "properties": {
+                                  "matchExpressions": {
+                                    "description": "A list of field selector requirements.",
+                                    "type": "array",
+                                    "items": {
+                                      "description": "A node selector requirement is a selector that contains values, a key, and an operator\nthat relates the key and values.",
+                                      "type": "object",
+                                      "required": [
+                                        "key",
+                                        "operator"
+                                      ],
+                                      "properties": {
+                                        "key": {
+                                          "description": "The label key that the selector applies to.",
+                                          "type": "string"
+                                        },
+                                        "operator": {
+                                          "description": "Represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.",
+                                          "type": "string"
+                                        },
+                                        "values": {
+                                          "description": "An array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. If the operator is Gt or Lt, the values\narray must have a single element, which will be interpreted as an integer.\nThis array is replaced during a strategic merge patch.",
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          },
+                                          "x-kubernetes-list-type": "atomic"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "labelSelector": {
+                                "description": "LabelSelector is a filter to select member clusters by labels.\nIf non-nil and non-empty, only the clusters match this filter will be selected.",
+                                "type": "object",
+                                "properties": {
+                                  "matchExpressions": {
+                                    "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                                    "type": "array",
+                                    "items": {
+                                      "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                                      "type": "object",
+                                      "required": [
+                                        "key",
+                                        "operator"
+                                      ],
+                                      "properties": {
+                                        "key": {
+                                          "description": "key is the label key that the selector applies to.",
+                                          "type": "string"
+                                        },
+                                        "operator": {
+                                          "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                          "type": "string"
+                                        },
+                                        "values": {
+                                          "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          },
+                                          "x-kubernetes-list-type": "atomic"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    },
+                                    "x-kubernetes-list-type": "atomic"
+                                  },
+                                  "matchLabels": {
+                                    "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "additionalProperties": false,
+                                "x-kubernetes-map-type": "atomic"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "weight": {
+                            "description": "Weight expressing the preference to the cluster(s) specified by 'TargetCluster'.",
+                            "type": "integer",
+                            "format": "int64",
+                            "minimum": 1
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "spreadConstraints": {
+              "description": "SpreadConstraints represents a list of the scheduling constraints.",
+              "type": "array",
+              "items": {
+                "description": "SpreadConstraint represents the spread constraints on resources.",
+                "type": "object",
+                "properties": {
+                  "maxGroups": {
+                    "description": "MaxGroups restricts the maximum number of cluster groups to be selected.",
+                    "type": "integer"
+                  },
+                  "minGroups": {
+                    "description": "MinGroups restricts the minimum number of cluster groups to be selected.\nDefaults to 1.",
+                    "type": "integer"
+                  },
+                  "spreadByField": {
+                    "description": "SpreadByField represents the fields on Karmada cluster API used for\ndynamically grouping member clusters into different groups.\nResources will be spread among different cluster groups.\nAvailable fields for spreading are: cluster, region, zone, and provider.\nSpreadByField should not co-exist with SpreadByLabel.\nIf both SpreadByField and SpreadByLabel are empty, SpreadByField will be set to \"cluster\" by system.",
+                    "type": "string",
+                    "enum": [
+                      "cluster",
+                      "region",
+                      "zone",
+                      "provider"
+                    ]
+                  },
+                  "spreadByLabel": {
+                    "description": "SpreadByLabel represents the label key used for\ngrouping member clusters into different groups.\nResources will be spread among different cluster groups.\nSpreadByLabel should not co-exist with SpreadByField.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "workloadAffinity": {
+              "description": "WorkloadAffinity represents inter-workload affinity and anti-affinity\nscheduling policies.",
+              "type": "object",
+              "properties": {
+                "affinity": {
+                  "description": "Affinity represents inter-workload affinity scheduling rules.\nThese are hard requirements: workloads will only be scheduled to clusters\nthat satisfy the affinity term if it is specified.\n\nFor the first workload of an affinity group (when no workloads with a\nmatching label value exist in the system), the scheduler will not block\nscheduling. This allows bootstrapping new workload groups without\nencountering scheduling deadlocks, providing a better user experience.",
+                  "type": "object",
+                  "required": [
+                    "groupByLabelKey"
+                  ],
+                  "properties": {
+                    "groupByLabelKey": {
+                      "description": "GroupByLabelKey declares the label key on the workload resource template that\ndetermines the affinity group. Workloads with the same label value under\nthis key belong to the same affinity group.\n\nThe scheduler maintains a global index of affinity groups in memory for\nefficient lookup. Each affinity group is identified by a serialized\nkey-value pair and contains all workload resource templates that belong\nto the group.\n\nNote: Affinity groups are scoped to the namespace. Workloads that use the\nsame affinity label but reside in different namespaces are not treated\nas part of the same group.\n\nThe key must be a valid Kubernetes label key.\n\nExample: If GroupByLabelKey is \"app.group\", workloads with the label\n\"app.group=frontend\" will form one affinity group, while those with\n\"app.group=backend\" will form another.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "antiAffinity": {
+                  "description": "AntiAffinity represents inter-workload anti-affinity scheduling rules.\nThese are hard requirements: workloads will be scheduled to avoid clusters\nwhere matching workloads are already scheduled.",
+                  "type": "object",
+                  "required": [
+                    "groupByLabelKey"
+                  ],
+                  "properties": {
+                    "groupByLabelKey": {
+                      "description": "GroupByLabelKey declares the label key on the workload resource template that\ndetermines the anti-affinity group. Workloads with the same label value under\nthis key belong to the same anti-affinity group and will be separated.\n\nThe scheduler maintains a global index of affinity groups in memory for\nefficient lookup. Each affinity group is identified by a serialized\nkey-value pair and contains all workload resource templates that belong\nto the group.\n\nNote: Affinity groups are scoped to the namespace. Workloads that use the\nsame anti-affinity label but reside in different namespaces are not treated\nas part of the same group.\n\nThe key must be a valid Kubernetes label key.\n\nExample: If GroupByLabelKey is \"app.group\", workloads with the label\n\"app.group=frontend\" will avoid clusters where other\n\"app.group=frontend\" workloads already exist.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "preemption": {
+          "description": "Preemption declares the behaviors for preempting.\nValid options are \"Always\" and \"Never\".",
+          "type": "string",
+          "default": "Never",
+          "enum": [
+            "Always",
+            "Never"
+          ]
+        },
+        "preserveResourcesOnDeletion": {
+          "description": "PreserveResourcesOnDeletion controls whether resources should be preserved on the\nmember clusters when the resource template is deleted.\nIf set to true, resources will be preserved on the member clusters.\nDefault is false, which means resources will be deleted along with the resource template.\n\nThis setting is particularly useful during workload migration scenarios to ensure\nthat rollback can occur quickly without affecting the workloads running on the\nmember clusters.\n\nAdditionally, this setting applies uniformly across all member clusters and will not\nselectively control preservation on only some clusters.\n\nNote: This setting does not apply to the deletion of the policy itself.\nWhen the policy is deleted, the resource templates and their corresponding\npropagated resources in member clusters will remain unchanged unless explicitly deleted.",
+          "type": "boolean"
+        },
+        "priority": {
+          "description": "Priority indicates the importance of a policy(PropagationPolicy or ClusterPropagationPolicy).\nA policy will be applied for the matched resource templates if there is\nno other policies with higher priority at the point of the resource\ntemplate be processed.\nOnce a resource template has been claimed by a policy, by default it will\nnot be preempted by following policies even with a higher priority.\nSee Preemption for more details.\n\nIn case of two policies have the same priority, the one with a more precise\nmatching rules in ResourceSelectors wins:\n- matching by name(resourceSelector.name) has higher priority than\n  by selector(resourceSelector.labelSelector)\n- matching by selector(resourceSelector.labelSelector) has higher priority\n  than by APIVersion(resourceSelector.apiVersion) and Kind(resourceSelector.kind).\nIf there is still no winner at this point, the one with the lower alphabetic\norder wins, e.g. policy 'bar' has higher priority than 'foo'.\n\nThe higher the value, the higher the priority. Defaults to zero.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "propagateDeps": {
+          "description": "PropagateDeps tells if relevant resources should be propagated automatically.\nTake 'Deployment' which referencing 'ConfigMap' and 'Secret' as an example, when 'propagateDeps' is 'true',\nthe referencing resources could be omitted(for saving config effort) from 'resourceSelectors' as they will be\npropagated along with the Deployment. In addition to the propagating process, the referencing resources will be\nmigrated along with the Deployment in the fail-over scenario.\n\nDefaults to false.",
+          "type": "boolean"
+        },
+        "resourceSelectors": {
+          "description": "ResourceSelectors used to select resources.\nNil or empty selector is not allowed and doesn't mean match all kinds\nof resources for security concerns that sensitive resources(like Secret)\nmight be accidentally propagated.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "description": "ResourceSelector the resources will be selected.",
+            "type": "object",
+            "required": [
+              "apiVersion",
+              "kind"
+            ],
+            "properties": {
+              "apiVersion": {
+                "description": "APIVersion represents the API version of the target resources.",
+                "type": "string"
+              },
+              "kind": {
+                "description": "Kind represents the Kind of the target resources.",
+                "type": "string"
+              },
+              "labelSelector": {
+                "description": "A label query over a set of resources.\nIf name is not empty, labelSelector will be ignored.",
+                "type": "object",
+                "properties": {
+                  "matchExpressions": {
+                    "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                    "type": "array",
+                    "items": {
+                      "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                      "type": "object",
+                      "required": [
+                        "key",
+                        "operator"
+                      ],
+                      "properties": {
+                        "key": {
+                          "description": "key is the label key that the selector applies to.",
+                          "type": "string"
+                        },
+                        "operator": {
+                          "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                          "type": "string"
+                        },
+                        "values": {
+                          "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "x-kubernetes-list-type": "atomic"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "x-kubernetes-list-type": "atomic"
+                  },
+                  "matchLabels": {
+                    "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-map-type": "atomic"
+              },
+              "name": {
+                "description": "Name of the target resource.\nDefault is empty, which means selecting all resources.",
+                "type": "string"
+              },
+              "namespace": {
+                "description": "Namespace of the target resource.\nDefault is empty, which means inherit from the parent object scope.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "schedulePriority": {
+          "description": "SchedulePriority defines how Karmada should resolve the priority and preemption policy\nfor workload scheduling.\n\nThis setting is useful for controlling the scheduling behavior of offline workloads.\nBy setting a higher or lower priority, users can control which workloads are scheduled first.\nAdditionally, it allows specifying a preemption policy where higher-priority workloads can\npreempt lower-priority ones in scenarios of resource contention.\n\nNote: This feature is currently in the alpha stage. The priority-based scheduling functionality is\ncontrolled by the PriorityBasedScheduling feature gate, and preemption is controlled by the\nPriorityBasedPreemptiveScheduling feature gate. Currently, only priority-based scheduling is\nsupported. Preemption functionality is not yet available and will be introduced in future\nreleases as the feature matures.",
+          "type": "object",
+          "required": [
+            "priorityClassName",
+            "priorityClassSource"
+          ],
+          "properties": {
+            "priorityClassName": {
+              "description": "PriorityClassName specifies which PriorityClass to use. Its behavior depends on PriorityClassSource:\n\nBehavior of PriorityClassName:\n\nFor KubePriorityClass:\n- When specified: Uses the named Kubernetes PriorityClass.\n\nFor PodPriorityClass:\n- Uses PriorityClassName from the PodTemplate.\n- Not yet implemented.\n\nFor FederatedPriorityClass:\n- Not yet implemented.",
+              "type": "string"
+            },
+            "priorityClassSource": {
+              "description": "PriorityClassSource specifies where Karmada should look for the PriorityClass definition.\nAvailable options:\n- KubePriorityClass: Uses Kubernetes PriorityClass (scheduling.k8s.io/v1)\n- PodPriorityClass: Uses PriorityClassName from PodTemplate: PodSpec.PriorityClassName (not yet implemented)\n- FederatedPriorityClass: Uses Karmada FederatedPriorityClass (not yet implemented)",
+              "type": "string",
+              "enum": [
+                "KubePriorityClass"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "schedulerName": {
+          "description": "SchedulerName represents which scheduler to proceed the scheduling.\nIf specified, the policy will be dispatched by specified scheduler.\nIf not specified, the policy will be dispatched by default scheduler.",
+          "type": "string",
+          "default": "default-scheduler"
+        },
+        "suspension": {
+          "description": "Suspension declares the policy for suspending different aspects of propagation.\nnil means no suspension. no default values.",
+          "type": "object",
+          "properties": {
+            "dispatching": {
+              "description": "Dispatching controls whether dispatching should be suspended.\nnil means not suspend, no default value, only accepts 'true'.\nNote: true means stop propagating to all clusters. Can not co-exist\nwith DispatchingOnClusters which is used to suspend particular clusters.",
+              "type": "boolean"
+            },
+            "dispatchingOnClusters": {
+              "description": "DispatchingOnClusters declares a list of clusters to which the dispatching\nshould be suspended.\nNote: Can not co-exist with Dispatching which is used to suspend all.",
+              "type": "object",
+              "properties": {
+                "clusterNames": {
+                  "description": "ClusterNames is the list of clusters to be selected.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

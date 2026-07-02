@@ -1,0 +1,142 @@
+{
+  "description": "ResourceInterpreterWebhookConfiguration describes the configuration of webhooks which take the responsibility to\ntell karmada the details of the resource object, especially for custom resources.",
+  "type": "object",
+  "required": [
+    "webhooks"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "webhooks": {
+      "description": "Webhooks is a list of webhooks and the affected resources and operations.",
+      "type": "array",
+      "items": {
+        "description": "ResourceInterpreterWebhook describes the webhook as well as the resources and operations it applies to.",
+        "type": "object",
+        "required": [
+          "clientConfig",
+          "interpreterContextVersions",
+          "name"
+        ],
+        "properties": {
+          "clientConfig": {
+            "description": "ClientConfig defines how to communicate with the hook.\nIt supports two mutually exclusive configuration modes:\n\n1. URL - Directly specify the webhook URL with format `scheme://host:port/path`.\n   Example: https://webhook.example.com:8443/my-interpreter\n\n2. Service - Reference a Kubernetes Service that exposes the webhook.\n   When using Service reference, Karmada resolves the endpoint through following steps:\n   a) First attempts to locate the Service in karmada-apiserver\n   b) If found, constructs URL based on Service type:\n      - ClusterIP/LoadBalancer/NodePort: Uses ClusterIP with port from Service spec\n        (Note: Services with ClusterIP \"None\" are rejected), Example:\n        `https://\u003ccluster ip\u003e:\u003cport\u003e`\n      - ExternalName: Uses external DNS name format: `https://\u003cexternal name\u003e:\u003cport\u003e`\n   c) If NOT found in karmada-apiserver, falls back to standard Kubernetes\n      service DNS name format: `https://\u003cservice\u003e.\u003cnamespace\u003e.svc:\u003cport\u003e`\n\nNote: When both URL and Service are specified, the Service reference takes precedence\n      and the URL configuration will be ignored.",
+            "type": "object",
+            "properties": {
+              "caBundle": {
+                "description": "`caBundle` is a PEM encoded CA bundle which will be used to validate the webhook's server certificate.\nIf unspecified, system trust roots on the apiserver are used.",
+                "type": "string",
+                "format": "byte"
+              },
+              "service": {
+                "description": "`service` is a reference to the service for this webhook. Either\n`service` or `url` must be specified.\n\nIf the webhook is running within the cluster, then you should use `service`.",
+                "type": "object",
+                "required": [
+                  "name",
+                  "namespace"
+                ],
+                "properties": {
+                  "name": {
+                    "description": "`name` is the name of the service.\nRequired",
+                    "type": "string"
+                  },
+                  "namespace": {
+                    "description": "`namespace` is the namespace of the service.\nRequired",
+                    "type": "string"
+                  },
+                  "path": {
+                    "description": "`path` is an optional URL path which will be sent in any request to\nthis service.",
+                    "type": "string"
+                  },
+                  "port": {
+                    "description": "If specified, the port on the service that hosting webhook.\nDefault to 443 for backward compatibility.\n`port` should be a valid port number (1-65535, inclusive).",
+                    "type": "integer",
+                    "format": "int32"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "url": {
+                "description": "`url` gives the location of the webhook, in standard URL form\n(`scheme://host:port/path`). Exactly one of `url` or `service`\nmust be specified.\n\nThe `host` should not refer to a service running in the cluster; use\nthe `service` field instead. The host might be resolved via external\nDNS in some apiservers (e.g., `kube-apiserver` cannot resolve\nin-cluster DNS as that would be a layering violation). `host` may\nalso be an IP address.\n\nPlease note that using `localhost` or `127.0.0.1` as a `host` is\nrisky unless you take great care to run this webhook on all hosts\nwhich run an apiserver which might need to make calls to this\nwebhook. Such installs are likely to be non-portable, i.e., not easy\nto turn up in a new cluster.\n\nThe scheme must be \"https\"; the URL must begin with \"https://\".\n\nA path is optional, and if present may be any string permissible in\na URL. You may use the path to pass an arbitrary string to the\nwebhook, for example, a cluster identifier.\n\nAttempting to use a user or basic auth e.g. \"user:password@\" is not\nallowed. Fragments (\"#...\") and query parameters (\"?...\") are not\nallowed, either.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "interpreterContextVersions": {
+            "description": "InterpreterContextVersions is an ordered list of preferred `ResourceInterpreterContext`\nversions the Webhook expects. Karmada will try to use first version in\nthe list which it supports. If none of the versions specified in this list\nsupported by Karmada, validation will fail for this object.\nIf a persisted webhook configuration specifies allowed versions and does not\ninclude any versions known to the Karmada, calls to the webhook will fail\nand be subject to the failure policy.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "description": "Name is the full-qualified name of the webhook.",
+            "type": "string"
+          },
+          "rules": {
+            "description": "Rules describes what operations on what resources the webhook cares about.\nThe webhook cares about an operation if it matches any Rule.",
+            "type": "array",
+            "items": {
+              "description": "RuleWithOperations is a tuple of Operations and Resources. It is recommended to make\nsure that all the tuple expansions are valid.",
+              "type": "object",
+              "required": [
+                "apiGroups",
+                "apiVersions",
+                "kinds",
+                "operations"
+              ],
+              "properties": {
+                "apiGroups": {
+                  "description": "APIGroups is the API groups the resources belong to. '*' is all groups.\nIf '*' is present, the length of the slice must be one.\nFor example:\n [\"apps\", \"batch\", \"example.io\"] means matches 3 groups.\n [\"*\"] means matches all group\n\nNote: The group could be empty, e.g the 'core' group of kubernetes, in that case use [\"\"].",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "apiVersions": {
+                  "description": "APIVersions is the API versions the resources belong to. '*' is all versions.\nIf '*' is present, the length of the slice must be one.\nFor example:\n [\"v1alpha1\", \"v1beta1\"] means matches 2 versions.\n [\"*\"] means matches all versions.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "kinds": {
+                  "description": "Kinds is a list of resources this rule applies to.\nIf '*' is present, the length of the slice must be one.\nFor example:\n [\"Deployment\", \"Pod\"] means matches Deployment and Pod.\n [\"*\"] means apply to all resources.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "operations": {
+                  "description": "Operations is the operations the hook cares about.\nIf '*' is present, the length of the slice must be one.",
+                  "type": "array",
+                  "items": {
+                    "description": "InterpreterOperation specifies an operation for a request.",
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "timeoutSeconds": {
+            "description": "TimeoutSeconds specifies the timeout for this webhook. After the timeout passes,\nthe webhook call will be ignored or the API call will fail based on the\nfailure policy.\nThe timeout value must be between 1 and 30 seconds.\nDefault to 10 seconds.",
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
