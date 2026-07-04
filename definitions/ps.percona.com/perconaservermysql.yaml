@@ -2,12 +2,12 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.18.0
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-server-crd
     app.kubernetes.io/part-of: percona-server-mysql-operator
-    app.kubernetes.io/version: v1.1.0
+    app.kubernetes.io/version: v1.2.0
   name: perconaservermysqls.ps.percona.com
 spec:
   group: ps.percona.com
@@ -136,6 +136,16 @@ spec:
                     type: object
                   enabled:
                     type: boolean
+                  encryptionKeySecret:
+                    properties:
+                      key:
+                        default: encryptionKey
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - name
+                    type: object
                   image:
                     type: string
                   imagePullPolicy:
@@ -1544,8 +1554,6 @@ spec:
                         type: boolean
                     type: object
                     x-kubernetes-validations:
-                    - message: binlogServer is required when pitr is enabled
-                      rule: '!(has(self.enabled) && self.enabled) || has(self.binlogServer)'
                     - message: binlogServer.image is required when pitr is enabled
                       rule: '!(has(self.enabled) && self.enabled) || !has(self.binlogServer)
                         || (has(self.binlogServer.image) && self.binlogServer.image
@@ -2249,6 +2257,16 @@ spec:
                                   type: string
                               type: object
                           type: object
+                        encryptionKeySecret:
+                          properties:
+                            key:
+                              default: encryptionKey
+                              type: string
+                            name:
+                              type: string
+                          required:
+                          - name
+                          type: object
                         gcs:
                           properties:
                             bucket:
@@ -2597,6 +2615,8 @@ spec:
                       type: object
                     type: object
                 type: object
+              clusterServiceDNSSuffix:
+                type: string
               crVersion:
                 type: string
               enableVolumeExpansion:
@@ -3184,6 +3204,15 @@ spec:
                     type: object
                   autoRecovery:
                     type: boolean
+                  bootstrap:
+                    properties:
+                      mode:
+                        default: auto
+                        enum:
+                        - auto
+                        - manual
+                        type: string
+                    type: object
                   clusterType:
                     default: group-replication
                     enum:
@@ -3374,6 +3403,8 @@ spec:
                     type: array
                   expose:
                     properties:
+                      allocateLoadBalancerNodePorts:
+                        type: boolean
                       annotations:
                         additionalProperties:
                           type: string
@@ -3397,6 +3428,8 @@ spec:
                     type: object
                   exposePrimary:
                     properties:
+                      allocateLoadBalancerNodePorts:
+                        type: boolean
                       annotations:
                         additionalProperties:
                           type: string
@@ -6382,6 +6415,8 @@ spec:
                     type: array
                   expose:
                     properties:
+                      allocateLoadBalancerNodePorts:
+                        type: boolean
                       annotations:
                         additionalProperties:
                           type: string
@@ -7071,6 +7106,8 @@ spec:
                             type: string
                         type: object
                     type: object
+                  customClusterName:
+                    type: string
                   enabled:
                     type: boolean
                   image:
@@ -7919,6 +7956,8 @@ spec:
                         type: array
                       expose:
                         properties:
+                          allocateLoadBalancerNodePorts:
+                            type: boolean
                           annotations:
                             additionalProperties:
                               type: string
@@ -8369,6 +8408,41 @@ spec:
                         type: string
                       serviceAccountName:
                         type: string
+                      sidecarResources:
+                        additionalProperties:
+                          properties:
+                            claims:
+                              items:
+                                properties:
+                                  name:
+                                    type: string
+                                  request:
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
+                            limits:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              type: object
+                            requests:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              type: object
+                          type: object
+                        type: object
                       size:
                         format: int32
                         type: integer
@@ -9168,6 +9242,8 @@ spec:
                         type: array
                       expose:
                         properties:
+                          allocateLoadBalancerNodePorts:
+                            type: boolean
                           annotations:
                             additionalProperties:
                               type: string
@@ -9810,6 +9886,55 @@ spec:
                 type: string
               sslSecretName:
                 type: string
+              storageScaling:
+                properties:
+                  autoscaling:
+                    properties:
+                      enabled:
+                        type: boolean
+                      growthStep:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        default: 2Gi
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                        x-kubernetes-validations:
+                        - message: growthStep must be a valid Kubernetes quantity
+                            (e.g., '2Gi')
+                          rule: isQuantity(self)
+                        - message: growthStep must be a positive quantity
+                          rule: sign(quantity(self)) == 1
+                      maxSize:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                        x-kubernetes-validations:
+                        - message: maxSize must be a valid Kubernetes quantity (e.g.,
+                            '2Gi')
+                          rule: isQuantity(self)
+                        - message: maxSize must be a positive quantity
+                          rule: sign(quantity(self)) == 1
+                        - message: maxSize should be at least 1Gi
+                          rule: quantity(self).compareTo(quantity('1Gi')) >= 0
+                      triggerThresholdPercent:
+                        default: 80
+                        maximum: 95
+                        minimum: 50
+                        type: integer
+                    type: object
+                  enableExternalAutoscaling:
+                    type: boolean
+                  enableVolumeScaling:
+                    type: boolean
+                type: object
+                x-kubernetes-validations:
+                - message: autoscaling cannot be enabled when enableVolumeScaling
+                    is disabled
+                  rule: '!has(self.autoscaling) || !has(self.autoscaling.enabled)
+                    || !self.autoscaling.enabled || self.enableVolumeScaling'
               tls:
                 properties:
                   SANs:
@@ -10453,6 +10578,8 @@ spec:
                 type: object
               host:
                 type: string
+              innodbClusterName:
+                type: string
               mysql:
                 properties:
                   imageID:
@@ -10502,6 +10629,21 @@ spec:
                 type: object
               state:
                 type: string
+              storageAutoscaling:
+                additionalProperties:
+                  properties:
+                    currentSize:
+                      type: string
+                    lastError:
+                      type: string
+                    lastResizeTime:
+                      format: date-time
+                      type: string
+                    resizeCount:
+                      format: int32
+                      type: integer
+                  type: object
+                type: object
               toolkitVersion:
                 type: string
             type: object
