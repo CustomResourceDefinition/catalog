@@ -434,9 +434,150 @@
             }
           },
           "additionalProperties": false
+        },
+        "workloadIdentity": {
+          "description": "WorkloadIdentity configures authentication to the managed cluster via the\ncloud provider's workload identity mechanism. When set, Sveltos does not\nread a kubeconfig Secret; instead it obtains short-lived credentials from\nthe cloud provider at runtime.\nMutually exclusive with KubeconfigName/KubeconfigKeyName.",
+          "type": "object",
+          "required": [
+            "endpoint",
+            "provider"
+          ],
+          "properties": {
+            "aws": {
+              "description": "AWS contains configuration specific to AWS IRSA / EKS Pod Identity.\nRequired when Provider is AWS.",
+              "type": "object",
+              "required": [
+                "clusterName"
+              ],
+              "properties": {
+                "clusterName": {
+                  "description": "ClusterName is the name of the EKS cluster. Required: it is embedded in\nthe bearer token header (x-k8s-aws-id) sent to the EKS API server.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "region": {
+                  "description": "Region is the AWS region of the EKS cluster. If empty, the AWS_REGION\nenvironment variable injected by IRSA is used.",
+                  "type": "string"
+                },
+                "roleARN": {
+                  "description": "RoleARN is the ARN of the IAM role Sveltos should assume before generating\nthe EKS bearer token. If empty, the pod's own IRSA credentials are used directly.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "azure": {
+              "description": "Azure contains configuration specific to Azure Workload Identity.\nRequired when Provider is Azure.",
+              "type": "object",
+              "required": [
+                "clientID",
+                "tenantID"
+              ],
+              "properties": {
+                "clientID": {
+                  "description": "ClientID is the client ID of the managed identity or app registration\nfederated with the management cluster service account.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "clusterName": {
+                  "description": "ClusterName is the name of the AKS cluster.\nKept for future auto-discovery support.",
+                  "type": "string"
+                },
+                "resourceGroup": {
+                  "description": "ResourceGroup is the Azure resource group containing the AKS cluster.\nKept for future auto-discovery support.",
+                  "type": "string"
+                },
+                "subscriptionID": {
+                  "description": "SubscriptionID is the Azure subscription containing the AKS cluster.\nKept for future auto-discovery support.",
+                  "type": "string"
+                },
+                "tenantID": {
+                  "description": "TenantID is the Azure Active Directory tenant ID.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "caSecretRef": {
+              "description": "CASecretRef references a Secret in the management cluster containing the\nCA certificate of the managed cluster's API server under the key \"ca.crt\".\nIf not set, the system certificate pool is used.",
+              "type": "object",
+              "properties": {
+                "name": {
+                  "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                  "type": "string",
+                  "default": ""
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-map-type": "atomic"
+            },
+            "endpoint": {
+              "description": "Endpoint is the API server endpoint of the managed cluster (e.g. https://…).",
+              "type": "string",
+              "minLength": 1
+            },
+            "gcp": {
+              "description": "GCP contains configuration specific to GCP Workload Identity Federation.\nRequired when Provider is GCP.",
+              "type": "object",
+              "required": [
+                "clusterName",
+                "location",
+                "projectID"
+              ],
+              "properties": {
+                "clusterName": {
+                  "description": "ClusterName is the name of the GKE cluster.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "location": {
+                  "description": "Location is the GCP region or zone of the GKE cluster (e.g. \"us-central1\").",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "projectID": {
+                  "description": "ProjectID is the GCP project ID that contains the GKE cluster.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "provider": {
+              "description": "Provider is the cloud provider implementing the workload identity mechanism.",
+              "type": "string",
+              "enum": [
+                "AWS",
+                "GCP",
+                "Azure"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(self.provider == 'AWS') == has(self.aws)",
+              "message": "aws must be set if and only if provider is AWS"
+            },
+            {
+              "rule": "(self.provider == 'GCP') == has(self.gcp)",
+              "message": "gcp must be set if and only if provider is GCP"
+            },
+            {
+              "rule": "(self.provider == 'Azure') == has(self.azure)",
+              "message": "azure must be set if and only if provider is Azure"
+            }
+          ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.workloadIdentity) || !has(self.kubeconfigName)",
+          "message": "workloadIdentity, kubeconfigName: conflict"
+        }
+      ]
     },
     "status": {
       "description": "SveltosClusterStatus defines the status of SveltosCluster",

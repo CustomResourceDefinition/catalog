@@ -426,6 +426,32 @@
                     },
                     "additionalProperties": false
                   },
+                  "provenanceVerification": {
+                    "description": "ProvenanceVerification configures Helm GPG .prov file verification for HTTP chart repositories.\nIgnored for OCI and Flux-sourced charts.",
+                    "type": "object",
+                    "required": [
+                      "keyringSecretRef"
+                    ],
+                    "properties": {
+                      "keyringSecretRef": {
+                        "description": "KeyringSecretRef references a Secret in the management cluster containing the GPG keyring.\nThe Secret must have a key named \"keyring.gpg\".\nIf Namespace is omitted, the cluster's namespace is used.",
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "description": "name is unique within a namespace to reference a secret resource.",
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "description": "namespace defines the space within which the secret name must be unique.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "registryCredentialsConfig": {
                     "description": "RegistryCredentialsConfig is an optional configuration for credentials,\nincluding information to connect to private registries.",
                     "type": "object",
@@ -495,6 +521,65 @@
                     "description": "RepositoryURL is the URL helm chart repository\nIt can point to a traditional HTTP-based repository or an OCI registry.\nExamples:\n  - HTTP Repository: https://charts.example.com/stable\n  - OCI Registry: oci://registry.example.com/namespace/charts\n  - GitHub Pages: https://\u003cusername\u003e.github.io/\u003crepository\u003e/\n  - Any other valid URL where Helm charts are hosted.\n\nAlternatively, it can be a Flux source reference:\n  \u003cflux source kind\u003e://\u003cflux source namespace\u003e/\u003cflux source name\u003e/\u003cpath\u003e\n\nWhere:\n  - \u003cflux source kind\u003e is the type of Flux source (gitrepository, ocirepository, bucket).\n  - \u003cflux source namespace\u003e and \u003cflux source name\u003e are the namespace and name of the Flux Source in the management cluster.\n  - \u003cpath\u003e is the path within the source repository where the Helm charts are located.\n\nFor instance:\n  gitrepository://flux-system/flux-system/charts/projectsveltos\n\nAssuming there is a Flux GitRepository named 'flux-system' in the 'flux-system' namespace\nsyncing 'https://github.com/projectsveltos/helm-charts.git/', and the Helm charts are\nlocated in the 'charts/projectsveltos' directory of that repository.",
                     "type": "string",
                     "minLength": 1
+                  },
+                  "signatureVerification": {
+                    "description": "SignatureVerification configures Cosign-based signature verification for OCI Helm charts.\nIgnored when RepositoryURL does not start with \"oci://\".",
+                    "type": "object",
+                    "required": [
+                      "provider"
+                    ],
+                    "properties": {
+                      "matchOIDCIdentity": {
+                        "description": "MatchOIDCIdentity lists OIDC identity matchers for keyless verification.\nAt least one matcher must be satisfied. Required when Provider is Keyless.",
+                        "type": "array",
+                        "items": {
+                          "description": "OIDCIdentityMatcher specifies the expected OIDC issuer and subject for keyless Cosign verification.",
+                          "type": "object",
+                          "required": [
+                            "issuer",
+                            "subject"
+                          ],
+                          "properties": {
+                            "issuer": {
+                              "description": "Issuer is the OIDC issuer URL or regex.",
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "subject": {
+                              "description": "Subject is the OIDC subject or regex, typically the workload identity or GitHub Actions workflow URL.",
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "provider": {
+                        "description": "Provider specifies how to obtain the verification key or certificate.",
+                        "type": "string",
+                        "enum": [
+                          "PublicKey",
+                          "Keyless"
+                        ]
+                      },
+                      "secretRef": {
+                        "description": "SecretRef references a Secret in the management cluster containing the Cosign public key.\nThe Secret must have a key named \"cosign.pub\" holding a PEM-encoded public key.\nRequired when Provider is PublicKey.\nIf Namespace is omitted, the cluster's namespace is used.",
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "description": "name is unique within a namespace to reference a secret resource.",
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "description": "namespace defines the space within which the secret name must be unique.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      }
+                    },
+                    "additionalProperties": false
                   },
                   "values": {
                     "description": "Values field allows to define configuration for the Helm release.\nThese values can be static or leverage Go templates for dynamic customization.\nWhen expressed as templates, the values are filled in using information from\nresources within the management cluster before deployment (Cluster and TemplateResourceRefs)",
@@ -841,37 +926,40 @@
                     "type": "string"
                   },
                   "remoteURL": {
-                    "description": "RemoteURL configures fetching content from an HTTP/HTTPS endpoint.\nWhen set, Kind/Name/Namespace must be omitted.",
+                    "description": "RemoteURL configures fetching content from an HTTP/HTTPS endpoint or an OCI registry.\nWhen set, Kind/Name/Namespace must be omitted.",
                     "type": "object",
                     "required": [
                       "url"
                     ],
                     "properties": {
                       "interval": {
-                        "description": "Interval defines how often Sveltos re-fetches the URL to detect changes.\nDefaults to 5 minutes.",
+                        "description": "Interval defines how often Sveltos re-fetches the source to detect changes.\nDefaults to 5 minutes.",
                         "type": "string"
                       },
                       "secretRef": {
-                        "description": "SecretRef references a Secret in the management cluster containing optional\ncredentials for fetching the URL. Supported Secret keys:\n  \"token\"              — Bearer token (Authorization: Bearer \u003ctoken\u003e)\n  \"username\"+\"password\" — HTTP Basic Auth\n  \"caFile\"             — PEM-encoded CA certificate for TLS verification",
+                        "description": "SecretRef references a Secret in the management cluster containing optional\ncredentials for fetching the source. Both Name and Namespace must be set,\nallowing the Secret to live in any namespace (e.g. projectsveltos) so that\na single Secret can be shared across clusters without replication.\nSupported Secret keys:\n  \"token\"              — Bearer token (Authorization: Bearer \u003ctoken\u003e)\n  \"username\"+\"password\" — HTTP Basic Auth or OCI registry basic auth\n  \"caFile\"             — PEM-encoded CA certificate for TLS verification",
                         "type": "object",
                         "properties": {
                           "name": {
-                            "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
-                            "type": "string",
-                            "default": ""
+                            "description": "name is unique within a namespace to reference a secret resource.",
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "description": "namespace defines the space within which the secret name must be unique.",
+                            "type": "string"
                           }
                         },
                         "additionalProperties": false,
                         "x-kubernetes-map-type": "atomic"
                       },
                       "template": {
-                        "description": "Template indicates that the content served at URL is a Go template that\nmust be instantiated using cluster fields and templateResourceRefs values\nbefore deployment. Equivalent to the projectsveltos.io/template annotation\non a ConfigMap or Secret.",
+                        "description": "Template indicates that the fetched content is a Go template that\nmust be instantiated using cluster fields and templateResourceRefs values\nbefore deployment. Equivalent to the projectsveltos.io/template annotation\non a ConfigMap or Secret.",
                         "type": "boolean"
                       },
                       "url": {
-                        "description": "URL is an HTTP/HTTPS endpoint serving raw YAML/JSON/KYAML content.\nSveltos fetches the content on every reconciliation and redeploys if the\ncontent hash has changed.",
+                        "description": "URL is the remote source serving raw YAML/JSON content.\nSveltos fetches the content on every reconciliation and redeploys if the\ncontent hash has changed.\nSupported schemes:\n  \"http://\" or \"https://\" — HTTP/HTTPS endpoint returning raw YAML/JSON\n  \"oci://\"                — OCI registry artifact containing YAML manifests",
                         "type": "string",
-                        "pattern": "^https?://"
+                        "pattern": "^(https?|oci)://"
                       }
                     },
                     "additionalProperties": false
