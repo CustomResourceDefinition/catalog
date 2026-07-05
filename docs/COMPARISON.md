@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.64% | 3859 | 11276 | 85 |
+| 99.56% | 3876 | 11276 | 85 |
 
 ### Missing Schemas
 
@@ -34,6 +34,12 @@ This page lists missing CRD validation schemas that are present in alternative c
 | networklogging | v1alpha1 |
 | servicefunctionchain | v1 |
 | trafficselector | v1 |
+
+| networking.k8s.aws | |
+| --- | --- |
+| applicationnetworkpolicy | v1alpha1 |
+| clusternetworkpolicy | v1alpha1 |
+| clusterpolicyendpoint | v1alpha1 |
 
 | secret-sync.gke.io | |
 | --- | --- |
