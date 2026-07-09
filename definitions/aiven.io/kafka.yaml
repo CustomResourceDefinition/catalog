@@ -343,6 +343,43 @@ spec:
                     kafka:
                       description: Kafka broker configuration values
                       properties:
+                        audit_log:
+                          description:
+                            Enable Kafka audit logging by providing this
+                            object. Removing it disables the feature. Enabling, updating,
+                            or disabling audit logging causes a rolling restart of all
+                            Kafka brokers.
+                          properties:
+                            aggregation_period_sec:
+                              description:
+                                Aggregation period in seconds over which
+                                audit log entries are batched before being emitted.
+                              maximum: 1800
+                              minimum: 1
+                              type: integer
+                            group_by:
+                              description:
+                                Group audit log entries by user or by user
+                                and IP address. Only valid when record_type is user_operations.
+                              enum:
+                                - user
+                                - user_and_ip
+                              type: string
+                            include_denials:
+                              description:
+                                Whether to include denied authorization attempts
+                                in the audit log.
+                              type: boolean
+                            record_type:
+                              description:
+                                user_operations records individual Kafka
+                                API calls (produce, fetch, etc.). user_activity records
+                                higher-level user actions.
+                              enum:
+                                - user_activity
+                                - user_operations
+                              type: string
+                          type: object
                         auto_create_topics_enable:
                           description: "Enable auto-creation of topics. (Default: false)"
                           type: boolean
@@ -377,6 +414,20 @@ spec:
                           maximum: 10
                           minimum: 1
                           type: integer
+                        group_coordinator_rebalance_protocols:
+                          description:
+                            The enabled consumer group rebalance protocols.
+                            Use consumer, classic, share, streams to enable Kafka share
+                            groups.
+                          enum:
+                            - classic
+                            - classic,consumer
+                            - classic,consumer,share
+                            - classic,consumer,share,streams
+                            - classic,consumer,streams
+                            - classic,share
+                            - classic,streams
+                          type: string
                         group_initial_rebalance_delay_ms:
                           description:
                             "The amount of time, in milliseconds, the group
@@ -407,6 +458,77 @@ spec:
                             to detect failures. (Default: 6000 ms (6 seconds))"
                           maximum: 60000
                           minimum: 0
+                          type: integer
+                        group_share_delivery_count_limit:
+                          description:
+                            The maximum delivery attempts for a share-group
+                            record.
+                          maximum: 10
+                          minimum: 2
+                          type: integer
+                        group_share_heartbeat_interval_ms:
+                          description: The heartbeat interval used by share group members.
+                          type: integer
+                        group_share_max_groups:
+                          description:
+                            The maximum number of share groups allowed on
+                            the broker.
+                          type: integer
+                        group_share_max_heartbeat_interval_ms:
+                          description:
+                            The maximum heartbeat interval allowed for share
+                            group members.
+                          type: integer
+                        group_share_max_record_lock_duration_ms:
+                          description:
+                            The maximum record lock duration allowed for
+                            share groups.
+                          type: integer
+                        group_share_max_session_timeout_ms:
+                          description:
+                            The maximum session timeout allowed for share
+                            group members.
+                          type: integer
+                        group_share_max_size:
+                          description:
+                            The maximum number of members allowed in a share
+                            group.
+                          maximum: 1000
+                          minimum: 10
+                          type: integer
+                        group_share_min_heartbeat_interval_ms:
+                          description:
+                            The minimum heartbeat interval allowed for share
+                            group members.
+                          type: integer
+                        group_share_min_record_lock_duration_ms:
+                          description:
+                            The minimum record lock duration allowed for
+                            share groups.
+                          type: integer
+                        group_share_min_session_timeout_ms:
+                          description:
+                            The minimum session timeout allowed for share
+                            group members.
+                          type: integer
+                        group_share_partition_max_record_locks:
+                          description:
+                            The maximum number of record locks allowed per
+                            share group partition.
+                          maximum: 10000
+                          minimum: 100
+                          type: integer
+                        group_share_record_lock_duration_ms:
+                          description:
+                            The duration for which a fetched share-group
+                            record is locked.
+                          maximum: 3600000
+                          minimum: 1000
+                          type: integer
+                        group_share_session_timeout_ms:
+                          description:
+                            The timeout used to detect share group member
+                            failures.
                           type: integer
                         log_cleaner_delete_retention_ms:
                           description:
@@ -931,8 +1053,8 @@ spec:
                         description:
                           Configure external secret providers in order to
                           reference external secrets in connector configuration. Currently
-                          Hashicorp Vault, AWS Secrets Manager, and ENV secret providers
-                          are supported.
+                          Hashicorp Vault, AWS Secrets Manager, Azure KeyVault, and
+                          ENV secret providers are supported.
                         properties:
                           aws:
                             description: AWS secret provider configuration
@@ -959,6 +1081,31 @@ spec:
                             required:
                               - auth_method
                               - region
+                            type: object
+                          azure:
+                            description: Azure KeyVault secret provider configuration
+                            properties:
+                              auth_method:
+                                description:
+                                  Auth method of the Azure KeyVault secret
+                                  provider
+                                enum:
+                                  - credentials
+                                type: string
+                              client_id:
+                                description: Azure client ID for the service principal.
+                                maxLength: 128
+                                type: string
+                              secret:
+                                description: Azure client secret for the service principal.
+                                maxLength: 256
+                                type: string
+                              tenant_id:
+                                description: Azure tenant ID for the service principal.
+                                maxLength: 128
+                                type: string
+                            required:
+                              - auth_method
                             type: object
                           env:
                             description: ENV secret provider configuration
@@ -1025,6 +1172,15 @@ spec:
                     kafka_diskless:
                       description: Kafka Diskless configuration values
                       properties:
+                        auto_diskless_topic_regexes:
+                          description:
+                            The regexes of topics to auto enable diskless.
+                            Topics matching any of the regexes will be created as diskless
+                            topics.
+                          items:
+                            type: string
+                          maxItems: 32
+                          type: array
                         enabled:
                           description: Whether to enable the Diskless functionality
                           type: boolean
@@ -1153,8 +1309,8 @@ spec:
                       type: object
                     kafka_version:
                       description: |-
-                        Available versions: `3.7`, `3.8`, `3.9`, `4.0`, `4.1`. Newer versions may also be available.
-                        Kafka major version. Deprecated values: `3.7`
+                        Available versions: `3.9`, `4.0`, `4.1`, `4.2`. Newer versions may also be available.
+                        Kafka major version. Deprecated values: `4.0`
                       type: string
                     letsencrypt_sasl:
                       description:
@@ -1166,6 +1322,25 @@ spec:
                         "Use a Let's Encrypt certificate authority (CA)
                         for Kafka SASL authentication via Privatelink. (Default: False)"
                       type: boolean
+                    preferred_zones:
+                      description:
+                        "List of preferred zone IDs for service node placement.
+                        Nodes will be placed in these zones when available. If a specified
+                        zone is unavailable (e.g., due to capacity constraints), nodes
+                        will be placed in other available zones to maintain the configured
+                        number of zones for availability. Invalid zone IDs are rejected
+                        at configuration time. Zone IDs are cloud-specific: AWS uses
+                        zone IDs like 'euc1-az1', GCP uses zone names like 'europe-west1-a',
+                        and Azure uses 'location/zone' format like 'germanywestcentral/1'.
+                        If single_zone is enabled with an availability_zone, that setting
+                        takes precedence over preferred_zones.Changes take effect on
+                        next node recreation (e.g., maintenance or plan change). For
+                        Kafka professional plans, nodes outside preferred zones are
+                        automatically rebalanced once per day."
+                      items:
+                        type: string
+                      maxItems: 10
+                      type: array
                     private_access:
                       description:
                         Allow access to selected service ports from private

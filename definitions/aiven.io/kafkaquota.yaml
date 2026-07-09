@@ -4,34 +4,33 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: serviceusers.aiven.io
+  name: kafkaquotas.aiven.io
 spec:
   group: aiven.io
   names:
-    kind: ServiceUser
-    listKind: ServiceUserList
-    plural: serviceusers
-    singular: serviceuser
+    kind: KafkaQuota
+    listKind: KafkaQuotaList
+    plural: kafkaquotas
+    singular: kafkaquota
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
-        - jsonPath: .spec.serviceName
-          name: Service Name
-          type: string
         - jsonPath: .spec.project
           name: Project
           type: string
-        - jsonPath: .spec.connInfoSecretTarget.name
-          name: Connection Information Secret
+        - jsonPath: .spec.serviceName
+          name: Service Name
+          type: string
+        - jsonPath: .spec.user
+          name: User
+          type: string
+        - jsonPath: .spec.clientId
+          name: Client ID
           type: string
       name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: |-
-            ServiceUser is the Schema for the serviceusers API.
-            Creates a service user for accessing Aiven services. The ServiceUser resource name becomes the username in Aiven.
-            Built-in users like 'avnadmin' cannot be deleted but their passwords can be modified using connInfoSecretSource.
-            Info "Exposes secret keys": `SERVICEUSER_HOST`, `SERVICEUSER_PORT`, `SERVICEUSER_USERNAME`, `SERVICEUSER_PASSWORD`, `SERVICEUSER_CA_CERT`, `SERVICEUSER_ACCESS_CERT`, `SERVICEUSER_ACCESS_KEY`, `SERVICEUSER_SASL_HOST`, `SERVICEUSER_SASL_PORT`, `SERVICEUSER_SCHEMA_REGISTRY_HOST`, `SERVICEUSER_SCHEMA_REGISTRY_PORT`
+          description: KafkaQuota is the Schema for the kafkaquotas API.
           properties:
             apiVersion:
               description: |-
@@ -51,36 +50,8 @@ spec:
             metadata:
               type: object
             spec:
-              description: ServiceUserSpec defines the desired state of ServiceUser
+              description: KafkaQuotaSpec defines the desired state of KafkaQuota
               properties:
-                accessControl:
-                  description: |-
-                    AccessControl Service type specific access control rules for user.
-                    When this block is present, the operator manages the full access-control scope it contains.
-                  properties:
-                    valkeyAclCategories:
-                      description: Command category rules. Order matters.
-                      items:
-                        type: string
-                      type: array
-                    valkeyAclChannels:
-                      description:
-                        Glob-style patterns defining which pub/sub channels
-                        can be accessed.
-                      items:
-                        type: string
-                      type: array
-                    valkeyAclCommands:
-                      description: Rules for individual commands. Order matters.
-                      items:
-                        type: string
-                      type: array
-                    valkeyAclKeys:
-                      description: Key access rules.
-                      items:
-                        type: string
-                      type: array
-                  type: object
                 authSecretRef:
                   description: Authentication reference to Aiven token in a secret
                   properties:
@@ -94,80 +65,36 @@ spec:
                     - key
                     - name
                   type: object
-                authentication:
-                  description: Authentication details
-                  enum:
-                    - caching_sha2_password
-                    - mysql_native_password
-                  type: string
-                connInfoSecretSource:
+                clientId:
                   description: |-
-                    ConnInfoSecretSource declares the password the operator should enforce on the user.
-                    Direct password changes in the database will be reverted on the next reconcile cycle.
-                    To rotate, update the source secret.
-                    When unset, the Operator does not manage the password:
-                    the target secret holds whatever password the Aiven API returns.
-                    If the password is later changed directly in the database,
-                    the API returns an empty value and the target secret is emptied on the next reconcile.
-                    Password must be 8-256 characters long.
-                  properties:
-                    name:
-                      description: |-
-                        Name of the secret resource to read connection parameters from.
-                        The secret must be in the same namespace as the resource.
-                      minLength: 1
-                      type: string
-                    passwordKey:
-                      description:
-                        Key in the secret containing the password to use
-                        for authentication
-                      minLength: 1
-                      type: string
-                  required:
-                    - name
-                    - passwordKey
-                  type: object
-                connInfoSecretTarget:
-                  description: Secret configuration.
-                  properties:
-                    annotations:
-                      additionalProperties:
-                        type: string
-                      description: Annotations added to the secret
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    labels:
-                      additionalProperties:
-                        type: string
-                      description: Labels added to the secret
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    name:
-                      description:
-                        Name of the secret resource to be created. By default,
-                        it is equal to the resource name
-                      type: string
-                      x-kubernetes-validations:
-                        - message: Value is immutable
-                          rule: self == oldSelf
-                    prefix:
-                      description: |-
-                        Prefix for the secret's keys.
-                        Added "as is" without any transformations.
-                        By default, is equal to the kind name in uppercase + underscore, e.g. `KAFKA_`, `REDIS_`, etc.
-                      type: string
-                  required:
-                    - name
-                  type: object
-                connInfoSecretTargetDisabled:
-                  description:
-                    When true, the secret containing connection information
-                    will not be created, defaults to false. This field cannot be changed
-                    after resource creation.
-                  type: boolean
+                    Represents a logical group of clients, assigned a unique name by the client application.
+                    Quotas can be applied based on user, client-id, or both.
+                    The most relevant quota is chosen for each connection. All connections within a quota group share the same quota.
+                    It is possible to set default quotas for each (user, client-id), user or client-id group by specifying 'default'.
+                  maxLength: 255
+                  minLength: 1
+                  type: string
                   x-kubernetes-validations:
-                    - message: connInfoSecretTargetDisabled is immutable.
+                    - message: Value is immutable
                       rule: self == oldSelf
+                consumerByteRate:
+                  description: |-
+                    Defines the bandwidth limit in bytes/sec for each group of clients sharing a quota.
+                    Every distinct client group is allocated a specific quota, as defined by the cluster, on a per-broker basis.
+                    Exceeding this limit results in client throttling.
+                  format: int64
+                  maximum: 1073741824
+                  minimum: 0
+                  type: integer
+                producerByteRate:
+                  description: |-
+                    Defines the bandwidth limit in bytes/sec for each group of clients sharing a quota.
+                    Every distinct client group is allocated a specific quota, as defined by the cluster, on a per-broker basis.
+                    Exceeding this limit results in client throttling.
+                  format: int64
+                  maximum: 1073741824
+                  minimum: 0
+                  type: integer
                 project:
                   description: Identifies the project this resource belongs to
                   maxLength: 63
@@ -176,6 +103,14 @@ spec:
                   x-kubernetes-validations:
                     - message: Value is immutable
                       rule: self == oldSelf
+                requestPercentage:
+                  description: |-
+                    Sets the maximum percentage of CPU time that a client group can use on request handler I/O and network threads per broker within a quota window.
+                    Exceeding this limit triggers throttling. The quota, expressed as a percentage, also indicates the total allowable CPU usage
+                    for the client groups sharing the quota.
+                  maximum: 100
+                  minimum: 0
+                  type: number
                 serviceName:
                   description:
                     Specifies the name of the service that this resource
@@ -186,22 +121,36 @@ spec:
                   x-kubernetes-validations:
                     - message: Value is immutable
                       rule: self == oldSelf
+                user:
+                  description: |-
+                    Represents a logical group of clients, assigned a unique name by the client application.
+                    Quotas can be applied based on user, client-id, or both.
+                    The most relevant quota is chosen for each connection. All connections within a quota group share the same quota.
+                    It is possible to set default quotas for each (user, client-id), user or client-id group by specifying 'default'.
+                  maxLength: 64
+                  minLength: 1
+                  type: string
+                  x-kubernetes-validations:
+                    - message: Value is immutable
+                      rule: self == oldSelf
               required:
                 - project
                 - serviceName
               type: object
               x-kubernetes-validations:
+                - message: At least one of user or clientId must be set
+                  rule: has(self.user) || has(self.clientId)
                 - message:
-                    connInfoSecretTargetDisabled can only be set during resource
-                    creation.
-                  rule: has(oldSelf.connInfoSecretTargetDisabled) == has(self.connInfoSecretTargetDisabled)
+                    At least one of consumerByteRate, producerByteRate or requestPercentage
+                    must be set
+                  rule: has(self.consumerByteRate) || has(self.producerByteRate) || has(self.requestPercentage)
             status:
-              description: ServiceUserStatus defines the observed state of ServiceUser
+              description: KafkaQuotaStatus defines the observed state of KafkaQuota
               properties:
                 conditions:
                   description:
                     Conditions represent the latest available observations
-                    of an ServiceUser state
+                    of a KafkaQuota state
                   items:
                     description:
                       Condition contains details for one aspect of the current
@@ -258,9 +207,6 @@ spec:
                       - type
                     type: object
                   type: array
-                type:
-                  description: Type of the user account
-                  type: string
               required:
                 - conditions
               type: object
