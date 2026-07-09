@@ -141,6 +141,7 @@ spec:
                     description: |-
                       AllowedCIDRBlocks is a list of CIDR blocks allowed to access the bastion host.
                       They are set as ingress rules for the Bastion host's Security Group (defaults to 0.0.0.0/0).
+                      If the cluster has IPv6 enabled, defaults to ::/0 and 0.0.0.0/0.
                     items:
                       type: string
                     type: array
@@ -178,9 +179,6 @@ spec:
                     description: port is the port on which the API server is serving.
                     format: int32
                     type: integer
-                required:
-                - host
-                - port
                 type: object
               disableVPCCNI:
                 default: false
@@ -614,12 +612,10 @@ spec:
                           description: |-
                             IPv6CidrBlock is the IPv6 CIDR block to be used when the provider creates a managed VPC.
                             A subnet can have an IPv4 and an IPv6 address.
-                            IPv6 is only supported in managed clusters, this field cannot be set on AWSCluster object.
                           type: string
                         isIpv6:
-                          description: |-
-                            IsIPv6 defines the subnet as an IPv6 subnet. A subnet is IPv6 when it is associated with a VPC that has IPv6 enabled.
-                            IPv6 is only supported in managed clusters, this field cannot be set on AWSCluster object.
+                          description: IsIPv6 defines the subnet as an IPv6 subnet.
+                            A subnet is IPv6 when it is associated with an IPv6 CIDR.
                           type: boolean
                         isPublic:
                           description: IsPublic defines the subnet as a public subnet.
@@ -796,13 +792,13 @@ spec:
                               The netmask length of the IPv4 CIDR you want to allocate to VPC from
                               an Amazon VPC IP Address Manager (IPAM) pool.
                               Defaults to /16 for IPv4 if not specified.
+                              Defaults to /56 for IPv6 if not specified.
                             format: int64
                             type: integer
                         type: object
                       ipv6:
-                        description: |-
-                          IPv6 contains ipv6 specific settings for the network. Supported only in managed clusters.
-                          This field cannot be set on AWSCluster object.
+                        description: IPv6 contains ipv6 specific settings for the
+                          network.
                         properties:
                           cidrBlock:
                             description: |-
@@ -832,6 +828,7 @@ spec:
                                   The netmask length of the IPv4 CIDR you want to allocate to VPC from
                                   an Amazon VPC IP Address Manager (IPAM) pool.
                                   Defaults to /16 for IPv4 if not specified.
+                                  Defaults to /56 for IPv6 if not specified.
                                 format: int64
                                 type: integer
                             type: object
@@ -1021,8 +1018,9 @@ spec:
                         in a Container.
                       properties:
                         name:
-                          description: Name of the environment variable. Must be a
-                            C_IDENTIFIER.
+                          description: |-
+                            Name of the environment variable.
+                            May consist of any printable ASCII characters except '='.
                           type: string
                         value:
                           description: |-
@@ -1078,6 +1076,43 @@ spec:
                                   type: string
                               required:
                               - fieldPath
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            fileKeyRef:
+                              description: |-
+                                FileKeyRef selects a key of the env file.
+                                Requires the EnvFiles feature gate to be enabled.
+                              properties:
+                                key:
+                                  description: |-
+                                    The key within the env file. An invalid key will prevent the pod from starting.
+                                    The keys defined within a source may consist of any printable ASCII characters except '='.
+                                    During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                  type: string
+                                optional:
+                                  default: false
+                                  description: |-
+                                    Specify whether the file or its key must be defined. If the file or key
+                                    does not exist, then the env var is not published.
+                                    If optional is set to true and the specified key does not exist,
+                                    the environment variable will not be set in the Pod's containers.
+
+                                    If optional is set to false and the specified key does not exist,
+                                    an error will be returned during Pod creation.
+                                  type: boolean
+                                path:
+                                  description: |-
+                                    The path within the volume from which to select the file.
+                                    Must be relative and may not contain the '..' path or start with '..'.
+                                  type: string
+                                volumeName:
+                                  description: The name of the volume mount containing
+                                    the env file.
+                                  type: string
+                              required:
+                              - key
+                              - path
+                              - volumeName
                               type: object
                               x-kubernetes-map-type: atomic
                             resourceFieldRef:
@@ -1227,6 +1262,10 @@ spec:
                       - type
                       type: object
                     type: array
+                  assignPrimaryIPv6:
+                    description: AssignPrimaryIPv6 specifies whether to enable assigning
+                      a primary IPv6 address to the primary network Interface.
+                    type: string
                   availabilityZone:
                     description: Availability zone of instance
                     type: string
@@ -1275,6 +1314,15 @@ spec:
                         enum:
                         - Disabled
                         - AMDEncryptedVirtualizationNestedPaging
+                        type: string
+                      nestedVirtualization:
+                        description: |-
+                          NestedVirtualization specifies whether to enable nested virtualization on the instance.
+                          Nested virtualization is supported on C8i, M8i, and R8i instance types.
+                          Valid values are: enabled, disabled
+                        enum:
+                        - enabled
+                        - disabled
                         type: string
                     type: object
                   dynamicHostAllocation:
@@ -1338,6 +1386,17 @@ spec:
                         - enabled
                         - disabled
                         type: string
+                      httpProtocolIpv6:
+                        default: disabled
+                        description: |-
+                          Enables or disables the IPv6 endpoint for the instance metadata service.
+                          This applies only if you enabled the HTTP metadata endpoint.
+
+                          Default: disabled
+                        enum:
+                        - enabled
+                        - disabled
+                        type: string
                       httpPutResponseHopLimit:
                         default: 1
                         description: |-
@@ -1386,6 +1445,9 @@ spec:
                     type: object
                   instanceState:
                     description: The current state of the instance.
+                    type: string
+                  ipv6Address:
+                    description: The IPv6 address assigned to the instance.
                     type: string
                   marketType:
                     description: |-
@@ -1746,6 +1808,10 @@ spec:
                                 TargetGroupSpec specifies target group settings for a given listener.
                                 This is created first, and the ARN is then passed to the listener.
                               properties:
+                                ipType:
+                                  description: IPType is the IP address type for the
+                                    target group.
+                                  type: string
                                 name:
                                   description: Name of the TargetGroup. Must be unique
                                     over the same group of listeners.
@@ -1865,6 +1931,14 @@ spec:
                           - protocol
                           type: object
                         type: array
+                      loadBalancerIPAddressType:
+                        description: LoadBalancerIPAddressType specifies the IP address
+                          type for the load balancer.
+                        enum:
+                        - ipv4
+                        - dualstack
+                        - dualstack-without-public-ipv4
+                        type: string
                       loadBalancerType:
                         description: LoadBalancerType sets the type for a load balancer.
                           The default type is classic.
@@ -1966,6 +2040,10 @@ spec:
                                 TargetGroupSpec specifies target group settings for a given listener.
                                 This is created first, and the ARN is then passed to the listener.
                               properties:
+                                ipType:
+                                  description: IPType is the IP address type for the
+                                    target group.
+                                  type: string
                                 name:
                                   description: Name of the TargetGroup. Must be unique
                                     over the same group of listeners.
@@ -2085,6 +2163,14 @@ spec:
                           - protocol
                           type: object
                         type: array
+                      loadBalancerIPAddressType:
+                        description: LoadBalancerIPAddressType specifies the IP address
+                          type for the load balancer.
+                        enum:
+                        - ipv4
+                        - dualstack
+                        - dualstack-without-public-ipv4
+                        type: string
                       loadBalancerType:
                         description: LoadBalancerType sets the type for a load balancer.
                           The default type is classic.
@@ -2224,6 +2310,11 @@ spec:
                       security group to its unique name, if any.
                     type: object
                 type: object
+              observedGeneration:
+                description: ObservedGeneration is the latest generation observed
+                  by the controller.
+                format: int64
+                type: integer
               oidcProvider:
                 description: OIDCProvider holds the status of the identity provider
                   for this cluster
@@ -2321,6 +2412,85 @@ spec:
                       ignored when updating existing clusters. Defaults to true.
                     type: boolean
                 type: object
+              accessEntries:
+                description: |-
+                  AccessEntries specifies the access entries for the cluster
+                  Access entries require AuthenticationMode to be either "api" or "api_and_config_map"
+                items:
+                  description: AccessEntry represents an AWS EKS access entry for
+                    IAM principals
+                  properties:
+                    accessPolicies:
+                      description: |-
+                        AccessPolicies specifies the policies to associate with this access entry
+                        Cannot be specified if Type is "ec2_linux" or "ec2_windows"
+                      items:
+                        description: AccessPolicyReference represents a reference
+                          to an AWS EKS access policy
+                        properties:
+                          accessScope:
+                            description: AccessScope specifies the scope for the policy
+                            properties:
+                              namespaces:
+                                description: |-
+                                  Namespaces are the namespaces for the access scope
+                                  Only valid when Type is namespace
+                                items:
+                                  type: string
+                                minItems: 1
+                                type: array
+                              type:
+                                default: cluster
+                                description: Type is the type of access scope. Defaults
+                                  to "cluster".
+                                enum:
+                                - cluster
+                                - namespace
+                                type: string
+                            required:
+                            - type
+                            type: object
+                          policyARN:
+                            description: PolicyARN is the Amazon Resource Name (ARN)
+                              of the access policy
+                            type: string
+                        required:
+                        - accessScope
+                        - policyARN
+                        type: object
+                      maxItems: 20
+                      type: array
+                    kubernetesGroups:
+                      description: |-
+                        KubernetesGroups represents the Kubernetes groups for the access entry
+                        Cannot be specified if Type is "ec2_linux" or "ec2_windows"
+                      items:
+                        type: string
+                      type: array
+                    principalARN:
+                      description: PrincipalARN is the Amazon Resource Name (ARN)
+                        of the IAM principal
+                      type: string
+                    type:
+                      default: standard
+                      description: Type is the type of access entry. Defaults to standard
+                        if not specified.
+                      enum:
+                      - standard
+                      - ec2_linux
+                      - ec2_windows
+                      - fargate_linux
+                      - ec2
+                      - hybrid_linux
+                      - hyperpod_linux
+                      type: string
+                    username:
+                      description: Username is the username for the access entry
+                      type: string
+                  required:
+                  - principalARN
+                  type: object
+                type: array
               additionalTags:
                 additionalProperties:
                   type: string
@@ -2381,6 +2551,7 @@ spec:
                     description: |-
                       AllowedCIDRBlocks is a list of CIDR blocks allowed to access the bastion host.
                       They are set as ingress rules for the Bastion host's Security Group (defaults to 0.0.0.0/0).
+                      If the cluster has IPv6 enabled, defaults to ::/0 and 0.0.0.0/0.
                     items:
                       type: string
                     type: array
@@ -2425,9 +2596,6 @@ spec:
                     description: port is the port on which the API server is serving.
                     format: int32
                     type: integer
-                required:
-                - host
-                - port
                 type: object
               eksClusterName:
                 description: |-
@@ -2852,12 +3020,10 @@ spec:
                           description: |-
                             IPv6CidrBlock is the IPv6 CIDR block to be used when the provider creates a managed VPC.
                             A subnet can have an IPv4 and an IPv6 address.
-                            IPv6 is only supported in managed clusters, this field cannot be set on AWSCluster object.
                           type: string
                         isIpv6:
-                          description: |-
-                            IsIPv6 defines the subnet as an IPv6 subnet. A subnet is IPv6 when it is associated with a VPC that has IPv6 enabled.
-                            IPv6 is only supported in managed clusters, this field cannot be set on AWSCluster object.
+                          description: IsIPv6 defines the subnet as an IPv6 subnet.
+                            A subnet is IPv6 when it is associated with an IPv6 CIDR.
                           type: boolean
                         isPublic:
                           description: IsPublic defines the subnet as a public subnet.
@@ -3034,13 +3200,13 @@ spec:
                               The netmask length of the IPv4 CIDR you want to allocate to VPC from
                               an Amazon VPC IP Address Manager (IPAM) pool.
                               Defaults to /16 for IPv4 if not specified.
+                              Defaults to /56 for IPv6 if not specified.
                             format: int64
                             type: integer
                         type: object
                       ipv6:
-                        description: |-
-                          IPv6 contains ipv6 specific settings for the network. Supported only in managed clusters.
-                          This field cannot be set on AWSCluster object.
+                        description: IPv6 contains ipv6 specific settings for the
+                          network.
                         properties:
                           cidrBlock:
                             description: |-
@@ -3070,6 +3236,7 @@ spec:
                                   The netmask length of the IPv4 CIDR you want to allocate to VPC from
                                   an Amazon VPC IP Address Manager (IPAM) pool.
                                   Defaults to /16 for IPv4 if not specified.
+                                  Defaults to /56 for IPv6 if not specified.
                                 format: int64
                                 type: integer
                             type: object
@@ -3312,8 +3479,9 @@ spec:
                         in a Container.
                       properties:
                         name:
-                          description: Name of the environment variable. Must be a
-                            C_IDENTIFIER.
+                          description: |-
+                            Name of the environment variable.
+                            May consist of any printable ASCII characters except '='.
                           type: string
                         value:
                           description: |-
@@ -3369,6 +3537,43 @@ spec:
                                   type: string
                               required:
                               - fieldPath
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            fileKeyRef:
+                              description: |-
+                                FileKeyRef selects a key of the env file.
+                                Requires the EnvFiles feature gate to be enabled.
+                              properties:
+                                key:
+                                  description: |-
+                                    The key within the env file. An invalid key will prevent the pod from starting.
+                                    The keys defined within a source may consist of any printable ASCII characters except '='.
+                                    During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                  type: string
+                                optional:
+                                  default: false
+                                  description: |-
+                                    Specify whether the file or its key must be defined. If the file or key
+                                    does not exist, then the env var is not published.
+                                    If optional is set to true and the specified key does not exist,
+                                    the environment variable will not be set in the Pod's containers.
+
+                                    If optional is set to false and the specified key does not exist,
+                                    an error will be returned during Pod creation.
+                                  type: boolean
+                                path:
+                                  description: |-
+                                    The path within the volume from which to select the file.
+                                    Must be relative and may not contain the '..' path or start with '..'.
+                                  type: string
+                                volumeName:
+                                  description: The name of the volume mount containing
+                                    the env file.
+                                  type: string
+                              required:
+                              - key
+                              - path
+                              - volumeName
                               type: object
                               x-kubernetes-map-type: atomic
                             resourceFieldRef:
@@ -3518,6 +3723,10 @@ spec:
                       - type
                       type: object
                     type: array
+                  assignPrimaryIPv6:
+                    description: AssignPrimaryIPv6 specifies whether to enable assigning
+                      a primary IPv6 address to the primary network Interface.
+                    type: string
                   availabilityZone:
                     description: Availability zone of instance
                     type: string
@@ -3566,6 +3775,15 @@ spec:
                         enum:
                         - Disabled
                         - AMDEncryptedVirtualizationNestedPaging
+                        type: string
+                      nestedVirtualization:
+                        description: |-
+                          NestedVirtualization specifies whether to enable nested virtualization on the instance.
+                          Nested virtualization is supported on C8i, M8i, and R8i instance types.
+                          Valid values are: enabled, disabled
+                        enum:
+                        - enabled
+                        - disabled
                         type: string
                     type: object
                   dynamicHostAllocation:
@@ -3629,6 +3847,17 @@ spec:
                         - enabled
                         - disabled
                         type: string
+                      httpProtocolIpv6:
+                        default: disabled
+                        description: |-
+                          Enables or disables the IPv6 endpoint for the instance metadata service.
+                          This applies only if you enabled the HTTP metadata endpoint.
+
+                          Default: disabled
+                        enum:
+                        - enabled
+                        - disabled
+                        type: string
                       httpPutResponseHopLimit:
                         default: 1
                         description: |-
@@ -3677,6 +3906,9 @@ spec:
                     type: object
                   instanceState:
                     description: The current state of the instance.
+                    type: string
+                  ipv6Address:
+                    description: The IPv6 address assigned to the instance.
                     type: string
                   marketType:
                     description: |-
@@ -4037,6 +4269,10 @@ spec:
                                 TargetGroupSpec specifies target group settings for a given listener.
                                 This is created first, and the ARN is then passed to the listener.
                               properties:
+                                ipType:
+                                  description: IPType is the IP address type for the
+                                    target group.
+                                  type: string
                                 name:
                                   description: Name of the TargetGroup. Must be unique
                                     over the same group of listeners.
@@ -4156,6 +4392,14 @@ spec:
                           - protocol
                           type: object
                         type: array
+                      loadBalancerIPAddressType:
+                        description: LoadBalancerIPAddressType specifies the IP address
+                          type for the load balancer.
+                        enum:
+                        - ipv4
+                        - dualstack
+                        - dualstack-without-public-ipv4
+                        type: string
                       loadBalancerType:
                         description: LoadBalancerType sets the type for a load balancer.
                           The default type is classic.
@@ -4257,6 +4501,10 @@ spec:
                                 TargetGroupSpec specifies target group settings for a given listener.
                                 This is created first, and the ARN is then passed to the listener.
                               properties:
+                                ipType:
+                                  description: IPType is the IP address type for the
+                                    target group.
+                                  type: string
                                 name:
                                   description: Name of the TargetGroup. Must be unique
                                     over the same group of listeners.
@@ -4376,6 +4624,14 @@ spec:
                           - protocol
                           type: object
                         type: array
+                      loadBalancerIPAddressType:
+                        description: LoadBalancerIPAddressType specifies the IP address
+                          type for the load balancer.
+                        enum:
+                        - ipv4
+                        - dualstack
+                        - dualstack-without-public-ipv4
+                        type: string
                       loadBalancerType:
                         description: LoadBalancerType sets the type for a load balancer.
                           The default type is classic.
@@ -4515,6 +4771,11 @@ spec:
                       security group to its unique name, if any.
                     type: object
                 type: object
+              observedGeneration:
+                description: ObservedGeneration is the latest generation observed
+                  by the controller.
+                format: int64
+                type: integer
               oidcProvider:
                 description: OIDCProvider holds the status of the identity provider
                   for this cluster

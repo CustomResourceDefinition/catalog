@@ -4,7 +4,9 @@ metadata:
   annotations:
     api-approved.openshift.io: https://github.com/openshift/api/pull/2555
     api.openshift.io/merged-by-featuregates: "true"
+    include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
+    release.openshift.io/feature-set: CustomNoUpgrade,DevPreviewNoUpgrade,TechPreviewNoUpgrade
   labels:
     openshift.io/operator-managed: ""
   name: osimagestreams.machineconfiguration.openshift.io
@@ -17,7 +19,7 @@ spec:
     singular: osimagestream
   scope: Cluster
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: |-
@@ -26,7 +28,7 @@ spec:
 
           The resource is a singleton named "cluster".
 
-          Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+          Compatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.
         properties:
           apiVersion:
             description: |-
@@ -68,9 +70,8 @@ spec:
                   During initial creation, before the operator has populated status, any
                   valid value is accepted.
 
-                  For upgrade scenarios where the source OCP version doesn't have this CRD
-                  the MCO creates and populates the OSImageStream cluster singleton setting
-                  this field with the proper value based on the source OCP version.
+                  When omitted, the operator determines the default stream automatically.
+                  Once set, this field cannot be removed.
 
                   It must be a valid RFC 1123 subdomain between 1 and 253 characters in length,
                   consisting of lowercase alphanumeric characters, hyphens ('-'), and periods ('.').
@@ -82,9 +83,10 @@ spec:
                     characters, '-' or '.', and must start and end with an alphanumeric
                     character.
                   rule: '!format.dns1123Subdomain().validate(self).hasValue()'
-            required:
-            - defaultStream
             type: object
+            x-kubernetes-validations:
+            - message: spec.defaultStream cannot be removed once set
+              rule: '!has(oldSelf.defaultStream) || has(self.defaultStream)'
           status:
             description: |-
               status describes the last observed state of this OSImageStream.
@@ -198,8 +200,8 @@ spec:
           rule: self.metadata.name == 'cluster'
         - message: spec.defaultStream must reference an existing stream name from
             status.availableStreams
-          rule: self.spec == oldSelf.spec || !has(self.status) || self.spec.defaultStream
-            in self.status.availableStreams.map(s, s.name)
+          rule: self.spec == oldSelf.spec || !has(self.spec.defaultStream) || !has(self.status)
+            || self.spec.defaultStream in self.status.availableStreams.map(s, s.name)
     served: true
     storage: true
     subresources:
