@@ -4,9 +4,7 @@ metadata:
   annotations:
     api-approved.openshift.io: https://github.com/openshift/api/pull/2555
     api.openshift.io/merged-by-featuregates: "true"
-    include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
-    release.openshift.io/feature-set: TechPreviewNoUpgrade
   labels:
     openshift.io/operator-managed: ""
   name: osimagestreams.machineconfiguration.openshift.io
@@ -19,7 +17,7 @@ spec:
     singular: osimagestream
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - name: v1
     schema:
       openAPIV3Schema:
         description: |-
@@ -28,7 +26,7 @@ spec:
 
           The resource is a singleton named "cluster".
 
-          Compatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.
+          Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
         properties:
           apiVersion:
             description: |-
@@ -49,6 +47,43 @@ spec:
             type: object
           spec:
             description: spec contains the desired OSImageStream config configuration.
+            properties:
+              defaultStream:
+                description: |-
+                  defaultStream is the desired name of the stream that should be used as the
+                  default when no specific stream is requested by a MachineConfigPool.
+
+                  This field is set by the installer during installation. Users may need to
+                  update it if the currently selected stream is no longer available, for
+                  example when the stream has reached its End of Life.
+                  The MachineConfigOperator uses this value to determine which stream from
+                  status.availableStreams to apply as the default for MachineConfigPools
+                  that do not specify a stream override.
+
+                  When status.availableStreams has been populated by the operator, updating
+                  this field requires that the new value references the name of one of the
+                  streams in status.availableStreams. Status-only updates by the operator
+                  are not subject to this constraint, allowing the operator to update
+                  availableStreams independently of this field.
+                  During initial creation, before the operator has populated status, any
+                  valid value is accepted.
+
+                  For upgrade scenarios where the source OCP version doesn't have this CRD
+                  the MCO creates and populates the OSImageStream cluster singleton setting
+                  this field with the proper value based on the source OCP version.
+
+                  It must be a valid RFC 1123 subdomain between 1 and 253 characters in length,
+                  consisting of lowercase alphanumeric characters, hyphens ('-'), and periods ('.').
+                maxLength: 253
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: a RFC 1123 subdomain must consist of lower case alphanumeric
+                    characters, '-' or '.', and must start and end with an alphanumeric
+                    character.
+                  rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+            required:
+            - defaultStream
             type: object
           status:
             description: |-
@@ -161,6 +196,10 @@ spec:
         x-kubernetes-validations:
         - message: osimagestream is a singleton, .metadata.name must be 'cluster'
           rule: self.metadata.name == 'cluster'
+        - message: spec.defaultStream must reference an existing stream name from
+            status.availableStreams
+          rule: self.spec == oldSelf.spec || !has(self.status) || self.spec.defaultStream
+            in self.status.availableStreams.map(s, s.name)
     served: true
     storage: true
     subresources:
