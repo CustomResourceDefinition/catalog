@@ -342,6 +342,39 @@
               "description": "Kafka broker configuration values",
               "type": "object",
               "properties": {
+                "audit_log": {
+                  "description": "Enable Kafka audit logging by providing this object. Removing it disables the feature. Enabling, updating, or disabling audit logging causes a rolling restart of all Kafka brokers.",
+                  "type": "object",
+                  "properties": {
+                    "aggregation_period_sec": {
+                      "description": "Aggregation period in seconds over which audit log entries are batched before being emitted.",
+                      "type": "integer",
+                      "maximum": 1800,
+                      "minimum": 1
+                    },
+                    "group_by": {
+                      "description": "Group audit log entries by user or by user and IP address. Only valid when record_type is user_operations.",
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "user_and_ip"
+                      ]
+                    },
+                    "include_denials": {
+                      "description": "Whether to include denied authorization attempts in the audit log.",
+                      "type": "boolean"
+                    },
+                    "record_type": {
+                      "description": "user_operations records individual Kafka API calls (produce, fetch, etc.). user_activity records higher-level user actions.",
+                      "type": "string",
+                      "enum": [
+                        "user_activity",
+                        "user_operations"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
                 "auto_create_topics_enable": {
                   "description": "Enable auto-creation of topics. (Default: false)",
                   "type": "boolean"
@@ -370,6 +403,19 @@
                   "maximum": 10,
                   "minimum": 1
                 },
+                "group_coordinator_rebalance_protocols": {
+                  "description": "The enabled consumer group rebalance protocols. Use consumer, classic, share, streams to enable Kafka share groups.",
+                  "type": "string",
+                  "enum": [
+                    "classic",
+                    "classic,consumer",
+                    "classic,consumer,share",
+                    "classic,consumer,share,streams",
+                    "classic,consumer,streams",
+                    "classic,share",
+                    "classic,streams"
+                  ]
+                },
                 "group_initial_rebalance_delay_ms": {
                   "description": "The amount of time, in milliseconds, the group coordinator will wait for more consumers to join a new group before performing the first rebalance. A longer delay means potentially fewer rebalances, but increases the time until processing begins. The default value for this is 3 seconds. During development and testing it might be desirable to set this to 0 in order to not delay test execution time. (Default: 3000 ms (3 seconds))",
                   "type": "integer",
@@ -387,6 +433,66 @@
                   "type": "integer",
                   "maximum": 60000,
                   "minimum": 0
+                },
+                "group_share_delivery_count_limit": {
+                  "description": "The maximum delivery attempts for a share-group record.",
+                  "type": "integer",
+                  "maximum": 10,
+                  "minimum": 2
+                },
+                "group_share_heartbeat_interval_ms": {
+                  "description": "The heartbeat interval used by share group members.",
+                  "type": "integer"
+                },
+                "group_share_max_groups": {
+                  "description": "The maximum number of share groups allowed on the broker.",
+                  "type": "integer"
+                },
+                "group_share_max_heartbeat_interval_ms": {
+                  "description": "The maximum heartbeat interval allowed for share group members.",
+                  "type": "integer"
+                },
+                "group_share_max_record_lock_duration_ms": {
+                  "description": "The maximum record lock duration allowed for share groups.",
+                  "type": "integer"
+                },
+                "group_share_max_session_timeout_ms": {
+                  "description": "The maximum session timeout allowed for share group members.",
+                  "type": "integer"
+                },
+                "group_share_max_size": {
+                  "description": "The maximum number of members allowed in a share group.",
+                  "type": "integer",
+                  "maximum": 1000,
+                  "minimum": 10
+                },
+                "group_share_min_heartbeat_interval_ms": {
+                  "description": "The minimum heartbeat interval allowed for share group members.",
+                  "type": "integer"
+                },
+                "group_share_min_record_lock_duration_ms": {
+                  "description": "The minimum record lock duration allowed for share groups.",
+                  "type": "integer"
+                },
+                "group_share_min_session_timeout_ms": {
+                  "description": "The minimum session timeout allowed for share group members.",
+                  "type": "integer"
+                },
+                "group_share_partition_max_record_locks": {
+                  "description": "The maximum number of record locks allowed per share group partition.",
+                  "type": "integer",
+                  "maximum": 10000,
+                  "minimum": 100
+                },
+                "group_share_record_lock_duration_ms": {
+                  "description": "The duration for which a fetched share-group record is locked.",
+                  "type": "integer",
+                  "maximum": 3600000,
+                  "minimum": 1000
+                },
+                "group_share_session_timeout_ms": {
+                  "description": "The timeout used to detect share group member failures.",
+                  "type": "integer"
                 },
                 "log_cleaner_delete_retention_ms": {
                   "description": "How long are delete records retained? (Default: 86400000 (1 day))",
@@ -790,7 +896,7 @@
               "description": "Configure external secret providers in order to reference external secrets in connector configuration. Currently Hashicorp Vault (provider: vault, auth_method: token) and AWS Secrets Manager (provider: aws, auth_method: credentials) are supported. Secrets can be referenced in connector config with ${\u003cprovider_name\u003e:\u003csecret_path\u003e:\u003ckey_name\u003e}",
               "type": "array",
               "items": {
-                "description": "Configure external secret providers in order to reference external secrets in connector configuration. Currently Hashicorp Vault, AWS Secrets Manager, and ENV secret providers are supported.",
+                "description": "Configure external secret providers in order to reference external secrets in connector configuration. Currently Hashicorp Vault, AWS Secrets Manager, Azure KeyVault, and ENV secret providers are supported.",
                 "type": "object",
                 "required": [
                   "name"
@@ -823,6 +929,38 @@
                       },
                       "secret_key": {
                         "description": "Secret key used to authenticate with aws",
+                        "type": "string",
+                        "maxLength": 128
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "azure": {
+                    "description": "Azure KeyVault secret provider configuration",
+                    "type": "object",
+                    "required": [
+                      "auth_method"
+                    ],
+                    "properties": {
+                      "auth_method": {
+                        "description": "Auth method of the Azure KeyVault secret provider",
+                        "type": "string",
+                        "enum": [
+                          "credentials"
+                        ]
+                      },
+                      "client_id": {
+                        "description": "Azure client ID for the service principal.",
+                        "type": "string",
+                        "maxLength": 128
+                      },
+                      "secret": {
+                        "description": "Azure client secret for the service principal.",
+                        "type": "string",
+                        "maxLength": 256
+                      },
+                      "tenant_id": {
+                        "description": "Azure tenant ID for the service principal.",
                         "type": "string",
                         "maxLength": 128
                       }
@@ -901,6 +1039,14 @@
                 "enabled"
               ],
               "properties": {
+                "auto_diskless_topic_regexes": {
+                  "description": "The regexes of topics to auto enable diskless. Topics matching any of the regexes will be created as diskless topics.",
+                  "type": "array",
+                  "maxItems": 32,
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "enabled": {
                   "description": "Whether to enable the Diskless functionality",
                   "type": "boolean"
@@ -1022,7 +1168,7 @@
               "additionalProperties": false
             },
             "kafka_version": {
-              "description": "Available versions: `3.7`, `3.8`, `3.9`, `4.0`, `4.1`. Newer versions may also be available.\nKafka major version. Deprecated values: `3.7`",
+              "description": "Available versions: `3.9`, `4.0`, `4.1`, `4.2`. Newer versions may also be available.\nKafka major version. Deprecated values: `4.0`",
               "type": "string"
             },
             "letsencrypt_sasl": {
@@ -1032,6 +1178,14 @@
             "letsencrypt_sasl_privatelink": {
               "description": "Use a Let's Encrypt certificate authority (CA) for Kafka SASL authentication via Privatelink. (Default: False)",
               "type": "boolean"
+            },
+            "preferred_zones": {
+              "description": "List of preferred zone IDs for service node placement. Nodes will be placed in these zones when available. If a specified zone is unavailable (e.g., due to capacity constraints), nodes will be placed in other available zones to maintain the configured number of zones for availability. Invalid zone IDs are rejected at configuration time. Zone IDs are cloud-specific: AWS uses zone IDs like 'euc1-az1', GCP uses zone names like 'europe-west1-a', and Azure uses 'location/zone' format like 'germanywestcentral/1'. If single_zone is enabled with an availability_zone, that setting takes precedence over preferred_zones.Changes take effect on next node recreation (e.g., maintenance or plan change). For Kafka professional plans, nodes outside preferred zones are automatically rebalanced once per day.",
+              "type": "array",
+              "maxItems": 10,
+              "items": {
+                "type": "string"
+              }
             },
             "private_access": {
               "description": "Allow access to selected service ports from private networks",

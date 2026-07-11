@@ -39,6 +39,96 @@
           },
           "additionalProperties": false
         },
+        "accessEntries": {
+          "description": "AccessEntries specifies the access entries for the cluster\nAccess entries require AuthenticationMode to be either \"api\" or \"api_and_config_map\"",
+          "type": "array",
+          "items": {
+            "description": "AccessEntry represents an AWS EKS access entry for IAM principals",
+            "type": "object",
+            "required": [
+              "principalARN"
+            ],
+            "properties": {
+              "accessPolicies": {
+                "description": "AccessPolicies specifies the policies to associate with this access entry\nCannot be specified if Type is \"ec2_linux\" or \"ec2_windows\"",
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "description": "AccessPolicyReference represents a reference to an AWS EKS access policy",
+                  "type": "object",
+                  "required": [
+                    "accessScope",
+                    "policyARN"
+                  ],
+                  "properties": {
+                    "accessScope": {
+                      "description": "AccessScope specifies the scope for the policy",
+                      "type": "object",
+                      "required": [
+                        "type"
+                      ],
+                      "properties": {
+                        "namespaces": {
+                          "description": "Namespaces are the namespaces for the access scope\nOnly valid when Type is namespace",
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "type": {
+                          "description": "Type is the type of access scope. Defaults to \"cluster\".",
+                          "type": "string",
+                          "default": "cluster",
+                          "enum": [
+                            "cluster",
+                            "namespace"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "policyARN": {
+                      "description": "PolicyARN is the Amazon Resource Name (ARN) of the access policy",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "kubernetesGroups": {
+                "description": "KubernetesGroups represents the Kubernetes groups for the access entry\nCannot be specified if Type is \"ec2_linux\" or \"ec2_windows\"",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "principalARN": {
+                "description": "PrincipalARN is the Amazon Resource Name (ARN) of the IAM principal",
+                "type": "string"
+              },
+              "type": {
+                "description": "Type is the type of access entry. Defaults to standard if not specified.",
+                "type": "string",
+                "default": "standard",
+                "enum": [
+                  "standard",
+                  "ec2_linux",
+                  "ec2_windows",
+                  "fargate_linux",
+                  "ec2",
+                  "hybrid_linux",
+                  "hyperpod_linux"
+                ]
+              },
+              "username": {
+                "description": "Username is the username for the access entry",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "additionalTags": {
           "description": "AdditionalTags is an optional set of tags to add to AWS resources managed by the AWS provider, in addition to the\nones added by default.",
           "type": "object",
@@ -102,7 +192,7 @@
           "type": "object",
           "properties": {
             "allowedCIDRBlocks": {
-              "description": "AllowedCIDRBlocks is a list of CIDR blocks allowed to access the bastion host.\nThey are set as ingress rules for the Bastion host's Security Group (defaults to 0.0.0.0/0).",
+              "description": "AllowedCIDRBlocks is a list of CIDR blocks allowed to access the bastion host.\nThey are set as ingress rules for the Bastion host's Security Group (defaults to 0.0.0.0/0).\nIf the cluster has IPv6 enabled, defaults to ::/0 and 0.0.0.0/0.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -135,10 +225,6 @@
         "controlPlaneEndpoint": {
           "description": "ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.",
           "type": "object",
-          "required": [
-            "host",
-            "port"
-          ],
           "properties": {
             "host": {
               "description": "host is the hostname on which the API server is serving.",
@@ -606,11 +692,11 @@
                     "type": "string"
                   },
                   "ipv6CidrBlock": {
-                    "description": "IPv6CidrBlock is the IPv6 CIDR block to be used when the provider creates a managed VPC.\nA subnet can have an IPv4 and an IPv6 address.\nIPv6 is only supported in managed clusters, this field cannot be set on AWSCluster object.",
+                    "description": "IPv6CidrBlock is the IPv6 CIDR block to be used when the provider creates a managed VPC.\nA subnet can have an IPv4 and an IPv6 address.",
                     "type": "string"
                   },
                   "isIpv6": {
-                    "description": "IsIPv6 defines the subnet as an IPv6 subnet. A subnet is IPv6 when it is associated with a VPC that has IPv6 enabled.\nIPv6 is only supported in managed clusters, this field cannot be set on AWSCluster object.",
+                    "description": "IsIPv6 defines the subnet as an IPv6 subnet. A subnet is IPv6 when it is associated with an IPv6 CIDR.",
                     "type": "boolean"
                   },
                   "isPublic": {
@@ -741,7 +827,7 @@
                       "type": "string"
                     },
                     "netmaskLength": {
-                      "description": "The netmask length of the IPv4 CIDR you want to allocate to VPC from\nan Amazon VPC IP Address Manager (IPAM) pool.\nDefaults to /16 for IPv4 if not specified.",
+                      "description": "The netmask length of the IPv4 CIDR you want to allocate to VPC from\nan Amazon VPC IP Address Manager (IPAM) pool.\nDefaults to /16 for IPv4 if not specified.\nDefaults to /56 for IPv6 if not specified.",
                       "type": "integer",
                       "format": "int64"
                     }
@@ -749,7 +835,7 @@
                   "additionalProperties": false
                 },
                 "ipv6": {
-                  "description": "IPv6 contains ipv6 specific settings for the network. Supported only in managed clusters.\nThis field cannot be set on AWSCluster object.",
+                  "description": "IPv6 contains ipv6 specific settings for the network.",
                   "type": "object",
                   "properties": {
                     "cidrBlock": {
@@ -773,7 +859,7 @@
                           "type": "string"
                         },
                         "netmaskLength": {
-                          "description": "The netmask length of the IPv4 CIDR you want to allocate to VPC from\nan Amazon VPC IP Address Manager (IPAM) pool.\nDefaults to /16 for IPv4 if not specified.",
+                          "description": "The netmask length of the IPv4 CIDR you want to allocate to VPC from\nan Amazon VPC IP Address Manager (IPAM) pool.\nDefaults to /16 for IPv4 if not specified.\nDefaults to /56 for IPv6 if not specified.",
                           "type": "integer",
                           "format": "int64"
                         }
@@ -974,7 +1060,7 @@
                 ],
                 "properties": {
                   "name": {
-                    "description": "Name of the environment variable. Must be a C_IDENTIFIER.",
+                    "description": "Name of the environment variable.\nMay consist of any printable ASCII characters except '='.",
                     "type": "string"
                   },
                   "value": {
@@ -1022,6 +1108,36 @@
                           },
                           "fieldPath": {
                             "description": "Path of the field to select in the specified API version.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      },
+                      "fileKeyRef": {
+                        "description": "FileKeyRef selects a key of the env file.\nRequires the EnvFiles feature gate to be enabled.",
+                        "type": "object",
+                        "required": [
+                          "key",
+                          "path",
+                          "volumeName"
+                        ],
+                        "properties": {
+                          "key": {
+                            "description": "The key within the env file. An invalid key will prevent the pod from starting.\nThe keys defined within a source may consist of any printable ASCII characters except '='.\nDuring Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.",
+                            "type": "string"
+                          },
+                          "optional": {
+                            "description": "Specify whether the file or its key must be defined. If the file or key\ndoes not exist, then the env var is not published.\nIf optional is set to true and the specified key does not exist,\nthe environment variable will not be set in the Pod's containers.\n\nIf optional is set to false and the specified key does not exist,\nan error will be returned during Pod creation.",
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "path": {
+                            "description": "The path within the volume from which to select the file.\nMust be relative and may not contain the '..' path or start with '..'.",
+                            "type": "string"
+                          },
+                          "volumeName": {
+                            "description": "The name of the volume mount containing the env file.",
                             "type": "string"
                           }
                         },
@@ -1215,6 +1331,10 @@
                 "additionalProperties": false
               }
             },
+            "assignPrimaryIPv6": {
+              "description": "AssignPrimaryIPv6 specifies whether to enable assigning a primary IPv6 address to the primary network Interface.",
+              "type": "string"
+            },
             "availabilityZone": {
               "description": "Availability zone of instance",
               "type": "string"
@@ -1256,6 +1376,14 @@
                   "enum": [
                     "Disabled",
                     "AMDEncryptedVirtualizationNestedPaging"
+                  ]
+                },
+                "nestedVirtualization": {
+                  "description": "NestedVirtualization specifies whether to enable nested virtualization on the instance.\nNested virtualization is supported on C8i, M8i, and R8i instance types.\nValid values are: enabled, disabled",
+                  "type": "string",
+                  "enum": [
+                    "enabled",
+                    "disabled"
                   ]
                 }
               },
@@ -1319,6 +1447,15 @@
                     "disabled"
                   ]
                 },
+                "httpProtocolIpv6": {
+                  "description": "Enables or disables the IPv6 endpoint for the instance metadata service.\nThis applies only if you enabled the HTTP metadata endpoint.\n\nDefault: disabled",
+                  "type": "string",
+                  "default": "disabled",
+                  "enum": [
+                    "enabled",
+                    "disabled"
+                  ]
+                },
                 "httpPutResponseHopLimit": {
                   "description": "The desired HTTP PUT response hop limit for instance metadata requests. The\nlarger the number, the further instance metadata requests can travel.\n\nDefault: 1",
                   "type": "integer",
@@ -1350,6 +1487,10 @@
             },
             "instanceState": {
               "description": "The current state of the instance.",
+              "type": "string"
+            },
+            "ipv6Address": {
+              "description": "The IPv6 address assigned to the instance.",
               "type": "string"
             },
             "marketType": {
@@ -1734,6 +1875,10 @@
                           "vpcId"
                         ],
                         "properties": {
+                          "ipType": {
+                            "description": "IPType is the IP address type for the target group.",
+                            "type": "string"
+                          },
                           "name": {
                             "description": "Name of the TargetGroup. Must be unique over the same group of listeners.",
                             "type": "string",
@@ -1865,6 +2010,15 @@
                     },
                     "additionalProperties": false
                   }
+                },
+                "loadBalancerIPAddressType": {
+                  "description": "LoadBalancerIPAddressType specifies the IP address type for the load balancer.",
+                  "type": "string",
+                  "enum": [
+                    "ipv4",
+                    "dualstack",
+                    "dualstack-without-public-ipv4"
+                  ]
                 },
                 "loadBalancerType": {
                   "description": "LoadBalancerType sets the type for a load balancer. The default type is classic.",
@@ -1987,6 +2141,10 @@
                           "vpcId"
                         ],
                         "properties": {
+                          "ipType": {
+                            "description": "IPType is the IP address type for the target group.",
+                            "type": "string"
+                          },
                           "name": {
                             "description": "Name of the TargetGroup. Must be unique over the same group of listeners.",
                             "type": "string",
@@ -2118,6 +2276,15 @@
                     },
                     "additionalProperties": false
                   }
+                },
+                "loadBalancerIPAddressType": {
+                  "description": "LoadBalancerIPAddressType specifies the IP address type for the load balancer.",
+                  "type": "string",
+                  "enum": [
+                    "ipv4",
+                    "dualstack",
+                    "dualstack-without-public-ipv4"
+                  ]
                 },
                 "loadBalancerType": {
                   "description": "LoadBalancerType sets the type for a load balancer. The default type is classic.",
@@ -2276,6 +2443,11 @@
             }
           },
           "additionalProperties": false
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the latest generation observed by the controller.",
+          "type": "integer",
+          "format": "int64"
         },
         "oidcProvider": {
           "description": "OIDCProvider holds the status of the identity provider for this cluster",
