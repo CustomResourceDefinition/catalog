@@ -28,7 +28,6 @@
             "cinder.csi.openstack.org",
             "csi.vsphere.vmware.com",
             "manila.csi.openstack.org",
-            "csi.ovirt.org",
             "csi.kubevirt.io",
             "csi.sharedresource.openshift.io",
             "diskplugin.csi.alibabacloud.com",
@@ -96,9 +95,14 @@
                   "additionalProperties": false
                 },
                 "kmsKeyARN": {
-                  "description": "kmsKeyARN sets the cluster default storage class to encrypt volumes with a user-defined KMS key,\nrather than the default KMS key used by AWS.\nThe value may be either the ARN or Alias ARN of a KMS key.",
+                  "description": "kmsKeyARN sets the cluster default storage class to encrypt volumes with a user-defined KMS key,\nrather than the default KMS key used by AWS.\nThe value may be either the ARN or Alias ARN of a KMS key.\n\nThe ARN must follow the format: arn:\u003cpartition\u003e:kms:\u003cregion\u003e:\u003caccount-id\u003e:(key|alias)/\u003ckey-id-or-alias\u003e, where:\n\u003cpartition\u003e is the AWS partition (aws, aws-cn, aws-us-gov, aws-iso, aws-iso-b, aws-iso-e, aws-iso-f, or aws-eusc),\n\u003cregion\u003e is the AWS region,\n\u003caccount-id\u003e is a 12-digit numeric identifier for the AWS account,\n\u003ckey-id-or-alias\u003e is the KMS key ID or alias name.",
                   "type": "string",
-                  "pattern": "^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b|aws-iso-e|aws-iso-f):kms:[a-z0-9-]+:[0-9]{12}:(key|alias)\\/.*$"
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "matches(self, '^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b|aws-iso-e|aws-iso-f|aws-eusc):kms:[a-z0-9-]+:[0-9]{12}:(key|alias)/.*$')",
+                      "message": "kmsKeyARN must be a valid AWS KMS key ARN in the format: arn:\u003cpartition\u003e:kms:\u003cregion\u003e:\u003caccount-id\u003e:(key|alias)/\u003ckey-id-or-alias\u003e"
+                    }
+                  ]
                 }
               },
               "additionalProperties": false
@@ -141,7 +145,7 @@
               "additionalProperties": false
             },
             "driverType": {
-              "description": "driverType indicates type of CSI driver for which the\ndriverConfig is being applied to.\nValid values are: AWS, Azure, GCP, IBMCloud, vSphere and omitted.\nConsumers should treat unknown values as a NO-OP.",
+              "description": "driverType indicates type of CSI driver for which the\ndriverConfig is being applied to.\nValid values are: AWS, Azure, GCP, IBMCloud, vSphere, SecretsStore and omitted.\nConsumers should treat unknown values as a NO-OP.",
               "type": "string",
               "enum": [
                 "",
@@ -149,7 +153,8 @@
                 "Azure",
                 "GCP",
                 "IBMCloud",
-                "vSphere"
+                "vSphere",
+                "SecretsStore"
               ]
             },
             "gcp": {
@@ -214,6 +219,118 @@
               },
               "additionalProperties": false
             },
+            "secretsStore": {
+              "description": "secretsStore is used to configure the Secrets Store CSI driver.",
+              "type": "object",
+              "minProperties": 1,
+              "properties": {
+                "secretRotation": {
+                  "description": "secretRotation controls automatic secret rotation behavior.\nWhen omitted, secret rotation is enabled with a default poll interval of 2 minutes.",
+                  "type": "object",
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "custom": {
+                      "description": "custom holds the custom rotation configuration.\nOnly valid when type is \"Custom\".",
+                      "type": "object",
+                      "minProperties": 1,
+                      "properties": {
+                        "minimumRefreshAge": {
+                          "description": "minimumRefreshAge is the minimum time in seconds between secret\nrotation attempts. Each time kubelet calls NodePublishVolume, the driver\nchecks whether this interval has elapsed since the last successful provider\ncall. If it has, the driver contacts the secret provider to fetch the latest\nsecret values and updates the mounted volume.\nSetting this value below the kubelet syncFrequency (default: 1 minute)\nhas no additional effect on the actual rotation cadence.\nMust be at least 1 second and no more than 31560000 seconds (~1 year).\nWhen omitted, this means no opinion and the platform is left to choose a\nreasonable default, which is subject to change over time.",
+                          "type": "integer",
+                          "format": "int32",
+                          "maximum": 31560000,
+                          "minimum": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "type": {
+                      "description": "type determines the secret rotation behavior.\nWhen \"None\", secret rotation is disabled and secrets are only fetched at\ninitial pod mount time.\nWhen \"Custom\", secret rotation is enabled with the configuration specified\nin the custom field.",
+                      "type": "string",
+                      "enum": [
+                        "None",
+                        "Custom"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "has(self.type) \u0026\u0026 self.type == 'Custom' ? has(self.custom) : !has(self.custom)",
+                      "message": "custom must be set when type is 'Custom', and must not be set otherwise"
+                    }
+                  ]
+                },
+                "tokenRequests": {
+                  "description": "tokenRequests controls service account token configuration for\nworkload identity federation (WIF) with cloud providers.\nWhen omitted, the operator preserves any existing tokenRequests\nalready configured on the CSIDriver object without modification.",
+                  "type": "object",
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "managed": {
+                      "description": "managed holds configuration for operator-managed tokenRequests.\nOnly valid when type is \"Managed\".",
+                      "type": "object",
+                      "minProperties": 1,
+                      "properties": {
+                        "audiences": {
+                          "description": "audiences specifies service account token audiences that kubelet will\nprovide to the CSI driver during NodePublishVolume calls. These tokens\nenable workload identity federation (WIF) with cloud providers such as\nAWS, Azure, and GCP.\nWhen empty, the operator clears all tokenRequests from the CSIDriver object.",
+                          "type": "array",
+                          "maxItems": 10,
+                          "minItems": 0,
+                          "items": {
+                            "description": "SecretsStoreTokenRequest specifies a service account token audience configuration\nfor workload identity federation (WIF) with the Secrets Store CSI driver.",
+                            "type": "object",
+                            "required": [
+                              "audience"
+                            ],
+                            "properties": {
+                              "audience": {
+                                "description": "audience is the intended audience of the service account token.\nAn empty string means the issued token will use the kube-apiserver's default APIAudiences.",
+                                "type": "string",
+                                "maxLength": 253,
+                                "minLength": 0
+                              },
+                              "expirationSeconds": {
+                                "description": "expirationSeconds is the requested duration of validity of the service account token.\nThe token issuer may return a token with a different validity duration.\nWhen omitted, the token expiration is determined by the kube-apiserver.\nMust be at least 600 seconds (10 minutes) and no more than 315360000 seconds (~10 years).",
+                                "type": "integer",
+                                "format": "int32",
+                                "maximum": 315360000,
+                                "minimum": 600
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "x-kubernetes-list-map-keys": [
+                            "audience"
+                          ],
+                          "x-kubernetes-list-type": "map"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "type": {
+                      "description": "type determines how the operator manages tokenRequests on the CSIDriver object.\nWhen \"Unmanaged\", existing tokenRequests on the CSIDriver are preserved\nand the managed field is not used.\nWhen \"Managed\", the operator sets tokenRequests from the audiences\nspecified in the managed field, replacing any previously configured values.\nOnce set to \"Managed\", type cannot be reverted back to \"Unmanaged\".",
+                      "type": "string",
+                      "enum": [
+                        "Managed",
+                        "Unmanaged"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "has(self.type) \u0026\u0026 self.type == 'Managed' ? has(self.managed) : !has(self.managed)",
+                      "message": "managed must be set when type is 'Managed', and must not be set otherwise"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
             "vSphere": {
               "description": "vSphere is used to configure the vsphere CSI driver.",
               "type": "object",
@@ -263,6 +380,10 @@
             {
               "rule": "has(self.driverType) \u0026\u0026 self.driverType == 'IBMCloud' ? has(self.ibmcloud) : !has(self.ibmcloud)",
               "message": "ibmcloud must be set if driverType is 'IBMCloud', but remain unset otherwise"
+            },
+            {
+              "rule": "has(self.driverType) \u0026\u0026 self.driverType == 'SecretsStore' ? has(self.secretsStore) : !has(self.secretsStore)",
+              "message": "secretsStore must be set if driverType is 'SecretsStore', but remain unset otherwise"
             }
           ]
         },
@@ -447,5 +568,19 @@
       },
       "additionalProperties": false
     }
-  }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "self.spec.?driverConfig.driverType.orValue('') == 'SecretsStore' ? self.metadata.name == 'secrets-store.csi.k8s.io' : true",
+      "message": "driverType 'SecretsStore' requires metadata.name 'secrets-store.csi.k8s.io'"
+    },
+    {
+      "rule": "self.metadata.name == 'secrets-store.csi.k8s.io' ? (!has(self.spec.driverConfig) || self.spec.driverConfig.driverType == 'SecretsStore') : true",
+      "message": "metadata.name 'secrets-store.csi.k8s.io' requires driverType 'SecretsStore'"
+    },
+    {
+      "rule": "oldSelf.spec.?driverConfig.?secretsStore.?tokenRequests.?type.orValue('') != 'Managed' || self.spec.?driverConfig.?secretsStore.?tokenRequests.?type.orValue('') == 'Managed'",
+      "message": "tokenRequests type cannot be changed from Managed"
+    }
+  ]
 }
