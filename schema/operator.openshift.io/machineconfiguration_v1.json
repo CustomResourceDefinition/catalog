@@ -20,6 +20,82 @@
       "description": "spec is the specification of the desired behavior of the Machine Config Operator",
       "type": "object",
       "properties": {
+        "bootImageSkewEnforcement": {
+          "description": "bootImageSkewEnforcement allows an admin to configure how boot image version skew is\nenforced on the cluster.\nWhen omitted, this will default to Automatic for clusters that support automatic boot image updates.\nFor clusters that do not support automatic boot image updates, cluster upgrades will be disabled until\na skew enforcement mode has been specified.\nWhen version skew is being enforced, cluster upgrades will be disabled until the version skew is deemed\nacceptable for the current release payload.",
+          "type": "object",
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "manual": {
+              "description": "manual describes the current boot image of the cluster.\nThis should be set to the oldest boot image used amongst all machine resources in the cluster.\nThis must include either the RHCOS version of the boot image or the OCP release version which shipped with that\nRHCOS boot image.\nRequired when mode is set to \"Manual\" and forbidden otherwise.",
+              "type": "object",
+              "required": [
+                "mode"
+              ],
+              "properties": {
+                "mode": {
+                  "description": "mode is used to configure which boot image field is defined in Manual mode.\nValid values are OCPVersion and RHCOSVersion.\nOCPVersion means that the cluster admin is expected to set the OCP version associated with the last boot image update\nin the OCPVersion field.\nRHCOSVersion means that the cluster admin is expected to set the RHCOS version associated with the last boot image update\nin the RHCOSVersion field.\nThis field is required.",
+                  "type": "string",
+                  "enum": [
+                    "OCPVersion",
+                    "RHCOSVersion"
+                  ]
+                },
+                "ocpVersion": {
+                  "description": "ocpVersion provides a string which represents the OCP version of the boot image.\nThis field must match the OCP semver compatible format of x.y.z. This field must be between\n5 and 10 characters long.\nRequired when mode is set to \"OCPVersion\" and forbidden otherwise.",
+                  "type": "string",
+                  "maxLength": 10,
+                  "minLength": 5,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.matches('^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$')",
+                      "message": "ocpVersion must match the OCP semver compatible format of x.y.z"
+                    }
+                  ]
+                },
+                "rhcosVersion": {
+                  "description": "rhcosVersion provides a string which represents the RHCOS version of the boot image\nThis field must match rhcosVersion formatting of [major].[minor].[datestamp(YYYYMMDD)]-[buildnumber] or the legacy\nformat of [major].[minor].[timestamp(YYYYMMDDHHmm)]-[buildnumber]. This field must be between\n14 and 21 characters long.\nRequired when mode is set to \"RHCOSVersion\" and forbidden otherwise.",
+                  "type": "string",
+                  "maxLength": 21,
+                  "minLength": 14,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.matches('^[0-9]+\\\\.[0-9]+\\\\.([0-9]{8}|[0-9]{12})-[0-9]+$')",
+                      "message": "rhcosVersion must match format [major].[minor].[datestamp(YYYYMMDD)]-[buildnumber] or must match legacy format [major].[minor].[timestamp(YYYYMMDDHHmm)]-[buildnumber]"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "has(self.mode) \u0026\u0026 (self.mode =='OCPVersion') ?  has(self.ocpVersion) : !has(self.ocpVersion)",
+                  "message": "ocpVersion is required when mode is OCPVersion, and forbidden otherwise"
+                },
+                {
+                  "rule": "has(self.mode) \u0026\u0026 (self.mode =='RHCOSVersion') ?  has(self.rhcosVersion) : !has(self.rhcosVersion)",
+                  "message": "rhcosVersion is required when mode is RHCOSVersion, and forbidden otherwise"
+                }
+              ]
+            },
+            "mode": {
+              "description": "mode determines the underlying behavior of skew enforcement mechanism.\nValid values are Manual and None.\nManual means that the cluster admin is expected to perform manual boot image updates and store the OCP\n\u0026 RHCOS version associated with the last boot image update in the manual field.\nIn Manual mode, the MCO will prevent upgrades when the boot image skew exceeds the\nskew limit described by the release image.\nNone means that the MCO will no longer monitor the boot image skew. This may affect\nthe cluster's ability to scale.\nThis field is required.",
+              "type": "string",
+              "enum": [
+                "Manual",
+                "None"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "has(self.mode) \u0026\u0026 (self.mode =='Manual') ?  has(self.manual) : !has(self.manual)",
+              "message": "manual is required when mode is Manual, and forbidden otherwise"
+            }
+          ]
+        },
         "failedRevisionLimit": {
           "description": "failedRevisionLimit is the number of failed static pod installer revisions to keep on disk and in the api\n-1 = unlimited, 0 or unset = 5 (default)",
           "type": "integer",
@@ -28,6 +104,30 @@
         "forceRedeploymentReason": {
           "description": "forceRedeploymentReason can be used to force the redeployment of the operand by providing a unique string.\nThis provides a mechanism to kick a previously failed deployment and provide a reason why you think it will work\nthis time instead of failing again on the same config.",
           "type": "string"
+        },
+        "irreconcilableValidationOverrides": {
+          "description": "irreconcilableValidationOverrides is an optional field that can used to make changes to a MachineConfig that\ncannot be applied to existing nodes.\nWhen specified, the fields configured with validation overrides will no longer reject changes to those\nrespective fields due to them not being able to be applied to existing nodes.\nOnly newly provisioned nodes will have these configurations applied.\nExisting nodes will report observed configuration differences in their MachineConfigNode status.",
+          "type": "object",
+          "minProperties": 1,
+          "properties": {
+            "storage": {
+              "description": "storage can be used to allow making irreconcilable changes to the selected sections under the\n`spec.config.storage` field of MachineConfig CRs\nIt must have at least one item, may not exceed 3 items and must not contain duplicates.\nAllowed element values are \"Disks\", \"FileSystems\", \"Raid\" and omitted.\nWhen contains \"Disks\" changes to the `spec.config.storage.disks` section of MachineConfig CRs are allowed.\nWhen contains \"FileSystems\" changes to the `spec.config.storage.filesystems` section of MachineConfig CRs are allowed.\nWhen contains \"Raid\" changes to the `spec.config.storage.raid` section of MachineConfig CRs are allowed.\nWhen omitted changes to the `spec.config.storage` section are forbidden.",
+              "type": "array",
+              "maxItems": 3,
+              "minItems": 1,
+              "items": {
+                "description": "IrreconcilableValidationOverridesStorage defines available storage irreconcilable overrides.",
+                "type": "string",
+                "enum": [
+                  "Disks",
+                  "FileSystems",
+                  "Raid"
+                ]
+              },
+              "x-kubernetes-list-type": "set"
+            }
+          },
+          "additionalProperties": false
         },
         "logLevel": {
           "description": "logLevel is an intent based logging for an overall component.  It does not give fine grained control, but it is a\nsimple way to manage coarse grained logging choices that operators have to interpret for their operands.\n\nValid values are: \"Normal\", \"Debug\", \"Trace\", \"TraceAll\".\nDefaults to \"Normal\".",
@@ -42,12 +142,13 @@
           ]
         },
         "managedBootImages": {
-          "description": "managedBootImages allows configuration for the management of boot images for machine\nresources within the cluster. This configuration allows users to select resources that should\nbe updated to the latest boot images during cluster upgrades, ensuring that new machines\nalways boot with the current cluster version's boot image. When omitted, no boot images\nwill be updated.",
+          "description": "managedBootImages allows configuration for the management of boot images for machine\nresources within the cluster. This configuration allows users to select resources that should\nbe updated to the latest boot images during cluster upgrades, ensuring that new machines\nalways boot with the current cluster version's boot image. When omitted, this means no opinion\nand the platform is left to choose a reasonable default, which is subject to change over time.\nThe default for each machine manager mode is All for GCP and AWS platforms, and None for all\nother platforms.",
           "type": "object",
           "properties": {
             "machineManagers": {
               "description": "machineManagers can be used to register machine management resources for boot image updates. The Machine Config Operator\nwill watch for changes to this list. Only one entry is permitted per type of machine management resource.",
               "type": "array",
+              "maxItems": 5,
               "items": {
                 "description": "MachineManager describes a target machine resource that is registered for boot image updates. It stores identifying information\nsuch as the resource type and the API Group of the resource. It also provides granular control via the selection field.",
                 "type": "object",
@@ -65,10 +166,11 @@
                     ]
                   },
                   "resource": {
-                    "description": "resource is the machine management resource's type.\nThe only current valid value is machinesets.\nmachinesets means that the machine manager will only register resources of the kind MachineSet.",
+                    "description": "resource is the machine management resource's type.\nValid values are machinesets and controlplanemachinesets.\nmachinesets means that the machine manager will only register resources of the kind MachineSet.\ncontrolplanemachinesets means that the machine manager will only register resources of the kind ControlPlaneMachineSet.",
                     "type": "string",
                     "enum": [
-                      "machinesets"
+                      "machinesets",
+                      "controlplanemachinesets"
                     ]
                   },
                   "selection": {
@@ -79,11 +181,12 @@
                     ],
                     "properties": {
                       "mode": {
-                        "description": "mode determines how machine managers will be selected for updates.\nValid values are All and Partial.\nAll means that every resource matched by the machine manager will be updated.\nPartial requires specified selector(s) and allows customisation of which resources matched by the machine manager will be updated.",
+                        "description": "mode determines how machine managers will be selected for updates.\nValid values are All, Partial and None.\nAll means that every resource matched by the machine manager will be updated.\nPartial requires specified selector(s) and allows customisation of which resources matched by the machine manager will be updated.\nPartial is not permitted for the controlplanemachinesets resource type as they are a singleton within the cluster.\nNone means that every resource matched by the machine manager will not be updated.",
                         "type": "string",
                         "enum": [
                           "All",
-                          "Partial"
+                          "Partial",
+                          "None"
                         ]
                       },
                       "partial": {
@@ -153,7 +256,13 @@
                     ]
                   }
                 },
-                "additionalProperties": false
+                "additionalProperties": false,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "self.resource != 'controlplanemachinesets' || self.selection.mode == 'All' || self.selection.mode == 'None'",
+                    "message": "Only All or None selection mode is permitted for ControlPlaneMachineSets"
+                  }
+                ]
               },
               "x-kubernetes-list-map-keys": [
                 "resource",
@@ -572,6 +681,125 @@
       "description": "status is the most recently observed status of the Machine Config Operator",
       "type": "object",
       "properties": {
+        "bootImageSkewEnforcementStatus": {
+          "description": "bootImageSkewEnforcementStatus reflects what the latest cluster-validated boot image skew enforcement\nconfiguration is and will be used by Machine Config Controller while performing boot image skew enforcement.\nWhen omitted, the MCO has no knowledge of how to enforce boot image skew. When the MCO does not know how\nboot image skew should be enforced, cluster upgrades will be blocked until it can either automatically\ndetermine skew enforcement or there is an explicit skew enforcement configuration provided in the\nspec.bootImageSkewEnforcement field.",
+          "type": "object",
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "automatic": {
+              "description": "automatic describes the current boot image of the cluster.\nThis will be populated by the MCO when performing boot image updates. This value will be compared against\nthe cluster's skew limit to determine skew compliance.\nRequired when mode is set to \"Automatic\" and forbidden otherwise.",
+              "type": "object",
+              "minProperties": 1,
+              "properties": {
+                "ocpVersion": {
+                  "description": "ocpVersion provides a string which represents the OCP version of the boot image.\nThis field must match the OCP semver compatible format of x.y.z. This field must be between\n5 and 10 characters long.",
+                  "type": "string",
+                  "maxLength": 10,
+                  "minLength": 5,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.matches('^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$')",
+                      "message": "ocpVersion must match the OCP semver compatible format of x.y.z"
+                    }
+                  ]
+                },
+                "rhcosVersion": {
+                  "description": "rhcosVersion provides a string which represents the RHCOS version of the boot image\nThis field must match rhcosVersion formatting of [major].[minor].[datestamp(YYYYMMDD)]-[buildnumber] or the legacy\nformat of [major].[minor].[timestamp(YYYYMMDDHHmm)]-[buildnumber]. This field must be between\n14 and 21 characters long.",
+                  "type": "string",
+                  "maxLength": 21,
+                  "minLength": 14,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.matches('^[0-9]+\\\\.[0-9]+\\\\.([0-9]{8}|[0-9]{12})-[0-9]+$')",
+                      "message": "rhcosVersion must match format [major].[minor].[datestamp(YYYYMMDD)]-[buildnumber] or must match legacy format [major].[minor].[timestamp(YYYYMMDDHHmm)]-[buildnumber]"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "has(self.ocpVersion) || has(self.rhcosVersion)",
+                  "message": "at least one of ocpVersion or rhcosVersion is required"
+                }
+              ]
+            },
+            "manual": {
+              "description": "manual describes the current boot image of the cluster.\nThis will be populated by the MCO using the values provided in the spec.bootImageSkewEnforcement.manual field.\nThis value will be compared against the cluster's skew limit to determine skew compliance.\nRequired when mode is set to \"Manual\" and forbidden otherwise.",
+              "type": "object",
+              "required": [
+                "mode"
+              ],
+              "properties": {
+                "mode": {
+                  "description": "mode is used to configure which boot image field is defined in Manual mode.\nValid values are OCPVersion and RHCOSVersion.\nOCPVersion means that the cluster admin is expected to set the OCP version associated with the last boot image update\nin the OCPVersion field.\nRHCOSVersion means that the cluster admin is expected to set the RHCOS version associated with the last boot image update\nin the RHCOSVersion field.\nThis field is required.",
+                  "type": "string",
+                  "enum": [
+                    "OCPVersion",
+                    "RHCOSVersion"
+                  ]
+                },
+                "ocpVersion": {
+                  "description": "ocpVersion provides a string which represents the OCP version of the boot image.\nThis field must match the OCP semver compatible format of x.y.z. This field must be between\n5 and 10 characters long.\nRequired when mode is set to \"OCPVersion\" and forbidden otherwise.",
+                  "type": "string",
+                  "maxLength": 10,
+                  "minLength": 5,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.matches('^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$')",
+                      "message": "ocpVersion must match the OCP semver compatible format of x.y.z"
+                    }
+                  ]
+                },
+                "rhcosVersion": {
+                  "description": "rhcosVersion provides a string which represents the RHCOS version of the boot image\nThis field must match rhcosVersion formatting of [major].[minor].[datestamp(YYYYMMDD)]-[buildnumber] or the legacy\nformat of [major].[minor].[timestamp(YYYYMMDDHHmm)]-[buildnumber]. This field must be between\n14 and 21 characters long.\nRequired when mode is set to \"RHCOSVersion\" and forbidden otherwise.",
+                  "type": "string",
+                  "maxLength": 21,
+                  "minLength": 14,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.matches('^[0-9]+\\\\.[0-9]+\\\\.([0-9]{8}|[0-9]{12})-[0-9]+$')",
+                      "message": "rhcosVersion must match format [major].[minor].[datestamp(YYYYMMDD)]-[buildnumber] or must match legacy format [major].[minor].[timestamp(YYYYMMDDHHmm)]-[buildnumber]"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "has(self.mode) \u0026\u0026 (self.mode =='OCPVersion') ?  has(self.ocpVersion) : !has(self.ocpVersion)",
+                  "message": "ocpVersion is required when mode is OCPVersion, and forbidden otherwise"
+                },
+                {
+                  "rule": "has(self.mode) \u0026\u0026 (self.mode =='RHCOSVersion') ?  has(self.rhcosVersion) : !has(self.rhcosVersion)",
+                  "message": "rhcosVersion is required when mode is RHCOSVersion, and forbidden otherwise"
+                }
+              ]
+            },
+            "mode": {
+              "description": "mode determines the underlying behavior of skew enforcement mechanism.\nValid values are Automatic, Manual and None.\nAutomatic means that the MCO will perform boot image updates and store the\nOCP \u0026 RHCOS version associated with the last boot image update in the automatic field.\nManual means that the cluster admin is expected to perform manual boot image updates and store the OCP\n\u0026 RHCOS version associated with the last boot image update in the manual field.\nIn Automatic and Manual mode, the MCO will prevent upgrades when the boot image skew exceeds the\nskew limit described by the release image.\nNone means that the MCO will no longer monitor the boot image skew. This may affect\nthe cluster's ability to scale.\nThis field is required.",
+              "type": "string",
+              "enum": [
+                "Automatic",
+                "Manual",
+                "None"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "has(self.mode) \u0026\u0026 (self.mode == 'Automatic') ?  has(self.automatic) : !has(self.automatic)",
+              "message": "automatic is required when mode is Automatic, and forbidden otherwise"
+            },
+            {
+              "rule": "has(self.mode) \u0026\u0026 (self.mode == 'Manual') ?  has(self.manual) : !has(self.manual)",
+              "message": "manual is required when mode is Manual, and forbidden otherwise"
+            }
+          ]
+        },
         "conditions": {
           "description": "conditions is a list of conditions and their status",
           "type": "array",
@@ -631,6 +859,138 @@
             "type"
           ],
           "x-kubernetes-list-type": "map"
+        },
+        "managedBootImagesStatus": {
+          "description": "managedBootImagesStatus reflects what the latest cluster-validated boot image configuration is\nand will be used by Machine Config Controller while performing boot image updates.",
+          "type": "object",
+          "properties": {
+            "machineManagers": {
+              "description": "machineManagers can be used to register machine management resources for boot image updates. The Machine Config Operator\nwill watch for changes to this list. Only one entry is permitted per type of machine management resource.",
+              "type": "array",
+              "maxItems": 5,
+              "items": {
+                "description": "MachineManager describes a target machine resource that is registered for boot image updates. It stores identifying information\nsuch as the resource type and the API Group of the resource. It also provides granular control via the selection field.",
+                "type": "object",
+                "required": [
+                  "apiGroup",
+                  "resource",
+                  "selection"
+                ],
+                "properties": {
+                  "apiGroup": {
+                    "description": "apiGroup is name of the APIGroup that the machine management resource belongs to.\nThe only current valid value is machine.openshift.io.\nmachine.openshift.io means that the machine manager will only register resources that belong to OpenShift machine API group.",
+                    "type": "string",
+                    "enum": [
+                      "machine.openshift.io"
+                    ]
+                  },
+                  "resource": {
+                    "description": "resource is the machine management resource's type.\nValid values are machinesets and controlplanemachinesets.\nmachinesets means that the machine manager will only register resources of the kind MachineSet.\ncontrolplanemachinesets means that the machine manager will only register resources of the kind ControlPlaneMachineSet.",
+                    "type": "string",
+                    "enum": [
+                      "machinesets",
+                      "controlplanemachinesets"
+                    ]
+                  },
+                  "selection": {
+                    "description": "selection allows granular control of the machine management resources that will be registered for boot image updates.",
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "description": "mode determines how machine managers will be selected for updates.\nValid values are All, Partial and None.\nAll means that every resource matched by the machine manager will be updated.\nPartial requires specified selector(s) and allows customisation of which resources matched by the machine manager will be updated.\nPartial is not permitted for the controlplanemachinesets resource type as they are a singleton within the cluster.\nNone means that every resource matched by the machine manager will not be updated.",
+                        "type": "string",
+                        "enum": [
+                          "All",
+                          "Partial",
+                          "None"
+                        ]
+                      },
+                      "partial": {
+                        "description": "partial provides label selector(s) that can be used to match machine management resources.\nOnly permitted when mode is set to \"Partial\".",
+                        "type": "object",
+                        "required": [
+                          "machineResourceSelector"
+                        ],
+                        "properties": {
+                          "machineResourceSelector": {
+                            "description": "machineResourceSelector is a label selector that can be used to select machine resources like MachineSets.",
+                            "type": "object",
+                            "properties": {
+                              "matchExpressions": {
+                                "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                                "type": "array",
+                                "items": {
+                                  "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                                  "type": "object",
+                                  "required": [
+                                    "key",
+                                    "operator"
+                                  ],
+                                  "properties": {
+                                    "key": {
+                                      "description": "key is the label key that the selector applies to.",
+                                      "type": "string"
+                                    },
+                                    "operator": {
+                                      "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                      "type": "string"
+                                    },
+                                    "values": {
+                                      "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "x-kubernetes-list-type": "atomic"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "x-kubernetes-list-type": "atomic"
+                              },
+                              "matchLabels": {
+                                "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "additionalProperties": false,
+                            "x-kubernetes-map-type": "atomic"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "has(self.mode) \u0026\u0026 self.mode == 'Partial' ?  has(self.partial) : !has(self.partial)",
+                        "message": "Partial is required when type is partial, and forbidden otherwise"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "self.resource != 'controlplanemachinesets' || self.selection.mode == 'All' || self.selection.mode == 'None'",
+                    "message": "Only All or None selection mode is permitted for ControlPlaneMachineSets"
+                  }
+                ]
+              },
+              "x-kubernetes-list-map-keys": [
+                "resource",
+                "apiGroup"
+              ],
+              "x-kubernetes-list-type": "map"
+            }
+          },
+          "additionalProperties": false
         },
         "nodeDisruptionPolicyStatus": {
           "description": "nodeDisruptionPolicyStatus status reflects what the latest cluster-validated policies are,\nand will be used by the Machine Config Daemon during future node updates.",
@@ -1017,5 +1377,23 @@
       },
       "additionalProperties": false
     }
-  }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "self.?status.bootImageSkewEnforcementStatus.mode.orValue(\"\") == 'Automatic' ? self.?spec.managedBootImages.hasValue() || self.?status.managedBootImagesStatus.hasValue() : true",
+      "message": "when skew enforcement is in Automatic mode, a boot image configuration is required"
+    },
+    {
+      "rule": "self.?status.bootImageSkewEnforcementStatus.mode.orValue(\"\") == 'Automatic' ? !(self.?spec.managedBootImages.machineManagers.hasValue()) || size(self.spec.managedBootImages.machineManagers) \u003e 0 : true",
+      "message": "when skew enforcement is in Automatic mode, managedBootImages.machineManagers must not be an empty list"
+    },
+    {
+      "rule": "self.?status.bootImageSkewEnforcementStatus.mode.orValue(\"\") == 'Automatic' ? !(self.?spec.managedBootImages.machineManagers.hasValue()) || !self.spec.managedBootImages.machineManagers.exists(m, m.resource == 'machinesets' \u0026\u0026 m.apiGroup == 'machine.openshift.io') || self.spec.managedBootImages.machineManagers.exists(m, m.resource == 'machinesets' \u0026\u0026 m.apiGroup == 'machine.openshift.io' \u0026\u0026 m.selection.mode == 'All') : true",
+      "message": "when skew enforcement is in Automatic mode, any MachineAPI MachineSet MachineManager must use selection mode 'All'"
+    },
+    {
+      "rule": "self.?status.bootImageSkewEnforcementStatus.mode.orValue(\"\") == 'Automatic' ? !(self.?status.managedBootImagesStatus.machineManagers.hasValue()) || self.status.managedBootImagesStatus.machineManagers.exists(m, m.selection.mode == 'All' \u0026\u0026 m.resource == 'machinesets' \u0026\u0026 m.apiGroup == 'machine.openshift.io'): true",
+      "message": "when skew enforcement is in Automatic mode, managedBootImagesStatus must contain a MachineManager opting in all MachineAPI MachineSets"
+    }
+  ]
 }

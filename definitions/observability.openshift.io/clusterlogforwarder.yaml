@@ -1104,7 +1104,7 @@ spec:
                                 field:
                                   description: |-
                                     A dot delimited path to a field in the log record. It must start with a `.`.
-                                    The path can contain alpha-numeric characters and underscores (a-zA-Z0-9_).
+                                    The path can contain alphanumeric characters and underscores (a-zA-Z0-9_).
                                     If segments contain characters outside of this range, the segment must be quoted.
                                     Examples: `.kubernetes.namespace_name`, `.log_type`, '.kubernetes.labels.foobar', `.kubernetes.labels."foo-bar/baz"`
                                   pattern: ^(\.[a-zA-Z0-9_]+|\."[^"]+")(\.[a-zA-Z0-9_]+|\."[^"]+")*$
@@ -1136,7 +1136,7 @@ spec:
                       description: |-
                         KubeAPIAudit filter Kube API server audit logs, as described in [Kubernetes Auditing].
 
-                        # Policy Filtering
+                        == Policy Filtering
 
                         Policy event rules are the same format as the [Kube Audit Policy] with some minor extensions.
                         The extensions are described here, see the [Kube Audit Policy] for the standard rule behavior.
@@ -1152,11 +1152,11 @@ spec:
                           - RequestResponse: All data is included: metadata, request body and response body. Note the response body can be very large.
                             For example the a command like `oc get -A pods` generates a response body containing the YAML description of every pod in the cluster.
 
-                        # Extensions
+                        == Extensions
 
                         The following features are extensions to the standard [Kube Audit Policy]
 
-                        ## Wildcards
+                        === Wildcards
 
                         Names of users, groups, namespaces, and resources can have a leading or trailing '*' character.
                         For example namespace 'openshift-*' matches 'openshift-apiserver' or 'openshift-authentication.
@@ -1166,18 +1166,18 @@ spec:
                         fields with a forward slash.  This means rules that rely upon a resource type that may or
                         may not include the subresource should be adjusted to cover all the required use-cases (i.e. ['pod','pod/*']).
 
-                        ## Default Rules
+                        === Default Rules
 
                         Events that do not match any rule in the policy are filtered as follows:
                         - User events (ie. non-system and non-serviceaccount) are forwarded
                         - Read-only system events (get/list/watch etc) are dropped
                         - Service account write events that occur within the same namespace as the service account are dropped
-                        - All other events are forwarded, subject to any configured [rate limits][#rate-lmiting]
+                        - All other events are forwarded, subject to any configured [rate limits][#rate-limiting]
 
                         If you want to disable these defaults, end your rules list with rule that has only a `level` field.
                         An empty rule matches any event, and prevents the defaults from taking effect.
 
-                        ## Omit Response Codes
+                        === Omit Response Codes
 
                         You can drop events based on the HTTP status code in the response. See the OmitResponseCodes field.
 
@@ -1575,11 +1575,13 @@ spec:
                               description: |-
                                 RateLimitPerContainer is the limit applied to each container
                                 by this input. This limit is applied per collector deployment.
+                                Log records exceeding the rate limit are dropped.
                               properties:
                                 maxRecordsPerSecond:
                                   description: |-
                                     MaxRecordsPerSecond is the maximum number of log records
-                                    allowed per input/output in a pipeline
+                                    allowed per input/output in a pipeline.
+                                    Log records exceeding this limit are dropped.
                                   exclusiveMinimum: true
                                   format: int64
                                   minimum: 0
@@ -1606,6 +1608,22 @@ spec:
                             - ovn
                             type: string
                           type: array
+                        tuning:
+                          description: Tuning is the audit input tuning spec
+                          properties:
+                            ignoreOlder:
+                              description: |-
+                                IgnoreOlder specifies the maximum duration since the last modification
+                                of an audit log file before the collector ignores it. When the collector restarts, files
+                                that have not been modified within this time window may not be collected.
+                                Increase this value for audit sources with infrequent writes to prevent data loss.
+                                The default value is 3600 (1 hour).
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                          - message: must be at least 1 second
+                            rule: '!has(self.ignoreOlder) || duration(self.ignoreOlder)
+                              >= duration(''1s'')'
                       type: object
                     infrastructure:
                       description: Infrastructure, Enables `infrastructure` logs.
@@ -1643,11 +1661,13 @@ spec:
                                   description: |-
                                     RateLimitPerContainer is the limit applied to each container
                                     by this input. This limit is applied per collector deployment.
+                                    Log records exceeding the rate limit are dropped.
                                   properties:
                                     maxRecordsPerSecond:
                                       description: |-
                                         MaxRecordsPerSecond is the maximum number of log records
-                                        allowed per input/output in a pipeline
+                                        allowed per input/output in a pipeline.
+                                        Log records exceeding this limit are dropped.
                                       exclusiveMinimum: true
                                       format: int64
                                       minimum: 0
@@ -1789,7 +1809,7 @@ spec:
                             1. http
                                - Currently only supports kubernetes audit logs (log_type = "audit")
                             2. syslog
-                               - Currently only supports node infrastucture logs (log_type = "infrastructure")
+                               - Currently only supports node infrastructure logs (log_type = "infrastructure")
                           enum:
                           - http
                           - syslog
@@ -1840,9 +1860,194 @@ spec:
                 items:
                   description: OutputSpec defines a destination for log messages.
                   properties:
+                    azureLogsIngestion:
+                      description: AzureLogsIngestion configures forwarding log events
+                        to the Azure Monitor Logs Ingestion API
+                      properties:
+                        authentication:
+                          description: Authentication sets credentials for authenticating
+                            the requests to the Azure Logs Ingestion API.
+                          properties:
+                            clientSecret:
+                              description: ClientSecret contains the Azure AD service
+                                principal credentials.
+                              nullable: true
+                              properties:
+                                clientId:
+                                  description: ClientId is the Azure Active Directory
+                                    application (client) ID.
+                                  type: string
+                                secret:
+                                  description: Secret points to the secret containing
+                                    the Azure Active Directory client secret.
+                                  nullable: true
+                                  properties:
+                                    key:
+                                      description: Key contains the name of the key
+                                        inside the referenced Secret.
+                                      type: string
+                                    secretName:
+                                      description: SecretName contains the name of
+                                        the Secret containing the referenced value.
+                                      type: string
+                                  required:
+                                  - key
+                                  - secretName
+                                  type: object
+                                tenantId:
+                                  description: TenantId is the Azure Active Directory
+                                    tenant ID.
+                                  type: string
+                              required:
+                              - clientId
+                              - secret
+                              - tenantId
+                              type: object
+                            type:
+                              description: |-
+                                Type is the type of Azure authentication to configure.
+
+                                Valid values are: clientSecret, workloadIdentity.
+                              enum:
+                              - clientSecret
+                              - workloadIdentity
+                              type: string
+                            workloadIdentity:
+                              description: WorkloadIdentity contains the Azure AD
+                                Workload Identity credentials.
+                              nullable: true
+                              properties:
+                                clientId:
+                                  description: ClientId is the Azure Active Directory
+                                    application (client) ID.
+                                  type: string
+                                tenantId:
+                                  description: TenantId is the Azure Active Directory
+                                    tenant ID.
+                                  type: string
+                                token:
+                                  description: Token is the bearer token to be used
+                                    for authenticating the requests.
+                                  properties:
+                                    from:
+                                      description: |-
+                                        From is the source from where to find the token.
+
+                                        Valid values are: secret, serviceAccount.
+                                      enum:
+                                      - secret
+                                      - serviceAccount
+                                      type: string
+                                    secret:
+                                      description: Use Secret if the value should
+                                        be sourced from a Secret in the same namespace.
+                                      properties:
+                                        key:
+                                          description: Name of the key used to get
+                                            the value from the referenced Secret.
+                                          type: string
+                                        name:
+                                          description: Name of secret
+                                          type: string
+                                      required:
+                                      - key
+                                      - name
+                                      type: object
+                                  required:
+                                  - from
+                                  type: object
+                                  x-kubernetes-validations:
+                                  - message: Additional secret spec is required when
+                                      bearer token is sourced from a secret
+                                    rule: self.from != 'secret' || has(self.secret)
+                              required:
+                              - clientId
+                              - tenantId
+                              - token
+                              type: object
+                          required:
+                          - type
+                          type: object
+                          x-kubernetes-validations:
+                          - message: Additional type specific spec is required for
+                              authentication
+                            rule: self.type != 'clientSecret' || has(self.clientSecret)
+                          - message: Additional type specific spec is required for
+                              authentication
+                            rule: self.type != 'workloadIdentity' || has(self.workloadIdentity)
+                        dcrImmutableId:
+                          description: DcrImmutableId is the immutable ID of the Data
+                            Collection Rule (DCR).
+                          type: string
+                        streamName:
+                          description: StreamName is the name of the custom log stream
+                            in the DCR that the data should be sent to.
+                          type: string
+                        timestampField:
+                          description: |-
+                            TimestampField is the destination field (column) for the timestamp.
+                            Most schemas use "TimeGenerated" (default), but some use "Timestamp" (legacy) or "EventStartTime" (ASIM).
+                            https://learn.microsoft.com/en-us/azure/azure-monitor/logs/log-standard-columns#timegenerated
+                          type: string
+                        tokenScope:
+                          description: |-
+                            TokenScope is the token scope for dedicated Azure regions.
+                            Defaults to "https://monitor.azure.com/.default".
+                            https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-ingestion-api-overview
+                          type: string
+                        tuning:
+                          description: Tuning specs tuning for the output
+                          properties:
+                            deliveryMode:
+                              description: |-
+                                DeliveryMode sets the delivery mode for log forwarding.
+                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
+                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
+                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
+                              enum:
+                              - AtLeastOnce
+                              - AtMostOnce
+                              type: string
+                            maxRetryDuration:
+                              description: MaxRetryDuration is the maximum time to
+                                wait between retry attempts after a delivery failure.
+                              format: int64
+                              type: integer
+                            maxWrite:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: MaxWrite limits the maximum payload in
+                                terms of bytes of a single "send" to the output.
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            minRetryDuration:
+                              description: MinRetryDuration is the minimum time to
+                                wait between attempts to retry after delivery a failure.
+                              format: int64
+                              type: integer
+                          type: object
+                        url:
+                          description: |-
+                            URL to send log records to.
+                            Basic TLS is enabled if the URL scheme requires it (for example 'https' or 'tls').
+                            The 'username@password' part of `url` is ignored.
+                          type: string
+                          x-kubernetes-validations:
+                          - message: invalid URL
+                            rule: isURL(self)
+                      required:
+                      - authentication
+                      - dcrImmutableId
+                      - streamName
+                      - url
+                      type: object
                     azureMonitor:
-                      description: AzureMonitor configures forwarding log events to
-                        the Azure Monitor Logs service
+                      description: |-
+                        DEPRECATED: Use AzureLogsIngestion instead. This output will be removed in a future release.
+                        AzureMonitor configures forwarding log events to the Azure Monitor Logs service
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -1900,6 +2105,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2053,8 +2260,10 @@ spec:
                                     used for authenticating requests.
                                   properties:
                                     from:
-                                      description: From is the source from where to
-                                        find the token
+                                      description: |-
+                                        From is the source from where to find the token.
+
+                                        Valid values are: secret, serviceAccount.
                                       enum:
                                       - secret
                                       - serviceAccount
@@ -2086,8 +2295,10 @@ spec:
                               - token
                               type: object
                             type:
-                              description: Type is the type of cloudwatch authentication
-                                to configure
+                              description: |-
+                                Type is the type of authentication to configure for an AWS service.
+
+                                Valid values are: awsAccessKey, iamRole.
                               enum:
                               - awsAccessKey
                               - iamRole
@@ -2106,19 +2317,19 @@ spec:
                           description: |-
                             GroupName defines the strategy for grouping logstreams
 
-                            The GroupName can be a combination of static and dynamic values consisting of field paths followed by "\|\|" followed by another field path or a static value.
+                            The GroupName can be a combination of static and dynamic values consisting of field paths followed by `||` followed by another field path or a static value.
 
-                            A dynamic value is encased in single curly brackets "{}" and MUST end with a static fallback value separated with "\|\|".
+                            A dynamic value is encased in single curly brackets `{}` and MUST end with a static fallback value separated with `||`.
 
                             Static values can only contain alphanumeric characters along with dashes, underscores, dots and forward slashes.
 
                             Example:
 
-                             1. foo-{.bar\|\|"none"}
+                             1. foo-{.bar||"none"}
 
-                             2. {.foo\|\|.bar\|\|"missing"}
+                             2. {.foo||.bar||"missing"}
 
-                             3. foo.{.bar.baz\|\|.qux.quux.corge\|\|.grault\|\|"nil"}-waldo.fred{.plugh\|\|"none"}
+                             3. foo.{.bar.baz||.qux.quux.corge||.grault||"nil"}-waldo.fred{.plugh||"none"}
                           pattern: ^(([a-zA-Z0-9-_.\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$
                           type: string
                         region:
@@ -2131,6 +2342,8 @@ spec:
                               description: |-
                                 Compression causes data to be compressed before sending over the network.
                                 It is an error if the compression type is not supported by the output.
+
+                                Valid values are: gzip, none, snappy, zlib, zstd.
                               enum:
                               - gzip
                               - none
@@ -2144,6 +2357,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2211,8 +2426,10 @@ spec:
                               nullable: true
                               properties:
                                 from:
-                                  description: From is the source from where to find
-                                    the token
+                                  description: |-
+                                    From is the source from where to find the token.
+
+                                    Valid values are: secret, serviceAccount.
                                   enum:
                                   - secret
                                   - serviceAccount
@@ -2266,31 +2483,33 @@ spec:
                           description: |-
                             Index is the index for the logs. This supports template syntax to allow dynamic per-event values.
 
-                            The Index can be a combination of static and dynamic values consisting of field paths followed by `\|\|` followed by another field path or a static value.
+                            The Index can be a combination of static and dynamic values consisting of field paths followed by `||` followed by another field path or a static value.
 
-                            A dynamic value is encased in single curly brackets `{}` and MUST end with a static fallback value separated with `\|\|`.
+                            A dynamic value is encased in single curly brackets `{}` and MUST end with a static fallback value separated with `||`.
 
                             Static values can only contain alphanumeric characters along with dashes, underscores, dots and forward slashes.
 
-                            When forwarding logs to the Red Hat Managed Elasticsearch, the index must match the pattern ^(app\|infra\|audit)-write$
+                            When forwarding logs to the Red Hat Managed Elasticsearch, the index must match the pattern `^(app|infra|audit)-write$`
                             where the prefix depends upon the log_type. This requires defining a distinct output for each log type or distinct pipelines
                             with the openshiftLabels filter. See the product documentation for examples.
 
                             Example:
 
-                             1. foo-{.bar\|\|"none"}
+                             1. foo-{.bar||"none"}
 
-                             2. {.foo\|\|.bar\|\|"missing"}
+                             2. {.foo||.bar||"missing"}
 
-                             3. foo.{.bar.baz\|\|.qux.quux.corge\|\|.grault\|\|"nil"}-waldo.fred{.plugh\|\|"none"}
+                             3. foo.{.bar.baz||.qux.quux.corge||.grault||"nil"}-waldo.fred{.plugh||"none"}
                           pattern: ^(([a-zA-Z0-9-_.\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$
                           type: string
                         tuning:
                           description: Tuning specs tuning for the output
                           properties:
                             compression:
-                              description: Compression causes data to be compressed
-                                before sending over the network.
+                              description: |-
+                                Compression causes data to be compressed before sending over the network.
+
+                                Valid values are: none, gzip, zlib.
                               enum:
                               - none
                               - gzip
@@ -2302,6 +2521,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2336,8 +2557,8 @@ spec:
                             rule: isURL(self)
                         version:
                           description: |-
-                            Version specifies the version of Elasticsearch to be used.
-                            Must be one of: 6-8
+                            Version specifies the API version of Elasticsearch to be used. Must be one of: 6-8
+                            The value of '8' should be used when forwarding to Elasticsearch version v8 or greater.
                           maximum: 8
                           minimum: 6
                           type: integer
@@ -2355,8 +2576,10 @@ spec:
                             the requests.
                           properties:
                             credentials:
-                              description: Credentials points to the secret containing
-                                the `google-application-credentials.json`.
+                              description: |-
+                                Credentials points to the secret containing the GCP credentials JSON file.
+                                For service account auth, this is a service_account key file.
+                                For Workload Identity Federation (WIF), this is an external_account configuration file.
                               properties:
                                 key:
                                   description: Key contains the name of the key inside
@@ -2370,6 +2593,44 @@ spec:
                               - key
                               - secretName
                               type: object
+                            token:
+                              description: |-
+                                Token specifies the source of the bearer token used as the subject token for
+                                GCP Workload Identity Federation token exchange. Only needed when the credentials
+                                file is an external_account type.
+                              nullable: true
+                              properties:
+                                from:
+                                  description: |-
+                                    From is the source from where to find the token.
+
+                                    Valid values are: secret, serviceAccount.
+                                  enum:
+                                  - secret
+                                  - serviceAccount
+                                  type: string
+                                secret:
+                                  description: Use Secret if the value should be sourced
+                                    from a Secret in the same namespace.
+                                  properties:
+                                    key:
+                                      description: Name of the key used to get the
+                                        value from the referenced Secret.
+                                      type: string
+                                    name:
+                                      description: Name of secret
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                              required:
+                              - from
+                              type: object
+                              x-kubernetes-validations:
+                              - message: Additional secret spec is required when bearer
+                                  token is sourced from a secret
+                                rule: self.from != 'secret' || has(self.secret)
                           required:
                           - credentials
                           type: object
@@ -2420,6 +2681,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2477,8 +2740,10 @@ spec:
                               nullable: true
                               properties:
                                 from:
-                                  description: From is the source from where to find
-                                    the token
+                                  description: |-
+                                    From is the source from where to find the token.
+
+                                    Valid values are: secret, serviceAccount.
                                   enum:
                                   - secret
                                   - serviceAccount
@@ -2564,8 +2829,10 @@ spec:
                           nullable: true
                           properties:
                             compression:
-                              description: Compression causes data to be compressed
-                                before sending over the network.
+                              description: |-
+                                Compression causes data to be compressed before sending over the network.
+
+                                Valid values are: none, gzip, snappy, zlib.
                               enum:
                               - none
                               - gzip
@@ -2578,6 +2845,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2700,8 +2969,10 @@ spec:
                           nullable: true
                           properties:
                             compression:
-                              description: Compression causes data to be compressed
-                                before sending over the network.
+                              description: |-
+                                Compression causes data to be compressed before sending over the network.
+
+                                Valid values are: none, snappy, zstd, lz4.
                               enum:
                               - none
                               - snappy
@@ -2714,6 +2985,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2768,8 +3041,10 @@ spec:
                               nullable: true
                               properties:
                                 from:
-                                  description: From is the source from where to find
-                                    the token
+                                  description: |-
+                                    From is the source from where to find the token.
+
+                                    Valid values are: secret, serviceAccount.
                                   enum:
                                   - secret
                                   - serviceAccount
@@ -2881,8 +3156,10 @@ spec:
                           nullable: true
                           properties:
                             compression:
-                              description: Compression causes data to be compressed
-                                before sending over the network.
+                              description: |-
+                                Compression causes data to be compressed before sending over the network.
+
+                                Valid values are: none, gzip, snappy.
                               enum:
                               - none
                               - gzip
@@ -2894,6 +3171,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2951,8 +3230,10 @@ spec:
                               nullable: true
                               properties:
                                 from:
-                                  description: From is the source from where to find
-                                    the token
+                                  description: |-
+                                    From is the source from where to find the token.
+
+                                    Valid values are: secret, serviceAccount.
                                   enum:
                                   - secret
                                   - serviceAccount
@@ -3115,8 +3396,10 @@ spec:
                           description: Tuning specs tuning for the output
                           properties:
                             compression:
-                              description: Compression causes data to be compressed
-                                before sending over the network.
+                              description: |-
+                                Compression causes data to be compressed before sending over the network.
+
+                                Valid values are: none, gzip, snappy.
                               enum:
                               - none
                               - gzip
@@ -3128,6 +3411,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -3199,8 +3484,10 @@ spec:
                               nullable: true
                               properties:
                                 from:
-                                  description: From is the source from where to find
-                                    the token
+                                  description: |-
+                                    From is the source from where to find the token.
+
+                                    Valid values are: secret, serviceAccount.
                                   enum:
                                   - secret
                                   - serviceAccount
@@ -3252,6 +3539,8 @@ spec:
                               description: |-
                                 Compression causes data to be compressed before sending over the network.
                                 It is an error if the compression type is not supported by the output.
+
+                                Valid values are: gzip, snappy, zlib, zstd, none.
                               enum:
                               - gzip
                               - snappy
@@ -3265,6 +3554,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -3315,7 +3606,8 @@ spec:
                         maxRecordsPerSecond:
                           description: |-
                             MaxRecordsPerSecond is the maximum number of log records
-                            allowed per input/output in a pipeline
+                            allowed per input/output in a pipeline.
+                            Log records exceeding this limit are dropped.
                           exclusiveMinimum: true
                           format: int64
                           minimum: 0
@@ -3448,8 +3740,10 @@ spec:
                                     used for authenticating requests.
                                   properties:
                                     from:
-                                      description: From is the source from where to
-                                        find the token
+                                      description: |-
+                                        From is the source from where to find the token.
+
+                                        Valid values are: secret, serviceAccount.
                                       enum:
                                       - secret
                                       - serviceAccount
@@ -3481,8 +3775,10 @@ spec:
                               - token
                               type: object
                             type:
-                              description: Type is the type of cloudwatch authentication
-                                to configure
+                              description: |-
+                                Type is the type of authentication to configure for an AWS service.
+
+                                Valid values are: awsAccessKey, iamRole.
                               enum:
                               - awsAccessKey
                               - iamRole
@@ -3507,22 +3803,22 @@ spec:
                         keyPrefix:
                           description: |-
                             KeyPrefix is a templated string that defines the S3 key prefix for log objects.  It is a combination of
-                            static or dynamic values consisting of field paths separated by `\|\|` and ending with a static
-                            fallback value (e.g. logs_{.kubernetes.namespace_name\|\|.hostname\|\|"unknown"}_my_workload_{.openshift.sequence_id\|\|"none"}).
+                            static or dynamic values consisting of field paths separated by `||` and ending with a static
+                            fallback value (e.g. logs_{.kubernetes.namespace_name||.hostname||"unknown"}_my_workload_{.openshift.sequence_id||"none"}).
 
                             Prefixes are necessary for partitioning logs from other objects in the bucket.  If the prefix represents a
                             directory, it must end in `/` to act as a directory path. A trailing `/` (forward slash) is not automatically added.
 
                             Dynamic values are encased in single curly brackets `{}` and MUST end with a static fallback value separated
-                            with `\|\|`. Static values can only contain alphanumeric characters along with dashes, underscores, dots and forward slashes.
+                            with `||`. Static values can only contain alphanumeric characters along with dashes, underscores, dots and forward slashes.
 
                             Examples:
 
-                             1. logs_{.kubernetes.namespace_name\|\|"none"}/
+                             1. logs_{.kubernetes.namespace_name||"none"}/
 
-                             2. {.log_type\|\|.log_source\|\|"missing"}/
+                             2. {.log_type||.log_source||"missing"}/
 
-                             3. my_workload.{.hostname\|\|.qux.quux.corge\|\|.grault\|\|"nil"}-waldo.fred{.plugh\|\|"none"}/
+                             3. my_workload.{.hostname||.qux.quux.corge||.grault||"nil"}-waldo.fred{.plugh||"none"}/
                           pattern: ^(([a-zA-Z0-9-_.\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$
                           type: string
                         region:
@@ -3535,6 +3831,8 @@ spec:
                               description: |-
                                 Compression causes data to be compressed before sending over the network.
                                 It is an error if the compression type is not supported by the output.
+
+                                Valid values are: gzip, none, snappy, zlib, zstd.
                               enum:
                               - gzip
                               - none
@@ -3548,6 +3846,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -3668,7 +3968,7 @@ spec:
                             Source identifies the origin of a log event.
                             The Source can be a combination of static and dynamic values consisting of field paths followed by `||` followed by another field path or a static value.
                             A dynamic value is encased in single curly brackets `{}` and MUST end with a static fallback value separated with `||`.
-                            Static values can only contain alphanumeric characters along with dashes, underscores, dots and forward slashes.
+                            Static values can only contain alphanumeric characters along with dashes, underscores, dots, colons and forward slashes.
                             If not specified will be detected according to .log_source and .log_type value.
                             Details see in: docs/features/logforwarding/outputs/splunk-forwarding.adoc
 
@@ -3679,15 +3979,44 @@ spec:
                              2. {.foo||.bar||"missing"}
 
                              3. foo.{.bar.baz||.qux.quux.corge||.grault||"nil"}-waldo.fred{.plugh||"none"}
-                          pattern: ^(([a-zA-Z0-9-_.\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$
+                          pattern: ^(([a-zA-Z0-9-_.:\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$
+                          type: string
+                        sourceType:
+                          description: |-
+                            SourceType can be used to specify a pretrained or custom source type in Splunk, but can only be set when PayloadKey is defined.
+
+                            WARNING: The administrator is responsible for configuring the pipeline so the source type matches the log entry. The collector makes no effort or validation to ensure they match.
+
+                            If SourceType is not specified, the source type used is `_json`. If using PayloadKey without SourceType, the source type used will be either `_json` or `generic_single_line`, depending on the structure of the final event payload.
+                            Details in: docs/features/logforwarding/outputs/splunk-forwarding.adoc
+
+                            The SourceType can be a combination of static and dynamic values consisting of field paths followed by `||` followed by another field path or a static value.
+                            A dynamic value is encased in single curly brackets `{}` and MUST end with a static fallback value separated with `||`.
+
+                            Static values can only contain alphanumeric characters along with dashes, underscores, dots, colons and forward slashes.
+
+                            Examples:
+
+                             1. {.kubernetes.labels."splunk/sourcetype"||"generic_single_line"}
+
+                             2. log4j
+
+                             3. foo-{.bar||"none"}
+
+                             4. {.foo||.bar||"missing"}
+
+                             5. foo.{.bar.baz||.qux.quux.corge||.grault||"nil"}-waldo.fred{.plugh||"none"}
+                          pattern: ^(([a-zA-Z0-9-_.:\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$
                           type: string
                         tuning:
                           description: Tuning specs tuning for the output
                           nullable: true
                           properties:
                             compression:
-                              description: Compression causes data to be compressed
-                                before sending over the network.
+                              description: |-
+                                Compression causes data to be compressed before sending over the network.
+
+                                Valid values are: none, gzip.
                               enum:
                               - none
                               - gzip
@@ -3698,6 +4027,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -3734,6 +4065,9 @@ spec:
                       - authentication
                       - url
                       type: object
+                      x-kubernetes-validations:
+                      - message: sourceType can only be set when payloadKey is defined
+                        rule: '!has(self.sourceType) || has(self.payloadKey)'
                     syslog:
                       description: Syslog configures forwarding log events to a receiver
                         using the syslog protocol
@@ -3900,6 +4234,8 @@ spec:
                                 This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
                                 In-memory buffers offer the highest performance due to low latency, but they have two limitations:
                                 they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+
+                                Valid values are: AtLeastOnce, AtMostOnce.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -4161,6 +4497,7 @@ spec:
                     type:
                       description: Type of output sink.
                       enum:
+                      - azureLogsIngestion
                       - azureMonitor
                       - cloudwatch
                       - elasticsearch
@@ -4179,6 +4516,9 @@ spec:
                   - type
                   type: object
                   x-kubernetes-validations:
+                  - message: Additional type specific spec is required for the output
+                      type
+                    rule: self.type != 'azureLogsIngestion' || has(self.azureLogsIngestion)
                   - message: Additional type specific spec is required for the output
                       type
                     rule: self.type != 'azureMonitor' || has(self.azureMonitor)
