@@ -86,8 +86,8 @@ test-makefile:
 
 build/schemastore/dependabot-2.0.json:
 	mkdir -p build/schemastore
-	$(DOWNLOADER) $@ https://json.schemastore.org/dependabot-2.0.json
+	$(DOWNLOADER) $@ https://catalog.lintel.tools/schemas/github/dependabot-v2-json/latest.json
 
 build/schemastore/github-workflow.json:
 	mkdir -p build/schemastore
-	$(DOWNLOADER) $@ https://json.schemastore.org/github-workflow.json
+	$(DOWNLOADER) $@ https://catalog.lintel.tools/schemas/github/github-workflow/latest.json
