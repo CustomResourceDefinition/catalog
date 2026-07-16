@@ -4,24 +4,42 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
-  name: tasks.bmc.tinkerbell.org
+  labels:
+    clusterctl.cluster.x-k8s.io: ""
+    clusterctl.cluster.x-k8s.io/move: ""
+  name: bmcs.tinkerbell.org
 spec:
-  group: bmc.tinkerbell.org
+  group: tinkerbell.org
   names:
     categories:
     - tinkerbell
-    kind: Task
-    listKind: TaskList
-    plural: tasks
+    kind: BMC
+    listKind: BMCList
+    plural: bmcs
     shortNames:
-    - t
-    singular: task
+    - b
+    singular: bmc
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The contactable status of the bmc
+      jsonPath: .status.conditions[?(@.type=="Contactable")].status
+      name: contactable
+      priority: 1
+      type: string
+    - description: The power state of the bmc's machine
+      jsonPath: .status.conditions[?(@.type=="PowerState")].status
+      name: power-state
+      priority: 1
+      type: string
+    - jsonPath: .metadata.annotations['tinkerbell.org/disabled']
+      name: Disabled
+      priority: 1
+      type: string
+    name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: Task is the Schema for the Task API.
+        description: BMC is the Schema for the bmcs API.
         properties:
           apiVersion:
             description: |-
@@ -41,27 +59,32 @@ spec:
           metadata:
             type: object
           spec:
-            description: TaskSpec defines the desired state of Task.
+            description: BMCSpec defines desired BMC state.
             properties:
               connection:
-                description: Connection represents the Machine connectivity information.
+                description: Connection contains connection data for a Baseboard Management
+                  Controller.
                 properties:
-                  authSecretRef:
+                  authRef:
                     description: |-
-                      AuthSecretRef is the SecretReference that contains authentication information of the Machine.
+                      AuthRef is the Secret object that contains authentication information of the Machine.
                       The Secret must contain username and password keys. This is optional as it is not required when using
                       the RPC provider.
                     properties:
                       name:
-                        description: name is unique within a namespace to reference
-                          a secret resource.
+                        description: Name of the object.
                         type: string
                       namespace:
-                        description: namespace defines the space within which the
-                          secret name must be unique.
+                        description: Namespace in which the object resides.
                         type: string
+                    required:
+                    - name
+                    - namespace
                     type: object
-                    x-kubernetes-map-type: atomic
+                    x-kubernetes-validations:
+                    - message: name and namespace must both be non-empty or both be
+                        empty
+                      rule: (self.name != "") == (self.namespace != "")
                   host:
                     description: Host is the host IP address or hostname of the Machine.
                     minLength: 1
@@ -69,29 +92,9 @@ spec:
                   insecureTLS:
                     description: InsecureTLS specifies trusted TLS connections.
                     type: boolean
-                  port:
-                    default: 623
-                    description: Port is the port number for connecting with the Machine.
-                    type: integer
                   providerOptions:
                     description: ProviderOptions contains provider specific options.
                     properties:
-                      homeassistant:
-                        description: HomeAssistant contains the options to customize
-                          the HomeAssistant provider.
-                        properties:
-                          powerOperationDelaySeconds:
-                            description: PowerOperationDelaySeconds is the number
-                              of seconds to wait after a power operation before proceeding
-                            format: int32
-                            type: integer
-                          switchEntityID:
-                            description: SwitchEntityID is the entity ID of the Home
-                              Assistant switch entity to control power state
-                            type: string
-                        required:
-                        - switchEntityID
-                        type: object
                       intelAMT:
                         description: IntelAMT contains the options to customize the
                           IntelAMT provider.
@@ -181,20 +184,25 @@ spec:
                               secrets:
                                 additionalProperties:
                                   items:
-                                    description: |-
-                                      SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                                      in any namespace
+                                    description: SimpleReference is used to reference
+                                      an object.
                                     properties:
                                       name:
-                                        description: name is unique within a namespace
-                                          to reference a secret resource.
+                                        description: Name of the object.
                                         type: string
                                       namespace:
-                                        description: namespace defines the space within
-                                          which the secret name must be unique.
+                                        description: Namespace in which the object
+                                          resides.
                                         type: string
+                                    required:
+                                    - name
+                                    - namespace
                                     type: object
-                                    x-kubernetes-map-type: atomic
+                                    x-kubernetes-validations:
+                                    - message: name and namespace must both be non-empty
+                                        or both be empty
+                                      rule: (self.name != "") == (self.namespace !=
+                                        "")
                                   type: array
                                 description: Secrets are a map of algorithms to secrets
                                   used for signing.
@@ -262,113 +270,45 @@ spec:
                     type: object
                 required:
                 - host
-                - insecureTLS
-                type: object
-              task:
-                description: Task defines the specific action to be performed.
-                maxProperties: 1
-                properties:
-                  bootDevice:
-                    description: BootDevice is the device to set as the first boot
-                      device on the Machine.
-                    properties:
-                      device:
-                        description: Device is the name of the device to set as the
-                          first boot device.
-                        type: string
-                      efiBoot:
-                        description: EFIBoot indicates whether the boot device should
-                          be set to efiboot mode.
-                        type: boolean
-                      persistent:
-                        description: Persistent indicates whether the boot device
-                          should be set persistently as the first boot device.
-                        type: boolean
-                    type: object
-                  oneTimeBootDeviceAction:
-                    description: |-
-                      OneTimeBootDeviceAction represents a baseboard management one time set boot device operation.
-
-                      Deprecated: This field is deprecated and will be removed in a future release. Use bootDevice instead.
-                    properties:
-                      device:
-                        description: |-
-                          Devices represents the boot devices, in order for setting one time boot.
-                          Currently only the first device in the slice is used to set one time boot.
-                        items:
-                          description: BootDevice represents boot device of the Machine.
-                          type: string
-                        type: array
-                      efiBoot:
-                        description: EFIBoot instructs the machine to use EFI boot.
-                        type: boolean
-                    required:
-                    - device
-                    type: object
-                  powerAction:
-                    description: PowerAction represents a baseboard management power
-                      operation.
-                    enum:
-                    - "on"
-                    - "off"
-                    - soft
-                    - status
-                    - cycle
-                    - reset
-                    type: string
-                  virtualMediaAction:
-                    description: VirtualMediaAction represents a baseboard management
-                      virtual media insert/eject.
-                    properties:
-                      kind:
-                        description: Kind represents the kind of virtual media.
-                        type: string
-                      mediaURL:
-                        description: mediaURL represents the URL of the image to be
-                          inserted into the virtual media, or empty to eject media.
-                        type: string
-                    required:
-                    - kind
-                    type: object
                 type: object
             required:
-            - task
+            - connection
             type: object
           status:
-            description: TaskStatus defines the observed state of Task.
+            description: BMCStatus defines the observed state of BMC.
             properties:
-              completionTime:
-                description: |-
-                  CompletionTime represents time when the task was completed.
-                  The completion time is only set when the task finishes successfully.
-                format: date-time
-                type: string
               conditions:
                 description: Conditions represents the latest available observations
                   of an object's current state.
                 items:
                   properties:
+                    lastUpdateTime:
+                      description: LastUpdateTime of the condition.
+                      format: date-time
+                      type: string
                     message:
                       description: Message represents human readable message indicating
                         details about last transition.
                       type: string
+                    observedGeneration:
+                      description: |-
+                        ObservedGeneration is the generation of the Machine that was last observed by the controller.
+                        It is used to determine if the condition is up to date with the latest changes.
+                      format: int64
+                      type: integer
                     status:
                       description: |-
-                        Status is the status of the Task condition.
+                        Status is the status of the Job condition.
                         Can be True or False.
                       type: string
                     type:
-                      description: Type of the Task condition.
+                      description: Type of the Job condition.
                       type: string
                   required:
                   - status
                   - type
                   type: object
                 type: array
-              startTime:
-                description: StartTime represents time when the Task started processing.
-                format: date-time
-                type: string
             type: object
         type: object
     served: true

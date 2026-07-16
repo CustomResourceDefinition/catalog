@@ -1,5 +1,5 @@
 {
-  "description": "Machine is the Schema for the machines API.",
+  "description": "Job is the Schema for the bmcjobs API.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -14,35 +14,68 @@
       "type": "object"
     },
     "spec": {
-      "description": "MachineSpec defines desired machine state.",
+      "description": "JobSpec defines the desired state of Job.",
       "type": "object",
       "required": [
-        "connection"
+        "operations"
       ],
       "properties": {
-        "connection": {
-          "description": "Connection contains connection data for a Baseboard Management Controller.",
+        "bmcRef": {
+          "description": "BMCRef represents the BMC object that will be used for connection details when executing the Job.\nAll the operations in the Job are executed for the same BMC.\nMutually exclusive with Connection.",
           "type": "object",
           "required": [
-            "host",
-            "insecureTLS"
+            "name",
+            "namespace"
           ],
           "properties": {
-            "authSecretRef": {
-              "description": "AuthSecretRef is the SecretReference that contains authentication information of the Machine.\nThe Secret must contain username and password keys. This is optional as it is not required when using\nthe RPC provider.",
+            "name": {
+              "description": "Name of the object.",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace in which the object resides.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(self.name != \"\") == (self.namespace != \"\")",
+              "message": "name and namespace must both be non-empty or both be empty"
+            }
+          ]
+        },
+        "connection": {
+          "description": "Connection contains connection details that will be used for executing the Job.\nMutually exclusive with BMCRef.",
+          "type": "object",
+          "required": [
+            "host"
+          ],
+          "properties": {
+            "authRef": {
+              "description": "AuthRef is the Secret object that contains authentication information of the Machine.\nThe Secret must contain username and password keys. This is optional as it is not required when using\nthe RPC provider.",
               "type": "object",
+              "required": [
+                "name",
+                "namespace"
+              ],
               "properties": {
                 "name": {
-                  "description": "name is unique within a namespace to reference a secret resource.",
+                  "description": "Name of the object.",
                   "type": "string"
                 },
                 "namespace": {
-                  "description": "namespace defines the space within which the secret name must be unique.",
+                  "description": "Namespace in which the object resides.",
                   "type": "string"
                 }
               },
               "additionalProperties": false,
-              "x-kubernetes-map-type": "atomic"
+              "x-kubernetes-validations": [
+                {
+                  "rule": "(self.name != \"\") == (self.namespace != \"\")",
+                  "message": "name and namespace must both be non-empty or both be empty"
+                }
+              ]
             },
             "host": {
               "description": "Host is the host IP address or hostname of the Machine.",
@@ -53,34 +86,10 @@
               "description": "InsecureTLS specifies trusted TLS connections.",
               "type": "boolean"
             },
-            "port": {
-              "description": "Port is the port number for connecting with the Machine.",
-              "type": "integer",
-              "default": 623
-            },
             "providerOptions": {
               "description": "ProviderOptions contains provider specific options.",
               "type": "object",
               "properties": {
-                "homeassistant": {
-                  "description": "HomeAssistant contains the options to customize the HomeAssistant provider.",
-                  "type": "object",
-                  "required": [
-                    "switchEntityID"
-                  ],
-                  "properties": {
-                    "powerOperationDelaySeconds": {
-                      "description": "PowerOperationDelaySeconds is the number of seconds to wait after a power operation before proceeding",
-                      "type": "integer",
-                      "format": "int32"
-                    },
-                    "switchEntityID": {
-                      "description": "SwitchEntityID is the entity ID of the Home Assistant switch entity to control power state",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
                 "intelAMT": {
                   "description": "IntelAMT contains the options to customize the IntelAMT provider.",
                   "type": "object",
@@ -184,19 +193,28 @@
                           "additionalProperties": {
                             "type": "array",
                             "items": {
-                              "description": "SecretReference represents a Secret Reference. It has enough information to retrieve secret\nin any namespace",
+                              "description": "SimpleReference is used to reference an object.",
                               "type": "object",
+                              "required": [
+                                "name",
+                                "namespace"
+                              ],
                               "properties": {
                                 "name": {
-                                  "description": "name is unique within a namespace to reference a secret resource.",
+                                  "description": "Name of the object.",
                                   "type": "string"
                                 },
                                 "namespace": {
-                                  "description": "namespace defines the space within which the secret name must be unique.",
+                                  "description": "Namespace in which the object resides.",
                                   "type": "string"
                                 }
                               },
-                              "x-kubernetes-map-type": "atomic"
+                              "x-kubernetes-validations": [
+                                {
+                                  "rule": "(self.name != \"\") == (self.namespace != \"\")",
+                                  "message": "name and namespace must both be non-empty or both be empty"
+                                }
+                              ]
                             }
                           }
                         }
@@ -270,19 +288,101 @@
             }
           },
           "additionalProperties": false
+        },
+        "operations": {
+          "description": "Operations represents a list of baseboard management actions to be executed.\nThe operations are executed sequentially. Controller waits for one operation to complete before executing the next.\nIf a single operation fails, job execution stops and sets condition Failed.\nCondition Completed is set only if all the operations were successful.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "description": "Operations defines the operations that can be performed against a BMC.\nOnly a single field in the struct should be defined at any given time\nas only one operation can be performed at a time.\nFor example either PowerAction or BootDevice.",
+            "type": "object",
+            "properties": {
+              "bootDevice": {
+                "description": "BootDevice is the device to set as the first boot device on the Machine.",
+                "type": "object",
+                "properties": {
+                  "device": {
+                    "description": "Device is the name of the device to set as the first boot device.",
+                    "type": "string"
+                  },
+                  "efiBoot": {
+                    "description": "EFIBoot indicates whether the boot device should be set to efiboot mode.",
+                    "type": "boolean"
+                  },
+                  "persistent": {
+                    "description": "Persistent indicates whether the boot device should be set persistently as the first boot device.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "powerAction": {
+                "description": "PowerAction represents a baseboard management power operation.",
+                "type": "string",
+                "enum": [
+                  "on",
+                  "off",
+                  "soft",
+                  "status",
+                  "cycle",
+                  "reset"
+                ]
+              },
+              "timeoutSeconds": {
+                "description": "TimeoutSeconds defines the maximum time in seconds the Operation is allowed to run.\nIf not defined, the default from the runtime is used.",
+                "type": "integer",
+                "format": "int64"
+              },
+              "virtualMediaAction": {
+                "description": "VirtualMediaAction represents a baseboard management virtual media insert/eject.",
+                "type": "object",
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "description": "Kind represents the kind of virtual media.",
+                    "type": "string"
+                  },
+                  "mediaURL": {
+                    "description": "mediaURL represents the URL of the image to be inserted into the virtual media, or empty to eject media.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "(has(self.powerAction) ? 1 : 0) + (has(self.bootDevice) ? 1 : 0) + (has(self.virtualMediaAction) ? 1 : 0) == 1",
+                "message": "only one of powerAction, bootDevice, or virtualMediaAction can be specified"
+              }
+            ]
+          }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!(has(self.bmcRef) \u0026\u0026 has(self.connection))",
+          "message": "bmcRef and connection are mutually exclusive"
+        }
+      ]
     },
     "status": {
-      "description": "MachineStatus defines the observed state of Machine.",
+      "description": "JobStatus defines the observed state of Job.",
       "type": "object",
       "properties": {
+        "completionTime": {
+          "description": "CompletionTime represents time when the job was completed.\nThe completion time is only set when the job finishes successfully.",
+          "type": "string",
+          "format": "date-time"
+        },
         "conditions": {
           "description": "Conditions represents the latest available observations of an object's current state.",
           "type": "array",
           "items": {
-            "description": "MachineCondition defines an observed condition of a Machine.",
             "type": "object",
             "required": [
               "status",
@@ -295,29 +395,30 @@
                 "format": "date-time"
               },
               "message": {
-                "description": "Message is a human readable message indicating with details of the last transition.",
+                "description": "Message represents human readable message indicating details about last transition.",
                 "type": "string"
               },
+              "observedGeneration": {
+                "description": "ObservedGeneration is the generation of the Machine that was last observed by the controller.\nIt is used to determine if the condition is up to date with the latest changes.",
+                "type": "integer",
+                "format": "int64"
+              },
               "status": {
-                "description": "Status of the condition.",
+                "description": "Status is the status of the Job condition.\nCan be True or False.",
                 "type": "string"
               },
               "type": {
-                "description": "Type of the Machine condition.",
+                "description": "Type of the Job condition.",
                 "type": "string"
               }
             },
             "additionalProperties": false
           }
         },
-        "powerState": {
-          "description": "Power is the current power state of the Machine.",
+        "startTime": {
+          "description": "StartTime represents time when the Job controller started processing a job.",
           "type": "string",
-          "enum": [
-            "on",
-            "off",
-            "unknown"
-          ]
+          "format": "date-time"
         }
       },
       "additionalProperties": false

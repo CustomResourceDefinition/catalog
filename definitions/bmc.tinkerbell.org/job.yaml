@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: jobs.bmc.tinkerbell.org
 spec:
   group: bmc.tinkerbell.org
@@ -18,7 +18,7 @@ spec:
     singular: job
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: v1alpha2
     schema:
       openAPIV3Schema:
         description: Job is the Schema for the bmcjobs API.
@@ -43,33 +43,248 @@ spec:
           spec:
             description: JobSpec defines the desired state of Job.
             properties:
-              machineRef:
+              bmcRef:
                 description: |-
-                  MachineRef represents the Machine resource to execute the job.
-                  All the tasks in the job are executed for the same Machine.
+                  BMCRef represents the BMC object that will be used for connection details when executing the Job.
+                  All the operations in the Job are executed for the same BMC.
+                  Mutually exclusive with Connection.
                 properties:
                   name:
-                    description: Name of the Machine.
+                    description: Name of the object.
                     type: string
                   namespace:
-                    description: Namespace the Machine resides in.
+                    description: Namespace in which the object resides.
                     type: string
                 required:
                 - name
                 - namespace
                 type: object
-              tasks:
+                x-kubernetes-validations:
+                - message: name and namespace must both be non-empty or both be empty
+                  rule: (self.name != "") == (self.namespace != "")
+              connection:
                 description: |-
-                  Tasks represents a list of baseboard management actions to be executed.
-                  The tasks are executed sequentially. Controller waits for one task to complete before executing the next.
-                  If a single task fails, job execution stops and sets condition Failed.
-                  Condition Completed is set only if all the tasks were successful.
+                  Connection contains connection details that will be used for executing the Job.
+                  Mutually exclusive with BMCRef.
+                properties:
+                  authRef:
+                    description: |-
+                      AuthRef is the Secret object that contains authentication information of the Machine.
+                      The Secret must contain username and password keys. This is optional as it is not required when using
+                      the RPC provider.
+                    properties:
+                      name:
+                        description: Name of the object.
+                        type: string
+                      namespace:
+                        description: Namespace in which the object resides.
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                    x-kubernetes-validations:
+                    - message: name and namespace must both be non-empty or both be
+                        empty
+                      rule: (self.name != "") == (self.namespace != "")
+                  host:
+                    description: Host is the host IP address or hostname of the Machine.
+                    minLength: 1
+                    type: string
+                  insecureTLS:
+                    description: InsecureTLS specifies trusted TLS connections.
+                    type: boolean
+                  providerOptions:
+                    description: ProviderOptions contains provider specific options.
+                    properties:
+                      intelAMT:
+                        description: IntelAMT contains the options to customize the
+                          IntelAMT provider.
+                        properties:
+                          hostScheme:
+                            default: http
+                            description: HostScheme determines whether to use http
+                              or https for intelAMT calls.
+                            enum:
+                            - http
+                            - https
+                            type: string
+                          port:
+                            description: Port that intelAMT will use for calls.
+                            type: integer
+                        type: object
+                      ipmitool:
+                        description: IPMITOOL contains the options to customize the
+                          Ipmitool provider.
+                        properties:
+                          cipherSuite:
+                            description: CipherSuite that ipmitool will use for calls.
+                            type: string
+                          port:
+                            description: Port that ipmitool will use for calls.
+                            type: integer
+                        type: object
+                      preferredOrder:
+                        description: |-
+                          PreferredOrder allows customizing the order that BMC providers are called.
+                          Providers added to this list will be moved to the front of the default order.
+                          Provider names are case insensitive.
+                          The default order is: ipmitool, asrockrack, gofish, intelamt, dell, supermicro, openbmc.
+                        items:
+                          description: ProviderName is the bmclib specific provider
+                            name. Names are case insensitive.
+                          pattern: (?i)^(ipmitool|asrockrack|gofish|IntelAMT|dell|supermicro|openbmc)$
+                          type: string
+                        type: array
+                      redfish:
+                        description: Redfish contains the options to customize the
+                          Redfish provider.
+                        properties:
+                          port:
+                            description: Port that redfish will use for calls.
+                            type: integer
+                          systemName:
+                            description: |-
+                              SystemName is the name of the system to use for redfish calls.
+                              With redfish implementations that manage multiple systems via a single endpoint, this allows for specifying the system to manage.
+                            type: string
+                          useBasicAuth:
+                            description: UseBasicAuth for redfish calls. The default
+                              is false which means token based auth is used.
+                            type: boolean
+                        type: object
+                      rpc:
+                        description: RPC contains the options to customize the RPC
+                          provider.
+                        properties:
+                          consumerURL:
+                            description: |-
+                              ConsumerURL is the URL where an rpc consumer/listener is running
+                              and to which we will send and receive all notifications.
+                            type: string
+                          experimental:
+                            description: Experimental options.
+                            properties:
+                              customRequestPayload:
+                                description: CustomRequestPayload must be in json.
+                                type: string
+                              dotPath:
+                                description: 'DotPath is the path to the json object
+                                  where the bmclib RequestPayload{} struct will be
+                                  embedded. For example: object.data.body'
+                                type: string
+                            type: object
+                          hmac:
+                            description: HMAC is the options used to create a HMAC
+                              signature.
+                            properties:
+                              prefixSigDisabled:
+                                description: 'PrefixSigDisabled determines whether
+                                  the algorithm will be prefixed to the signature.
+                                  Example: sha256=abc123'
+                                type: boolean
+                              secrets:
+                                additionalProperties:
+                                  items:
+                                    description: SimpleReference is used to reference
+                                      an object.
+                                    properties:
+                                      name:
+                                        description: Name of the object.
+                                        type: string
+                                      namespace:
+                                        description: Namespace in which the object
+                                          resides.
+                                        type: string
+                                    required:
+                                    - name
+                                    - namespace
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: name and namespace must both be non-empty
+                                        or both be empty
+                                      rule: (self.name != "") == (self.namespace !=
+                                        "")
+                                  type: array
+                                description: Secrets are a map of algorithms to secrets
+                                  used for signing.
+                                type: object
+                            type: object
+                          logNotificationsDisabled:
+                            description: LogNotificationsDisabled determines whether
+                              responses from rpc consumer/listeners will be logged
+                              or not.
+                            type: boolean
+                          request:
+                            description: Request is the options used to create the
+                              rpc HTTP request.
+                            properties:
+                              httpContentType:
+                                description: HTTPContentType is the content type to
+                                  use for the rpc request notification.
+                                type: string
+                              httpMethod:
+                                description: HTTPMethod is the HTTP method to use
+                                  for the rpc request notification.
+                                type: string
+                              staticHeaders:
+                                additionalProperties:
+                                  items:
+                                    type: string
+                                  type: array
+                                description: StaticHeaders are predefined headers
+                                  that will be added to every request.
+                                type: object
+                              timestampFormat:
+                                description: TimestampFormat is the time format for
+                                  the timestamp header.
+                                type: string
+                              timestampHeader:
+                                description: 'TimestampHeader is the header name that
+                                  should contain the timestamp. Example: X-BMCLIB-Timestamp'
+                                type: string
+                            type: object
+                          signature:
+                            description: Signature is the options used for adding
+                              an HMAC signature to an HTTP request.
+                            properties:
+                              appendAlgoToHeaderDisabled:
+                                description: |-
+                                  AppendAlgoToHeaderDisabled decides whether to append the algorithm to the signature header or not.
+                                  Example: X-BMCLIB-Signature becomes X-BMCLIB-Signature-256
+                                  When set to true, a header will be added for each algorithm. Example: X-BMCLIB-Signature-256 and X-BMCLIB-Signature-512
+                                type: boolean
+                              headerName:
+                                description: 'HeaderName is the header name that should
+                                  contain the signature(s). Example: X-BMCLIB-Signature'
+                                type: string
+                              includedPayloadHeaders:
+                                description: |-
+                                  IncludedPayloadHeaders are headers whose values will be included in the signature payload. Example: X-BMCLIB-My-Custom-Header
+                                  All headers will be deduplicated.
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                        required:
+                        - consumerURL
+                        type: object
+                    type: object
+                required:
+                - host
+                type: object
+              operations:
+                description: |-
+                  Operations represents a list of baseboard management actions to be executed.
+                  The operations are executed sequentially. Controller waits for one operation to complete before executing the next.
+                  If a single operation fails, job execution stops and sets condition Failed.
+                  Condition Completed is set only if all the operations were successful.
                 items:
                   description: |-
-                    Action represents the action to be performed.
-                    A single task can only perform one type of action.
-                    For example either PowerAction or OneTimeBootDeviceAction.
-                  maxProperties: 1
+                    Operations defines the operations that can be performed against a BMC.
+                    Only a single field in the struct should be defined at any given time
+                    as only one operation can be performed at a time.
+                    For example either PowerAction or BootDevice.
                   properties:
                     bootDevice:
                       description: BootDevice is the device to set as the first boot
@@ -88,27 +303,6 @@ spec:
                             should be set persistently as the first boot device.
                           type: boolean
                       type: object
-                    oneTimeBootDeviceAction:
-                      description: |-
-                        OneTimeBootDeviceAction represents a baseboard management one time set boot device operation.
-
-                        Deprecated: This field is deprecated and will be removed in a future release. Use bootDevice instead.
-                      properties:
-                        device:
-                          description: |-
-                            Devices represents the boot devices, in order for setting one time boot.
-                            Currently only the first device in the slice is used to set one time boot.
-                          items:
-                            description: BootDevice represents boot device of the
-                              Machine.
-                            type: string
-                          type: array
-                        efiBoot:
-                          description: EFIBoot instructs the machine to use EFI boot.
-                          type: boolean
-                      required:
-                      - device
-                      type: object
                     powerAction:
                       description: PowerAction represents a baseboard management power
                         operation.
@@ -120,6 +314,12 @@ spec:
                       - cycle
                       - reset
                       type: string
+                    timeoutSeconds:
+                      description: |-
+                        TimeoutSeconds defines the maximum time in seconds the Operation is allowed to run.
+                        If not defined, the default from the runtime is used.
+                      format: int64
+                      type: integer
                     virtualMediaAction:
                       description: VirtualMediaAction represents a baseboard management
                         virtual media insert/eject.
@@ -136,12 +336,19 @@ spec:
                       - kind
                       type: object
                   type: object
+                  x-kubernetes-validations:
+                  - message: only one of powerAction, bootDevice, or virtualMediaAction
+                      can be specified
+                    rule: '(has(self.powerAction) ? 1 : 0) + (has(self.bootDevice)
+                      ? 1 : 0) + (has(self.virtualMediaAction) ? 1 : 0) == 1'
                 minItems: 1
                 type: array
             required:
-            - machineRef
-            - tasks
+            - operations
             type: object
+            x-kubernetes-validations:
+            - message: bmcRef and connection are mutually exclusive
+              rule: '!(has(self.bmcRef) && has(self.connection))'
           status:
             description: JobStatus defines the observed state of Job.
             properties:
@@ -156,10 +363,20 @@ spec:
                   of an object's current state.
                 items:
                   properties:
+                    lastUpdateTime:
+                      description: LastUpdateTime of the condition.
+                      format: date-time
+                      type: string
                     message:
                       description: Message represents human readable message indicating
                         details about last transition.
                       type: string
+                    observedGeneration:
+                      description: |-
+                        ObservedGeneration is the generation of the Machine that was last observed by the controller.
+                        It is used to determine if the condition is up to date with the latest changes.
+                      format: int64
+                      type: integer
                     status:
                       description: |-
                         Status is the status of the Job condition.
