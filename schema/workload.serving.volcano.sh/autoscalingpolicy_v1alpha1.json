@@ -14,11 +14,8 @@
       "type": "object"
     },
     "spec": {
-      "description": "AutoscalingPolicySpec defines the desired state of AutoscalingPolicy.",
+      "description": "AutoscalingPolicySpec defines the desired state of AutoscalingPolicy.\n\nAt most one of HomogeneousTarget, HeterogeneousTarget, or DisaggregatedTarget\nmay be set. When the spec is used standalone (as an AutoscalingPolicy custom\nresource), exactly one target must be set; this is enforced by the\nautoscalingpolicy validating webhook rather than a CEL rule.",
       "type": "object",
-      "required": [
-        "metrics"
-      ],
       "properties": {
         "behavior": {
           "description": "Behavior defines the scaling behavior configuration for both scale up and scale down operations.",
@@ -149,21 +146,690 @@
           },
           "additionalProperties": false
         },
+        "disaggregatedTarget": {
+          "description": "DisaggregatedTarget enables coordinated autoscaling of roles within a\nsingle ModelServing that uses disaggregated serving.",
+          "type": "object",
+          "required": [
+            "roles",
+            "targetRef"
+          ],
+          "properties": {
+            "ratioConstraint": {
+              "description": "RatioConstraint defines the acceptable ratio range of a single role pair.\nIt enforces that replicas[numeratorRole] / replicas[denominatorRole] stays\nwithin [minRatio, maxRatio] when denominator replica is non-zero.",
+              "type": "object",
+              "required": [
+                "denominatorRole",
+                "maxRatio",
+                "minRatio",
+                "numeratorRole"
+              ],
+              "properties": {
+                "denominatorRole": {
+                  "description": "DenominatorRole is the role on the denominator side of the ratio.",
+                  "type": "string"
+                },
+                "maxRatio": {
+                  "description": "MaxRatio is the maximum allowed value of\nreplicas[numeratorRole] / replicas[denominatorRole].",
+                  "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "x-kubernetes-int-or-string": true
+                },
+                "minRatio": {
+                  "description": "MinRatio is the minimum allowed value of\nreplicas[numeratorRole] / replicas[denominatorRole].",
+                  "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "x-kubernetes-int-or-string": true
+                },
+                "numeratorRole": {
+                  "description": "NumeratorRole is the role on the numerator side of the ratio.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.numeratorRole != self.denominatorRole",
+                  "message": "numeratorRole and denominatorRole must differ"
+                }
+              ]
+            },
+            "roles": {
+              "description": "Roles defines per-role scaling parameters. The map key is roleName\nfrom ModelServing.spec.template.roles[].name. A single role is allowed so\nusers can autoscale one role independently without configuring a P/D pair.\nRatioConstraint, when set, still requires two distinct roles.",
+              "type": "object",
+              "maxProperties": 2,
+              "minProperties": 1,
+              "additionalProperties": {
+                "description": "RoleScalingParam defines the scaling configuration for one role.",
+                "type": "object",
+                "required": [
+                  "maxReplicas",
+                  "minReplicas"
+                ],
+                "properties": {
+                  "maxReplicas": {
+                    "description": "MaxReplicas defines the maximum number of replicas for this role.",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 1000000,
+                    "minimum": 1
+                  },
+                  "metricSources": {
+                    "description": "MetricSources declares how each metric is fetched for this role.\nKeys must match role-level metrics when present, otherwise top-level\nspec.metrics[].name.\nMissing keys are treated as missing metrics for that reconcile loop.",
+                    "type": "object",
+                    "additionalProperties": {
+                      "description": "MetricSource is a discriminated union selecting the metric backend.\n\nExactly one backend config must be provided:\n  - Pod        -\u003e set the pod field only.\n  - Prometheus -\u003e set the prometheus field only.\n\nExample (scrape the metric directly from each pod's /metrics endpoint):\n\n\tmetricSources:\n\t  gpu_cache_usage:\n\t    pod:\n\t      name: vllm:gpu_cache_usage_perc\n\t      uri: /metrics\n\t      port: 8000\n\nExample (read the metric from an external Prometheus server):\n\n\tmetricSources:\n\t  http_rps:\n\t    prometheus:\n\t      serverURL: http://prometheus.monitoring.svc:9090\n\t      query: sum(rate(http_requests_total[2m]))",
+                      "type": "object",
+                      "properties": {
+                        "pod": {
+                          "description": "Pod configures direct pod endpoint scraping.",
+                          "type": "object",
+                          "properties": {
+                            "labelSelector": {
+                              "description": "LabelSelector defines additional filtering for pods exposing this metric.\nOnly pods matching both the target and this selector are scraped, e.g.\nmatchLabels with role=decode to scrape only the decode role's pods.",
+                              "type": "object",
+                              "properties": {
+                                "matchExpressions": {
+                                  "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                                  "type": "array",
+                                  "items": {
+                                    "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                                    "type": "object",
+                                    "required": [
+                                      "key",
+                                      "operator"
+                                    ],
+                                    "properties": {
+                                      "key": {
+                                        "description": "key is the label key that the selector applies to.",
+                                        "type": "string"
+                                      },
+                                      "operator": {
+                                        "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                        "type": "string"
+                                      },
+                                      "values": {
+                                        "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        },
+                                        "x-kubernetes-list-type": "atomic"
+                                      }
+                                    }
+                                  },
+                                  "x-kubernetes-list-type": "atomic"
+                                },
+                                "matchLabels": {
+                                  "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "x-kubernetes-map-type": "atomic"
+                            },
+                            "name": {
+                              "description": "Name is the Prometheus metric name matched against labels in the pod's scraped output.\nDefaults to the policy metric key when omitted.\nFor example, set it to \"vllm:gpu_cache_usage_perc\" to read that exact series.",
+                              "type": "string"
+                            },
+                            "port": {
+                              "description": "Port defines the network port where metrics are exposed by the pods (e.g., 8000).",
+                              "type": "integer",
+                              "format": "int32",
+                              "default": 8100
+                            },
+                            "uri": {
+                              "description": "Uri defines the HTTP path where metrics are exposed (e.g., \"/metrics\").",
+                              "type": "string",
+                              "default": "/metrics"
+                            }
+                          }
+                        },
+                        "prometheus": {
+                          "description": "Prometheus configures an external Prometheus server as the metric source.",
+                          "type": "object",
+                          "required": [
+                            "query",
+                            "serverURL"
+                          ],
+                          "properties": {
+                            "auth": {
+                              "description": "Auth holds optional authentication configuration for the Prometheus server.",
+                              "type": "object"
+                            },
+                            "query": {
+                              "description": "Query is a PromQL instant-query expression. It must evaluate to a single\nscalar or a one-element vector, e.g. \"avg(rate(vllm:request_latency[1m]))\".\nMore Query details refer to https://prometheus.io/docs/prometheus/latest/querying/basics",
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "serverURL": {
+                              "description": "ServerURL is the base URL of the Prometheus HTTP API server.\nExample: \"http://prometheus.monitoring.svc:9090\".",
+                              "type": "string",
+                              "format": "uri",
+                              "minLength": 1
+                            }
+                          }
+                        }
+                      },
+                      "x-kubernetes-validations": [
+                        {
+                          "rule": "has(self.pod) || has(self.prometheus)",
+                          "message": "one metric source backend config is required"
+                        },
+                        {
+                          "rule": "!(has(self.pod) \u0026\u0026 has(self.prometheus))",
+                          "message": "pod and prometheus configs are mutually exclusive"
+                        }
+                      ]
+                    }
+                  },
+                  "metrics": {
+                    "description": "Metrics defines the list of metrics used to evaluate scaling decisions\nfor this role, allowing different roles to scale on different signals.\n\nWhen set, these metrics override spec.metrics for this role. When omitted,\nthe role inherits spec.metrics. A fixed role (minReplicas == maxReplicas)\nmay omit metrics; the autoscaler keeps it at that fixed size and does not\ncollect metrics for it.",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "description": "AutoscalingPolicyMetric defines a metric and its target value for scaling decisions.",
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "targetValue"
+                      ],
+                      "properties": {
+                        "name": {
+                          "description": "Name defines the metric key used by the scaling algorithm.",
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "targetValue": {
+                          "description": "TargetValue defines the target value for the metric that triggers scaling operations.",
+                          "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "x-kubernetes-int-or-string": true
+                        }
+                      }
+                    }
+                  },
+                  "minReplicas": {
+                    "description": "MinReplicas defines the minimum number of replicas for this role.",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 1000000,
+                    "minimum": 0
+                  }
+                }
+              }
+            },
+            "targetRef": {
+              "description": "TargetRef references the ModelServing deployment that contains\nall scalable roles.",
+              "type": "object",
+              "properties": {
+                "apiVersion": {
+                  "description": "API version of the referent.",
+                  "type": "string"
+                },
+                "fieldPath": {
+                  "description": "If referring to a piece of an object instead of an entire object, this string\nshould contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].\nFor example, if the object reference is to a container within a pod, this would take on a value like:\n\"spec.containers{name}\" (where \"name\" refers to the name of the container that triggered\nthe event) or if no container name is specified \"spec.containers[2]\" (container with\nindex 2 in this pod). This syntax is chosen only to have some well-defined way of\nreferencing a part of an object.",
+                  "type": "string"
+                },
+                "kind": {
+                  "description": "Kind of the referent.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Name of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                  "type": "string"
+                },
+                "namespace": {
+                  "description": "Namespace of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
+                  "type": "string"
+                },
+                "resourceVersion": {
+                  "description": "Specific resourceVersion to which this reference is made, if any.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency",
+                  "type": "string"
+                },
+                "uid": {
+                  "description": "UID of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-map-type": "atomic"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!has(self.ratioConstraint) || size(self.roles) \u003e= 2",
+              "message": "roles must contain at least two entries when ratioConstraint is configured"
+            }
+          ]
+        },
+        "heterogeneousTarget": {
+          "description": "HeterogeneousTarget enables optimization-based scaling across multiple\nModelServing deployments with different hardware capabilities.",
+          "type": "object",
+          "properties": {
+            "costExpansionRatePercent": {
+              "description": "CostExpansionRatePercent defines the percentage rate at which the cost expands during optimization calculations.\nFor example, 200 allows the optimizer to spend up to 2x the minimal cost to\nmeet performance targets before refusing to scale further.",
+              "type": "integer",
+              "format": "int32",
+              "default": 200,
+              "minimum": 0
+            },
+            "params": {
+              "description": "Params defines the configuration parameters for multiple ModelServing groups to be optimized.",
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "description": "HeterogeneousTargetParam defines the configuration parameters for a specific deployment type in heterogeneous scaling.\n\nExample (one expensive H100 group within a HeterogeneousTarget):\n\n\tcost: 100\n\tminReplicas: 0\n\tmaxReplicas: 4\n\ttarget:\n\t  targetRef:\n\t    kind: ModelServing\n\t    name: llama-h100",
+                "type": "object",
+                "required": [
+                  "maxReplicas",
+                  "minReplicas"
+                ],
+                "properties": {
+                  "cost": {
+                    "description": "Cost defines the relative cost factor used in optimization calculations.\nThis factor balances performance requirements against deployment costs.\nValues are relative across params, e.g. 100 for an H100 group and 60 for a\ncheaper A100 group makes the optimizer prefer A100 replicas when adequate.",
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  },
+                  "maxReplicas": {
+                    "description": "MaxReplicas defines the maximum number of replicas allowed for this deployment type.",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 1000000,
+                    "minimum": 1
+                  },
+                  "minReplicas": {
+                    "description": "MinReplicas defines the minimum number of replicas to maintain for this deployment type.",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 1000000,
+                    "minimum": 0
+                  },
+                  "target": {
+                    "description": "Target defines the scaling instance configuration for this deployment type.",
+                    "type": "object",
+                    "required": [
+                      "targetRef"
+                    ],
+                    "properties": {
+                      "metricSources": {
+                        "description": "MetricSources declares how to fetch specific metrics for this target.\nKeys must match AutoscalingPolicy.spec.metrics[].name.\nMissing keys are treated as missing metrics for that reconcile loop.\nFor example, a key \"podinfo_rps\" here must correspond to a metric named\n\"podinfo_rps\" in the referenced AutoscalingPolicy.",
+                        "type": "object",
+                        "additionalProperties": {
+                          "description": "MetricSource is a discriminated union selecting the metric backend.\n\nExactly one backend config must be provided:\n  - Pod        -\u003e set the pod field only.\n  - Prometheus -\u003e set the prometheus field only.\n\nExample (scrape the metric directly from each pod's /metrics endpoint):\n\n\tmetricSources:\n\t  gpu_cache_usage:\n\t    pod:\n\t      name: vllm:gpu_cache_usage_perc\n\t      uri: /metrics\n\t      port: 8000\n\nExample (read the metric from an external Prometheus server):\n\n\tmetricSources:\n\t  http_rps:\n\t    prometheus:\n\t      serverURL: http://prometheus.monitoring.svc:9090\n\t      query: sum(rate(http_requests_total[2m]))",
+                          "type": "object",
+                          "properties": {
+                            "pod": {
+                              "description": "Pod configures direct pod endpoint scraping.",
+                              "type": "object",
+                              "properties": {
+                                "labelSelector": {
+                                  "description": "LabelSelector defines additional filtering for pods exposing this metric.\nOnly pods matching both the target and this selector are scraped, e.g.\nmatchLabels with role=decode to scrape only the decode role's pods.",
+                                  "type": "object",
+                                  "properties": {
+                                    "matchExpressions": {
+                                      "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                                      "type": "array",
+                                      "items": {
+                                        "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                                        "type": "object",
+                                        "required": [
+                                          "key",
+                                          "operator"
+                                        ],
+                                        "properties": {
+                                          "key": {
+                                            "description": "key is the label key that the selector applies to.",
+                                            "type": "string"
+                                          },
+                                          "operator": {
+                                            "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                            "type": "string"
+                                          },
+                                          "values": {
+                                            "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string"
+                                            },
+                                            "x-kubernetes-list-type": "atomic"
+                                          }
+                                        }
+                                      },
+                                      "x-kubernetes-list-type": "atomic"
+                                    },
+                                    "matchLabels": {
+                                      "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                                      "type": "object",
+                                      "additionalProperties": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "x-kubernetes-map-type": "atomic"
+                                },
+                                "name": {
+                                  "description": "Name is the Prometheus metric name matched against labels in the pod's scraped output.\nDefaults to the policy metric key when omitted.\nFor example, set it to \"vllm:gpu_cache_usage_perc\" to read that exact series.",
+                                  "type": "string"
+                                },
+                                "port": {
+                                  "description": "Port defines the network port where metrics are exposed by the pods (e.g., 8000).",
+                                  "type": "integer",
+                                  "format": "int32",
+                                  "default": 8100
+                                },
+                                "uri": {
+                                  "description": "Uri defines the HTTP path where metrics are exposed (e.g., \"/metrics\").",
+                                  "type": "string",
+                                  "default": "/metrics"
+                                }
+                              }
+                            },
+                            "prometheus": {
+                              "description": "Prometheus configures an external Prometheus server as the metric source.",
+                              "type": "object",
+                              "required": [
+                                "query",
+                                "serverURL"
+                              ],
+                              "properties": {
+                                "auth": {
+                                  "description": "Auth holds optional authentication configuration for the Prometheus server.",
+                                  "type": "object"
+                                },
+                                "query": {
+                                  "description": "Query is a PromQL instant-query expression. It must evaluate to a single\nscalar or a one-element vector, e.g. \"avg(rate(vllm:request_latency[1m]))\".\nMore Query details refer to https://prometheus.io/docs/prometheus/latest/querying/basics",
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "serverURL": {
+                                  "description": "ServerURL is the base URL of the Prometheus HTTP API server.\nExample: \"http://prometheus.monitoring.svc:9090\".",
+                                  "type": "string",
+                                  "format": "uri",
+                                  "minLength": 1
+                                }
+                              }
+                            }
+                          },
+                          "x-kubernetes-validations": [
+                            {
+                              "rule": "has(self.pod) || has(self.prometheus)",
+                              "message": "one metric source backend config is required"
+                            },
+                            {
+                              "rule": "!(has(self.pod) \u0026\u0026 has(self.prometheus))",
+                              "message": "pod and prometheus configs are mutually exclusive"
+                            }
+                          ]
+                        }
+                      },
+                      "targetRef": {
+                        "description": "TargetRef references the target object to be monitored and scaled.\nDefault target GVK is ModelServing. Currently supported kinds: ModelServing.\nExample: kind=ModelServing, name=podinfo-ms.",
+                        "type": "object",
+                        "properties": {
+                          "apiVersion": {
+                            "description": "API version of the referent.",
+                            "type": "string"
+                          },
+                          "fieldPath": {
+                            "description": "If referring to a piece of an object instead of an entire object, this string\nshould contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].\nFor example, if the object reference is to a container within a pod, this would take on a value like:\n\"spec.containers{name}\" (where \"name\" refers to the name of the container that triggered\nthe event) or if no container name is specified \"spec.containers[2]\" (container with\nindex 2 in this pod). This syntax is chosen only to have some well-defined way of\nreferencing a part of an object.",
+                            "type": "string"
+                          },
+                          "kind": {
+                            "description": "Kind of the referent.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+                            "type": "string"
+                          },
+                          "name": {
+                            "description": "Name of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "description": "Namespace of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
+                            "type": "string"
+                          },
+                          "resourceVersion": {
+                            "description": "Specific resourceVersion to which this reference is made, if any.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency",
+                            "type": "string"
+                          },
+                          "uid": {
+                            "description": "UID of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "homogeneousTarget": {
+          "description": "HomogeneousTarget enables traditional metric-based scaling for a single\nModelServing deployment (whole-deployment granularity).",
+          "type": "object",
+          "required": [
+            "maxReplicas",
+            "minReplicas"
+          ],
+          "properties": {
+            "maxReplicas": {
+              "description": "MaxReplicas defines the maximum number of replicas allowed (e.g., 6).",
+              "type": "integer",
+              "format": "int32",
+              "maximum": 1000000,
+              "minimum": 1
+            },
+            "minReplicas": {
+              "description": "MinReplicas defines the minimum number of replicas to maintain (e.g., 1).",
+              "type": "integer",
+              "format": "int32",
+              "maximum": 1000000,
+              "minimum": 0
+            },
+            "target": {
+              "description": "Target defines the object to be monitored and scaled.",
+              "type": "object",
+              "required": [
+                "targetRef"
+              ],
+              "properties": {
+                "metricSources": {
+                  "description": "MetricSources declares how to fetch specific metrics for this target.\nKeys must match AutoscalingPolicy.spec.metrics[].name.\nMissing keys are treated as missing metrics for that reconcile loop.\nFor example, a key \"podinfo_rps\" here must correspond to a metric named\n\"podinfo_rps\" in the referenced AutoscalingPolicy.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "description": "MetricSource is a discriminated union selecting the metric backend.\n\nExactly one backend config must be provided:\n  - Pod        -\u003e set the pod field only.\n  - Prometheus -\u003e set the prometheus field only.\n\nExample (scrape the metric directly from each pod's /metrics endpoint):\n\n\tmetricSources:\n\t  gpu_cache_usage:\n\t    pod:\n\t      name: vllm:gpu_cache_usage_perc\n\t      uri: /metrics\n\t      port: 8000\n\nExample (read the metric from an external Prometheus server):\n\n\tmetricSources:\n\t  http_rps:\n\t    prometheus:\n\t      serverURL: http://prometheus.monitoring.svc:9090\n\t      query: sum(rate(http_requests_total[2m]))",
+                    "type": "object",
+                    "properties": {
+                      "pod": {
+                        "description": "Pod configures direct pod endpoint scraping.",
+                        "type": "object",
+                        "properties": {
+                          "labelSelector": {
+                            "description": "LabelSelector defines additional filtering for pods exposing this metric.\nOnly pods matching both the target and this selector are scraped, e.g.\nmatchLabels with role=decode to scrape only the decode role's pods.",
+                            "type": "object",
+                            "properties": {
+                              "matchExpressions": {
+                                "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                                "type": "array",
+                                "items": {
+                                  "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                                  "type": "object",
+                                  "required": [
+                                    "key",
+                                    "operator"
+                                  ],
+                                  "properties": {
+                                    "key": {
+                                      "description": "key is the label key that the selector applies to.",
+                                      "type": "string"
+                                    },
+                                    "operator": {
+                                      "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                                      "type": "string"
+                                    },
+                                    "values": {
+                                      "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "x-kubernetes-list-type": "atomic"
+                                    }
+                                  }
+                                },
+                                "x-kubernetes-list-type": "atomic"
+                              },
+                              "matchLabels": {
+                                "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "x-kubernetes-map-type": "atomic"
+                          },
+                          "name": {
+                            "description": "Name is the Prometheus metric name matched against labels in the pod's scraped output.\nDefaults to the policy metric key when omitted.\nFor example, set it to \"vllm:gpu_cache_usage_perc\" to read that exact series.",
+                            "type": "string"
+                          },
+                          "port": {
+                            "description": "Port defines the network port where metrics are exposed by the pods (e.g., 8000).",
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 8100
+                          },
+                          "uri": {
+                            "description": "Uri defines the HTTP path where metrics are exposed (e.g., \"/metrics\").",
+                            "type": "string",
+                            "default": "/metrics"
+                          }
+                        }
+                      },
+                      "prometheus": {
+                        "description": "Prometheus configures an external Prometheus server as the metric source.",
+                        "type": "object",
+                        "required": [
+                          "query",
+                          "serverURL"
+                        ],
+                        "properties": {
+                          "auth": {
+                            "description": "Auth holds optional authentication configuration for the Prometheus server.",
+                            "type": "object"
+                          },
+                          "query": {
+                            "description": "Query is a PromQL instant-query expression. It must evaluate to a single\nscalar or a one-element vector, e.g. \"avg(rate(vllm:request_latency[1m]))\".\nMore Query details refer to https://prometheus.io/docs/prometheus/latest/querying/basics",
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "serverURL": {
+                            "description": "ServerURL is the base URL of the Prometheus HTTP API server.\nExample: \"http://prometheus.monitoring.svc:9090\".",
+                            "type": "string",
+                            "format": "uri",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    },
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "has(self.pod) || has(self.prometheus)",
+                        "message": "one metric source backend config is required"
+                      },
+                      {
+                        "rule": "!(has(self.pod) \u0026\u0026 has(self.prometheus))",
+                        "message": "pod and prometheus configs are mutually exclusive"
+                      }
+                    ]
+                  }
+                },
+                "targetRef": {
+                  "description": "TargetRef references the target object to be monitored and scaled.\nDefault target GVK is ModelServing. Currently supported kinds: ModelServing.\nExample: kind=ModelServing, name=podinfo-ms.",
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "description": "API version of the referent.",
+                      "type": "string"
+                    },
+                    "fieldPath": {
+                      "description": "If referring to a piece of an object instead of an entire object, this string\nshould contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].\nFor example, if the object reference is to a container within a pod, this would take on a value like:\n\"spec.containers{name}\" (where \"name\" refers to the name of the container that triggered\nthe event) or if no container name is specified \"spec.containers[2]\" (container with\nindex 2 in this pod). This syntax is chosen only to have some well-defined way of\nreferencing a part of an object.",
+                      "type": "string"
+                    },
+                    "kind": {
+                      "description": "Kind of the referent.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Name of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
+                      "type": "string"
+                    },
+                    "resourceVersion": {
+                      "description": "Specific resourceVersion to which this reference is made, if any.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency",
+                      "type": "string"
+                    },
+                    "uid": {
+                      "description": "UID of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-map-type": "atomic"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "metrics": {
-          "description": "Metrics defines the list of metrics used to evaluate scaling decisions.",
+          "description": "Metrics defines the list of metrics used to evaluate scaling decisions.\nThis is the default metric list applied to scalable units. For\nDisaggregatedTarget, role-level metrics override this list for that role.",
           "type": "array",
-          "minItems": 1,
           "items": {
             "description": "AutoscalingPolicyMetric defines a metric and its target value for scaling decisions.",
             "type": "object",
             "required": [
-              "metricName",
+              "name",
               "targetValue"
             ],
             "properties": {
-              "metricName": {
-                "description": "MetricName defines the name of the metric to monitor for scaling decisions.",
-                "type": "string"
+              "name": {
+                "description": "Name defines the metric key used by the scaling algorithm.",
+                "type": "string",
+                "minLength": 1
               },
               "targetValue": {
                 "description": "TargetValue defines the target value for the metric that triggers scaling operations.",
@@ -195,7 +861,219 @@
     },
     "status": {
       "description": "AutoscalingPolicyStatus defines the observed state of AutoscalingPolicy.",
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions represents the latest available observations of the policy's state.\nWell-known condition types include:\n  - \"Ready\":                   the policy is actively reconciled.\n  - \"TargetFound\":             the referenced ModelServing (and roles) exist.\n  - \"RatioConstraintViolated\": the desired counts could not satisfy ratioConstraint\n                               given the per-role min/max bounds.",
+          "type": "array",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "disaggregatedStatus": {
+          "description": "DisaggregatedStatus reports the observed state when DisaggregatedTarget is used.",
+          "type": "object",
+          "required": [
+            "roles"
+          ],
+          "properties": {
+            "ratioAdjusted": {
+              "description": "RatioAdjusted is true when the most recent reconcile had to override the\nmetric-derived replica counts to satisfy the ratio constraint.",
+              "type": "boolean"
+            },
+            "ratioStatus": {
+              "description": "RatioStatus reports the observed value of the configured ratio constraint.",
+              "type": "object",
+              "required": [
+                "denominatorRole",
+                "numeratorRole"
+              ],
+              "properties": {
+                "currentRatio": {
+                  "type": "string"
+                },
+                "denominatorRole": {
+                  "type": "string"
+                },
+                "numeratorRole": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "roles": {
+              "description": "Roles reports the observed scaling state per role.",
+              "type": "array",
+              "items": {
+                "description": "TargetScalingStatus reports the observed scaling state of a single scalable\nunit (a whole ModelServing, or one role within it).",
+                "type": "object",
+                "required": [
+                  "currentReplicas",
+                  "desiredReplicas"
+                ],
+                "properties": {
+                  "currentReplicas": {
+                    "description": "CurrentReplicas is the number of replicas currently observed.",
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "desiredReplicas": {
+                    "description": "DesiredReplicas is the number of replicas the controller computed from\nmetrics, before ratio enforcement.",
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "lastScaleTime": {
+                    "description": "LastScaleTime is the last time the unit was scaled by the controller.",
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "mode": {
+                    "description": "Mode reports whether the unit is currently in \"Stable\" or \"Panic\" mode.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Name identifies the unit when this status appears in a list.\nIt is required for HeterogeneousStatus entries and DisaggregatedStatus roles,\nand may be empty for HomogeneousStatus because the target is implied.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "heterogeneousStatus": {
+          "description": "HeterogeneousStatus reports the per-target observed state when\nHeterogeneousTarget is used.",
+          "type": "array",
+          "items": {
+            "description": "TargetScalingStatus reports the observed scaling state of a single scalable\nunit (a whole ModelServing, or one role within it).",
+            "type": "object",
+            "required": [
+              "currentReplicas",
+              "desiredReplicas"
+            ],
+            "properties": {
+              "currentReplicas": {
+                "description": "CurrentReplicas is the number of replicas currently observed.",
+                "type": "integer",
+                "format": "int32"
+              },
+              "desiredReplicas": {
+                "description": "DesiredReplicas is the number of replicas the controller computed from\nmetrics, before ratio enforcement.",
+                "type": "integer",
+                "format": "int32"
+              },
+              "lastScaleTime": {
+                "description": "LastScaleTime is the last time the unit was scaled by the controller.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "mode": {
+                "description": "Mode reports whether the unit is currently in \"Stable\" or \"Panic\" mode.",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name identifies the unit when this status appears in a list.\nIt is required for HeterogeneousStatus entries and DisaggregatedStatus roles,\nand may be empty for HomogeneousStatus because the target is implied.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "homogeneousStatus": {
+          "description": "HomogeneousStatus reports the observed state when HomogeneousTarget is used.",
+          "type": "object",
+          "required": [
+            "currentReplicas",
+            "desiredReplicas"
+          ],
+          "properties": {
+            "currentReplicas": {
+              "description": "CurrentReplicas is the number of replicas currently observed.",
+              "type": "integer",
+              "format": "int32"
+            },
+            "desiredReplicas": {
+              "description": "DesiredReplicas is the number of replicas the controller computed from\nmetrics, before ratio enforcement.",
+              "type": "integer",
+              "format": "int32"
+            },
+            "lastScaleTime": {
+              "description": "LastScaleTime is the last time the unit was scaled by the controller.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "mode": {
+              "description": "Mode reports whether the unit is currently in \"Stable\" or \"Panic\" mode.",
+              "type": "string"
+            },
+            "name": {
+              "description": "Name identifies the unit when this status appears in a list.\nIt is required for HeterogeneousStatus entries and DisaggregatedStatus roles,\nand may be empty for HomogeneousStatus because the target is implied.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the most recent generation observed by the controller.",
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
