@@ -1199,8 +1199,9 @@
                   "minLength": 1
                 },
                 "secretNamespace": {
-                  "description": "SecretNamespace is the namespace of the secret containing auth service admin credentials\nIf not specified, defaults to the AIStore cluster namespace",
-                  "type": "string"
+                  "description": "SecretNamespace is the namespace of the secret containing auth service admin credentials\nIf not specified, defaults to the AIStore cluster namespace\nThe submitting user's access to the referenced Secret is verified with a SubjectAccessReview\non AIStore create, and on update when the secret reference changes",
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "additionalProperties": false
@@ -2160,6 +2161,10 @@
         "ociSecretName": {
           "description": "Secret name containing OCI config and credentials",
           "type": "string"
+        },
+        "operatorSkipVerifyCrt": {
+          "description": "OperatorSkipVerifyCrt controls TLS verification for Operator -\u003e AIS API HTTPS calls.\nWhen false, the operator verifies certificates using trusted CAs.\nWhen true, certificate verification is disabled.\nWhen unset, the operator falls back to deprecated OPERATOR_SKIP_VERIFY_CRT.",
+          "type": "boolean"
         },
         "priorityClassName": {
           "description": "PriorityClassName specifies the priority class name for AIS daemon pods (proxy and target).\nSetting a high priority class prevents pods from being evicted during node pressure events.\nSee: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/",
@@ -3900,9 +3905,13 @@
           "minimum": -1
         },
         "stateStorage": {
-          "description": "StateStorage configures AIStore state storage.\nExactly one of HostPath or PVC must be set.",
+          "description": "StateStorage configures AIStore state storage.\nExactly one of HostPath, PVC, or EmptyDir must be set.",
           "type": "object",
           "properties": {
+            "emptyDir": {
+              "description": "EmptyDir stores AIStore state in an ephemeral emptyDir volume.",
+              "type": "object"
+            },
             "hostPath": {
               "description": "HostPath stores AIStore state in directories on each host.",
               "type": "object",
@@ -3937,8 +3946,8 @@
           "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "[has(self.hostPath), has(self.pvc)].filter(x, x).size() == 1",
-              "message": "exactly one of hostPath or pvc must be set"
+              "rule": "[has(self.hostPath), has(self.pvc), has(self.emptyDir)].filter(x, x).size() == 1",
+              "message": "exactly one of hostPath, pvc, or emptyDir must be set"
             }
           ]
         },
@@ -5570,6 +5579,16 @@
                 }
               },
               "additionalProperties": false
+            },
+            "scaleDownMode": {
+              "description": "ScaleDownMode controls how targets are scaled down.\n\"safe_decommission\" (default) rebalances data off the node and removes the target, keeping its on-disk data.\nRebalance should be enabled so data is migrated before a target is removed, and a warning is issued when it is\nnot. Recommended for local AIS buckets, whose data cannot be recovered if lost.\n\"decommission\" rebalances data off the node, then removes the target and deletes its on-disk data. When rebalance\nis disabled the data is deleted without being migrated.\n\"retain\" leaves data on the node by putting the target into maintenance mode. This is useful when you expect\nanother pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node\nwill become inaccessible.",
+              "type": "string",
+              "default": "safe_decommission",
+              "enum": [
+                "decommission",
+                "retain",
+                "safe_decommission"
+              ]
             },
             "securityContext": {
               "description": "SecurityContext defines pod-level security attributes and common container settings for AIS proxy and target pods.",

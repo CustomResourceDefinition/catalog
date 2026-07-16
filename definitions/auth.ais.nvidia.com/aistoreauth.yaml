@@ -92,8 +92,9 @@ spec:
                           remain valid.
                         type: string
                       signingKey:
-                        description: SigningKey configures JWT signing parameters
-                          in AuthN config. Ignored when hmacSecret is set.
+                        description: |-
+                          SigningKey configures JWT signing parameters in AuthN config.
+                          AuthN decides whether these values are relevant for the selected signing mode.
                         properties:
                           bits:
                             description: Bits is the RSA key size when using RSA signing.
@@ -1902,54 +1903,6 @@ spec:
                             type: string
                         type: object
                     type: object
-                  strategy:
-                    description: DeploymentStrategy describes how to replace existing
-                      pods with new ones.
-                    properties:
-                      rollingUpdate:
-                        description: |-
-                          Rolling update config params. Present only if DeploymentStrategyType =
-                          RollingUpdate.
-                        properties:
-                          maxSurge:
-                            anyOf:
-                            - type: integer
-                            - type: string
-                            description: |-
-                              The maximum number of pods that can be scheduled above the desired number of
-                              pods.
-                              Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
-                              This can not be 0 if MaxUnavailable is 0.
-                              Absolute number is calculated from percentage by rounding up.
-                              Defaults to 25%.
-                              Example: when this is set to 30%, the new ReplicaSet can be scaled up immediately when
-                              the rolling update starts, such that the total number of old and new pods do not exceed
-                              130% of desired pods. Once old pods have been killed,
-                              new ReplicaSet can be scaled up further, ensuring that total number of pods running
-                              at any time during the update is at most 130% of desired pods.
-                            x-kubernetes-int-or-string: true
-                          maxUnavailable:
-                            anyOf:
-                            - type: integer
-                            - type: string
-                            description: |-
-                              The maximum number of pods that can be unavailable during the update.
-                              Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
-                              Absolute number is calculated from percentage by rounding down.
-                              This can not be 0 if MaxSurge is 0.
-                              Defaults to 25%.
-                              Example: when this is set to 30%, the old ReplicaSet can be scaled down to 70% of desired pods
-                              immediately when the rolling update starts. Once new pods are ready, old ReplicaSet
-                              can be scaled down further, followed by scaling up the new ReplicaSet, ensuring
-                              that the total number of pods available at all times during the update is at
-                              least 70% of desired pods.
-                            x-kubernetes-int-or-string: true
-                        type: object
-                      type:
-                        description: Type of deployment. Can be "Recreate" or "RollingUpdate".
-                          Default is RollingUpdate.
-                        type: string
-                    type: object
                   tolerations:
                     items:
                       description: |-
@@ -2046,30 +1999,41 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               persistence:
-                default: {}
                 description: |-
                   Persistence configures durable storage for AuthN state (users, RSA keys).
-                  When omitted, defaults to a node-local (host-path) storage.
+                  Exactly one of storageClass or volumeName must be set. PersistentVolumes are
+                  provisioned outside the operator. Required because there is no default storage mode.
                 properties:
-                  hostPath:
-                    description: HostPath creates a node-local PV backed by a directory
-                      on the node.
-                    type: string
                   size:
                     anyOf:
                     - type: integer
                     - type: string
-                    description: Size of the requested PVC when using storageClass.
+                    description: |-
+                      Size requested for the PVC. Defaults to 256Mi.
+                      Size in bytes. Specify with a unit suffix like "Mi" or "Gi" (e.g., 256Mi, 1Gi), or as a plain integer for bytes (e.g., 268435456).
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
+                    x-kubernetes-validations:
+                    - message: must be greater than zero
+                      rule: 'type(self) == int ? self > 0 : quantity(self).isGreaterThan(quantity(''0''))'
                   storageClass:
-                    description: StorageClass provisions a dynamic PVC.
+                    description: StorageClass provisions a dynamic PVC via the named
+                      StorageClass.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  volumeName:
+                    description: |-
+                      VolumeName binds the PVC to an existing PersistentVolume by name.
+                      The PV must be pre-provisioned (for example by Helm) before the operator reconciles.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                 type: object
                 x-kubernetes-validations:
-                - message: specify at most one of hostPath or storageClass
-                  rule: '[has(self.hostPath), has(self.storageClass)].filter(x, x).size()
-                    <= 1'
+                - message: specify exactly one of storageClass or volumeName
+                  rule: '[has(self.storageClass), has(self.volumeName)].filter(x,
+                    x).size() == 1'
               rsaPassphraseSecret:
                 description: RSAPassphraseSecret names a Secret in the CR namespace
                   holding the RSA key passphrase.
@@ -2145,6 +2109,7 @@ spec:
                     <= 1'
             required:
             - deployment
+            - persistence
             type: object
           status:
             description: AIStoreAuthStatus defines the observed state of the AuthN
