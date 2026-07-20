@@ -420,6 +420,72 @@
               "description": "AppStatus defines the observed state of Application",
               "type": "object",
               "properties": {
+                "applicationPoliciesConfigMap": {
+                  "description": "ApplicationPoliciesConfigMap references the ConfigMap containing rendered policy outputs\nFormat: \"application-policies-{namespace}-{name}\"",
+                  "type": "string"
+                },
+                "appliedApplicationPolicies": {
+                  "description": "AppliedApplicationPolicies lists Application-scoped policies (both global and explicit)\nthat were discovered and applied (or skipped) during reconciliation.",
+                  "type": "array",
+                  "items": {
+                    "description": "AppliedApplicationPolicy records minimal status information about an Application-scoped policy.\nThis covers both global (auto-discovered) and explicit (spec-referenced) policies.\nFull details (transforms, labels, annotations, etc.) are stored in the ConfigMap referenced\nby ApplicationPoliciesConfigMap for persistent storage and observability.",
+                    "type": "object",
+                    "required": [
+                      "applied",
+                      "name",
+                      "namespace"
+                    ],
+                    "properties": {
+                      "annotationsCount": {
+                        "type": "integer"
+                      },
+                      "applied": {
+                        "type": "boolean"
+                      },
+                      "definitionRevisionName": {
+                        "description": "Version tracking\nDefinitionRevisionName is the DefinitionRevision resource name if a versioned policy was used (e.g., \"my-policy-v3\")\nEmpty if the policy wasn't versioned (used latest PolicyDefinition)",
+                        "type": "string"
+                      },
+                      "error": {
+                        "type": "boolean"
+                      },
+                      "hasContext": {
+                        "type": "boolean"
+                      },
+                      "labelsCount": {
+                        "type": "integer"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "type": "string"
+                      },
+                      "revision": {
+                        "description": "Revision is the revision number from the DefinitionRevision (e.g. 3)",
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "revisionHash": {
+                        "description": "RevisionHash is the hash of the PolicyDefinition template from the DefinitionRevision\nThis is the definitive proof of exactly what template was used",
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string"
+                      },
+                      "specModified": {
+                        "type": "boolean"
+                      },
+                      "type": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
                 "appliedResources": {
                   "description": "AppliedResources record the resources that the  workflow step apply.",
                   "type": "array",
@@ -692,6 +758,9 @@
                             "message": {
                               "type": "string"
                             },
+                            "pending": {
+                              "type": "boolean"
+                            },
                             "type": {
                               "type": "string"
                             }
@@ -715,6 +784,10 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      "workloadHealthy": {
+                        "description": "WorkloadHealthy indicates the workload health without considering trait health.",
+                        "type": "boolean"
                       }
                     },
                     "additionalProperties": false
@@ -894,6 +967,11 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "workflowRestartScheduledAt": {
+                  "description": "WorkflowRestartScheduledAt schedules a workflow restart at the specified time.\nThis field is automatically set when the app.oam.dev/restart-workflow annotation is present,\nand is cleared after the restart is triggered. Use RFC3339 format or set to current time for immediate restart.",
+                  "type": "string",
+                  "format": "date-time"
                 }
               },
               "additionalProperties": false
@@ -1355,9 +1433,18 @@
                       }
                     }
                   },
+                  "global": {
+                    "description": "Global indicates this policy should automatically apply to all Applications\nin this namespace (or all namespaces if in vela-system).\nGlobal policies cannot be explicitly referenced in Application specs.\nRequires EnableGlobalPolicies feature gate for discovery and\nEnableApplicationScopedPolicies feature gate for execution.",
+                    "type": "boolean"
+                  },
                   "manageHealthCheck": {
                     "description": "ManageHealthCheck means the policy will handle health checking and skip application controller\nbuilt-in health checking.",
                     "type": "boolean"
+                  },
+                  "priority": {
+                    "description": "Priority defines the order in which global policies are applied.\nLower values run first (e.g. 0 runs before 100), following the same\nconvention as Kubernetes admission webhooks. Policies with the same\npriority are applied in alphabetical order by name.\nIf not specified, defaults to 0.",
+                    "type": "integer",
+                    "format": "int32"
                   },
                   "schematic": {
                     "description": "Schematic defines the data format and template of the encapsulation of the policy definition.\nOnly CUE schematic is supported for now.",
@@ -1464,6 +1551,10 @@
                       }
                     }
                   },
+                  "scope": {
+                    "description": "Scope defines the scope at which this policy operates.\n- DefaultScope (empty/omitted): Standard output-based or builtin policies (topology, override, etc.)\n  These can generate Kubernetes resources from CUE templates with an 'output' field or apply Go-logic in the controller\n- ApplicationScope: Transform-based policies that modify the Application CR before parsing.\n  Requires EnableApplicationScopedPolicies feature gate.",
+                    "type": "string"
+                  },
                   "version": {
                     "type": "string"
                   }
@@ -1536,6 +1627,29 @@
                     }
                   }
                 }
+              }
+            }
+          }
+        },
+        "policyVersions": {
+          "description": "PolicyVersions records version metadata for each policy (which DefinitionRevision was used)\nKey is the policy name (same as PolicyDefinitions keys)",
+          "type": "object",
+          "additionalProperties": {
+            "description": "PolicyVersionMetadata records version information for a PolicyDefinition used in an ApplicationRevision\nThis helps users identify which DefinitionRevision was selected when the ApplicationRevision was created",
+            "type": "object",
+            "properties": {
+              "definitionRevisionName": {
+                "description": "DefinitionRevisionName is the DefinitionRevision resource name if versioned (e.g. \"my-policy-v3\")\nEmpty if the policy used latest PolicyDefinition (no @version specified)",
+                "type": "string"
+              },
+              "revision": {
+                "description": "Revision is the revision number from the DefinitionRevision (e.g. 3)",
+                "type": "integer",
+                "format": "int64"
+              },
+              "revisionHash": {
+                "description": "RevisionHash is the hash of the PolicyDefinition template\nThis is the definitive proof of exactly what template was used",
+                "type": "string"
               }
             }
           }
@@ -1644,7 +1758,7 @@
                     "type": "boolean"
                   },
                   "podDisruptive": {
-                    "description": "PodDisruptive specifies whether using the trait will cause the pod to restart or not.",
+                    "description": "PodDisruptive indicates that this trait is disruptive to the pod: applying or\nupdating it should cause the workload's pods to restart. If the trait's CUE\ntemplate patches the workload's pod template directly (`patch:` on\n`spec.template`), the restart happens automatically via the normal Kubernetes\nrollout mechanism and this field is not required.\n\nIf the trait instead renders separate objects via `outputs:` (e.g. a ConfigMap\nconsumed by the workload), set this to true so KubeVela stamps a content hash of\nthe trait's rendered output onto the workload's pod template annotations\n(`app.oam.dev/trait-restart-hash-\u003ctraitType\u003e`). This causes the pod template to\nchange whenever the trait's applied configuration changes, which in turn causes\nthe owning controller (Deployment/StatefulSet/CloneSet/...) to roll the pods.\nWorkloads without a `spec.template` (e.g. a bare Service) are unaffected.",
                     "type": "boolean"
                   },
                   "revisionEnabled": {
