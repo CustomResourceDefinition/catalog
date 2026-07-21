@@ -225,9 +225,77 @@
           "description": "Database auditing configuration.",
           "type": "object",
           "properties": {
+            "auditMode": {
+              "description": "Scope used for database auditing.\n\"disabled\" - auditing is disabled.\n\"connection\" - audit connection, authentication and disconnection events only.\n\"connection_and_crud\" - audit connection events and data operations (CRUD).\nThe cluster-level auditing configuration must be set before enabling auditing on a database.\nDefaults to \"disabled\" when not set; removing the auditing configuration disables auditing.",
+              "type": "string",
+              "enum": [
+                "disabled",
+                "connection",
+                "connection_and_crud"
+              ]
+            },
             "dbConnsAuditing": {
-              "description": "Enables auditing of database connection and authentication events.\nWhen enabled, connection, authentication, and disconnection events are tracked and sent\nto the configured audit listener (configured at the cluster level).\nThe cluster-level auditing configuration must be set before enabling this on a database.",
+              "description": "Deprecated: use auditMode instead.\nEnables auditing of database connection and authentication events.\nWhen enabled, connection, authentication, and disconnection events are tracked and sent\nto the configured audit listener (configured at the cluster level).\nThe cluster-level auditing configuration must be set before enabling this on a database.\nSetting dbConnsAuditing to true is equivalent to auditMode \"connection\".\nIf both dbConnsAuditing and auditMode are set, auditMode takes precedence.",
               "type": "boolean"
+            },
+            "sourceIpFilter": {
+              "description": "Filters data operation auditing events by client source IP address.\nOnly relevant when auditMode is \"connection_and_crud\".\nNote: source IP filtering may not work as expected for Redis clients running outside\nof the Kubernetes cluster. The operator does not automatically customize the\nLoadBalancer service or ingress/route to preserve the client source IP, so connections\nmay be seen with a translated (NAT'd) address. If you choose to use this filter, it is\nyour responsibility to ensure source IP preservation is configured and to verify that\nauditing behaves as expected in your environment.",
+              "type": "object",
+              "properties": {
+                "cidrRanges": {
+                  "description": "List of CIDR ranges (IPv4 and/or IPv6) to filter by.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "enabled": {
+                  "description": "Whether the source IP filter is active.\nWhen enabled, at least one entry must be provided across ipAddresses and cidrRanges.",
+                  "type": "boolean"
+                },
+                "filterType": {
+                  "description": "Filter type to use for the source IP filter.\n\"inclusive\" - only audit events from the listed addresses/ranges.\n\"exclusive\" - audit events from all addresses/ranges except the listed ones.\nThe combined number of ipAddresses and cidrRanges may not exceed 512.",
+                  "type": "string",
+                  "enum": [
+                    "inclusive",
+                    "exclusive"
+                  ]
+                },
+                "ipAddresses": {
+                  "description": "List of IP addresses (IPv4 and/or IPv6) to filter by.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "usernameFilter": {
+              "description": "Filters data operation auditing events by client usernames.\nOnly relevant when auditMode is \"connection_and_crud\".",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "description": "Whether the username filter is active.\nWhen enabled, usernames must contain at least one entry.",
+                  "type": "boolean"
+                },
+                "filterType": {
+                  "description": "Filter type to use for the username filter.\n\"inclusive\" - only audit events from the listed usernames.\n\"exclusive\" - audit events from all usernames except the listed ones.",
+                  "type": "string",
+                  "enum": [
+                    "inclusive",
+                    "exclusive"
+                  ]
+                },
+                "usernames": {
+                  "description": "List of usernames to filter by.\nEach username must be 1-255 printable ASCII characters and may not contain\nthe characters '\u0026', '\u003c', '\u003e' or '\"'. At most 512 usernames are allowed.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -609,7 +677,7 @@
           "type": "string"
         },
         "rolesPermissions": {
-          "description": "List of Redis Enteprise ACL and Role bindings to apply",
+          "description": "Deprecated: List of Redis Enterprise ACL and Role bindings to apply. This field is deprecated and is ignored when the cluster's spec.accessControl.policy.allowREDBRolesPermissions is set to false.",
           "type": "array",
           "items": {
             "description": "Redis Enterprise Role and ACL Binding",
@@ -659,6 +727,13 @@
             "dense",
             "sparse"
           ]
+        },
+        "tags": {
+          "description": "Tags to apply to the database, as a map of key to value. Tags are merged into the BDB's tags on the cluster. If a key here collides with an existing BDB tag, the value from spec.tags wins. Removing a key from spec.tags after it was previously synced (recorded in status.managedTags) will remove it from the BDB. Operator-reserved keys (managed_by, redb_name, redb_namespace, db_service_port, oss_cluster_access) are not allowed and will be rejected.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "tlsMode": {
           "description": "Require TLS authenticated and encrypted connections to the database. enabled - all client and replication connections to the Database must use TLS. disabled - no incoming connection to the Database should use TLS. replica_ssl - databases that replicate from this one need to use TLS.",
@@ -794,6 +869,20 @@
           "description": "Time when the database was last updated",
           "type": "string"
         },
+        "managedFields": {
+          "description": "List of optional spec fields the operator has taken ownership of after the user configured them at least once, so removing such a field resets the BDB to its default instead of leaving the inherited value in place.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "managedTags": {
+          "description": "List of user-declared tag keys (from spec.tags) that were last successfully reconciled to the BDB. Used to detect tag deletions on the next reconcile: keys present here but absent from the current spec.tags are removed from the BDB. Operator-internal keys (managed_by, redb_name, etc.) are not tracked here.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "observedGeneration": {
           "description": "The generation (built in update counter of K8s) of the REDB resource that was fully acted upon, meaning that all changes were handled and sent as an API call to the Redis Enterprise Cluster (REC). This field value should equal the current generation when the resource changes were handled. Note: the lastActionStatus field tracks actions handled asynchronously by the Redis Enterprise Cluster.",
           "type": "integer",
@@ -839,6 +928,51 @@
               "status": {
                 "description": "Sync status of this source",
                 "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "rolesPermissions": {
+          "description": "The set of role-permission tuples associated with this database.\nPopulated from spec.rolesPermissions (deprecated), RedisEnterpriseRole objects whose\nscopes reference this database, and RedisEnterpriseClusterRole objects (whose ACLs\napply to every database in the Redis Enterprise Cluster).",
+          "type": "array",
+          "items": {
+            "description": "RolePermissionStatus is an observed role-ACL binding on the database.\nRole kind: RedisEnterpriseRole, RedisEnterpriseClusterRole, or role; ACL kind:\nRedisEnterpriseACL or redis_acl.",
+            "type": "object",
+            "required": [
+              "role",
+              "acl"
+            ],
+            "properties": {
+              "acl": {
+                "description": "Reference to the ACL.",
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Kind of the referent.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Name of the referent.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "role": {
+                "description": "Reference to the role.",
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Kind of the referent.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Name of the referent.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "additionalProperties": false
