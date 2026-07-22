@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: helmops.fleet.cattle.io
 spec:
   group: fleet.cattle.io
@@ -508,6 +508,20 @@ spec:
                     not a git repository.'
                   nullable: true
                   properties:
+                    helmOpCABundle:
+                      description: 'CABundle is a PEM encoded CA bundle used to validate
+                        TLS connections to
+
+                        the Helm registry. It is resolved by the controller (which
+                        has access to
+
+                        Rancher''s cattle-system CA secrets, if any) and stored here
+                        so the agent can use
+
+                        it without requiring access to those secrets.'
+                      format: byte
+                      nullable: true
+                      type: string
                     helmOpInsecureSkipTLSVerify:
                       description: InsecureSkipTLSverify will use insecure HTTPS to
                         clone the helm app resource.
@@ -618,8 +632,16 @@ spec:
                 pollingInterval:
                   description: PollingInterval is how often to check the Helm repository
                     for new updates.
+                  maxLength: 32
+                  minLength: 1
                   nullable: true
                   type: string
+                  x-kubernetes-validations:
+                    - message: must be a valid Go duration using units ns, us, µs,
+                        ms, s, m, h (e.g. 15s, 5m, 2h, 1h30m); units like d (days)
+                        or w (weeks) are not supported
+                      rule: self == '0' || (self.matches('^([0-9]+([.][0-9]+)?(ns|us|µs|ms|s|m|h))+$')
+                        && duration(self) <= duration('2562047h'))
                 resources:
                   description: 'Resources contains the resources that were read from
                     the bundle''s
@@ -677,6 +699,18 @@ spec:
                         partition.
 
                         default: 200'
+                      nullable: true
+                      type: integer
+                    maxNew:
+                      description: 'MaxNew is the maximum number of new BundleDeployments
+                        that can be created
+
+                        in a single reconciliation. This limits the rate at which
+                        new deployments
+
+                        are staged when a bundle is first applied to many clusters.
+
+                        default: 50'
                       nullable: true
                       type: integer
                     maxUnavailable:
@@ -874,6 +908,19 @@ spec:
                   description: ServiceAccount which will be used to perform this deployment.
                   nullable: true
                   type: string
+                targetCustomizationMode:
+                  default: FirstMatch
+                  description: 'TargetCustomizationMode controls how targetCustomizations
+                    from fleet.yaml
+
+                    are evaluated. "FirstMatch" (default) stops at the first matching
+                    entry.
+
+                    "AllMatches" applies all matching entries in order, merging them.'
+                  enum:
+                    - FirstMatch
+                    - AllMatches
+                  type: string
                 targetRestrictions:
                   description: TargetRestrictions is an allow list, which controls
                     if a bundledeployment is created for a target.
@@ -881,10 +928,10 @@ spec:
                     description: 'BundleTargetRestriction is used internally by Fleet
                       and should not be modified.
 
-                      It acts as an allow list, to prevent the creation of BundleDeployments
-                      from
+                      It acts as an allow list, restricting BundleDeployment creation
+                      to only those clusters
 
-                      Targets created by TargetCustomizations in fleet.yaml.'
+                      that are explicitly listed in the GitRepo targets.'
                     properties:
                       clusterGroup:
                         nullable: true

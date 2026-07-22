@@ -419,6 +419,12 @@
           "description": "HelmOpOptions stores the options relative to HelmOp resources\nNon-nil HelmOpOptions indicate that the source of resources is a Helm chart,\nnot a git repository.",
           "type": "object",
           "properties": {
+            "helmOpCABundle": {
+              "description": "CABundle is a PEM encoded CA bundle used to validate TLS connections to\nthe Helm registry. It is resolved by the controller (which has access to\nRancher's cattle-system CA secrets, if any) and stored here so the agent can use\nit without requiring access to those secrets.",
+              "type": "string",
+              "format": "byte",
+              "nullable": true
+            },
             "helmOpInsecureSkipTLSVerify": {
               "description": "InsecureSkipTLSverify will use insecure HTTPS to clone the helm app resource.",
               "type": "boolean"
@@ -530,7 +536,15 @@
         "pollingInterval": {
           "description": "PollingInterval is how often to check the Helm repository for new updates.",
           "type": "string",
-          "nullable": true
+          "maxLength": 32,
+          "minLength": 1,
+          "nullable": true,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == '0' || (self.matches('^([0-9]+([.][0-9]+)?(ns|us|µs|ms|s|m|h))+$') \u0026\u0026 duration(self) \u003c= duration('2562047h'))",
+              "message": "must be a valid Go duration using units ns, us, µs, ms, s, m, h (e.g. 15s, 5m, 2h, 1h30m); units like d (days) or w (weeks) are not supported"
+            }
+          ]
         },
         "resources": {
           "description": "Resources contains the resources that were read from the bundle's\npath. This includes the content of downloaded helm charts.",
@@ -578,6 +592,11 @@
             },
             "autoPartitionThreshold": {
               "description": "AutoPartitionThreshold is the minimum number of clusters that need to be\npresent before auto-partitioning is enabled. If the number of target\nclusters is less than this value, all clusters will be placed in a single\npartition.\ndefault: 200",
+              "type": "integer",
+              "nullable": true
+            },
+            "maxNew": {
+              "description": "MaxNew is the maximum number of new BundleDeployments that can be created\nin a single reconciliation. This limits the rate at which new deployments\nare staged when a bundle is first applied to many clusters.\ndefault: 50",
               "type": "integer",
               "nullable": true
             },
@@ -748,11 +767,20 @@
           "type": "string",
           "nullable": true
         },
+        "targetCustomizationMode": {
+          "description": "TargetCustomizationMode controls how targetCustomizations from fleet.yaml\nare evaluated. \"FirstMatch\" (default) stops at the first matching entry.\n\"AllMatches\" applies all matching entries in order, merging them.",
+          "type": "string",
+          "default": "FirstMatch",
+          "enum": [
+            "FirstMatch",
+            "AllMatches"
+          ]
+        },
         "targetRestrictions": {
           "description": "TargetRestrictions is an allow list, which controls if a bundledeployment is created for a target.",
           "type": "array",
           "items": {
-            "description": "BundleTargetRestriction is used internally by Fleet and should not be modified.\nIt acts as an allow list, to prevent the creation of BundleDeployments from\nTargets created by TargetCustomizations in fleet.yaml.",
+            "description": "BundleTargetRestriction is used internally by Fleet and should not be modified.\nIt acts as an allow list, restricting BundleDeployment creation to only those clusters\nthat are explicitly listed in the GitRepo targets.",
             "type": "object",
             "properties": {
               "clusterGroup": {
