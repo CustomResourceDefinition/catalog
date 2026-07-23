@@ -271,6 +271,58 @@
           "description": "Http2ProtocolOptions contains the options necessary to configure HTTP/2 backends.\nNote: Http2ProtocolOptions can only be applied to HTTP/2 backends.\nSee [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/tls.proto#envoy-v3-api-msg-extensions-transport-sockets-tls-v3-sslconfig) for more details.",
           "type": "object",
           "properties": {
+            "connectionKeepalive": {
+              "description": "ConnectionKeepalive enables HTTP/2 keepalive PINGs on upstream connections,\nactively detecting half-dead connections: if a PING is not acknowledged\nwithin the timeout, the connection is closed.\nSee [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#envoy-v3-api-msg-config-core-v3-keepalivesettings) for more details.",
+              "type": "object",
+              "required": [
+                "timeout"
+              ],
+              "properties": {
+                "connectionIdleInterval": {
+                  "description": "If set, a PING is sent before dispatching new streams on a connection that\nhas been idle for at least this duration, verifying the connection is\nstill alive before reusing it.",
+                  "type": "string",
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
+                      "message": "invalid duration value"
+                    },
+                    {
+                      "rule": "duration(self) \u003e= duration('1ms')",
+                      "message": "connectionIdleInterval must be at least 1ms"
+                    }
+                  ]
+                },
+                "interval": {
+                  "description": "Interval between keepalive PINGs. If unset, PINGs are only sent when\ntriggered by ConnectionIdleInterval.",
+                  "type": "string",
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
+                      "message": "invalid duration value"
+                    },
+                    {
+                      "rule": "duration(self) \u003e= duration('1ms')",
+                      "message": "interval must be at least 1ms"
+                    }
+                  ]
+                },
+                "timeout": {
+                  "description": "Timeout after which the connection is closed if no response to a keepalive\nPING is received. A PING response is considered received if any frame\narrives on the connection while the PING is outstanding.",
+                  "type": "string",
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
+                      "message": "invalid duration value"
+                    },
+                    {
+                      "rule": "duration(self) \u003e= duration('1ms')",
+                      "message": "timeout must be at least 1ms"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
             "initialConnectionWindowSize": {
               "description": "InitialConnectionWindowSize is similar to InitialStreamWindowSize, but for the connection level.\nSame range and default value as InitialStreamWindowSize.\nValues can be specified with units like \"64Ki\".",
               "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
@@ -654,10 +706,67 @@
                   "message": "invalid duration value"
                 }
               ]
+            },
+            "zoneAware": {
+              "description": "ZoneAware configures zone-aware routing behavior for the load balancer.\nWhen enabled, traffic is preferentially routed to endpoints in the same\navailability zone as the Envoy proxy.\nThis is mutually exclusive with localityType.\n\nNote: This feature is experimental and subject to breaking changes in future releases.",
+              "type": "object",
+              "properties": {
+                "preferLocal": {
+                  "description": "PreferLocal enables Envoy's zone-aware routing which prefers sending traffic\nto local zone endpoints while maintaining overall traffic balance across zones.\nOn Kubernetes 1.35+, the zone is automatically derived from node label.\nThe KGATEWAY_NODE_* environment variables on the proxy pod can be set as an explicit override.\nSee https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/zone_aware",
+                  "type": "object",
+                  "properties": {
+                    "force": {
+                      "description": "Force enables Envoy forced zone-local routing. Envoy routes to same-zone\nendpoints while the local endpoint threshold is met. If there are not enough\nlocal endpoints, traffic falls back to standard zone-aware routing behavior.",
+                      "type": "object",
+                      "properties": {
+                        "minEndpointsInZoneThreshold": {
+                          "description": "MinEndpointsInZoneThreshold is the minimum number of endpoints that must\nexist in the local zone for forced zone-local routing to be active.\nIf the local zone has fewer endpoints than this threshold, the system\nfalls back to standard zone-aware routing behavior.\nDefaults to 1.",
+                          "type": "integer",
+                          "format": "int32",
+                          "default": 1,
+                          "minimum": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "minEndpointsThreshold": {
+                      "description": "MinEndpointsThreshold is the minimum number of total endpoints in the cluster\nthat must exist for zone-aware routing to be enabled. If the total number\nof endpoints is below this threshold, zone-aware routing is disabled.\nThis maps to Envoy's min_cluster_size setting.\nDefaults to 6.",
+                      "type": "integer",
+                      "format": "int64",
+                      "default": 6,
+                      "minimum": 1
+                    },
+                    "routingEnabled": {
+                      "description": "RoutingEnabled is the percentage of requests for which Envoy applies\nzone-aware routing once the minEndpointsThreshold is met.\nDefaults to 100.",
+                      "type": "integer",
+                      "format": "int32",
+                      "default": 100,
+                      "maximum": 100,
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "[has(self.preferLocal)].filter(x,x==true).size() \u003e= 1",
+                  "message": "at least one of the fields in [preferLocal] must be set"
+                }
+              ]
             }
           },
           "additionalProperties": false,
           "x-kubernetes-validations": [
+            {
+              "rule": "!(has(self.localityType) \u0026\u0026 has(self.zoneAware))",
+              "message": "localityType and zoneAware are mutually exclusive"
+            },
+            {
+              "rule": "!((has(self.ringHash) || has(self.maglev)) \u0026\u0026 has(self.zoneAware))",
+              "message": "zoneAware is not supported with ringHash or maglev load balancers"
+            },
             {
               "rule": "[has(self.leastRequest),has(self.roundRobin),has(self.ringHash),has(self.maglev),has(self.random)].filter(x,x==true).size() == 1",
               "message": "exactly one of the fields in [leastRequest roundRobin ringHash maglev random] must be set"
@@ -929,6 +1038,12 @@
                     "1.2",
                     "1.3"
                   ]
+                },
+                "signatureAlgorithms": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "additionalProperties": false

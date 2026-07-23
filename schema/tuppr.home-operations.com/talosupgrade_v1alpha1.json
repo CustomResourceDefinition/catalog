@@ -3990,6 +3990,65 @@
           },
           "additionalProperties": false
         },
+        "silences": {
+          "description": "Silences are Alertmanager silences held while this upgrade runs, one per\nentry. Requires the operator-level Alertmanager connection (Helm\n`silences.*`).",
+          "type": "array",
+          "maxItems": 8,
+          "minItems": 1,
+          "items": {
+            "description": "SilenceSpec describes one Alertmanager silence held during an upgrade run.\nThe silence is a short lease re-extended on every reconcile while the run is\nactive, so it lapses on its own if the controller stops driving the run.",
+            "type": "object",
+            "required": [
+              "matchers"
+            ],
+            "properties": {
+              "matchers": {
+                "description": "Matchers select the alerts this silence covers. Alertmanager ANDs the\nmatchers of one silence; use a regex value to cover alternatives, or\nadditional silences for independent scopes.",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "description": "SilenceMatcher is one Alertmanager silence matcher.",
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "value"
+                  ],
+                  "properties": {
+                    "matchType": {
+                      "description": "MatchType is the match operator: = (equals), != , =~ (regex), !~.",
+                      "type": "string",
+                      "default": "=",
+                      "enum": [
+                        "=",
+                        "!=",
+                        "=~",
+                        "!~"
+                      ]
+                    },
+                    "name": {
+                      "description": "Name of the alert label to match.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "value": {
+                      "description": "Value the label is matched against.",
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "maxDuration": {
+                "description": "MaxDuration hard-caps how long a continuous silence hold keeps being\nextended; a run still holding this silence beyond it alerts again. The\nbudget re-arms when the hold is released (run parked or finished).",
+                "type": "string",
+                "default": "4h",
+                "pattern": "^([0-9]+[smh])+$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "talos": {
           "description": "Talos specifies the talos configuration for upgrade operations",
           "type": "object",
@@ -4045,6 +4104,18 @@
       "description": "TalosUpgradeStatus defines the observed state of TalosUpgrade",
       "type": "object",
       "properties": {
+        "alertSilenceIDs": {
+          "description": "AlertSilenceIDs are the Alertmanager silences this run holds open, indexed\nlike spec.silences (an empty entry is a silence not yet created). Persisted\nso the leases are re-adopted across controller restarts and expired when\nthe run leaves its active phases.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "alertSilencesSince": {
+          "description": "AlertSilencesSince is when the current silence hold began; each entry's\nmaxDuration caps extension relative to it. Cleared when the hold is\nreleased, so a resumed run gets a fresh budget.",
+          "type": "string",
+          "format": "date-time"
+        },
         "completedAt": {
           "description": "CompletedAt is the time the upgrade reached a terminal phase",
           "type": "string",
@@ -4267,6 +4338,30 @@
         "preHookIndex": {
           "description": "PreHookIndex is the index of the next pre-hook to run.\nEquals len(spec.hooks.pre) once all pre-hooks are done.",
           "type": "integer"
+        },
+        "rebootingNodes": {
+          "description": "RebootingNodes tracks nodes whose upgrade job finished but whose\npost-reboot readiness has not been verified yet. Persisted in status so\nthe wait survives upgrade Job garbage collection; a node that never\ncomes back is marked failed once its deadline passes.",
+          "type": "array",
+          "items": {
+            "description": "NodeRebootStatus tracks a node awaiting post-upgrade reboot verification",
+            "type": "object",
+            "required": [
+              "deadline",
+              "nodeName"
+            ],
+            "properties": {
+              "deadline": {
+                "description": "Deadline is when the reboot wait expires and the node is marked failed",
+                "type": "string",
+                "format": "date-time"
+              },
+              "nodeName": {
+                "description": "NodeName is the name of the node",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
         },
         "startedAt": {
           "description": "StartedAt is the time the current upgrade run began",
