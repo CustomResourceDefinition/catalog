@@ -45,8 +45,8 @@
                 }
               },
               "subjects": {
-                "description": "kubebuilder:validation:Minimum=1",
                 "type": "array",
+                "minItems": 1,
                 "items": {
                   "description": "Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference,\nor a value for non-objects such as user and group names.",
                   "type": "object",
@@ -1394,6 +1394,32 @@
             "description": "Rules Distributed via Tenants",
             "type": "object",
             "properties": {
+              "audience": {
+                "description": "Audience limits this rule to matching request subjects.\nAn empty audience matches every request.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "name"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "User",
+                        "Group",
+                        "ServiceAccount",
+                        "Custom"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
               "enforce": {
                 "description": "Enforcement for given rule",
                 "type": "object",
@@ -1407,6 +1433,66 @@
                       "deny",
                       "audit"
                     ]
+                  },
+                  "ingress": {
+                    "description": "Enforcement for Ingress and Gateway API resource hostnames.",
+                    "type": "object",
+                    "properties": {
+                      "hostnames": {
+                        "description": "Hostnames defines allowed, denied, or audited hostname expressions.\nA resource targeted by an allow or deny rule must declare non-empty values\nin all hostname fields. Audit-only rules record missing hostnames without\ndenying them.",
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "description": "At least one of Exact or Exp must be set.\nBoth may be set together.",
+                          "type": "object",
+                          "properties": {
+                            "exact": {
+                              "description": "Exact matches one of the provided values exactly.",
+                              "type": "array",
+                              "minItems": 1,
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "exp": {
+                              "description": "Exp matches regular expression.",
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "negate": {
+                              "description": "Negate regular Expression",
+                              "type": "boolean",
+                              "default": false
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-validations": [
+                            {
+                              "rule": "has(self.exact) || has(self.exp)",
+                              "message": "at least one of exact or exp must be set"
+                            }
+                          ]
+                        }
+                      },
+                      "types": {
+                        "description": "Types defines the resource kinds to which hostname enforcement applies.",
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "Ingress",
+                            "Route",
+                            "ListenerSet",
+                            "HTTPRoute",
+                            "Gateway",
+                            "TLSRoute",
+                            "GRPCRoute"
+                          ]
+                        }
+                      }
+                    },
+                    "additionalProperties": false
                   },
                   "metadata": {
                     "description": "Enforcement for object metadata on namespaced resources.",
@@ -1424,6 +1510,14 @@
                           "additionalProperties": {
                             "type": "object",
                             "properties": {
+                              "default": {
+                                "description": "Default is applied by admission mutation when the concrete metadata key is absent.\nIt is not reconciled after admission.",
+                                "type": "string"
+                              },
+                              "managed": {
+                                "description": "Managed is enforced by admission mutation and reconciled by the RuleStatus\ncontroller using server-side apply when the rule configuration changes.",
+                                "type": "string"
+                              },
                               "required": {
                                 "description": "Required enforces that the metadata key must be present.\n\nThis is mainly meaningful with action=allow. Deny and audit rules remain\nvalue matchers and do not require missing metadata to exist.",
                                 "type": "boolean",
@@ -1488,6 +1582,14 @@
                           "additionalProperties": {
                             "type": "object",
                             "properties": {
+                              "default": {
+                                "description": "Default is applied by admission mutation when the concrete metadata key is absent.\nIt is not reconciled after admission.",
+                                "type": "string"
+                              },
+                              "managed": {
+                                "description": "Managed is enforced by admission mutation and reconciled by the RuleStatus\ncontroller using server-side apply when the rule configuration changes.",
+                                "type": "string"
+                              },
                               "required": {
                                 "description": "Required enforces that the metadata key must be present.\n\nThis is mainly meaningful with action=allow. Deny and audit rules remain\nvalue matchers and do not require missing metadata to exist.",
                                 "type": "boolean",
@@ -1808,6 +1910,69 @@
                 "description": "Permissions for given rule",
                 "type": "object",
                 "properties": {
+                  "bindings": {
+                    "description": "Bindings defines additional RoleBindings for namespaces selected by this rule.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "clusterRoleName",
+                        "subjects"
+                      ],
+                      "properties": {
+                        "annotations": {
+                          "description": "Additional Annotations for the synchronized rolebindings",
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "clusterRoleName": {
+                          "type": "string"
+                        },
+                        "labels": {
+                          "description": "Additional Labels for the synchronized rolebindings",
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "subjects": {
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {
+                            "description": "Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference,\nor a value for non-objects such as user and group names.",
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "name"
+                            ],
+                            "properties": {
+                              "apiGroup": {
+                                "description": "APIGroup holds the API group of the referenced subject.\nDefaults to \"\" for ServiceAccount subjects.\nDefaults to \"rbac.authorization.k8s.io\" for User and Group subjects.",
+                                "type": "string"
+                              },
+                              "kind": {
+                                "description": "Kind of object being referenced. Values defined by this API group are \"User\", \"Group\", and \"ServiceAccount\".\nIf the Authorizer does not recognized the kind value, the Authorizer should report an error.",
+                                "type": "string"
+                              },
+                              "name": {
+                                "description": "Name of the object being referenced.",
+                                "type": "string"
+                              },
+                              "namespace": {
+                                "description": "Namespace of the referenced object.  If the object kind is non-namespace, such as \"User\" or \"Group\", and this value is not empty\nthe Authorizer should report an error.",
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false,
+                            "x-kubernetes-map-type": "atomic"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
                   "promotions": {
                     "description": "Define Promotion Rules which distributed additional ClusterRoles across the Tenant\nfor promoted ServiceAccounts.",
                     "type": "array",
