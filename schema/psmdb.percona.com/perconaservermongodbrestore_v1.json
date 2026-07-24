@@ -65,8 +65,7 @@
             "gcs": {
               "type": "object",
               "required": [
-                "bucket",
-                "credentialsSecret"
+                "bucket"
               ],
               "properties": {
                 "bucket": {
@@ -187,6 +186,160 @@
               },
               "additionalProperties": false
             },
+            "oci": {
+              "type": "object",
+              "required": [
+                "bucket",
+                "credentials",
+                "namespace",
+                "region"
+              ],
+              "properties": {
+                "bucket": {
+                  "type": "string"
+                },
+                "credentials": {
+                  "type": "object",
+                  "properties": {
+                    "secretName": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "!has(self.type) || self.type != 'userPrincipal' || (has(self.secretName) \u0026\u0026 self.secretName != '')",
+                      "message": "secretName must be set when credentials type is userPrincipal"
+                    }
+                  ]
+                },
+                "maxObjSizeGB": {
+                  "type": "number"
+                },
+                "namespace": {
+                  "type": "string"
+                },
+                "prefix": {
+                  "type": "string"
+                },
+                "region": {
+                  "type": "string"
+                },
+                "retryer": {
+                  "type": "object",
+                  "required": [
+                    "maxAttempts",
+                    "maxBackoff"
+                  ],
+                  "properties": {
+                    "maxAttempts": {
+                      "type": "integer"
+                    },
+                    "maxBackoff": {
+                      "type": "integer",
+                      "format": "int64"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "serverSideEncryption": {
+                  "type": "object",
+                  "properties": {
+                    "kmsKeyID": {
+                      "type": "string"
+                    },
+                    "secretName": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "uploadConcurrency": {
+                  "type": "integer"
+                },
+                "uploadPartSize": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              },
+              "additionalProperties": false
+            },
+            "oss": {
+              "type": "object",
+              "required": [
+                "credentialsSecret"
+              ],
+              "properties": {
+                "bucket": {
+                  "type": "string"
+                },
+                "connectTimeout": {
+                  "type": "string"
+                },
+                "credentialsSecret": {
+                  "type": "string"
+                },
+                "endpointUrl": {
+                  "type": "string"
+                },
+                "maxUploadParts": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "prefix": {
+                  "type": "string"
+                },
+                "region": {
+                  "type": "string"
+                },
+                "retryer": {
+                  "type": "object",
+                  "required": [
+                    "baseDelay",
+                    "maxAttempts",
+                    "maxBackoff"
+                  ],
+                  "properties": {
+                    "baseDelay": {
+                      "type": "string"
+                    },
+                    "maxAttempts": {
+                      "type": "integer"
+                    },
+                    "maxBackoff": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "serverSideEncryption": {
+                  "type": "object",
+                  "properties": {
+                    "encryptionAlgorithm": {
+                      "type": "string"
+                    },
+                    "encryptionKeyId": {
+                      "type": "string"
+                    },
+                    "encryptionMethod": {
+                      "type": "string"
+                    },
+                    "secretName": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "uploadPartSize": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              },
+              "additionalProperties": false
+            },
             "pbmName": {
               "type": "string"
             },
@@ -284,6 +437,21 @@
             "size": {
               "type": "string"
             },
+            "snapshots": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "replsetName": {
+                    "type": "string"
+                  },
+                  "snapshotName": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
             "start": {
               "type": "string",
               "format": "date-time"
@@ -340,11 +508,27 @@
                 "type": "string"
               }
             },
+            "nsFrom": {
+              "type": "string"
+            },
+            "nsTo": {
+              "type": "string"
+            },
             "withUsersAndRoles": {
               "type": "boolean"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(!has(self.nsFrom) \u0026\u0026 !has(self.nsTo)) || (has(self.nsFrom) \u0026\u0026 has(self.nsTo))",
+              "message": "nsFrom and nsTo need to be set together"
+            },
+            {
+              "rule": "(!has(self.nsFrom) \u0026\u0026 !has(self.nsTo)) || self.nsFrom != self.nsTo",
+              "message": "nsFrom and nsTo can't be the same"
+            }
+          ]
         },
         "storageName": {
           "type": "string"
@@ -358,6 +542,54 @@
         "completed": {
           "type": "string",
           "format": "date-time"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          }
         },
         "error": {
           "type": "string"
