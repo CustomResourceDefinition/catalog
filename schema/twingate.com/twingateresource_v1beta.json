@@ -22,6 +22,41 @@
           "type": "string",
           "nullable": true
         },
+        "downstream": {
+          "description": "Downstream (client-facing) configuration for a WebApp Resource.",
+          "type": "object",
+          "required": [
+            "port"
+          ],
+          "properties": {
+            "port": {
+              "description": "The downstream port.",
+              "type": "integer",
+              "maximum": 65535,
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "gatewayRef": {
+          "description": "Reference to the TwingateGateway this Kubernetes or WebApp Resource is served by. For Kubernetes Resources it replaces the deprecated proxy field.",
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "description": "Name of the TwingateGateway object.",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace of the TwingateGateway object.",
+              "type": "string",
+              "default": "default"
+            }
+          },
+          "additionalProperties": false
+        },
         "id": {
           "type": "string",
           "nullable": true
@@ -196,6 +231,37 @@
           },
           "additionalProperties": false
         },
+        "remoteNetworkId": {
+          "description": "ID of the Twingate Remote Network this Resource belongs to. Overrides the operator-wide default (TWINGATE_REMOTE_NETWORK_ID). Immutable once set.",
+          "type": "string",
+          "pattern": "^[-A-Za-z0-9+/]*={0,3}$"
+        },
+        "requestHeaderRewrites": {
+          "description": "HTTP headers to rewrite on requests to the upstream of a WebApp Resource.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "value"
+            ],
+            "properties": {
+              "name": {
+                "description": "The header name.",
+                "type": "string"
+              },
+              "value": {
+                "description": "The header value.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
         "securityPolicyId": {
           "type": "string",
           "pattern": "^[-A-Za-z0-9+/]*={0,3}$",
@@ -212,7 +278,8 @@
           "default": "Network",
           "enum": [
             "Network",
-            "Kubernetes"
+            "Kubernetes",
+            "WebApp"
           ],
           "x-kubernetes-validations": [
             {
@@ -220,6 +287,22 @@
               "message": "Resource type is immutable"
             }
           ]
+        },
+        "upstream": {
+          "description": "Upstream (target) configuration for a WebApp Resource.",
+          "type": "object",
+          "required": [
+            "port"
+          ],
+          "properties": {
+            "port": {
+              "description": "The upstream port.",
+              "type": "integer",
+              "maximum": 65535,
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false,
@@ -229,12 +312,24 @@
           "message": "if isBrowserShortcutEnabled is set to true, then address can't be wildcard"
         },
         {
-          "rule": "(self.type == \"Network\" \u0026\u0026 !has(self.proxy)) || (self.type == \"Kubernetes\" \u0026\u0026 has(self.proxy))",
-          "message": "proxy should be set for Kubernetes Resource"
+          "rule": "(self.type == \"Network\" \u0026\u0026 !has(self.proxy) \u0026\u0026 !has(self.gatewayRef)) || (self.type == \"Kubernetes\" \u0026\u0026 (has(self.proxy) != has(self.gatewayRef))) || (self.type == \"WebApp\" \u0026\u0026 has(self.gatewayRef) \u0026\u0026 !has(self.proxy))",
+          "message": "Kubernetes Resource requires exactly one of proxy (deprecated) or gatewayRef; WebApp Resource requires gatewayRef and no proxy; Network Resource allows neither"
+        },
+        {
+          "rule": "(self.type == \"WebApp\" \u0026\u0026 has(self.downstream) \u0026\u0026 has(self.upstream)) || (self.type != \"WebApp\" \u0026\u0026 !has(self.downstream) \u0026\u0026 !has(self.upstream))",
+          "message": "WebApp Resource requires downstream and upstream; other Resource types allow neither"
+        },
+        {
+          "rule": "!has(self.requestHeaderRewrites) || self.type == \"WebApp\"",
+          "message": "requestHeaderRewrites can only be set for WebApp Resources"
         },
         {
           "rule": "(self.isBrowserShortcutEnabled \u0026\u0026 self.type == \"Network\") || (self.isBrowserShortcutEnabled == false)",
-          "message": "isBrowserShortcutEnabled cannot be set to true for Kubernetes Resource"
+          "message": "isBrowserShortcutEnabled can only be set to true for Network Resources"
+        },
+        {
+          "rule": "(!has(oldSelf.remoteNetworkId) || self.remoteNetworkId == oldSelf.remoteNetworkId)",
+          "message": "remoteNetworkId is immutable once set"
         }
       ]
     },

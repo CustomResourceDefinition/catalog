@@ -79,7 +79,8 @@
             "limit": {
               "description": "Limit specifies the maximum number of input sets to return.\nWhen not set, the default limit is 100.",
               "type": "integer",
-              "default": 100
+              "default": 100,
+              "maximum": 10000
             },
             "semver": {
               "description": "Semver specifies a semantic version range to filter and sort the tags.\nIf this field is not specified, the tags will be sorted in reverse\nalphabetical order.\nSupported only for tags at the moment.",
@@ -135,6 +136,71 @@
           },
           "additionalProperties": false
         },
+        "selectors": {
+          "description": "Selectors specifies label selectors used to discover ExternalArtifact objects.\nRequired when spec.type is 'ExternalArtifact' and must not be set otherwise.",
+          "type": "array",
+          "items": {
+            "description": "ExternalArtifactSelector defines a selector for discovering ExternalArtifact objects.",
+            "type": "object",
+            "properties": {
+              "matchExpressions": {
+                "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                "type": "array",
+                "items": {
+                  "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                  "type": "object",
+                  "required": [
+                    "key",
+                    "operator"
+                  ],
+                  "properties": {
+                    "key": {
+                      "description": "key is the label key that the selector applies to.",
+                      "type": "string"
+                    },
+                    "operator": {
+                      "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                      "type": "string"
+                    },
+                    "values": {
+                      "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-kubernetes-list-type": "atomic"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "x-kubernetes-list-type": "atomic"
+              },
+              "matchLabels": {
+                "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "name": {
+                "description": "Name selects a single ExternalArtifact by metadata.name.\nThis field is mutually exclusive with matchLabels and matchExpressions.",
+                "type": "string"
+              },
+              "namespace": {
+                "description": "Namespace scopes ExternalArtifact discovery.\nWhen empty, ExternalArtifacts are listed in the ResourceSetInputProvider namespace.\nWhen set to \"*\", ExternalArtifacts are listed across all namespaces by\nomitting the namespace option from List().\nOtherwise, ExternalArtifacts are listed only in the specified namespace.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "x-kubernetes-map-type": "atomic",
+            "x-kubernetes-validations": [
+              {
+                "rule": "!has(self.name) || (!has(self.matchLabels) \u0026\u0026 !has(self.matchExpressions))",
+                "message": "name is mutually exclusive with matchLabels and matchExpressions"
+              }
+            ]
+          }
+        },
         "serviceAccountName": {
           "description": "ServiceAccountName specifies the name of the Kubernetes ServiceAccount\nused for authentication with AWS, Azure or GCP services through\nworkload identity federation features. If not specified, the\nauthentication for these cloud providers will use the ServiceAccount\nof the operator (or any other environment authentication configuration).",
           "type": "string"
@@ -178,7 +244,8 @@
             "ACRArtifactTag",
             "ECRArtifactTag",
             "GARArtifactTag",
-            "ExternalService"
+            "ExternalService",
+            "ExternalArtifact"
           ]
         },
         "url": {
@@ -194,8 +261,12 @@
           "message": "spec.url must be empty when spec.type is 'Static'"
         },
         {
-          "rule": "self.type == 'Static' || has(self.url)",
-          "message": "spec.url must not be empty when spec.type is not 'Static'"
+          "rule": "self.type != 'ExternalArtifact' || !has(self.url)",
+          "message": "spec.url must be empty when spec.type is 'ExternalArtifact'"
+        },
+        {
+          "rule": "self.type == 'Static' || self.type == 'ExternalArtifact' || has(self.url)",
+          "message": "spec.url must not be empty when spec.type is not 'Static' or 'ExternalArtifact'"
         },
         {
           "rule": "!self.type.startsWith('Git') || self.url.startsWith('http')",
@@ -214,6 +285,10 @@
           "message": "spec.url must start with 'oci://' when spec.type is an OCI provider"
         },
         {
+          "rule": "!self.type.endsWith('ArtifactTag') || !self.url.startsWith('oci://') || self.url.substring(6).contains('/')",
+          "message": "spec.url must include the repository path after the registry host when spec.type is an OCI provider"
+        },
+        {
           "rule": "self.type != 'ExternalService' || self.url.startsWith('http')",
           "message": "spec.url must start with 'http://' or 'https://' when spec.type is 'ExternalService'"
         },
@@ -226,16 +301,24 @@
           "message": "spec.url must use 'https://' unless spec.insecure is true"
         },
         {
-          "rule": "!has(self.serviceAccountName) || self.type.startsWith('AzureDevOps') || self.type.startsWith('AWSCodeCommit') || self.type.endsWith('ArtifactTag')",
-          "message": "cannot specify spec.serviceAccountName when spec.type is not one of AzureDevOps*, AWSCodeCommit* or *ArtifactTag"
+          "rule": "!has(self.serviceAccountName) || self.type.startsWith('AzureDevOps') || self.type.startsWith('AWSCodeCommit') || self.type.endsWith('ArtifactTag') || self.type == 'ExternalArtifact'",
+          "message": "cannot specify spec.serviceAccountName when spec.type is not one of AzureDevOps*, AWSCodeCommit*, *ArtifactTag or ExternalArtifact"
         },
         {
-          "rule": "!has(self.certSecretRef) || !(self.type == 'Static' || self.type.startsWith('AzureDevOps') || self.type.startsWith('AWSCodeCommit') || (self.type.endsWith('ArtifactTag') \u0026\u0026 self.type != 'OCIArtifactTag'))",
-          "message": "cannot specify spec.certSecretRef when spec.type is one of Static, AzureDevOps*, AWSCodeCommit*, ACRArtifactTag, ECRArtifactTag or GARArtifactTag"
+          "rule": "!has(self.certSecretRef) || !(self.type == 'Static' || self.type == 'ExternalArtifact' || self.type.startsWith('AzureDevOps') || self.type.startsWith('AWSCodeCommit') || (self.type.endsWith('ArtifactTag') \u0026\u0026 self.type != 'OCIArtifactTag'))",
+          "message": "cannot specify spec.certSecretRef when spec.type is one of Static, ExternalArtifact, AzureDevOps*, AWSCodeCommit*, ACRArtifactTag, ECRArtifactTag or GARArtifactTag"
         },
         {
-          "rule": "!has(self.secretRef) || !(self.type == 'Static' || self.type.startsWith('AWSCodeCommit') || (self.type.endsWith('ArtifactTag') \u0026\u0026 self.type != 'OCIArtifactTag'))",
-          "message": "cannot specify spec.secretRef when spec.type is one of Static, AWSCodeCommit*, ACRArtifactTag, ECRArtifactTag or GARArtifactTag"
+          "rule": "!has(self.secretRef) || !(self.type == 'Static' || self.type == 'ExternalArtifact' || self.type.startsWith('AWSCodeCommit') || (self.type.endsWith('ArtifactTag') \u0026\u0026 self.type != 'OCIArtifactTag'))",
+          "message": "cannot specify spec.secretRef when spec.type is one of Static, ExternalArtifact, AWSCodeCommit*, ACRArtifactTag, ECRArtifactTag or GARArtifactTag"
+        },
+        {
+          "rule": "self.type != 'ExternalArtifact' || (has(self.selectors) \u0026\u0026 size(self.selectors) \u003e 0)",
+          "message": "spec.selectors must be set when spec.type is 'ExternalArtifact'"
+        },
+        {
+          "rule": "self.type == 'ExternalArtifact' || !has(self.selectors)",
+          "message": "spec.selectors must not be set when spec.type is not 'ExternalArtifact'"
         }
       ]
     },
