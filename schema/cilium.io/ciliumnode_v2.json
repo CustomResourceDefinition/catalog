@@ -50,7 +50,8 @@
             },
             "cidr-block": {
               "description": "CIDRBlock is vpc ipv4 CIDR",
-              "type": "string"
+              "type": "string",
+              "format": "cidr"
             },
             "instance-type": {
               "description": "InstanceType is the ECS instance type, e.g. \"ecs.g6.2xlarge\"",
@@ -145,32 +146,13 @@
               "type": "integer",
               "minimum": 0
             },
-            "instance-id": {
-              "description": "InstanceID is the AWS InstanceId of the node. The InstanceID is used\nto retrieve AWS metadata for the node.\n\nOBSOLETE: This field is obsolete, please use Spec.InstanceID",
-              "type": "string"
-            },
             "instance-type": {
               "description": "InstanceType is the AWS EC2 instance type, e.g. \"m5.large\"",
               "type": "string"
             },
-            "max-above-watermark": {
-              "description": "MaxAboveWatermark is the maximum number of addresses to allocate\nbeyond the addresses needed to reach the PreAllocate watermark.\nGoing above the watermark can help reduce the number of API calls to\nallocate IPs, e.g. when a new ENI is allocated, as many secondary\nIPs as possible are allocated. Limiting the amount can help reduce\nwaste of IPs.\n\nOBSOLETE: This field is obsolete, please use Spec.IPAM.MaxAboveWatermark",
-              "type": "integer",
-              "minimum": 0
-            },
-            "min-allocate": {
-              "description": "MinAllocate is the minimum number of IPs that must be allocated when\nthe node is first bootstrapped. It defines the minimum base socket\nof addresses that must be available. After reaching this watermark,\nthe PreAllocate and MaxAboveWatermark logic takes over to continue\nallocating IPs.\n\nOBSOLETE: This field is obsolete, please use Spec.IPAM.MinAllocate",
-              "type": "integer",
-              "minimum": 0
-            },
             "node-subnet-id": {
               "description": "NodeSubnetID is the subnet of the primary ENI the instance was brought up\nwith. It is used as a sensible default subnet to create ENIs in.",
               "type": "string"
-            },
-            "pre-allocate": {
-              "description": "PreAllocate defines the number of IP addresses that must be\navailable for allocation in the IPAMspec. It defines the buffer of\naddresses available immediately without requiring cilium-operator to\nget involved.\n\nOBSOLETE: This field is obsolete, please use Spec.IPAM.PreAllocate",
-              "type": "integer",
-              "minimum": 0
             },
             "security-group-tags": {
               "description": "SecurityGroupTags is the list of tags to use when evaliating what\nAWS security groups to use for the ENI.",
@@ -284,7 +266,8 @@
               "description": "PodCIDRs is the list of CIDRs available to the node for allocation.\nWhen an IP is used, the IP will be added to Status.IPAM.Used",
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "string",
+                "format": "cidr"
               }
             },
             "pool": {
@@ -319,11 +302,18 @@
                       "pool"
                     ],
                     "properties": {
+                      "allowFirstIP": {
+                        "description": "AllowFirstIP allows the first IP of each allocated CIDR to be used.",
+                        "type": "boolean"
+                      },
+                      "allowLastIP": {
+                        "description": "AllowLastIP allows the last IP of each allocated CIDR to be used.",
+                        "type": "boolean"
+                      },
                       "cidrs": {
                         "description": "CIDRs contains a list of pod CIDRs currently allocated from this pool",
                         "type": "array",
                         "items": {
-                          "description": "IPAMPodCIDR is a pod CIDR",
                           "type": "string",
                           "format": "cidr"
                         }
@@ -374,7 +364,7 @@
               "additionalProperties": false
             },
             "pre-allocate": {
-              "description": "PreAllocate defines the number of IP addresses that must be\navailable for allocation in the IPAMspec. It defines the buffer of\naddresses available immediately without requiring cilium-operator to\nget involved.",
+              "description": "PreAllocate defines the number of IP addresses that must be\navailable for allocation in the IPAMSpec. It defines the buffer of\naddresses available immediately without requiring cilium-operator to\nget involved.",
               "type": "integer",
               "minimum": 0
             },
@@ -387,11 +377,6 @@
             }
           },
           "additionalProperties": false
-        },
-        "nodeidentity": {
-          "description": "NodeIdentity is the Cilium numeric identity allocated for the node, if any.",
-          "type": "integer",
-          "format": "int64"
         }
       },
       "additionalProperties": false
@@ -467,17 +452,20 @@
                     "properties": {
                       "cidr": {
                         "description": "CIDRBlock is the VPC IPv4 CIDR",
-                        "type": "string"
+                        "type": "string",
+                        "format": "cidr"
                       },
                       "ipv6-cidr": {
                         "description": "IPv6CIDRBlock is the VPC IPv6 CIDR",
-                        "type": "string"
+                        "type": "string",
+                        "format": "cidr"
                       },
                       "secondary-cidrs": {
                         "description": "SecondaryCIDRs is the list of Secondary CIDRs associated with the VPC",
                         "type": "array",
                         "items": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "cidr"
                         }
                       },
                       "vpc-id": {
@@ -492,11 +480,13 @@
                     "properties": {
                       "cidr": {
                         "description": "CIDRBlock is the vSwitch IPv4 CIDR",
-                        "type": "string"
+                        "type": "string",
+                        "format": "cidr"
                       },
                       "ipv6-cidr": {
                         "description": "IPv6CIDRBlock is the vSwitch IPv6 CIDR",
-                        "type": "string"
+                        "type": "string",
+                        "format": "cidr"
                       },
                       "vswitch-id": {
                         "description": "VSwitchID is the vSwitch to which the ENI belongs",
@@ -525,12 +515,8 @@
                 "description": "AzureInterface represents an Azure Interface",
                 "type": "object",
                 "properties": {
-                  "GatewayIP": {
-                    "description": "GatewayIP is the interface's subnet's default route\n\nOBSOLETE: This field is obsolete, please use Gateway field instead.",
-                    "type": "string"
-                  },
                   "addresses": {
-                    "description": "Addresses is the list of all IPs associated with the interface,\nincluding all secondary addresses",
+                    "description": "Addresses is the list of secondary IPs associated with the interface.\nThe primary IP is tracked separately in the IP field, but is also\nincluded here when the operator is configured to expose it for\nallocation.",
                     "type": "array",
                     "items": {
                       "description": "AzureAddress is an IP address assigned to an AzureInterface",
@@ -545,7 +531,7 @@
                           "type": "string"
                         },
                         "subnet": {
-                          "description": "Subnet is the subnet the address belongs to",
+                          "description": "Subnet is the subnet the address belongs to.\n\nDeprecated: use AzureInterface.Subnet.ID. Populated as a mirror for one\nrelease so external consumers of CiliumNode.Status.Azure can migrate.",
                           "type": "string"
                         }
                       },
@@ -553,8 +539,9 @@
                     }
                   },
                   "cidr": {
-                    "description": "CIDR is the range that the interface belongs to.",
-                    "type": "string"
+                    "description": "CIDR is the range that the interface belongs to.\n\nDeprecated: use Subnet.CIDR. Retained for one release so agent/operator\nrolling upgrades work in either order.",
+                    "type": "string",
+                    "format": "cidr"
                   },
                   "gateway": {
                     "description": "Gateway is the interface's subnet's default route",
@@ -562,6 +549,10 @@
                   },
                   "id": {
                     "description": "ID is the identifier",
+                    "type": "string"
+                  },
+                  "ip": {
+                    "description": "IP is the primary IP of the interface",
                     "type": "string"
                   },
                   "mac": {
@@ -579,6 +570,22 @@
                   "state": {
                     "description": "State is the provisioning state",
                     "type": "string"
+                  },
+                  "subnet": {
+                    "description": "Subnet is the subnet the interface is attached to.",
+                    "type": "object",
+                    "properties": {
+                      "cidr": {
+                        "description": "CIDR is the CIDR range associated with the subnet",
+                        "type": "string",
+                        "format": "cidr"
+                      },
+                      "id": {
+                        "description": "ID is the resource ID of the subnet",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
                   }
                 },
                 "additionalProperties": false
@@ -621,6 +628,14 @@
                     "description": "IP is the primary IP of the ENI",
                     "type": "string"
                   },
+                  "ipv6-prefixes": {
+                    "description": "IPv6Prefixes is the list of all IPv6 /80 delegated prefixes associated with the ENI",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "cidr"
+                    }
+                  },
                   "mac": {
                     "description": "MAC is the mac address of the ENI",
                     "type": "string"
@@ -630,10 +645,11 @@
                     "type": "integer"
                   },
                   "prefixes": {
-                    "description": "Prefixes is the list of all /28 prefixes associated with the ENI",
+                    "description": "Prefixes is the list of all IPv4 /28 delegated prefixes associated with the ENI",
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "format": "cidr"
                     }
                   },
                   "public-ip": {
@@ -653,7 +669,8 @@
                     "properties": {
                       "cidr": {
                         "description": "CIDR is the CIDR range associated with the subnet",
-                        "type": "string"
+                        "type": "string",
+                        "format": "cidr"
                       },
                       "id": {
                         "description": "ID is the ID of the subnet",
@@ -676,7 +693,8 @@
                         "description": "CIDRs is the list of CIDR ranges associated with the VPC",
                         "type": "array",
                         "items": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "cidr"
                         }
                       },
                       "id": {
@@ -685,7 +703,8 @@
                       },
                       "primary-cidr": {
                         "description": "PrimaryCIDR is the primary CIDR of the VPC",
-                        "type": "string"
+                        "type": "string",
+                        "format": "cidr"
                       }
                     }
                   }
