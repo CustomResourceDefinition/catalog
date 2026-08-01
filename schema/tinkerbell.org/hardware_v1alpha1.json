@@ -227,7 +227,7 @@
                     "additionalProperties": false
                   },
                   "osie": {
-                    "description": "OSIE configuration.",
+                    "description": "OSIE (Operating System Installation Environment) configuration.",
                     "type": "object",
                     "properties": {
                       "baseURL": {
@@ -237,6 +237,46 @@
                         "type": "string"
                       },
                       "kernel": {
+                        "type": "string"
+                      },
+                      "kernelParams": {
+                        "description": "KernelParams, when defined, overrides the default kernel parameters passed to the kernel\ncommand line when launching the OSIE. Typically they will be in the format \"key=value\" and\nalign with the Linux Kernel and OSIE documentation, but they can be any string.\nAlso used as the source for RaspberryPi-Netboot cmdline.txt (joined with spaces).",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "pxelinux": {
+                    "description": "PXELINUX represents PXELinux configuration, for u-boot \"pxelinux.cfg\" booting.\nIt instructs Smee's TFTP server to serve certain files for PXELinux booting.\nThe main pxelinux.cfg asset (in \"extlinux\" format; see u-boot's distroboot and bootstd docs) is\ngenerated on the fly from a config defined in the PXELINUX struct.\nOther assets (eg, vmlinuz, initramfs, dtb) are served from Smee's configured TFTP asset directory.",
+                    "type": "object",
+                    "properties": {
+                      "config": {
+                        "description": "Config, when defined, overrides the default PXELinux config to use for generating the pxelinux.cfg file.\nIt should be in \"extlinux\" format, as per u-boot's distroboot and bootstd documentation.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "rpi": {
+                    "description": "RPI represents Raspberry Pi network boot configuration.\nThe RaspberryPi's EEPROM firmware can do its own network booting, without u-boot (PXELinux) or iPXE involved.\nIt does so by prefixing requests to certain filenames with the Pi's serial number.\nSuch serial number is NOT related to the MAC address, and is unique to each Pi.\nThe firmware will send requests to \"\u003cSerialNum\u003e/start4.elf\" to get 2nd-stage firmware, then for\n\"\u003cSerialNum\u003e/config.txt\", and \"\u003cSerialNum\u003e/cmdline.txt\" when doing network booting.\nconfig.txt and cmdline.txt will come directly from the Hardware data (config.txt from ConfigTxt; cmdline.txt\nfrom the joined OSIE.KernelParams), while everything else (eg all binaries) will be served after a\nSerialNum -\u003e FirmwarePath mapping.\nAll this depends on being able to find the Hardware via an IP-address lookup; no lookups are done vs the SerialNum.\nhttps://www.raspberrypi.com/documentation/computers/raspberry-pi.html#TFTP_PREFIX",
+                    "type": "object",
+                    "required": [
+                      "serialNum"
+                    ],
+                    "properties": {
+                      "configTxt": {
+                        "description": "ConfigTxt, when defined, is served as the Raspberry Pi config.txt file content.\nWhen not specified, this route serves no config.txt: the request falls through\nto any later route, otherwise resulting in a 404.",
+                        "type": "string"
+                      },
+                      "firmwarePath": {
+                        "description": "FirmwarePath, when defined, overrides the default path to firmware files.\nThis must be coordinated with where Smee serves Raspberry Pi firmware files. See the Smee docs for details.\n\nThis is an internal URI rewrite. The Raspberry Pi will always request files prefixed with its serial number.\nThis field defines a common backend location for the generic firmware files, which will be used for all other files and binaries.\nA Raspberry Pi will still request all files from its serial-number prefix, but Smee will serve files from FirmwarePath when the request path starts with the Pi's serial number.\nFor example, if FirmwarePath is set to \"rpi-firmware\", then a request for \"\u003cSerialNum\u003e/start4.elf\" will be served from \"rpi-firmware/start4.elf\" in Smee's asset directory.\nThere are 3 main purposes for this:\n1. avoid having to duplicate firmware files for each Raspberry Pi.\n2. allow each Hardware object to specify a different set of firmware files if needed.\n3. decouple generic firmware files from the, optionally defined, hardware specific config.txt and cmdline.txt files.",
+                        "type": "string"
+                      },
+                      "serialNum": {
+                        "description": "SerialNum is the Raspberry Pi's serial number.\nThis can be the full serial number or just the last 8 characters.\nTo use any of the fields in the RPI struct, SerialNum must be specified to allow Smee to associate this configuration with the correct Raspberry Pi.",
                         "type": "string"
                       }
                     },
