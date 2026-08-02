@@ -203,6 +203,15 @@
                         "description": "PassCredentialsAll is the flag to pass credentials to all domains",
                         "type": "boolean"
                       },
+                      "postRenderStrategy": {
+                        "description": "PostRenderStrategy controls whether Helm hooks are included when Patches/PatchesFrom\nare applied as a post-renderer during this chart's install/upgrade. Only relevant\nwhen Patches or PatchesFrom is set on the Spec; ignored otherwise. Defaults to\nHelm's own default (combined) when unset.",
+                        "type": "string",
+                        "enum": [
+                          "combined",
+                          "separate",
+                          "nohooks"
+                        ]
+                      },
                       "runTests": {
                         "description": "RunTests if set to true, Sveltos will run helm test after each successful install or upgrade\noperation. The tests are the test hooks defined in the chart (annotated with\n\"helm.sh/hook: test\"). If any test fails the deployment is considered failed and the\nerror is surfaced in the ClusterSummary status, providing operational gating.\nHas no effect in DryRun mode.\nDefault to false",
                         "type": "boolean",
@@ -553,11 +562,6 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": [
-                  "kind",
-                  "name",
-                  "namespace"
-                ],
                 "properties": {
                   "components": {
                     "description": "Components is a list of paths to Kustomize components. These paths are relative to the\n`Path` field and are included in the Kustomize build to provide reusable configuration logic.\nThe paths can be static or leverage Go templates for dynamic customization.",
@@ -575,8 +579,13 @@
                       "Remote"
                     ]
                   },
+                  "force": {
+                    "description": "Force indicates whether Sveltos should delete and recreate a resource defined in this\nKustomizationRef when an update is rejected with an error that only a delete+recreate\ncan resolve (eg an invalid combination of fields, or a field enforced as immutable).\nBy default, such errors are surfaced instead of recreating the resource.",
+                    "type": "boolean",
+                    "default": false
+                  },
                   "kind": {
-                    "description": "Kind of the resource. Supported kinds are:\n- flux GitRepository;OCIRepository;Bucket\n- ConfigMap/Secret",
+                    "description": "Kind of the resource. Supported kinds are:\n- flux GitRepository;OCIRepository;Bucket\n- ConfigMap/Secret\nRequired when RemoteURL is not set.",
                     "type": "string",
                     "enum": [
                       "GitRepository",
@@ -587,12 +596,11 @@
                     ]
                   },
                   "name": {
-                    "description": "Name of the referenced resource.\nName can be expressed as a template and instantiate using any cluster field.",
-                    "type": "string",
-                    "minLength": 1
+                    "description": "Name of the referenced resource.\nName can be expressed as a template and instantiate using any cluster field.\nRequired when RemoteURL is not set.",
+                    "type": "string"
                   },
                   "namespace": {
-                    "description": "Namespace of the referenced resource.\nFor ClusterProfile namespace can be left empty. In such a case, namespace will\nbe implicit set to cluster's namespace.\nFor Profile namespace must be left empty. The Profile namespace will be used.\nNamespace can be expressed as a template and instantiate using any cluster field.",
+                    "description": "Namespace of the referenced resource.\nFor ClusterProfile namespace can be left empty. In such a case, namespace will\nbe implicit set to cluster's namespace.\nFor Profile namespace must be left empty. The Profile namespace will be used.\nNamespace can be expressed as a template and instantiate using any cluster field.\nNot used when RemoteURL is set.",
                     "type": "string"
                   },
                   "optional": {
@@ -603,6 +611,41 @@
                   "path": {
                     "description": "Path to the directory containing the kustomization.yaml file, or the\nset of plain YAMLs a kustomization.yaml should be generated for.\nDefaults to 'None', which translates to the root path of the SourceRef.\nThese values can be static or leverage Go templates for dynamic customization.\nWhen expressed as templates, the values are filled in using information from\nresources within the management cluster before deployment (Cluster)",
                     "type": "string"
+                  },
+                  "remoteURL": {
+                    "description": "RemoteURL configures fetching the Kustomize directory content from an HTTP/HTTPS\nendpoint or an OCI registry, without requiring a Flux GitRepository/OCIRepository/Bucket\nor a ConfigMap/Secret.\nWhen set, Kind/Name/Namespace must be omitted.",
+                    "type": "object",
+                    "required": [
+                      "url"
+                    ],
+                    "properties": {
+                      "interval": {
+                        "description": "Interval defines how often Sveltos re-fetches the source to detect changes.\nDefaults to 5 minutes.",
+                        "type": "string"
+                      },
+                      "secretRef": {
+                        "description": "SecretRef references a Secret in the management cluster containing optional\ncredentials for fetching the source. Both Name and Namespace must be set,\nallowing the Secret to live in any namespace (e.g. projectsveltos) so that\na single Secret can be shared across clusters without replication.\nSupported Secret keys:\n  \"token\"              — Bearer token (Authorization: Bearer \u003ctoken\u003e)\n  \"username\"+\"password\" — HTTP Basic Auth or OCI registry basic auth\n  \"caFile\"             — PEM-encoded CA certificate for TLS verification",
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "description": "name is unique within a namespace to reference a secret resource.",
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "description": "namespace defines the space within which the secret name must be unique.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      },
+                      "url": {
+                        "description": "URL is the remote source serving the Kustomize directory content.\nSveltos fetches the content on every reconciliation and redeploys if the\ncontent hash has changed.\nSupported schemes:\n  \"http://\" or \"https://\" — HTTP/HTTPS endpoint serving a gzipped tarball\n                            (.tar.gz) of the Kustomize directory\n  \"oci://\"                — OCI registry artifact whose layers are extracted\n                            the same way, preserving the directory tree",
+                        "type": "string",
+                        "pattern": "^(https?|oci)://"
+                      }
+                    },
+                    "additionalProperties": false
                   },
                   "skipNamespaceCreation": {
                     "description": "SkipNamespaceCreation indicates whether Sveltos should skip creating the namespace\nfor namespaced resources defined in this KustomizationRef.\nThis field is ignored for cluster-scoped resources.\nBy default, Sveltos attempts to get or create the target namespace if it does not exist.\nSetting this to true avoids those calls, which is necessary when Sveltos lacks\npermissions to manage namespaces at the cluster level.",
@@ -666,7 +709,13 @@
                     }
                   }
                 },
-                "additionalProperties": false
+                "additionalProperties": false,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "has(self.remoteURL) != has(self.kind)",
+                    "message": "either remoteURL or kind must be set, but not both"
+                  }
+                ]
               },
               "x-kubernetes-list-type": "atomic"
             },
@@ -793,6 +842,11 @@
                       "Remote"
                     ]
                   },
+                  "force": {
+                    "description": "Force indicates whether Sveltos should delete and recreate a resource defined in this\nPolicyRef when an update is rejected with an error that only a delete+recreate can\nresolve (eg an invalid combination of fields, or a field enforced as immutable).\nBy default, such errors are surfaced instead of recreating the resource.",
+                    "type": "boolean",
+                    "default": false
+                  },
                   "kind": {
                     "description": "Kind of the resource. Supported kinds are:\n- ConfigMap/Secret\n- flux GitRepository;OCIRepository;Bucket\nRequired when RemoteURL is not set.",
                     "type": "string",
@@ -917,7 +971,7 @@
                     }
                   },
                   "featureID": {
-                    "description": "FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
+                    "description": "FeatureID is an identifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
                     "type": "string",
                     "enum": [
                       "Resources",
@@ -1080,7 +1134,7 @@
                     }
                   },
                   "featureID": {
-                    "description": "FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
+                    "description": "FeatureID is an identifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
                     "type": "string",
                     "enum": [
                       "Resources",
@@ -1243,7 +1297,7 @@
                     }
                   },
                   "featureID": {
-                    "description": "FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
+                    "description": "FeatureID is an identifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
                     "type": "string",
                     "enum": [
                       "Resources",
@@ -1513,7 +1567,7 @@
                     }
                   },
                   "featureID": {
-                    "description": "FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
+                    "description": "FeatureID is an identifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
                     "type": "string",
                     "enum": [
                       "Resources",
@@ -1753,7 +1807,7 @@
                               }
                             },
                             "featureID": {
-                              "description": "FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
+                              "description": "FeatureID is an identifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
                               "type": "string",
                               "enum": [
                                 "Resources",
@@ -1895,6 +1949,11 @@
                                 "Local",
                                 "Remote"
                               ]
+                            },
+                            "force": {
+                              "description": "Force indicates whether Sveltos should delete and recreate a resource defined in this\nPolicyRef when an update is rejected with an error that only a delete+recreate can\nresolve (eg an invalid combination of fields, or a field enforced as immutable).\nBy default, such errors are surfaced instead of recreating the resource.",
+                              "type": "boolean",
+                              "default": false
                             },
                             "kind": {
                               "description": "Kind of the resource. Supported kinds are:\n- ConfigMap/Secret\n- flux GitRepository;OCIRepository;Bucket\nRequired when RemoteURL is not set.",
@@ -2060,7 +2119,7 @@
                               }
                             },
                             "featureID": {
-                              "description": "FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
+                              "description": "FeatureID is an identifier of the feature (Helm/Kustomize/Resources)\nThis field indicates when to run this check.\nFor instance:\n- if set to Helm this check will be run after all helm\ncharts specified in the ClusterProfile are deployed.\n- if set to Resources this check will be run after the content\nof all the ConfigMaps/Secrets referenced by ClusterProfile in the\nPolicyRef sections is deployed",
                               "type": "string",
                               "enum": [
                                 "Resources",
@@ -2202,6 +2261,11 @@
                                 "Local",
                                 "Remote"
                               ]
+                            },
+                            "force": {
+                              "description": "Force indicates whether Sveltos should delete and recreate a resource defined in this\nPolicyRef when an update is rejected with an error that only a delete+recreate can\nresolve (eg an invalid combination of fields, or a field enforced as immutable).\nBy default, such errors are surfaced instead of recreating the resource.",
+                              "type": "boolean",
+                              "default": false
                             },
                             "kind": {
                               "description": "Kind of the resource. Supported kinds are:\n- ConfigMap/Secret\n- flux GitRepository;OCIRepository;Bucket\nRequired when RemoteURL is not set.",

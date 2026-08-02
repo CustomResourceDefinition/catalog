@@ -170,7 +170,7 @@ spec:
                   event happened.
                   If DestinationClusterSelector is set though, when an event happens in any of the
                   cluster identified by SourceClusterSelector, add-ons will be deployed in each of
-                  the cluster indentified by DestinationClusterSelector.
+                  the cluster identified by DestinationClusterSelector.
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
@@ -413,6 +413,17 @@ spec:
                           description: PassCredentialsAll is the flag to pass credentials
                             to all domains
                           type: boolean
+                        postRenderStrategy:
+                          description: |-
+                            PostRenderStrategy controls whether Helm hooks are included when Patches/PatchesFrom
+                            are applied as a post-renderer during this chart's install/upgrade. Only relevant
+                            when Patches or PatchesFrom is set on the Spec; ignored otherwise. Defaults to
+                            Helm's own default (combined) when unset.
+                          enum:
+                          - combined
+                          - separate
+                          - nohooks
+                          type: string
                         runTests:
                           default: false
                           description: |-
@@ -829,11 +840,20 @@ spec:
                       - Local
                       - Remote
                       type: string
+                    force:
+                      default: false
+                      description: |-
+                        Force indicates whether Sveltos should delete and recreate a resource defined in this
+                        KustomizationRef when an update is rejected with an error that only a delete+recreate
+                        can resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                        By default, such errors are surfaced instead of recreating the resource.
+                      type: boolean
                     kind:
                       description: |-
                         Kind of the resource. Supported kinds are:
                         - flux GitRepository;OCIRepository;Bucket
                         - ConfigMap/Secret
+                        Required when RemoteURL is not set.
                       enum:
                       - GitRepository
                       - OCIRepository
@@ -845,7 +865,7 @@ spec:
                       description: |-
                         Name of the referenced resource.
                         Name can be expressed as a template and instantiate using any cluster field.
-                      minLength: 1
+                        Required when RemoteURL is not set.
                       type: string
                     namespace:
                       description: |-
@@ -854,6 +874,7 @@ spec:
                         be implicit set to cluster's namespace.
                         For Profile namespace must be left empty. The Profile namespace will be used.
                         Namespace can be expressed as a template and instantiate using any cluster field.
+                        Not used when RemoteURL is set.
                       type: string
                     optional:
                       default: false
@@ -871,6 +892,54 @@ spec:
                         When expressed as templates, the values are filled in using information from
                         resources within the management cluster before deployment (Cluster)
                       type: string
+                    remoteURL:
+                      description: |-
+                        RemoteURL configures fetching the Kustomize directory content from an HTTP/HTTPS
+                        endpoint or an OCI registry, without requiring a Flux GitRepository/OCIRepository/Bucket
+                        or a ConfigMap/Secret.
+                        When set, Kind/Name/Namespace must be omitted.
+                      properties:
+                        interval:
+                          description: |-
+                            Interval defines how often Sveltos re-fetches the source to detect changes.
+                            Defaults to 5 minutes.
+                          type: string
+                        secretRef:
+                          description: |-
+                            SecretRef references a Secret in the management cluster containing optional
+                            credentials for fetching the source. Both Name and Namespace must be set,
+                            allowing the Secret to live in any namespace (e.g. projectsveltos) so that
+                            a single Secret can be shared across clusters without replication.
+                            Supported Secret keys:
+                              "token"              — Bearer token (Authorization: Bearer <token>)
+                              "username"+"password" — HTTP Basic Auth or OCI registry basic auth
+                              "caFile"             — PEM-encoded CA certificate for TLS verification
+                          properties:
+                            name:
+                              description: name is unique within a namespace to reference
+                                a secret resource.
+                              type: string
+                            namespace:
+                              description: namespace defines the space within which
+                                the secret name must be unique.
+                              type: string
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        url:
+                          description: |-
+                            URL is the remote source serving the Kustomize directory content.
+                            Sveltos fetches the content on every reconciliation and redeploys if the
+                            content hash has changed.
+                            Supported schemes:
+                              "http://" or "https://" — HTTP/HTTPS endpoint serving a gzipped tarball
+                                                        (.tar.gz) of the Kustomize directory
+                              "oci://"                — OCI registry artifact whose layers are extracted
+                                                        the same way, preserving the directory tree
+                          pattern: ^(https?|oci)://
+                          type: string
+                      required:
+                      - url
+                      type: object
                     skipNamespaceCreation:
                       default: false
                       description: |-
@@ -973,11 +1042,10 @@ spec:
                         - name
                         type: object
                       type: array
-                  required:
-                  - kind
-                  - name
-                  - namespace
                   type: object
+                  x-kubernetes-validations:
+                  - message: either remoteURL or kind must be set, but not both
+                    rule: has(self.remoteURL) != has(self.kind)
                 type: array
                 x-kubernetes-list-type: atomic
               maxUpdate:
@@ -1000,7 +1068,7 @@ spec:
                   Multiple resources in a managed cluster can be a match for referenced
                   EventSource. OneForEvent indicates whether a ClusterProfile for all
                   resource (OneForEvent = false) or one per resource (OneForEvent = true)
-                  needs to be creted.
+                  needs to be created.
                 type: boolean
                 x-kubernetes-validations:
                 - message: Value is immutable
@@ -1132,6 +1200,14 @@ spec:
                       - Local
                       - Remote
                       type: string
+                    force:
+                      default: false
+                      description: |-
+                        Force indicates whether Sveltos should delete and recreate a resource defined in this
+                        PolicyRef when an update is rejected with an error that only a delete+recreate can
+                        resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                        By default, such errors are surfaced instead of recreating the resource.
+                      type: boolean
                     kind:
                       description: |-
                         Kind of the resource. Supported kinds are:
@@ -1288,7 +1364,7 @@ spec:
                       type: array
                     featureID:
                       description: |-
-                        FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)
+                        FeatureID is an identifier of the feature (Helm/Kustomize/Resources)
                         This field indicates when to run this check.
                         For instance:
                         - if set to Helm this check will be run after all helm
@@ -1457,7 +1533,7 @@ spec:
                       type: array
                     featureID:
                       description: |-
-                        FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)
+                        FeatureID is an identifier of the feature (Helm/Kustomize/Resources)
                         This field indicates when to run this check.
                         For instance:
                         - if set to Helm this check will be run after all helm
@@ -1627,7 +1703,7 @@ spec:
                       type: array
                     featureID:
                       description: |-
-                        FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)
+                        FeatureID is an identifier of the feature (Helm/Kustomize/Resources)
                         This field indicates when to run this check.
                         For instance:
                         - if set to Helm this check will be run after all helm
@@ -2055,7 +2131,7 @@ spec:
                       type: array
                     featureID:
                       description: |-
-                        FeatureID is an indentifier of the feature (Helm/Kustomize/Resources)
+                        FeatureID is an identifier of the feature (Helm/Kustomize/Resources)
                         This field indicates when to run this check.
                         For instance:
                         - if set to Helm this check will be run after all helm
