@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.59% | 3896 | 11342 | 85 |
+| 99.52% | 3918 | 11342 | 85 |
 
 ### Missing Schemas
 
@@ -23,6 +23,11 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
+
+| kustomize.config.k8s.io | |
+| --- | --- |
+| component | v1alpha1 |
+| kustomization | v1, v1beta1 |
 
 | networking.gke.io | |
 | --- | --- |
