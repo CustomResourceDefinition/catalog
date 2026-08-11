@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.52% | 3918 | 11389 | 85 |
+| 99.59% | 3918 | 11389 | 88 |
 
 ### Missing Schemas
 
@@ -23,11 +23,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
-
-| kustomize.config.k8s.io | |
-| --- | --- |
-| component | v1alpha1 |
-| kustomization | v1, v1beta1 |
 
 | networking.gke.io | |
 | --- | --- |
@@ -115,6 +110,9 @@ This page lists missing CRD validation schemas that are present in alternative c
 | kafka.strimzi.io | strimzipodset | v1beta2 |
 | keda.sh | cloudeventsource | v1alpha1 |
 | kubeflow.org | mpijob | v2beta1 |
+| kustomize.config.k8s.io | component | v1alpha1 |
+| kustomize.config.k8s.io | kustomization | v1 |
+| kustomize.config.k8s.io | kustomization | v1beta1 |
 | kyverno.io | clusterephemeralreport | v1 |
 | kyverno.io | clusterpolicyreport | v1alpha2 |
 | kyverno.io | ephemeralreport | v1 |
