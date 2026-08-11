@@ -1,0 +1,115 @@
+{
+  "description": "DisaggregatedSetRoleScaler exposes the /scale subresource for a single role\nof a DisaggregatedSet. Instances are auto-created by the DisaggregatedSet\ncontroller for every role with scaling.mode: External and are named\n\"\u003cdisaggregatedset\u003e-\u003crole\u003e\". External autoscalers (HPA, KEDA, or any\n/scale-aware controller) write spec.replicas; the DisaggregatedSet controller\nreads it and drives the role's LeaderWorkerSet.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "spec defines the desired state of DisaggregatedSetRoleScaler",
+      "type": "object",
+      "required": [
+        "replicas"
+      ],
+      "properties": {
+        "replicas": {
+          "description": "Replicas is the desired replica count for the role. The controller seeds\nthis at scaler creation — 1 for a fresh role (0 would deadlock vanilla\nHPA in ScalingDisabled), or the LWS's current replica count for a\nStatic→External flip so the role does not silently drain to zero.\nExternal autoscalers overwrite it on their first tick.\n\nNon-pointer with a default because kube-apiserver's CRD /scale handler\nextracts .spec.replicas at read time and errors (\"the spec replicas\nfield does not exist\") when the JSONPath resolves to nothing. HPA reads\n/scale before its first write; a missing field would deadlock the loop.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "status defines the observed state of DisaggregatedSetRoleScaler",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions expose scaler-level state (Ready).",
+          "type": "array",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the .metadata.generation the status reflects.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "replicas": {
+          "description": "Replicas is the observed replica count for this role — LWS groups\n(== leader pods), aggregated across all revisions currently present.\nRead by HPA as the \"current\" count for its ratio math.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "selector": {
+          "description": "Selector is a label selector (in string form) matching one pod per LWS\ngroup (the leader), across all revisions:\n  disaggregatedset.x-k8s.io/name=\u003cds\u003e,disaggregatedset.x-k8s.io/role=\u003crole\u003e,leaderworkerset.sigs.k8s.io/worker-index=0\nLeader-only so HPA's per-pod-metric averaging divides by group count\n(matching spec.replicas that HPA writes), keeping the ratio math\nconsistent for leaderWorkerTemplate.size \u003e 1. Aggregate across\nrevisions so HPA observes the serving fleet during a rolling update.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
