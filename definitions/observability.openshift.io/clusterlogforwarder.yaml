@@ -112,14 +112,6 @@ spec:
                           More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                         type: object
                     type: object
-                  terminationGracePeriodSeconds:
-                    description: |-
-                      TerminationGracePeriodSeconds defines the termination grace period for collector pods
-                      in seconds. If not specified, the default is 10 seconds.
-                    format: int64
-                    minimum: 1
-                    nullable: true
-                    type: integer
                   tolerations:
                     description: Define the tolerations the collector pods will accept
                     items:
@@ -241,10 +233,6 @@ spec:
                         Names of users, groups, namespaces, and resources can have a leading or trailing '*' character.
                         For example namespace 'openshift-*' matches 'openshift-apiserver' or 'openshift-authentication.
                         Resource '*/status' matches 'Pod/status' or 'Deployment/status'
-
-                        Events which include both a 'resource' and 'subresource' are evaluated by combing those
-                        fields with a forward slash.  This means rules that rely upon a resource type that may or
-                        may not include the subresource should be adjusted to cover all the required use-cases (i.e. ['pod','pod/*']).
 
                         ## Default Rules
 
@@ -488,17 +476,7 @@ spec:
                           type: array
                       type: object
                     type:
-                      description: |-
-                        Type of filter.
-
-                        Possible filter types are:
-
-                        1. detectMultilineException - Enables multi-line error detection of container logs. No additional configuration required.
-                        2. drop - Drop whole log records based on the evaluation of a set of regex tests. See field `drop` for configuration.
-                        3. kubeAPIAudit - Remove unwanted audit events and reduce event size to create a manageable audit trail. See field `kubeAPIaudit` for configuration.
-                        4. openshiftLabels - Labels to be applied to log records passing through a pipeline. See field `openshiftLabels` for configuration.
-                        5. parse - Enables parsing of log entries into structured logs. No additional configuration required.
-                        6. prune - Prune log record fields to reduce the size of logs flowing into a log store. See field `prune` for configuration.
+                      description: Type of filter.
                       enum:
                       - openshiftLabels
                       - detectMultilineException
@@ -636,15 +614,6 @@ spec:
                           description: Tuning is the container input tuning spec for
                             this container sources
                           properties:
-                            maxMessageSize:
-                              anyOf:
-                              - type: integer
-                              - type: string
-                              description: |-
-                                MaxMessageSize  The maximum message length in bytes that a single log event can be when all
-                                partial log lines are merged.  Messages exceeding this limit are dropped.
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                              x-kubernetes-int-or-string: true
                             rateLimitPerContainer:
                               description: |-
                                 RateLimitPerContainer is the limit applied to each container
@@ -696,41 +665,6 @@ spec:
                             - node
                             type: string
                           type: array
-                        tuning:
-                          description: Tuning is the infrastructure input tuning spec,
-                            for now available only for container sources
-                          properties:
-                            container:
-                              description: Container is the input tuning spec for
-                                container sources
-                              properties:
-                                maxMessageSize:
-                                  anyOf:
-                                  - type: integer
-                                  - type: string
-                                  description: |-
-                                    MaxMessageSize  The maximum message length in bytes that a single log event can be when all
-                                    partial log lines are merged.  Messages exceeding this limit are dropped.
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                  x-kubernetes-int-or-string: true
-                                rateLimitPerContainer:
-                                  description: |-
-                                    RateLimitPerContainer is the limit applied to each container
-                                    by this input. This limit is applied per collector deployment.
-                                  properties:
-                                    maxRecordsPerSecond:
-                                      description: |-
-                                        MaxRecordsPerSecond is the maximum number of log records
-                                        allowed per input/output in a pipeline
-                                      exclusiveMinimum: true
-                                      format: int64
-                                      minimum: 0
-                                      type: integer
-                                  required:
-                                  - maxRecordsPerSecond
-                                  type: object
-                              type: object
-                          type: object
                       type: object
                     name:
                       description: Name used to refer to the input of a `pipeline`.
@@ -904,8 +838,6 @@ spec:
                   description: OutputSpec defines a destination for log messages.
                   properties:
                     azureMonitor:
-                      description: AzureMonitor configures forwarding log events to
-                        the Azure Monitor Logs service
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -957,11 +889,8 @@ spec:
                           description: Tuning specs tuning for the output
                           properties:
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -990,8 +919,8 @@ spec:
                       - customerId
                       type: object
                     cloudwatch:
-                      description: Cloudwatch configures forwarding log events to
-                        AWS Cloudwatch logs
+                      description: Cloudwatch provides configuration for the output
+                        type `cloudwatch`
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -1120,19 +1049,19 @@ spec:
                           description: |-
                             GroupName defines the strategy for grouping logstreams
 
-                            The GroupName can be a combination of static and dynamic values consisting of field paths followed by "\|\|" followed by another field path or a static value.
+                            The GroupName can be a combination of static and dynamic values consisting of field paths followed by `||` followed by another field path or a static value.
 
-                            A dynamic value is encased in single curly brackets "{}" and MUST end with a static fallback value separated with "\|\|".
+                            A dynamic value is encased in single curly brackets `{}` and MUST end with a static fallback value separated with `||`.
 
                             Static values can only contain alphanumeric characters along with dashes, underscores, dots and forward slashes.
 
                             Example:
 
-                             1. foo-{.bar\|\|"none"}
+                             1. foo-{.bar||"none"}
 
-                             2. {.foo\|\|.bar\|\|"missing"}
+                             2. {.foo||.bar||"missing"}
 
-                             3. foo.{.bar.baz\|\|.qux.quux.corge\|\|.grault\|\|"nil"}-waldo.fred{.plugh\|\|"none"}
+                             3. foo.{.bar.baz||.qux.quux.corge||.grault||"nil"}-waldo.fred{.plugh||"none"}
                           pattern: ^(([a-zA-Z0-9-_.\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$
                           type: string
                         region:
@@ -1153,11 +1082,8 @@ spec:
                               - zstd
                               type: string
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -1196,8 +1122,6 @@ spec:
                       - region
                       type: object
                     elasticsearch:
-                      description: Elasticsearch configures forwarding log events
-                        to an Elasticsearch cluster
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -1280,10 +1204,6 @@ spec:
 
                             Static values can only contain alphanumeric characters along with dashes, underscores, dots and forward slashes.
 
-                            When forwarding logs to the Red Hat Managed Elasticsearch, the index must match the pattern ^(app|infra|audit)-write$
-                            where the prefix depends upon the log_type. This requires defining a distinct output for each log type or distinct pipelines
-                            with the openshiftLabels filter. See the product documentation for examples.
-
                             Example:
 
                              1. foo-{.bar||"none"}
@@ -1305,11 +1225,8 @@ spec:
                               - zlib
                               type: string
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -1355,8 +1272,8 @@ spec:
                       - version
                       type: object
                     googleCloudLogging:
-                      description: GoogleCloudLogging configures forwarding log events
-                        to GCP (formally Stackdriver) Operations
+                      description: GoogleCloudLogging provides configuration for sending
+                        logs to Google Cloud Logging.
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -1423,11 +1340,8 @@ spec:
                           description: Tuning specs tuning for the output
                           properties:
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -1456,8 +1370,8 @@ spec:
                       - logId
                       type: object
                     http:
-                      description: HTTP configures forwarding log events to an HTTP
-                        server
+                      description: HTTP provided configuration for sending json encoded
+                        logs to a generic HTTP endpoint.
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -1537,7 +1451,7 @@ spec:
                             with the request
                           type: object
                         method:
-                          description: Method specifies the HTTP method to be used
+                          description: Method specifies the Http method to be used
                             for sending logs. If not set, 'POST' is used.
                           enum:
                           - GET
@@ -1549,13 +1463,6 @@ spec:
                           - TRACE
                           - PATCH
                           type: string
-                        proxyURL:
-                          description: ProxyURL URL of a HTTP or HTTPS proxy to be
-                            used instead of direct connection.
-                          type: string
-                          x-kubernetes-validations:
-                          - message: invalid URL
-                            rule: self == '' ||  isURL(self)
                         timeout:
                           description: Timeout specifies the Http request timeout
                             in seconds. If not set, 10secs is used.
@@ -1574,11 +1481,8 @@ spec:
                               - zlib
                               type: string
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -1615,8 +1519,8 @@ spec:
                       - url
                       type: object
                     kafka:
-                      description: Kafka configures forwarding log events to Apache
-                        Kafka topics
+                      description: 'Kafka provides optional extra properties for `type:
+                        kafka`'
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -1671,14 +1575,13 @@ spec:
                             The list represents only the initial set used by the collector's Kafka client for the
                             first connection only. The collector's Kafka client fetches constantly an updated list
                             from Kafka. These updates are not reconciled back to the collector configuration.
-                            If provided, it must be a valid URL with a 'tcp' or 'tls' scheme.
-                            If none is provided, the target URL from the OutputSpec is used as fallback.
+
+                            If none provided the target URL from the OutputSpec is used as fallback.
                           items:
                             type: string
                             x-kubernetes-validations:
-                            - message: each broker must be a valid URL with a tcp
-                                or tls scheme
-                              rule: isURL(self) && (self.startsWith('tcp://') || self.startsWith('tls://'))
+                            - message: invalid URL
+                              rule: isURL(self)
                           type: array
                         topic:
                           description: |-
@@ -1713,11 +1616,8 @@ spec:
                               - lz4
                               type: string
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -1733,21 +1633,20 @@ spec:
                           type: object
                         url:
                           description: |-
-                            URL to send log records to. This field is optional.
-                            If provided, it must be a valid URL with a 'tcp' or 'tls' scheme, for example: 'tls://kafka.secure.com:9093/app-topic'.
+                            URL to send log records to.
+
                             The 'username@password' part of `url` is ignored.
                           type: string
                           x-kubernetes-validations:
-                          - message: must be a valid URL with a tcp or tls scheme
-                            rule: self == '' || (isURL(self) && (self.startsWith('tcp://')
-                              || self.startsWith('tls://')))
+                          - message: invalid URL
+                            rule: self == '' ||  isURL(self)
                       type: object
                       x-kubernetes-validations:
                       - message: URL or brokers required
                         rule: has(self.url) || self.brokers.size() > 0
                     loki:
-                      description: Loki configures forwarding log events to a Loki
-                        aggregation system
+                      description: 'Loki provides optional extra properties for `type:
+                        loki`'
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -1889,11 +1788,8 @@ spec:
                               - snappy
                               type: string
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -1930,9 +1826,8 @@ spec:
                       - url
                       type: object
                     lokiStack:
-                      description: |-
-                        LokiStack configures forwarding log events to a Red Hat managed Loki deployment
-                        using the Red Hat tenancy model
+                      description: 'LokiStack provides optional extra properties for
+                        `type: lokistack`'
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -1975,20 +1870,6 @@ spec:
                           required:
                           - token
                           type: object
-                        dataModel:
-                          description: |-
-                            DataModel can be used to customize how log data is stored in LokiStack.
-
-                            There are two different models to choose from:
-
-                             - Viaq
-                             - Otel
-
-                            When the data model is not set, it currently defaults to the "Viaq" data model.
-                          enum:
-                          - Viaq
-                          - Otel
-                          type: string
                         labelKeys:
                           description: |-
                             LabelKeys can be used to customize which log record keys are mapped to Loki stream labels.
@@ -2097,12 +1978,13 @@ spec:
                               pattern: ^[a-z][a-z0-9-]{2,62}[a-z0-9]$
                               type: string
                             namespace:
-                              description: Namespace of the in-cluster LokiStack resource.
-                              minLength: 3
+                              description: |-
+                                Namespace of the in-cluster LokiStack resource.
+
+                                If unset, this defaults to "openshift-logging".
                               type: string
                           required:
                           - name
-                          - namespace
                           type: object
                         tuning:
                           description: Tuning specs tuning for the output
@@ -2116,11 +1998,8 @@ spec:
                               - snappy
                               type: string
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2148,23 +2027,14 @@ spec:
                       - authentication
                       - target
                       type: object
-                      x-kubernetes-validations:
-                      - message: '''labelKeys'' cannot be set when data model is ''Otel'''
-                        rule: '!has(self.labelKeys) || !has(self.dataModel) || self.dataModel
-                          == ''Viaq'''
-                      - message: '''snappy'' compression cannot be used when data
-                          model is ''Otel'''
-                        rule: '!has(self.tuning) || !has(self.tuning.compression)
-                          || self.tuning.compression != ''snappy'' || !has(self.dataModel)
-                          || self.dataModel == ''Viaq'''
                     name:
                       description: Name used to refer to the output from a `pipeline`.
                       pattern: ^[a-z][a-z0-9-]*[a-z0-9]$
                       type: string
                     otlp:
                       description: |-
-                        OTLP configures forwarding log events to a receiver using the OpenTelemetry Protocol
-                        with Red Openshift logging semantic conventions (ref: https://github.com/rhobs/observability-data-model/blob/main/cluster-logging.md)
+                        OTLP defines configuration for sending logs via OTLP using OTEL semantic conventions
+                        https://opentelemetry.io/docs/specs/otlp/#otlphttp
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -2250,11 +2120,8 @@ spec:
                               - none
                               type: string
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2282,12 +2149,11 @@ spec:
                           description: |-
                             URL to send log records to.
 
-                            An absolute URL, with a valid http scheme. The OTLP spec recommends it terminate with `/v1/logs` but
-                            that 'Non-default URL paths for requests MAY be configured on the client and server sides.'
+                            An absolute URL, with a valid http scheme. Must terminate with `/v1/logs`
 
                             Basic TLS is enabled if the URL scheme requires it (for example 'https').
                             The 'username@password' part of `url` is ignored.
-                          pattern: ^(https?):\/\/\S+$
+                          pattern: ^(https?):\/\/\S+\/v1\/logs$
                           type: string
                           x-kubernetes-validations:
                           - message: invalid URL
@@ -2314,8 +2180,9 @@ spec:
                       - maxRecordsPerSecond
                       type: object
                     splunk:
-                      description: Splunk configures forwarding log events to Splunk's
-                        HTTP event collector
+                      description: |-
+                        Splunk Deliver log data to Splunk’s HTTP Event Collector
+                        Provides optional extra properties for `type: splunk_hec` ('splunk_hec_logs' after Vector 0.23
                       properties:
                         authentication:
                           description: Authentication sets credentials for authenticating
@@ -2371,11 +2238,8 @@ spec:
                               - gzip
                               type: string
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2439,15 +2303,8 @@ spec:
                           pattern: ^(([a-zA-Z0-9-_.\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$
                           type: string
                         enrichment:
-                          description: |-
-                            Enrichment is an additional modification to the log message before forwarding it to the receiver.
-
-                            Supported values are:
-                            1. None
-                               - Adds no additional enrichment to the record
-                            2. KubernetesMinimal
-                               - Adds namespace_name, pod_name, and container_name to the beginning of the message body (e.g. namespace_name=myproject, container_name=server, pod_name=pod-123, message={"foo":"bar"}).
-                            This may result in the message body being an invalid JSON structure.
+                          description: Enrichment is an additional modification the
+                            log message before forwarding it to the receiver
                           enum:
                           - None
                           - KubernetesMinimal
@@ -2538,12 +2395,8 @@ spec:
                           pattern: ^(([a-zA-Z0-9-_.\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$
                           type: string
                         rfc:
-                          description: |-
-                            The RFC to which the generated messages conform to.
-
-                            Supported values are:
-                            1. RFC3164
-                            2. RFC5424
+                          description: SyslogRFCType sets which RFC the generated
+                            messages conform to.
                           enum:
                           - RFC3164
                           - RFC5424
@@ -2573,11 +2426,8 @@ spec:
                           nullable: true
                           properties:
                             deliveryMode:
-                              description: |-
-                                DeliveryMode sets the delivery mode for log forwarding.
-                                This optional setting. When it is left unset, the system defaults to using an in-memory buffer.
-                                In-memory buffers offer the highest performance due to low latency, but they have two limitations:
-                                they will consume memory, and they do not provide durability — buffered data is lost on process termination or failure.
+                              description: DeliveryMode sets the delivery mode for
+                                log forwarding.
                               enum:
                               - AtLeastOnce
                               - AtMostOnce
@@ -2585,9 +2435,9 @@ spec:
                           type: object
                         url:
                           description: |-
-                            An absolute URL, with a scheme. Valid schemes are: `tcp`, `tls`, `udp`
-                            For example, to send syslog records using UDP:
-                                url: udp://syslog.example.com:514
+                            An absolute URL, with a scheme. Valid schemes are: `tcp`, `tls`, `udp` and `udps`
+                            For example, to send syslog records using secure UDP:
+                                url: udps://syslog.example.com:1234
                           type: string
                           x-kubernetes-validations:
                           - message: invalid URL

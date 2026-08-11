@@ -33,6 +33,20 @@
             "additionalProperties": false
           }
         },
+        "managedBy": {
+          "description": "ManagedBy identifies the controller that owns this CNINode and its\nstatus. Empty is equivalent to \"vpc-resource-controller\" for backward\ncompatibility with objects created before this field existed.\nControllers must ignore CNINodes managed by another controller.\nImmutable once set: a node can never legitimately change between\ncompute types, so a managedBy flip is always a bug or tampering.\nSetting it on an existing object that has never had a value remains\nallowed (adoption of pre-existing objects).",
+          "type": "string",
+          "enum": [
+            "vpc-resource-controller",
+            "eks-auto-mode"
+          ],
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == oldSelf",
+              "message": "managedBy is immutable once set"
+            }
+          ]
+        },
         "tags": {
           "description": "Additional tag key/value added to all network interfaces provisioned by the vpc-resource-controller and VPC-CNI",
           "type": "object",
@@ -41,11 +55,119 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(oldSelf.managedBy) || has(self.managedBy)",
+          "message": "managedBy cannot be removed once set"
+        }
+      ]
     },
     "status": {
       "description": "CNINodeStatus defines the managed VPC resources.",
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "trunkInterface": {
+          "description": "TrunkInterface describes the trunk network interface attached to the\nnode and the branch interfaces associated with it, persisted by the\nmanaging controller (see spec.managedBy) for visibility and recovery.",
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "branches": {
+              "description": "Branches are the branch ENIs associated with this trunk ENI.\nListed as a map keyed by id so distinct field managers can own\nindividual entries under Server-Side Apply without conflicting.",
+              "type": "array",
+              "items": {
+                "description": "BranchInterface describes a branch ENI associated with a trunk ENI.",
+                "type": "object",
+                "required": [
+                  "id",
+                  "vlanID"
+                ],
+                "properties": {
+                  "associationID": {
+                    "description": "AssociationID is the id of the association between the branch and trunk ENI.",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "ID is the EC2 network interface id of the branch ENI.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ipv4CIDRs": {
+                    "description": "IPv4CIDRs are the IPv4 addresses or prefixes assigned to the branch ENI,\nin CIDR notation (a single address is expressed as a /32).",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "x-kubernetes-list-type": "atomic"
+                  },
+                  "ipv6CIDRs": {
+                    "description": "IPv6CIDRs are the IPv6 addresses or prefixes assigned to the branch ENI,\nin CIDR notation (a single address is expressed as a /128).",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "x-kubernetes-list-type": "atomic"
+                  },
+                  "macAddress": {
+                    "description": "MacAddress is the MAC address of the branch ENI.",
+                    "type": "string"
+                  },
+                  "securityGroups": {
+                    "description": "SecurityGroups are the security group ids attached to the branch ENI.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "x-kubernetes-list-type": "atomic"
+                  },
+                  "subnetCIDR": {
+                    "description": "SubnetCIDR is the IPv4 CIDR block of the subnet the branch ENI belongs to.",
+                    "type": "string"
+                  },
+                  "subnetV6CIDR": {
+                    "description": "SubnetV6CIDR is the IPv6 CIDR block of the subnet the branch ENI belongs to.",
+                    "type": "string"
+                  },
+                  "vlanID": {
+                    "description": "VlanID is the vlan id of the trunk-to-branch association.",
+                    "type": "integer",
+                    "format": "int32"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-list-map-keys": [
+                "id"
+              ],
+              "x-kubernetes-list-type": "map"
+            },
+            "deviceIndex": {
+              "description": "DeviceIndex is the attachment device index of the trunk ENI on the instance.",
+              "type": "integer",
+              "format": "int32"
+            },
+            "id": {
+              "description": "ID is the EC2 network interface id of the trunk ENI.",
+              "type": "string",
+              "minLength": 1
+            },
+            "macAddress": {
+              "description": "MacAddress is the MAC address of the trunk ENI.",
+              "type": "string"
+            },
+            "subnetID": {
+              "description": "SubnetID is the id of the EC2 subnet the trunk ENI resides in, which is\nalso the subnet its branch ENIs are created in. Persisted with the trunk\nso a controller can create a branch ENI straight from the CNINode,\nwithout a DescribeNetworkInterfaces call on the pod path, and so the\nvalue survives a controller restart that drops in-memory node state.",
+              "type": "string",
+              "maxLength": 24,
+              "pattern": "^subnet-([0-9a-f]{8}|[0-9a-f]{17})$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
