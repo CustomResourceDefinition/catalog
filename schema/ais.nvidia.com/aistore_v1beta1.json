@@ -843,7 +843,7 @@
               "additionalProperties": false
             },
             "enabled": {
-              "description": "Enabled controls whether the admin client deployment is created.\nWhen AdminClient is specified without this field, it defaults to true.\nSet to false to disable the admin client while preserving other configuration.",
+              "description": "Enabled controls whether the admin client deployment is created.\nWhen AdminClient is specified without this field, it defaults to true.\nSet false to disable the admin client while preserving other configuration.",
               "type": "boolean"
             },
             "env": {
@@ -1134,12 +1134,27 @@
           "description": "Auth specifies the Auth service configuration for admin authentication\nIf not specified, the operator will look for configuration in the legacy ConfigMap",
           "type": "object",
           "properties": {
+            "profileRef": {
+              "description": "ProfileRef references the AIStoreAuthProfile holding the auth provider\nconfiguration the operator is allowed to authenticate against.\nWhen set, the operator resolves the provider from the profile and ignores the remaining\nfields of this spec.\nThe submitting user must have \"use\" access to the referenced profile",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name of the AIStoreAuthProfile to use for fetching AIS tokens",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
             "serviceURL": {
-              "description": "ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)\nSupports formats: \"http://hostname[:port]\" or \"https://hostname[:port]\"\nTLS is determined from the URL scheme (https = TLS enabled)\nPort defaults to 80 for http and 443 for https if not specified\nIf not specified, defaults to \"http://ais-authn.ais:52001\"",
+              "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.\nServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)\nFormat: \"scheme://hostname[:port]\"\nTLS is determined from the URL scheme (https = TLS enabled)\nPort defaults to 80 for http and 443 for https if not specified\nIf not specified, defaults to \"https://ais-authn.ais:52001\"",
               "type": "string"
             },
             "tls": {
-              "description": "TLS configuration for secure connections with Auth service",
+              "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.\nTLS configuration for secure connections with Auth service",
               "type": "object",
               "properties": {
                 "caCertPath": {
@@ -1154,7 +1169,7 @@
               "additionalProperties": false
             },
             "tokenExchange": {
-              "description": "TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange\nThis is the preferred method for workload identity and eliminates the need for static credentials",
+              "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.\nTokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange\nThis eliminates the need for static credentials, so is recommended over UsernamePassword for workload identity",
               "type": "object",
               "properties": {
                 "tokenExchangeEndpoint": {
@@ -1169,7 +1184,7 @@
               "additionalProperties": false
             },
             "usernamePassword": {
-              "description": "UsernamePassword authentication configuration using static credentials",
+              "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.\nUsernamePassword authentication configuration using static credentials",
               "type": "object",
               "required": [
                 "secretName"
@@ -1210,8 +1225,8 @@
           "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "(has(self.usernamePassword) \u0026\u0026 !has(self.tokenExchange)) || (!has(self.usernamePassword) \u0026\u0026 has(self.tokenExchange))",
-              "message": "exactly one of usernamePassword or tokenExchange must be specified"
+              "rule": "has(self.profileRef) || (has(self.usernamePassword) != has(self.tokenExchange))",
+              "message": "exactly one of usernamePassword or tokenExchange must be specified when profileRef is not set"
             }
           ]
         },
@@ -5814,7 +5829,7 @@
                   }
                 },
                 "duration": {
-                  "description": "Duration is the lifetime of the certificate (default: 8760h = 1 year)",
+                  "description": "Duration is the lifetime of the certificate.\nWhen unset, cert-manager's own default applies in both secret and csi modes.",
                   "type": "string"
                 },
                 "issuerRef": {
@@ -5851,7 +5866,7 @@
                   ]
                 },
                 "renewBefore": {
-                  "description": "RenewBefore is when to start renewing (default: 720h = 30 days before expiry)",
+                  "description": "RenewBefore is when to start renewing.\nWhen unset, cert-manager's own default applies in both secret and csi modes.",
                   "type": "string"
                 }
               },
