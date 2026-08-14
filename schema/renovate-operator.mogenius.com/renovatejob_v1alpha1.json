@@ -22,6 +22,49 @@
         "schedule"
       ],
       "properties": {
+        "access": {
+          "description": "Access control for this RenovateJob in the web UI when authentication is\nenabled. If empty or not set, the job is hidden from all users.",
+          "type": "object",
+          "properties": {
+            "adminGroups": {
+              "description": "Groups allowed to view this RenovateJob and to trigger, cancel and\nreconfigure its runs.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "adminUsers": {
+              "description": "Individual users allowed to view this RenovateJob and to trigger, cancel\nand reconfigure its runs. See ReaderUsers for how a user is matched.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "anonymousRead": {
+              "description": "If true, this RenovateJob is readable without a session. Grants read access\nto every visitor, which group matches can only extend.",
+              "type": "boolean"
+            },
+            "anonymousReadLogs": {
+              "description": "If true, visitors that only hold anonymous read access may also stream\nRenovate logs. Has no effect unless AnonymousRead is in effect. Renovate\nlogs are unredacted, so this is opt-in separately from AnonymousRead.",
+              "type": "boolean"
+            },
+            "readerGroups": {
+              "description": "Groups allowed to view this RenovateJob without triggering, cancelling or\nreconfiguring anything.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "readerUsers": {
+              "description": "Individual users allowed to view this RenovateJob, named by the email or\nusername their identity provider reports. Compared case-insensitively.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "affinity": {
           "description": "Affinity settings for scheduling the resulting pod",
           "type": "object",
@@ -812,7 +855,7 @@
           "additionalProperties": false
         },
         "allowedGroups": {
-          "description": "Groups allowed to view this RenovateJob when authentication is enabled.\nIf empty or not set, the job is hidden from all users.",
+          "description": "Deprecated: use Access.AdminGroups. Groups granted full access to this\nRenovateJob when authentication is enabled. Mutually exclusive with Access.",
           "type": "array",
           "items": {
             "type": "string"
@@ -1046,6 +1089,7 @@
         "extraVolumeMounts": {
           "description": "Additional volume mounts for the renovate pods",
           "type": "array",
+          "maxItems": 64,
           "items": {
             "description": "VolumeMount describes a mounting of a Volume within a container.",
             "type": "object",
@@ -1087,8 +1131,9 @@
           }
         },
         "extraVolumes": {
-          "description": "Additional volumes to mount in the renovate pods",
+          "description": "Additional volumes to mount in the renovate pods.\nhostPath is rejected: it would give the pod the node's filesystem",
           "type": "array",
+          "maxItems": 64,
           "items": {
             "description": "Volume represents a named volume in a pod that may be accessed by any container in the pod.",
             "type": "object",
@@ -2619,7 +2664,13 @@
               }
             },
             "additionalProperties": false
-          }
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.all(v, !has(v.hostPath))",
+              "message": "hostPath volumes are not allowed on RenovateJob pods"
+            }
+          ]
         },
         "githubAppReference": {
           "description": "Reference to a Github App for authentication, this will automatically mount a secret with\nRENOVATE_TOKEN",
@@ -2710,17 +2761,68 @@
           ],
           "properties": {
             "endpoint": {
-              "type": "string"
+              "description": "Endpoint is the platform API base URL. Its host must be listed in the\noperator's policy.allowedHosts, otherwise the job is refused.",
+              "type": "string",
+              "pattern": "^https?://[^?#]+$"
             },
             "name": {
               "type": "string"
             },
             "publicEndpoint": {
-              "description": "PublicEndpoint is the externally reachable URL for the provider, used only for UI links.\nWhen set, this overrides Endpoint for dashboard links while Endpoint continues to be\nused for Renovate API calls and cloning. Defaults to Endpoint when omitted.",
-              "type": "string"
+              "description": "PublicEndpoint is the externally reachable URL for the provider, used only for UI links.\nWhen set, this overrides Endpoint for dashboard links while Endpoint continues to be\nused for Renovate API calls and cloning. Defaults to Endpoint when omitted.\nIts host must be listed in the operator's policy.allowedHosts.",
+              "type": "string",
+              "pattern": "^https?://[^?#]+$"
             }
           },
           "additionalProperties": false
+        },
+        "renovateConfig": {
+          "description": "Renovate configuration file for the job pods",
+          "type": "object",
+          "properties": {
+            "configMapRef": {
+              "description": "Reference to a key in an existing ConfigMap holding the configuration file",
+              "type": "object",
+              "required": [
+                "key",
+                "name"
+              ],
+              "properties": {
+                "key": {
+                  "description": "Key holding the configuration file, also used as the mounted file name",
+                  "type": "string",
+                  "maxLength": 253,
+                  "pattern": "^[a-zA-Z0-9._-]+\\.(js|cjs|mjs|json|json5)$"
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 253,
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "fileName": {
+              "description": "File name the inline configuration is mounted as; the extension tells Renovate the format. Defaults to \"config.js\". Ignored with configMapRef.",
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^[a-zA-Z0-9._-]+\\.(js|cjs|mjs|json|json5)$"
+            },
+            "inline": {
+              "description": "Inline Renovate configuration, written to a ConfigMap owned by the RenovateJob",
+              "type": "string",
+              "maxLength": 262144,
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "has(self.inline) != has(self.configMapRef)",
+              "message": "exactly one of inline and configMapRef must be set"
+            }
+          ]
         },
         "resources": {
           "description": "Resource requirements for the renovate container",
@@ -3027,7 +3129,7 @@
           "type": "object",
           "properties": {
             "container": {
-              "description": "SecurityContext holds security configuration that will be applied to a container.\nSome fields are present in both SecurityContext and PodSecurityContext.  When both\nare set, the values in SecurityContext take precedence.",
+              "description": "Container security context. privileged and allowPrivilegeEscalation are rejected\noutright: both hand the pod a route off the node, which no Renovate use case\nneeds. Running as root is governed by the operator's policy.allowRootUser\ninstead, since a custom image may legitimately need it.",
               "type": "object",
               "properties": {
                 "allowPrivilegeEscalation": {
@@ -3168,7 +3270,17 @@
                   "additionalProperties": false
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!has(self.privileged) || !self.privileged",
+                  "message": "privileged containers are not allowed on RenovateJob pods"
+                },
+                {
+                  "rule": "!has(self.allowPrivilegeEscalation) || !self.allowPrivilegeEscalation",
+                  "message": "allowPrivilegeEscalation is not allowed on RenovateJob pods"
+                }
+              ]
             },
             "pod": {
               "description": "PodSecurityContext holds pod-level security attributes and common container settings.\nSome fields are also present in container.securityContext.  Field values of\ncontainer.securityContext take precedence over field values of PodSecurityContext.",
@@ -3548,21 +3660,77 @@
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!(has(self.allowedGroups) \u0026\u0026 has(self.access))",
+          "message": "allowedGroups and access are mutually exclusive; migrate allowedGroups to access.adminGroups"
+        }
+      ]
     },
     "status": {
       "description": "RenovateJobStatus defines the observed state of RenovateJob",
       "type": "object",
       "properties": {
-        "executionOptions": {
-          "type": "object",
-          "properties": {
-            "debug": {
-              "description": "If true, the renovate job will be executed with RENOVATE_LOG_LEVEL=debug",
-              "type": "boolean"
-            }
+        "conditions": {
+          "description": "Conditions holds the observed state of the RenovateJob. The operator sets the\n\"Accepted\" condition to False when the job violates the operator's policy, with\na reason and a message naming the value to fix; nothing runs while it is False.",
+          "type": "array",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
           },
-          "additionalProperties": false
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
         },
         "projects": {
           "type": "array",
@@ -3576,6 +3744,16 @@
             "properties": {
               "duration": {
                 "type": "string"
+              },
+              "executionOptions": {
+                "type": "object",
+                "properties": {
+                  "debug": {
+                    "description": "If true, the renovate job will be executed with RENOVATE_LOG_LEVEL=debug",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
               },
               "lastTransition": {
                 "description": "LastTransition records when the project most recently changed state.",
