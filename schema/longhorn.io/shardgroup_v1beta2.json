@@ -1,0 +1,198 @@
+{
+  "description": "ShardGroup is where Longhorn stores ShardGroup object.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "ShardGroupSpec defines the desired state of the Longhorn ShardGroup",
+      "type": "object",
+      "properties": {
+        "creationSize": {
+          "description": "CreationSize is the volume size in bytes when the lvstore is first\ncreated. The lvstore metadata region is sized from it and never grows,\nso in-place expansion is limited to EcLvstoreMaxGrowthFactor (10x) of\nthis size. Zero means the lvstore does not exist yet; the creation cap\napplies instead. Immutable once set.",
+          "type": "integer",
+          "format": "int64",
+          "x-kubernetes-validations": [
+            {
+              "rule": "oldSelf == 0 || self == oldSelf",
+              "message": "CreationSize is immutable once set"
+            }
+          ]
+        },
+        "dataChunks": {
+          "description": "DataChunks is the k parameter of the EC array. Immutable after creation.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "nodeID": {
+          "description": "NodeID identifies the node hosting the long-lived ShardGroup process that owns the\nEC volume's bdev_ec, lvol store, head lvol, and NVMe-oF export. It is typically equal\nto Engine.Spec.NodeID for engine-process co-location. The Volume controller is the\nsole writer and sets this field at first attach. NodeID is NOT cleared on volume\ndetach (the ShardGroup process keeps running across detach to preserve the lvstore\nand head lvol on the encoded shard blocks for fast re-attach); it only changes on\nengine-node failover or volume deletion.",
+          "type": "string"
+        },
+        "parityChunks": {
+          "description": "ParityChunks is the m parameter of the EC array. The ShardGroup tolerates up to m\nsimultaneous shard failures. Immutable after creation.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "stripSizeKB": {
+          "description": "StripSizeKB is the EC chunk size in KiB. Must be a power of two in the range [4, 1024].\nImmutable after creation.",
+          "type": "integer",
+          "maximum": 1024,
+          "minimum": 4
+        },
+        "volumeName": {
+          "description": "VolumeName is the name of the owning Volume CR. Immutable after creation.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "ShardGroupStatus defines the observed state of the Longhorn ShardGroup",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions holds the latest observations of the ShardGroup's state, such as a\ndegraded read that returned EIO.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lastProbeTime": {
+                "description": "Last time we probed the condition.",
+                "type": "string"
+              },
+              "lastTransitionTime": {
+                "description": "Last time the condition transitioned from one status to another.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable message indicating details about last transition.",
+                "type": "string"
+              },
+              "reason": {
+                "description": "Unique, one-word, CamelCase reason for the condition's last transition.",
+                "type": "string"
+              },
+              "status": {
+                "description": "Status is the status of the condition.\nCan be True, False, Unknown.",
+                "type": "string"
+              },
+              "type": {
+                "description": "Type is the type of the condition.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "nullable": true
+        },
+        "ecShardAddressMap": {
+          "description": "ECShardAddressMap maps shard slot index (as string) to the NVMe-oF address (\"ip:port\")\nof each healthy shard instance (ShardStateNormal with a non-empty StorageIP and Port).\nIt is the base-bdev list for the ShardGroup process's EC array, and acts as the readiness\ngate (together with every Shard CR being in ShardStateNormal) before the ShardGroup\nprocess is provisioned.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "nullable": true
+        },
+        "evictingSlots": {
+          "description": "EvictingSlots is the ordered list of slot indices currently in the eviction\npipeline (old Shard CR deleted, replacement not yet rebuilt). Tracked in\nstatus so VolumeEvictionController can observe progress without annotation parsing.",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "nullable": true
+        },
+        "failedCount": {
+          "description": "FailedCount is the number of slots currently in the failed state. Slots being replaced\n(ShardStateReplacing) are not counted; an active rebuild is tracked separately via\nRebuildInProgress.",
+          "type": "integer"
+        },
+        "growInProgress": {
+          "description": "GrowInProgress indicates whether a capacity expansion is currently running.",
+          "type": "boolean"
+        },
+        "headLvolUUID": {
+          "description": "HeadLvolUUID is the UUID of the head lvol on the ShardGroup-process-owned lvol\nstore. Surfaced for observability and debugging only.",
+          "type": "string"
+        },
+        "instanceManagerName": {
+          "description": "InstanceManagerName is the InstanceManager currently hosting the ShardGroup process,\nset during provisioning and cleared on teardown. During a re-bind to a new node it may\nstill reference the previous InstanceManager until teardown completes, so consumers must\nvalidate it against Spec.NodeID before trusting the endpoint above.",
+          "type": "string"
+        },
+        "intentionalDeleteSlots": {
+          "description": "IntentionalDeleteSlots is the list of slot indices whose old Shard CR was\ndeleted intentionally (admin kubectl delete, eviction, drain). The replacement\nShard CR's failure-recovery debounce is bypassed for these slots so the\nreplace+rebuild sequence runs immediately rather than after the full\nreplica-replenishment-wait-interval. Cleared once the replacement reaches\nShardStateNormal with StorageIP set, and defensively cleared on ShardGroup\nprocess re-bind.",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "nullable": true
+        },
+        "lvstoreUUID": {
+          "description": "LvstoreUUID is reserved for the UUID of the lvol store created on bdev_ec inside the\nShardGroup process. It is currently unpopulated: the ShardGroup instance does not surface\nthe lvstore UUID over the instance-manager proto yet. Kept for forward-compatible\nobservability; not on the engine data path.",
+          "type": "string"
+        },
+        "nqn": {
+          "description": "NQN is the NVMe-oF subsystem NQN of the ShardGroup process's exposed head lvol.",
+          "type": "string"
+        },
+        "ownerID": {
+          "description": "OwnerID is the ID of the node that owns this ShardGroup.",
+          "type": "string"
+        },
+        "port": {
+          "description": "Port is the NVMe-oF port allocated for the ShardGroup process's exposed head lvol.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "processState": {
+          "description": "ProcessState is the runtime state of the ShardGroup process owned by this CR.",
+          "type": "string"
+        },
+        "rebuildInProgress": {
+          "description": "RebuildInProgress indicates whether a background shard rebuild is currently running.",
+          "type": "boolean"
+        },
+        "scrubInProgress": {
+          "description": "ScrubInProgress indicates whether a background scrub is currently running.",
+          "type": "boolean"
+        },
+        "shardRefs": {
+          "description": "ShardRefs is an ordered list of Shard CR names, where the list index equals the EC slot index.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "nullable": true
+        },
+        "state": {
+          "description": "State is the aggregate health state of the EC array.",
+          "type": "string",
+          "enum": [
+            "healthy",
+            "degraded",
+            "offline",
+            "rebuilding",
+            "growing",
+            ""
+          ]
+        },
+        "storageIP": {
+          "description": "StorageIP is the storage-network IP of the InstanceManager pod hosting the ShardGroup\nprocess. Combined with Port and NQN, it forms the NVMe-oF endpoint that an EC volume's\nengine attaches to.",
+          "type": "string"
+        },
+        "wibDirtyRegion": {
+          "description": "WIBDirtyRegion is the number of dirty WIB regions reported by the EC bdev.",
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
