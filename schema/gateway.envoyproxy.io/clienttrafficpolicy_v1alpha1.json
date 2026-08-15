@@ -45,10 +45,18 @@
               },
               "additionalProperties": false
             },
+            "directSourceIP": {
+              "description": "DirectSourceIP configures the geoip filter to use the downstream connection\nsource address (the TCP peer of the connection terminated by Envoy) as the client IP.\n\nUse this in L4-transparent topologies where a load balancer preserves the original\nclient source IP at TCP level and does not populate XFF or a custom header — for\nexample, AWS NLB with target-type=instance + externalTrafficPolicy=Local, or\nAzure Standard Load Balancer.\n\nMutually exclusive with XForwardedFor and CustomHeader.",
+              "type": "object"
+            },
             "xForwardedFor": {
               "description": "XForwardedForSettings provides configuration for using X-Forwarded-For headers for determining the client IP address.",
               "type": "object",
               "properties": {
+                "disableXForwardedForAppend": {
+                  "description": "DisableXForwardedForAppend configures Envoy Proxy to stop appending the downstream address\nto the X-Forwarded-For header.\n\nThis only disables the automatic append behavior. It does not remove or sanitize\nan incoming X-Forwarded-For header.",
+                  "type": "boolean"
+                },
                 "numTrustedHops": {
                   "description": "NumTrustedHops specifies how many trusted hops to count from the rightmost side of\nthe X-Forwarded-For (XFF) header when determining the original client’s IP address.\n\nIf NumTrustedHops is set to N, the client IP is taken from the Nth address from the\nright end of the XFF header.\n\nExample:\n  XFF = \"203.0.113.128, 203.0.113.10, 203.0.113.1\"\n  NumTrustedHops = 2\n  → Trusted client address = 203.0.113.10\n\nOnly one of NumTrustedHops or TrustedCIDRs should be configured.",
                   "type": "integer",
@@ -77,8 +85,8 @@
           "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "!(has(self.xForwardedFor) \u0026\u0026 has(self.customHeader))",
-              "message": "customHeader cannot be used in conjunction with xForwardedFor"
+              "rule": "[has(self.xForwardedFor), has(self.customHeader), has(self.directSourceIP)].filter(x, x).size() == 1",
+              "message": "exactly one of xForwardedFor, customHeader, or directSourceIP must be set"
             }
           ]
         },
@@ -352,6 +360,17 @@
             "enableEnvoyHeaders": {
               "description": "EnableEnvoyHeaders configures Envoy Proxy to add the \"X-Envoy-\" headers to requests\nand responses.",
               "type": "boolean"
+            },
+            "host": {
+              "description": "Host enables managing how the Host/Authority header set by clients can be normalized.",
+              "type": "object",
+              "properties": {
+                "stripTrailingHostDot": {
+                  "description": "StripTrailingHostDot determines if the trailing dot of the host should be removed\nfrom the Host/Authority header before any processing of the request.\nThis affects the upstream host header as well. Without this option, incoming requests\nwith host \"example.com.\" will not match routes with domains set to \"example.com\".\nWhen the host includes a port (for example \"example.com.:443\"), only the trailing dot\nfrom the host section is stripped, leaving the port as-is (\"example.com:443\").\nDefaults to false.",
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
             },
             "lateResponseHeaders": {
               "description": "LateResponseHeaders defines settings for global response header modification.",
@@ -1052,6 +1071,11 @@
                   "type": "string",
                   "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                 },
+                "requestHeadersReceivedTimeout": {
+                  "description": "RequestHeadersReceivedTimeout is the duration envoy waits for the request headers to arrive.\nThe timer is activated when the first byte of the headers is received,\nand is disarmed when the last byte of the headers has been received.\nIf not specified or set to 0, this timeout is disabled.",
+                  "type": "string",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+                },
                 "requestReceivedTimeout": {
                   "description": "RequestReceivedTimeout is the duration envoy waits for the complete request reception. This timer starts upon request\ninitiation and stops when either the last byte of the request is sent upstream or when the response begins.",
                   "type": "string",
@@ -1069,8 +1093,18 @@
               "description": "Timeout settings for TCP.",
               "type": "object",
               "properties": {
+                "connectionInspectionTimeout": {
+                  "description": "ConnectionInspectionTimeout is the maximum time to wait for initial inspection\n(TLS / SNI and protocol detection, or HTTP protocol parsing) of an incoming connection on the listener socket.\nIf exceeded, the connection is dropped.\nDefault: 15 seconds.",
+                  "type": "string",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+                },
                 "idleTimeout": {
                   "description": "IdleTimeout for a TCP connection. Idle time is defined as a period in which there are no\nbytes sent or received on either the upstream or downstream connection.\nDefault: 1 hour.",
+                  "type": "string",
+                  "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+                },
+                "tlsHandshakeTimeout": {
+                  "description": "TLSHandshakeTimeout for a TCP connection. The maximum time to complete transport level connection negotiation\n(e.g. the TLS handshake) after a connection is accepted.\nIf this expires before the transport reports connection establishment, the connection is summarily closed.",
                   "type": "string",
                   "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
                 }
@@ -1103,6 +1137,10 @@
               "description": "ClientValidation specifies the configuration to validate the client\ninitiating the TLS connection to the Gateway listener.",
               "type": "object",
               "properties": {
+                "allowExpiredCertificate": {
+                  "description": "AllowExpiredCertificate permits client certificates that have expired\nbut are otherwise valid (CA chain, signature). When true, Envoy skips\nthe NotAfter check during client certificate validation.\nDefaults to false.",
+                  "type": "boolean"
+                },
                 "caCertificateRefs": {
                   "description": "CACertificateRefs contains one or more references to\nKubernetes objects that contain TLS certificates of\nthe Certificate Authorities that can be used\nas a trust anchor to validate the certificates presented by the client.\n\nA single reference to a Kubernetes ConfigMap or a Kubernetes Secret,\nwith the CA certificate in a key named `ca.crt` is currently supported.\n\nReferences to a resource in different namespace are invalid UNLESS there\nis a ReferenceGrant in the target namespace that allows the certificate\nto be attached.",
                   "type": "array",
@@ -1399,7 +1437,13 @@
                   "additionalProperties": false
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!has(self.allowExpiredCertificate) || !self.allowExpiredCertificate || !has(self.mode) || self.mode in ['VerifyIfGiven', 'RequireAndVerify']",
+                  "message": "allowExpiredCertificate can only be set when mode is VerifyIfGiven or RequireAndVerify"
+                }
+              ]
             },
             "ecdhCurves": {
               "description": "ECDHCurves specifies the set of supported ECDH curves.\nIn non-FIPS Envoy Proxy builds the default curves are:\n- X25519\n- P-256\nIn builds using BoringSSL FIPS the default curve is:\n- P-256",
@@ -1496,16 +1540,16 @@
           "message": "this policy can only have a targetRef.group of gateway.networking.k8s.io"
         },
         {
-          "rule": "has(self.targetRef) ? self.targetRef.kind == 'Gateway' : true",
-          "message": "this policy can only have a targetRef.kind of Gateway"
+          "rule": "has(self.targetRef) ? self.targetRef.kind in ['Gateway', 'ListenerSet'] : true",
+          "message": "this policy can only have a targetRef.kind of Gateway or ListenerSet"
         },
         {
           "rule": "has(self.targetRefs) ? self.targetRefs.all(ref, ref.group == 'gateway.networking.k8s.io') : true",
           "message": "this policy can only have a targetRefs[*].group of gateway.networking.k8s.io"
         },
         {
-          "rule": "has(self.targetRefs) ? self.targetRefs.all(ref, ref.kind == 'Gateway') : true",
-          "message": "this policy can only have a targetRefs[*].kind of Gateway"
+          "rule": "has(self.targetRefs) ? self.targetRefs.all(ref, ref.kind in ['Gateway', 'ListenerSet']) : true",
+          "message": "this policy can only have a targetRefs[*].kind of Gateway or ListenerSet"
         }
       ]
     },
