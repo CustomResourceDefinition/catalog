@@ -1,5 +1,5 @@
 {
-  "description": "BackendTrafficPolicy defines configuration for traffic handling policies applied to backend services.",
+  "description": "L4RoutePolicy defines plugin configuration for Gateway API L4 routes (TCPRoute, UDPRoute, TLSRoute).\nIt follows the Gateway API Policy Attachment pattern and attaches APISIX stream plugins\nto the targeted L4 route resources.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -14,279 +14,35 @@
       "type": "object"
     },
     "spec": {
-      "description": "BackendTrafficPolicySpec defines traffic handling policies applied to backend services,\nsuch as load balancing strategy, connection settings, and failover behavior.",
+      "description": "Spec defines the desired state of L4RoutePolicy.",
       "type": "object",
       "required": [
         "targetRefs"
       ],
       "properties": {
-        "healthCheck": {
-          "description": "HealthCheck defines active and passive health check configuration for\nthe upstream backends. When configured, APISIX will probe backends\n(active) or monitor live traffic (passive) to detect and bypass\nunhealthy nodes.",
-          "type": "object",
-          "required": [
-            "active"
-          ],
-          "properties": {
-            "active": {
-              "description": "Active health checks proactively send requests to upstream nodes to determine their availability.",
-              "type": "object",
-              "properties": {
-                "concurrency": {
-                  "description": "Concurrency sets the number of targets to be checked at the same time.",
-                  "type": "integer",
-                  "minimum": 0
-                },
-                "healthy": {
-                  "description": "Healthy configures the thresholds for marking a node healthy.",
-                  "type": "object",
-                  "properties": {
-                    "httpCodes": {
-                      "description": "HTTPCodes is the list of HTTP status codes considered healthy.",
-                      "type": "array",
-                      "minItems": 1,
-                      "items": {
-                        "type": "integer"
-                      }
-                    },
-                    "interval": {
-                      "description": "Interval defines the time between health check probes.\nMinimum is 1s.",
-                      "type": "string"
-                    },
-                    "successes": {
-                      "description": "Successes is the number of consecutive successful responses required to mark a node healthy.",
-                      "type": "integer",
-                      "maximum": 254,
-                      "minimum": 0
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "host": {
-                  "description": "Host sets the upstream host used in the health check request.",
-                  "type": "string"
-                },
-                "httpPath": {
-                  "description": "HTTPPath sets the HTTP path for the probe request.",
-                  "type": "string"
-                },
-                "port": {
-                  "description": "Port sets the port on the upstream node to probe.",
-                  "type": "integer",
-                  "format": "int32",
-                  "maximum": 65535,
-                  "minimum": 1
-                },
-                "requestHeaders": {
-                  "description": "RequestHeaders sets additional HTTP request headers for the probe.",
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "strictTLS": {
-                  "description": "StrictTLS controls whether TLS certificate validation is enforced.",
-                  "type": "boolean"
-                },
-                "timeout": {
-                  "description": "Timeout sets health check timeout.",
-                  "type": "string"
-                },
-                "type": {
-                  "description": "Type is the health check type. Can be `http`, `https`, or `tcp`.",
-                  "type": "string",
-                  "default": "http",
-                  "enum": [
-                    "http",
-                    "https",
-                    "tcp"
-                  ]
-                },
-                "unhealthy": {
-                  "description": "Unhealthy configures the thresholds for marking a node unhealthy.",
-                  "type": "object",
-                  "properties": {
-                    "httpCodes": {
-                      "description": "HTTPCodes is the list of HTTP status codes considered unhealthy.",
-                      "type": "array",
-                      "minItems": 1,
-                      "items": {
-                        "type": "integer"
-                      }
-                    },
-                    "httpFailures": {
-                      "description": "HTTPFailures is the number of HTTP failures to mark a node unhealthy.",
-                      "type": "integer",
-                      "maximum": 254,
-                      "minimum": 0
-                    },
-                    "interval": {
-                      "description": "Interval defines the time between health check probes.\nMinimum is 1s.",
-                      "type": "string"
-                    },
-                    "tcpFailures": {
-                      "description": "TCPFailures is the number of TCP failures to mark a node unhealthy.",
-                      "type": "integer",
-                      "maximum": 254,
-                      "minimum": 0
-                    },
-                    "timeouts": {
-                      "description": "Timeouts is the number of timeouts to mark a node unhealthy.",
-                      "type": "integer",
-                      "maximum": 254,
-                      "minimum": 1
-                    }
-                  },
-                  "additionalProperties": false
-                }
+        "plugins": {
+          "description": "Plugins is the list of APISIX stream plugins to attach to the targeted L4 routes.\nPlugin names should be valid APISIX stream plugin names (e.g., limit-conn, ip-restriction).",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "config": {
+                "description": "Config is plugin configuration details.",
+                "x-kubernetes-preserve-unknown-fields": true
               },
-              "additionalProperties": false
+              "name": {
+                "description": "Name is the name of the plugin.",
+                "type": "string"
+              }
             },
-            "passive": {
-              "description": "Passive health checks evaluate upstream health based on observed traffic (timeouts, errors).",
-              "type": "object",
-              "properties": {
-                "healthy": {
-                  "description": "Healthy defines conditions under which a node is considered healthy.",
-                  "type": "object",
-                  "properties": {
-                    "httpCodes": {
-                      "description": "HTTPCodes is the list of HTTP status codes considered healthy.",
-                      "type": "array",
-                      "minItems": 1,
-                      "items": {
-                        "type": "integer"
-                      }
-                    },
-                    "successes": {
-                      "description": "Successes is the number of consecutive successful responses required to mark a node healthy.",
-                      "type": "integer",
-                      "maximum": 254,
-                      "minimum": 0
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "type": {
-                  "description": "Type is the passive health check type. Can be `http`, `https`, or `tcp`.",
-                  "type": "string",
-                  "default": "http",
-                  "enum": [
-                    "http",
-                    "https",
-                    "tcp"
-                  ]
-                },
-                "unhealthy": {
-                  "description": "Unhealthy defines conditions under which a node is considered unhealthy.",
-                  "type": "object",
-                  "properties": {
-                    "httpCodes": {
-                      "description": "HTTPCodes is the list of HTTP status codes considered unhealthy.",
-                      "type": "array",
-                      "minItems": 1,
-                      "items": {
-                        "type": "integer"
-                      }
-                    },
-                    "httpFailures": {
-                      "description": "HTTPFailures is the number of HTTP failures to mark a node unhealthy.",
-                      "type": "integer",
-                      "maximum": 254,
-                      "minimum": 0
-                    },
-                    "tcpFailures": {
-                      "description": "TCPFailures is the number of TCP failures to mark a node unhealthy.",
-                      "type": "integer",
-                      "maximum": 254,
-                      "minimum": 0
-                    },
-                    "timeouts": {
-                      "description": "Timeouts is the number of timeouts to mark a node unhealthy.",
-                      "type": "integer",
-                      "maximum": 254,
-                      "minimum": 1
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "additionalProperties": false
-        },
-        "loadbalancer": {
-          "description": "LoadBalancer represents the load balancer configuration for Kubernetes Service.\nThe default strategy is round robin.",
-          "type": "object",
-          "required": [
-            "type"
-          ],
-          "properties": {
-            "hashOn": {
-              "description": "HashOn specified the type of field used for hashing, required when type is `chash`.\nDefault is `vars`.\nCan be `vars`, `header`, `cookie`, `consumer`, or `vars_combinations`.",
-              "type": "string",
-              "default": "vars",
-              "enum": [
-                "vars",
-                "header",
-                "cookie",
-                "consumer",
-                "vars_combinations"
-              ]
-            },
-            "key": {
-              "description": "Key is used with HashOn, generally required when type is `chash`.\nWhen HashOn is `header` or `cookie`, specifies the name of the header or cookie.\nWhen HashOn is `consumer`, key is not required, as the consumer name is used automatically.\nWhen HashOn is `vars` or `vars_combinations`, key refers to one or a combination of\n[APISIX variable](https://apisix.apache.org/docs/apisix/apisix-variable/).",
-              "type": "string"
-            },
-            "type": {
-              "description": "Type specifies the load balancing algorithms to route traffic to the backend.\nDefault is `roundrobin`.\nCan be `roundrobin`, `chash`, `ewma`, or `least_conn`.",
-              "type": "string",
-              "default": "roundrobin",
-              "enum": [
-                "roundrobin",
-                "chash",
-                "ewma",
-                "least_conn"
-              ]
-            }
-          },
-          "additionalProperties": false,
-          "x-kubernetes-validations": [
-            {
-              "rule": "!(has(self.key) \u0026\u0026 self.type != 'chash')"
-            }
-          ]
-        },
-        "passHost": {
-          "description": "PassHost configures how the host header should be determined when a\nrequest is forwarded to the upstream.\nDefault is `pass`. Can be `pass`, `node` or `rewrite`:\n* `pass`: preserve the original Host header\n* `node`: use the upstream node’s host\n* `rewrite`: set to a custom host via `upstreamHost`",
-          "type": "string",
-          "default": "pass",
-          "enum": [
-            "pass",
-            "node",
-            "rewrite"
-          ]
-        },
-        "retries": {
-          "description": "Retries specify the number of times the gateway should retry sending\nrequests when errors such as timeouts or 502 errors occur.",
-          "type": "integer"
-        },
-        "scheme": {
-          "description": "Scheme is the protocol used to communicate with the upstream.\nDefault is `http`.\nFor L7 proxy, it can be `http`, `https`, `grpc`, or `grpcs`.\nFor L4 proxy, it can be `tcp`, `tls`, or `udp`.\nThe L4 values apply to stream routes only; using them for an HTTP route\nmakes the upstream unreachable.",
-          "type": "string",
-          "default": "http",
-          "enum": [
-            "http",
-            "https",
-            "grpc",
-            "grpcs",
-            "tcp",
-            "tls",
-            "udp"
-          ]
+            "additionalProperties": false
+          }
         },
         "targetRefs": {
-          "description": "TargetRef identifies an API object to apply policy to.\nCurrently, Backends (i.e. Service, ServiceImport, or any\nimplementation-specific backendRef) are the only valid API\ntarget references.",
+          "description": "TargetRefs identifies the L4 route resources (TCPRoute, UDPRoute, or TLSRoute)\nto which this policy applies. Only same-namespace targets are supported.",
           "type": "array",
           "maxItems": 16,
           "minItems": 1,
@@ -326,45 +82,18 @@
                 "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
               }
             },
-            "additionalProperties": false,
-            "x-kubernetes-validations": [
-              {
-                "rule": "self.kind == 'Service' \u0026\u0026 self.group == \"\""
-              }
-            ]
-          }
-        },
-        "timeout": {
-          "description": "Timeout sets the read, send, and connect timeouts to the upstream.",
-          "type": "object",
-          "properties": {
-            "connect": {
-              "description": "Connection timeout. Default is `60s`.",
-              "type": "string",
-              "default": "60s",
-              "pattern": "^[0-9]+s$"
-            },
-            "read": {
-              "description": "Read timeout. Default is `60s`.",
-              "type": "string",
-              "default": "60s",
-              "pattern": "^[0-9]+s$"
-            },
-            "send": {
-              "description": "Send timeout. Default is `60s`.",
-              "type": "string",
-              "default": "60s",
-              "pattern": "^[0-9]+s$"
-            }
+            "additionalProperties": false
           },
-          "additionalProperties": false
-        },
-        "upstreamHost": {
-          "description": "UpstreamHost specifies the host of the Upstream request. Used only if\npassHost is set to `rewrite`.",
-          "type": "string",
-          "maxLength": 253,
-          "minLength": 1,
-          "pattern": "^(\\*\\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.all(r, r.kind == 'TCPRoute' || r.kind == 'UDPRoute' || r.kind == 'TLSRoute')",
+              "message": "targetRefs kind must be TCPRoute, UDPRoute, or TLSRoute"
+            },
+            {
+              "rule": "self.all(r, r.group == 'gateway.networking.k8s.io')",
+              "message": "targetRefs group must be gateway.networking.k8s.io"
+            }
+          ]
         }
       },
       "additionalProperties": false

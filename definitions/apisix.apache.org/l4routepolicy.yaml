@@ -3,20 +3,23 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
-  name: httproutepolicies.apisix.apache.org
+  name: l4routepolicies.apisix.apache.org
 spec:
   group: apisix.apache.org
   names:
-    kind: HTTPRoutePolicy
-    listKind: HTTPRoutePolicyList
-    plural: httproutepolicies
-    singular: httproutepolicy
+    kind: L4RoutePolicy
+    listKind: L4RoutePolicyList
+    plural: l4routepolicies
+    singular: l4routepolicy
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HTTPRoutePolicy defines configuration of traffic policies.
+        description: |-
+          L4RoutePolicy defines plugin configuration for Gateway API L4 routes (TCPRoute, UDPRoute, TLSRoute).
+          It follows the Gateway API Policy Attachment pattern and attaches APISIX stream plugins
+          to the targeted L4 route resources.
         properties:
           apiVersion:
             description: |-
@@ -36,19 +39,28 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              HTTPRoutePolicySpec defines configuration of a HTTPRoutePolicy,
-              including route priority and request matching conditions.
+            description: Spec defines the desired state of L4RoutePolicy.
             properties:
-              priority:
+              plugins:
                 description: |-
-                  Priority sets the priority for route. when multiple routes have the same URI path,
-                  a higher value sets a higher priority in route matching.
-                format: int64
-                type: integer
+                  Plugins is the list of APISIX stream plugins to attach to the targeted L4 routes.
+                  Plugin names should be valid APISIX stream plugin names (e.g., limit-conn, ip-restriction).
+                items:
+                  properties:
+                    config:
+                      description: Config is plugin configuration details.
+                      x-kubernetes-preserve-unknown-fields: true
+                    name:
+                      description: Name is the name of the plugin.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               targetRefs:
-                description: TargetRef identifies an API object (i.e. HTTPRoute, Ingress)
-                  to apply HTTPRoutePolicy to.
+                description: |-
+                  TargetRefs identifies the L4 route resources (TCPRoute, UDPRoute, or TLSRoute)
+                  to which this policy applies. Only same-namespace targets are supported.
                 items:
                   description: |-
                     LocalPolicyTargetReferenceWithSectionName identifies an API object to apply a
@@ -102,11 +114,12 @@ spec:
                 maxItems: 16
                 minItems: 1
                 type: array
-              vars:
-                description: Vars sets the request matching conditions.
-                items:
-                  x-kubernetes-preserve-unknown-fields: true
-                type: array
+                x-kubernetes-validations:
+                - message: targetRefs kind must be TCPRoute, UDPRoute, or TLSRoute
+                  rule: self.all(r, r.kind == 'TCPRoute' || r.kind == 'UDPRoute' ||
+                    r.kind == 'TLSRoute')
+                - message: targetRefs group must be gateway.networking.k8s.io
+                  rule: self.all(r, r.group == 'gateway.networking.k8s.io')
             required:
             - targetRefs
             type: object
