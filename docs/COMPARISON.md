@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.59% | 3918 | 11395 | 88 |
+| 98.84% | 3963 | 11395 | 88 |
 
 ### Missing Schemas
 
@@ -17,12 +17,48 @@ This page lists missing CRD validation schemas that are present in alternative c
 | --- | --- |
 | nodepool | v1alpha1 |
 
+| coralogix.com | |
+| --- | --- |
+| aicustomevaluation | v1alpha1 |
+| aievaluation | v1alpha1 |
+| alert | v1beta1 |
+| alertscheduler | v1alpha1 |
+| apikey | v1alpha1 |
+| archivelogstarget | v1alpha1 |
+| archivemetricstarget | v1alpha1 |
+| connector | v1alpha1 |
+| customenrichment | v1alpha1 |
+| customrole | v1alpha1 |
+| dashboard | v1alpha1 |
+| dashboardsfolder | v1alpha1 |
+| enrichment | v1alpha1 |
+| events2metric | v1alpha1 |
+| globalrouter | v1alpha1 |
+| group | v1alpha1 |
+| integration | v1alpha1 |
+| ipaccess | v1alpha1 |
+| outboundwebhook | v1alpha1 |
+| preset | v1alpha1 |
+| quotaallocationruleset | v1alpha1 |
+| recordingrulegroupset | v1alpha1 |
+| rulegroup | v1alpha1 |
+| scope | v1alpha1 |
+| slo | v1alpha1 |
+| tcologspolicies | v1alpha1 |
+| tcotracespolicies | v1alpha1 |
+| view | v1alpha1 |
+| viewfolder | v1alpha1 |
+
 | eks.amazonaws.com | |
 | --- | --- |
 | ingressclassparams | v1 |
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
+
+| gateway.networking.x-k8s.io | |
+| --- | --- |
+| xbackend | v1alpha1 |
 
 | networking.gke.io | |
 | --- | --- |
