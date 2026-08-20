@@ -7,11 +7,16 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/mod v0.39.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.21.3
+	helm.sh/helm/v3 v3.21.4
 	k8s.io/apiextensions-apiserver v0.36.3
 	k8s.io/apimachinery v0.36.3
 	sigs.k8s.io/controller-tools v0.21.0
 	sigs.k8s.io/kustomize/kyaml v0.21.1
+)
+
+require (
+	github.com/ProtonMail/go-crypto v1.4.1 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 )
 
 require (
