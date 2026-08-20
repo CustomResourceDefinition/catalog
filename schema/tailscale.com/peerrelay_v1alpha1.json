@@ -21,18 +21,18 @@
       "type": "object",
       "properties": {
         "aws": {
-          "description": "AWS contains configuration for pinning each replica to a specific AWS Elastic IP and subnet. Only meaningful\nwhen running on EKS with the AWS Load Balancer Controller. When set, the per-replica values override any\naws-load-balancer-eip-allocations or aws-load-balancer-subnets values supplied via spec.service.annotations.",
+          "description": "AWS contains configuration for pinning each replica to a specific AWS Elastic IP and subnet. Only meaningful\nwhen running on EKS with the AWS Load Balancer Controller. When set, the per-replica values override any\naws-load-balancer-eip-allocations or aws-load-balancer-subnets values supplied via spec.service.annotations.\n\nLeave this unset unless the peer relays must be reachable on addresses you control. Pinning a subnet\nconfines a replica's load balancer to that subnet's availability zone, and an AWS Network Load Balancer\nonly forwards to targets in a zone that is enabled on it, so a replica whose pod is scheduled into any\nother zone stops receiving traffic. Setting this field therefore also requires pinning the pods to the\nmatching zone with a ProxyClass, as described on ElasticIPs. Without this field the AWS Load Balancer\nController instead provisions each load balancer across every zone it discovers, and the operator turns on\ncross-zone load balancing so the replica is reachable wherever it happens to be scheduled, with no\nscheduling constraints needed.",
           "type": "object",
           "required": [
             "elasticIPs"
           ],
           "properties": {
             "elasticIPs": {
-              "description": "ElasticIPs pins each replica to a specific AWS EIP allocation and subnet. Only meaningful when Network Load\nBalancers are provisioned by the AWS Load Balancer Controller. ElasticIPs supplies one allocation-subnet pair\nper replica: replica N uses ElasticIPs[N]. The list must be at least as long as spec.replicas so every replica\nhas a distinct EIP; extra entries are permitted so that scale-up doesn't immediately trip validation.\n\nWhen set, the reconciler stamps\nservice.beta.kubernetes.io/aws-load-balancer-eip-allocations and\nservice.beta.kubernetes.io/aws-load-balancer-subnets on each per-replica Service, overriding any values in\nspec.service.annotations.",
+              "description": "ElasticIPs pins each replica to a specific AWS EIP allocation and subnet. Only meaningful when Network Load\nBalancers are provisioned by the AWS Load Balancer Controller. ElasticIPs supplies one allocation-subnet pair\nper replica: replica N uses ElasticIPs[N]. The list must be at least as long as spec.replicas so every replica\nhas a distinct EIP; extra entries are permitted so that scale-up doesn't immediately trip validation.\n\nPinning a subnet enables only that subnet's availability zone on the replica's load balancer, and a Network\nLoad Balancer only forwards to targets in an enabled zone. Nothing constrains the scheduler to place the\nreplica's pod in that zone, so a pod scheduled elsewhere, including after a reschedule, becomes unreachable\non its Elastic IP while still appearing healthy.\n\nEvery replica of a PeerRelay shares one pod template, so a ProxyClass referenced by spec.proxyClass can\nconfine the pods to a zone but cannot place different replicas in different zones. To use this field\nsafely, name subnets in a single availability zone and pin the pods to that same zone with a ProxyClass\nsetting spec.statefulSet.pod.nodeSelector to topology.kubernetes.io/zone. Note that this trades the zone\nredundancy that running several replicas would otherwise buy. Spreading replicas across zones with their\nown Elastic IPs needs a per-replica scheduling constraint that neither PeerRelay nor ProxyClass can\ncurrently express.\n\nWhen set, the reconciler stamps\nservice.beta.kubernetes.io/aws-load-balancer-eip-allocations and\nservice.beta.kubernetes.io/aws-load-balancer-subnets on each per-replica Service, overriding any values in\nspec.service.annotations.",
               "type": "array",
               "minItems": 1,
               "items": {
-                "description": "PeerRelayAWSElasticIP pairs an EIP allocation with the subnet in the same AZ.",
+                "description": "PeerRelayAWSElasticIP pairs an EIP allocation with the subnet it is attached to.",
                 "type": "object",
                 "required": [
                   "allocationID",
@@ -45,7 +45,7 @@
                     "pattern": "^eipalloc-[0-9a-f]+$"
                   },
                   "subnetID": {
-                    "description": "SubnetID is the AWS subnet in the same availability zone as AllocationID (e.g. subnet-0123abcd). Stamped as\nservice.beta.kubernetes.io/aws-load-balancer-subnets on the replica's Service so the NLB is provisioned in\nthe same AZ as the EIP.",
+                    "description": "SubnetID is the AWS subnet the replica's load balancer is provisioned in (e.g. subnet-0123abcd). It must be\na public subnet, and no two replicas may name subnets in the same availability zone, since a load balancer\naccepts only one Elastic IP per zone. A standard VPC Elastic IP is regional rather than zonal, so it takes\nthe zone of whichever subnet it is paired with here. Stamped as\nservice.beta.kubernetes.io/aws-load-balancer-subnets on the replica's Service.",
                     "type": "string",
                     "pattern": "^subnet-[0-9a-f]+$"
                   }
@@ -178,7 +178,7 @@
           "x-kubernetes-list-type": "map"
         },
         "endpoints": {
-          "description": "Endpoints lists the public address:port pairs each peer relay replica is reachable on. There is one entry\nper replica whose LoadBalancer Service has been assigned a public address; entries appear as the underlying\ncloud provisions each Service.",
+          "description": "Endpoints lists the public address:port pairs each peer relay replica is reachable on. Entries appear as the\nunderlying cloud provisions each Service. A replica has one entry per address its LoadBalancer Service was\ngiven, which is usually one, but a load balancer spanning several availability zones has an address in each\nand every one of them is listed.",
           "type": "array",
           "items": {
             "type": "object",
@@ -206,7 +206,8 @@
             "additionalProperties": false
           },
           "x-kubernetes-list-map-keys": [
-            "replica"
+            "replica",
+            "address"
           ],
           "x-kubernetes-list-type": "map"
         }
