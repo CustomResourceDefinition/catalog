@@ -1,0 +1,129 @@
+{
+  "description": "ComputeDomain prepares a set of nodes to run a multi-node workload in.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "ComputeDomainSpec provides the spec for a ComputeDomain.",
+      "type": "object",
+      "required": [
+        "channel",
+        "numNodes"
+      ],
+      "properties": {
+        "channel": {
+          "description": "ComputeDomainChannelSpec provides the spec for a channel used to run a workload inside a ComputeDomain.",
+          "type": "object",
+          "required": [
+            "resourceClaimTemplate"
+          ],
+          "properties": {
+            "allocationMode": {
+              "description": "Allows for requesting all IMEX channels (the maximum per IMEX domain) or\nprecisely one.",
+              "type": "string",
+              "default": "Single",
+              "enum": [
+                "All",
+                "Single"
+              ]
+            },
+            "resourceClaimTemplate": {
+              "description": "ComputeDomainResourceClaimTemplate provides the details of the ResourceClaimTemplate to generate.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "numNodes": {
+          "description": "Intended number of IMEX daemons (i.e., individual compute nodes) in the\nComputeDomain. Must be zero or greater.\n\nWith `featureGates.IMEXDaemonsWithDNSNames=true` (the default), this is\nrecommended to be set to zero. Workload must implement and consult its\nown source of truth for the number of workers online before trying to\nshare GPU memory (and hence triggering IMEX interaction). When non-zero,\n`numNodes` is used only for automatically updating the global\nComputeDomain `Status` (indicating `Ready` when the number of ready IMEX\ndaemons equals `numNodes`). In this mode, a `numNodes` value greater than\nzero in particular does not gate the startup of IMEX daemons: individual\nIMEX daemons are started immediately without waiting for its peers, and\nany workload pod gets released right after its local IMEX daemon has\nstarted.\n\nWith `featureGates.IMEXDaemonsWithDNSNames=false`, `numNodes` must be set\nto the expected number of worker nodes joining the ComputeDomain. In that\nmode, all workload pods are held back (with containers in state\n`ContainerCreating`) until the underlying IMEX domain has been joined by\n`numNodes` IMEX daemons. Pods from more than `numNodes` nodes trying to\njoin the ComputeDomain may lead to unexpected behavior.\n\nThe `numNodes` parameter is deprecated and will be removed in the next\nAPI version.",
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "self == oldSelf",
+          "message": "A computeDomain.spec is immutable"
+        }
+      ]
+    },
+    "status": {
+      "description": "Global ComputeDomain status. Can be used to guide debugging efforts.\nWorkload however should not rely on inspecting this field at any point\nduring its lifecycle.",
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "description": "ComputeDomainNode provides information about each node added to a ComputeDomain.",
+            "type": "object",
+            "required": [
+              "cliqueID",
+              "ipAddress",
+              "name"
+            ],
+            "properties": {
+              "cliqueID": {
+                "type": "string"
+              },
+              "index": {
+                "description": "The Index field is used to ensure a consistent IP-to-DNS name\nmapping across all machines within an IMEX domain. Each node's index\ndirectly determines its DNS name within a given NVLink partition\n(i.e. clique). In other words, the 2-tuple of (CliqueID, Index) will\nalways be unique. This field is marked as optional (but not\nomitempty) in order to support downgrades and avoid an API bump.",
+                "type": "integer"
+              },
+              "ipAddress": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "description": "The Status field tracks the readiness of the IMEX daemon running on\nthis node. It gets switched to Ready whenever the IMEX daemon is\nready to broker GPU memory exchanges and switches to NotReady when\nit is not. It is marked as optional in order to support downgrades\nand avoid an API bump.",
+                "type": "string",
+                "default": "NotReady",
+                "enum": [
+                  "Ready",
+                  "NotReady"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "status": {
+          "type": "string",
+          "default": "NotReady",
+          "enum": [
+            "Ready",
+            "NotReady"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
