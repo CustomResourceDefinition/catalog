@@ -168,6 +168,13 @@
           "description": "The maximum number of consecutive deployment failures that Sveltos will permit.\nAfter this many consecutive failures, the deployment will be considered failed, and Sveltos will stop retrying.\nThis setting applies only to feature deployments, not resource removal.\nThis field is optional. If not set, Sveltos default behavior is to keep retrying.",
           "type": "integer"
         },
+        "postDeleteCheckJobs": {
+          "description": "PostDeleteCheckJobs holds the resolved manifest for every PostDeleteChecks entry that\nuses JobCheck. See PreDeployCheckJobs for the key format and why this is resolved ahead\nof time by addon-controller rather than fetched by sveltos-applier.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "postDeleteChecks": {
           "description": "PostDeleteChecks is a slice of checks to run against the managed cluster\n*after* Sveltos has deleted all resources.\nThis ensures that the environment has reached the desired clean state.\nEach check can select resources and validate them using Lua scripts or CEL expressions.",
           "type": "array",
@@ -213,6 +220,49 @@
               "group": {
                 "description": "Group of the resource to fetch in the managed Cluster.\nRequired when Kind is set. Leave empty for metric-only checks.",
                 "type": "string"
+              },
+              "jobCheck": {
+                "description": "JobCheck runs a Job in the managed cluster and uses its Complete/Failed\noutcome as the check result. Mutually exclusive with Script and EvaluateCEL.",
+                "type": "object",
+                "required": [
+                  "jobRef"
+                ],
+                "properties": {
+                  "jobRef": {
+                    "description": "JobRef references the Secret/ConfigMap containing the Job manifest to\ndeploy in the managed Cluster as this check.",
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "name",
+                      "namespace"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "description": "Kind of the resource. Supported kinds are: Secrets and ConfigMaps.",
+                        "type": "string",
+                        "enum": [
+                          "Secret",
+                          "ConfigMap"
+                        ]
+                      },
+                      "name": {
+                        "description": "Name of the referenced resource.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "description": "Namespace of the referenced resource.\nNamespace can be left empty. In such a case, namespace will\nbe implicit set to cluster's namespace.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "timeout": {
+                    "description": "Timeout is how long to wait for the Job to reach Complete or Failed\nbefore treating the check as failed. Defaults to 5 minutes when unset.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
               },
               "kind": {
                 "description": "Kind of the resource to fetch in the managed Cluster.\nLeave empty for metric-only checks.",
@@ -327,9 +377,22 @@
                 "type": "string"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "!has(self.jobCheck) || (!has(self.script) \u0026\u0026 !has(self.evaluateCEL))",
+                "message": "jobCheck cannot be set together with script or evaluateCEL"
+              }
+            ]
           },
           "x-kubernetes-list-type": "atomic"
+        },
+        "preDeleteCheckJobs": {
+          "description": "PreDeleteCheckJobs holds the resolved manifest for every PreDeleteChecks entry that uses\nJobCheck. See PreDeployCheckJobs for the key format and why this is resolved ahead of\ntime by addon-controller rather than fetched by sveltos-applier.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "preDeleteChecks": {
           "description": "PreDeleteChecks is a slice of checks to run against the managed cluster\n*before* Sveltos starts deleting resources.\nIf any of these fail, the deletion process is halted.\nEach check can select resources and validate them using Lua scripts or CEL expressions.",
@@ -377,6 +440,49 @@
                 "description": "Group of the resource to fetch in the managed Cluster.\nRequired when Kind is set. Leave empty for metric-only checks.",
                 "type": "string"
               },
+              "jobCheck": {
+                "description": "JobCheck runs a Job in the managed cluster and uses its Complete/Failed\noutcome as the check result. Mutually exclusive with Script and EvaluateCEL.",
+                "type": "object",
+                "required": [
+                  "jobRef"
+                ],
+                "properties": {
+                  "jobRef": {
+                    "description": "JobRef references the Secret/ConfigMap containing the Job manifest to\ndeploy in the managed Cluster as this check.",
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "name",
+                      "namespace"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "description": "Kind of the resource. Supported kinds are: Secrets and ConfigMaps.",
+                        "type": "string",
+                        "enum": [
+                          "Secret",
+                          "ConfigMap"
+                        ]
+                      },
+                      "name": {
+                        "description": "Name of the referenced resource.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "description": "Namespace of the referenced resource.\nNamespace can be left empty. In such a case, namespace will\nbe implicit set to cluster's namespace.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "timeout": {
+                    "description": "Timeout is how long to wait for the Job to reach Complete or Failed\nbefore treating the check as failed. Defaults to 5 minutes when unset.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
               "kind": {
                 "description": "Kind of the resource to fetch in the managed Cluster.\nLeave empty for metric-only checks.",
                 "type": "string"
@@ -490,9 +596,22 @@
                 "type": "string"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "!has(self.jobCheck) || (!has(self.script) \u0026\u0026 !has(self.evaluateCEL))",
+                "message": "jobCheck cannot be set together with script or evaluateCEL"
+              }
+            ]
           },
           "x-kubernetes-list-type": "atomic"
+        },
+        "preDeployCheckJobs": {
+          "description": "PreDeployCheckJobs holds the resolved manifest for every PreDeployChecks entry that uses\nJobCheck, keyed by \"\u003cnamespace\u003e/\u003cname\u003e\" (the namespace/name JobHealthCheck.JobRef\nresolves to). The value is the YAML-encoded Job manifest.\nJobCheck requires a Sveltos Enterprise license, which sveltos-applier (an open-source\nbinary) cannot verify on its own, so addon-controller resolves each Job manifest once,\nup front - fetching JobRef's ConfigMap/Secret and applying Cluster-field templating -\nand stages the result here. Sveltos-applier only ever runs the already-resolved Job; it\nnever fetches JobRef or checks licensing itself.\nEmpty when no PreDeployChecks entry uses JobCheck.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "preDeployChecks": {
           "description": "PreDeployChecks is a slice of checks to run against the managed cluster\n*before* Sveltos starts deploying resources.\nEach check can use Lua scripts or CEL expressions to validate the cluster state.\nIf any check fails, the deployment of the associated feature is halted.",
@@ -540,6 +659,49 @@
                 "description": "Group of the resource to fetch in the managed Cluster.\nRequired when Kind is set. Leave empty for metric-only checks.",
                 "type": "string"
               },
+              "jobCheck": {
+                "description": "JobCheck runs a Job in the managed cluster and uses its Complete/Failed\noutcome as the check result. Mutually exclusive with Script and EvaluateCEL.",
+                "type": "object",
+                "required": [
+                  "jobRef"
+                ],
+                "properties": {
+                  "jobRef": {
+                    "description": "JobRef references the Secret/ConfigMap containing the Job manifest to\ndeploy in the managed Cluster as this check.",
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "name",
+                      "namespace"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "description": "Kind of the resource. Supported kinds are: Secrets and ConfigMaps.",
+                        "type": "string",
+                        "enum": [
+                          "Secret",
+                          "ConfigMap"
+                        ]
+                      },
+                      "name": {
+                        "description": "Name of the referenced resource.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "description": "Namespace of the referenced resource.\nNamespace can be left empty. In such a case, namespace will\nbe implicit set to cluster's namespace.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "timeout": {
+                    "description": "Timeout is how long to wait for the Job to reach Complete or Failed\nbefore treating the check as failed. Defaults to 5 minutes when unset.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
               "kind": {
                 "description": "Kind of the resource to fetch in the managed Cluster.\nLeave empty for metric-only checks.",
                 "type": "string"
@@ -653,7 +815,13 @@
                 "type": "string"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "!has(self.jobCheck) || (!has(self.script) \u0026\u0026 !has(self.evaluateCEL))",
+                "message": "jobCheck cannot be set together with script or evaluateCEL"
+              }
+            ]
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -736,6 +904,13 @@
             "Preparing"
           ]
         },
+        "validateHealthJobs": {
+          "description": "ValidateHealthJobs holds the resolved manifest for every ValidateHealths entry that uses\nJobCheck. See PreDeployCheckJobs for the key format and why this is resolved ahead of\ntime by addon-controller rather than fetched by sveltos-applier.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "validateHealths": {
           "description": "ValidateHealths is a slice of checks to run against the managed cluster\n*after* resources are deployed to validate that the state of the\nadd-ons/applications is healthy.\nEach check can select resources and validate them using Lua scripts or CEL expressions.",
           "type": "array",
@@ -781,6 +956,49 @@
               "group": {
                 "description": "Group of the resource to fetch in the managed Cluster.\nRequired when Kind is set. Leave empty for metric-only checks.",
                 "type": "string"
+              },
+              "jobCheck": {
+                "description": "JobCheck runs a Job in the managed cluster and uses its Complete/Failed\noutcome as the check result. Mutually exclusive with Script and EvaluateCEL.",
+                "type": "object",
+                "required": [
+                  "jobRef"
+                ],
+                "properties": {
+                  "jobRef": {
+                    "description": "JobRef references the Secret/ConfigMap containing the Job manifest to\ndeploy in the managed Cluster as this check.",
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "name",
+                      "namespace"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "description": "Kind of the resource. Supported kinds are: Secrets and ConfigMaps.",
+                        "type": "string",
+                        "enum": [
+                          "Secret",
+                          "ConfigMap"
+                        ]
+                      },
+                      "name": {
+                        "description": "Name of the referenced resource.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "description": "Namespace of the referenced resource.\nNamespace can be left empty. In such a case, namespace will\nbe implicit set to cluster's namespace.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "timeout": {
+                    "description": "Timeout is how long to wait for the Job to reach Complete or Failed\nbefore treating the check as failed. Defaults to 5 minutes when unset.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
               },
               "kind": {
                 "description": "Kind of the resource to fetch in the managed Cluster.\nLeave empty for metric-only checks.",
@@ -895,7 +1113,13 @@
                 "type": "string"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "!has(self.jobCheck) || (!has(self.script) \u0026\u0026 !has(self.evaluateCEL))",
+                "message": "jobCheck cannot be set together with script or evaluateCEL"
+              }
+            ]
           },
           "x-kubernetes-list-type": "atomic"
         }

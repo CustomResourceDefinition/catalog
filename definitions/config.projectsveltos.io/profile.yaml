@@ -317,6 +317,19 @@ spec:
                                 disable hooks on install
                                 Default to false
                               type: boolean
+                            recoverAfterConsecutiveFailures:
+                              default: 5
+                              description: |-
+                                RecoverAfterConsecutiveFailures is the number of consecutive install failures for this
+                                chart after which Sveltos uninstalls any existing release under this name before
+                                retrying, to clear potentially stale Helm release history that would otherwise keep
+                                blocking every subsequent install attempt. This only ever runs when there is no
+                                currently deployed release to protect: a release that is deployed, or mid-upgrade, or
+                                failed while already existing, is always retried through helm upgrade instead, never
+                                through this. It only applies to a release that was never successfully installed, or
+                                was already cleanly uninstalled.
+                                Default to 5
+                              type: integer
                             replace:
                               default: true
                               description: Replaces if set indicates to replace an
@@ -750,7 +763,9 @@ spec:
                       description: |-
                         Components is a list of paths to Kustomize components. These paths are relative to the
                         `Path` field and are included in the Kustomize build to provide reusable configuration logic.
-                        The paths can be static or leverage Go templates for dynamic customization.
+                        These values can be static or leverage Go templates for dynamic customization.
+                        When expressed as templates, the values are filled in using information from
+                        resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                       items:
                         type: string
                       type: array
@@ -771,6 +786,9 @@ spec:
                         KustomizationRef when an update is rejected with an error that only a delete+recreate
                         can resolve (eg an invalid combination of fields, or a field enforced as immutable).
                         By default, such errors are surfaced instead of recreating the resource.
+                        This applies to every resource produced by this KustomizationRef. To force just one
+                        resource, regardless of this field's value, annotate that resource with
+                        projectsveltos.io/forceRecreate instead.
                       type: boolean
                     kind:
                       description: |-
@@ -814,7 +832,7 @@ spec:
                         Defaults to 'None', which translates to the root path of the SourceRef.
                         These values can be static or leverage Go templates for dynamic customization.
                         When expressed as templates, the values are filled in using information from
-                        resources within the management cluster before deployment (Cluster)
+                        resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                       type: string
                     remoteURL:
                       description: |-
@@ -823,21 +841,34 @@ spec:
                         or a ConfigMap/Secret.
                         When set, Kind/Name/Namespace must be omitted.
                       properties:
+                        insecureSkipTLSVerify:
+                          default: false
+                          description: |-
+                            InsecureSkipTLSVerify controls server certificate verification.
+                            Ignored if the referenced SecretRef provides a "caFile".
+                          type: boolean
                         interval:
                           description: |-
                             Interval defines how often Sveltos re-fetches the source to detect changes.
                             Defaults to 5 minutes.
                           type: string
-                        secretRef:
+                        plainHTTP:
+                          default: false
                           description: |-
-                            SecretRef references a Secret in the management cluster containing optional
-                            credentials for fetching the source. Both Name and Namespace must be set,
-                            allowing the Secret to live in any namespace (e.g. projectsveltos) so that
-                            a single Secret can be shared across clusters without replication.
-                            Supported Secret keys:
-                              "token"              — Bearer token (Authorization: Bearer <token>)
-                              "username"+"password" — HTTP Basic Auth or OCI registry basic auth
-                              "caFile"             — PEM-encoded CA certificate for TLS verification
+                            PlainHTTP indicates to use insecure HTTP connections when URL uses the
+                            "oci://" scheme. Ignored for "http://"/"https://" URLs.
+                          type: boolean
+                        secretRef:
+                          description: "SecretRef references a Secret in the management\
+                            \ cluster containing optional\ncredentials for fetching\
+                            \ the source. Both Name and Namespace must be set,\nallowing\
+                            \ the Secret to live in any namespace (e.g. projectsveltos)\
+                            \ so that\na single Secret can be shared across clusters\
+                            \ without replication.\nSupported Secret keys:\n  \"token\"\
+                            \              \u2014 Bearer token (Authorization: Bearer\
+                            \ <token>)\n  \"username\"+\"password\" \u2014 HTTP Basic\
+                            \ Auth or OCI registry basic auth\n  \"caFile\"      \
+                            \       \u2014 PEM-encoded CA certificate for TLS verification"
                           properties:
                             name:
                               description: name is unique within a namespace to reference
@@ -850,15 +881,16 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         url:
-                          description: |-
-                            URL is the remote source serving the Kustomize directory content.
-                            Sveltos fetches the content on every reconciliation and redeploys if the
-                            content hash has changed.
-                            Supported schemes:
-                              "http://" or "https://" — HTTP/HTTPS endpoint serving a gzipped tarball
-                                                        (.tar.gz) of the Kustomize directory
-                              "oci://"                — OCI registry artifact whose layers are extracted
-                                                        the same way, preserving the directory tree
+                          description: "URL is the remote source serving the Kustomize\
+                            \ directory content.\nSveltos fetches the content on every\
+                            \ reconciliation and redeploys if the\ncontent hash has\
+                            \ changed.\nSupported schemes:\n  \"http://\" or \"https://\"\
+                            \ \u2014 HTTP/HTTPS endpoint serving a gzipped tarball\n\
+                            \                            (.tar.gz) of the Kustomize\
+                            \ directory\n  \"oci://\"                \u2014 OCI registry\
+                            \ artifact whose layers are extracted\n              \
+                            \              the same way, preserving the directory\
+                            \ tree"
                           pattern: ^(https?|oci)://
                           type: string
                       required:
@@ -1125,6 +1157,9 @@ spec:
                         PolicyRef when an update is rejected with an error that only a delete+recreate can
                         resolve (eg an invalid combination of fields, or a field enforced as immutable).
                         By default, such errors are surfaced instead of recreating the resource.
+                        This applies to every resource produced by this PolicyRef. To force just one
+                        resource, regardless of this field's value, annotate that resource with
+                        projectsveltos.io/forceRecreate instead.
                       type: boolean
                     kind:
                       description: |-
@@ -1166,27 +1201,43 @@ spec:
                         Path to the directory containing the YAML files.
                         Defaults to 'None', which translates to the root path of the SourceRef.
                         Used only for GitRepository;OCIRepository;Bucket
+                        This value can be static or leverage Go templates for dynamic customization.
+                        When expressed as a template, it is filled in using information from
+                        resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                       type: string
                     remoteURL:
                       description: |-
                         RemoteURL configures fetching content from an HTTP/HTTPS endpoint or an OCI registry.
                         When set, Kind/Name/Namespace must be omitted.
                       properties:
+                        insecureSkipTLSVerify:
+                          default: false
+                          description: |-
+                            InsecureSkipTLSVerify controls server certificate verification.
+                            Ignored if the referenced SecretRef provides a "caFile".
+                          type: boolean
                         interval:
                           description: |-
                             Interval defines how often Sveltos re-fetches the source to detect changes.
                             Defaults to 5 minutes.
                           type: string
-                        secretRef:
+                        plainHTTP:
+                          default: false
                           description: |-
-                            SecretRef references a Secret in the management cluster containing optional
-                            credentials for fetching the source. Both Name and Namespace must be set,
-                            allowing the Secret to live in any namespace (e.g. projectsveltos) so that
-                            a single Secret can be shared across clusters without replication.
-                            Supported Secret keys:
-                              "token"              — Bearer token (Authorization: Bearer <token>)
-                              "username"+"password" — HTTP Basic Auth or OCI registry basic auth
-                              "caFile"             — PEM-encoded CA certificate for TLS verification
+                            PlainHTTP indicates to use insecure HTTP connections when URL uses the
+                            "oci://" scheme. Ignored for "http://"/"https://" URLs.
+                          type: boolean
+                        secretRef:
+                          description: "SecretRef references a Secret in the management\
+                            \ cluster containing optional\ncredentials for fetching\
+                            \ the source. Both Name and Namespace must be set,\nallowing\
+                            \ the Secret to live in any namespace (e.g. projectsveltos)\
+                            \ so that\na single Secret can be shared across clusters\
+                            \ without replication.\nSupported Secret keys:\n  \"token\"\
+                            \              \u2014 Bearer token (Authorization: Bearer\
+                            \ <token>)\n  \"username\"+\"password\" \u2014 HTTP Basic\
+                            \ Auth or OCI registry basic auth\n  \"caFile\"      \
+                            \       \u2014 PEM-encoded CA certificate for TLS verification"
                           properties:
                             name:
                               description: name is unique within a namespace to reference
@@ -1206,13 +1257,19 @@ spec:
                             on a ConfigMap or Secret.
                           type: boolean
                         url:
-                          description: |-
-                            URL is the remote source serving raw YAML/JSON content.
-                            Sveltos fetches the content on every reconciliation and redeploys if the
-                            content hash has changed.
-                            Supported schemes:
-                              "http://" or "https://" — HTTP/HTTPS endpoint returning raw YAML/JSON
-                              "oci://"                — OCI registry artifact containing YAML manifests
+                          description: "URL is the remote source serving raw YAML/JSON\
+                            \ content.\nSveltos fetches the content on every reconciliation\
+                            \ and redeploys if the\ncontent hash has changed.\nSupported\
+                            \ schemes:\n  \"http://\" or \"https://\" \u2014 HTTP/HTTPS\
+                            \ endpoint returning a raw YAML/JSON\n               \
+                            \             document, a gzip-compressed document, an\n\
+                            \                            uncompressed tar, or a gzip-compressed\
+                            \ tar of\n                            .yaml/.yml/.json\
+                            \ files\n  \"oci://\"                \u2014 OCI registry\
+                            \ artifact whose layers are accepted\n               \
+                            \             in the same shapes: raw YAML/JSON, gzip-compressed\n\
+                            \                            YAML/JSON, uncompressed tar,\
+                            \ or gzip-compressed tar"
                           pattern: ^(https?|oci)://
                           type: string
                       required:
@@ -1301,6 +1358,46 @@ spec:
                         Group of the resource to fetch in the managed Cluster.
                         Required when Kind is set. Leave empty for metric-only checks.
                       type: string
+                    jobCheck:
+                      description: |-
+                        JobCheck runs a Job in the managed cluster and uses its Complete/Failed
+                        outcome as the check result. Mutually exclusive with Script and EvaluateCEL.
+                      properties:
+                        jobRef:
+                          description: |-
+                            JobRef references the Secret/ConfigMap containing the Job manifest to
+                            deploy in the managed Cluster as this check.
+                          properties:
+                            kind:
+                              description: 'Kind of the resource. Supported kinds
+                                are: Secrets and ConfigMaps.'
+                              enum:
+                              - Secret
+                              - ConfigMap
+                              type: string
+                            name:
+                              description: Name of the referenced resource.
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace of the referenced resource.
+                                Namespace can be left empty. In such a case, namespace will
+                                be implicit set to cluster's namespace.
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          - namespace
+                          type: object
+                        timeout:
+                          description: |-
+                            Timeout is how long to wait for the Job to reach Complete or Failed
+                            before treating the check as failed. Defaults to 5 minutes when unset.
+                          type: string
+                      required:
+                      - jobRef
+                      type: object
                     kind:
                       description: |-
                         Kind of the resource to fetch in the managed Cluster.
@@ -1415,6 +1512,9 @@ spec:
                   - featureID
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: jobCheck cannot be set together with script or evaluateCEL
+                    rule: '!has(self.jobCheck) || (!has(self.script) && !has(self.evaluateCEL))'
                 type: array
                 x-kubernetes-list-type: atomic
               preDeleteChecks:
@@ -1471,6 +1571,46 @@ spec:
                         Group of the resource to fetch in the managed Cluster.
                         Required when Kind is set. Leave empty for metric-only checks.
                       type: string
+                    jobCheck:
+                      description: |-
+                        JobCheck runs a Job in the managed cluster and uses its Complete/Failed
+                        outcome as the check result. Mutually exclusive with Script and EvaluateCEL.
+                      properties:
+                        jobRef:
+                          description: |-
+                            JobRef references the Secret/ConfigMap containing the Job manifest to
+                            deploy in the managed Cluster as this check.
+                          properties:
+                            kind:
+                              description: 'Kind of the resource. Supported kinds
+                                are: Secrets and ConfigMaps.'
+                              enum:
+                              - Secret
+                              - ConfigMap
+                              type: string
+                            name:
+                              description: Name of the referenced resource.
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace of the referenced resource.
+                                Namespace can be left empty. In such a case, namespace will
+                                be implicit set to cluster's namespace.
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          - namespace
+                          type: object
+                        timeout:
+                          description: |-
+                            Timeout is how long to wait for the Job to reach Complete or Failed
+                            before treating the check as failed. Defaults to 5 minutes when unset.
+                          type: string
+                      required:
+                      - jobRef
+                      type: object
                     kind:
                       description: |-
                         Kind of the resource to fetch in the managed Cluster.
@@ -1585,6 +1725,9 @@ spec:
                   - featureID
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: jobCheck cannot be set together with script or evaluateCEL
+                    rule: '!has(self.jobCheck) || (!has(self.script) && !has(self.evaluateCEL))'
                 type: array
                 x-kubernetes-list-type: atomic
               preDeployChecks:
@@ -1641,6 +1784,46 @@ spec:
                         Group of the resource to fetch in the managed Cluster.
                         Required when Kind is set. Leave empty for metric-only checks.
                       type: string
+                    jobCheck:
+                      description: |-
+                        JobCheck runs a Job in the managed cluster and uses its Complete/Failed
+                        outcome as the check result. Mutually exclusive with Script and EvaluateCEL.
+                      properties:
+                        jobRef:
+                          description: |-
+                            JobRef references the Secret/ConfigMap containing the Job manifest to
+                            deploy in the managed Cluster as this check.
+                          properties:
+                            kind:
+                              description: 'Kind of the resource. Supported kinds
+                                are: Secrets and ConfigMaps.'
+                              enum:
+                              - Secret
+                              - ConfigMap
+                              type: string
+                            name:
+                              description: Name of the referenced resource.
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace of the referenced resource.
+                                Namespace can be left empty. In such a case, namespace will
+                                be implicit set to cluster's namespace.
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          - namespace
+                          type: object
+                        timeout:
+                          description: |-
+                            Timeout is how long to wait for the Job to reach Complete or Failed
+                            before treating the check as failed. Defaults to 5 minutes when unset.
+                          type: string
+                      required:
+                      - jobRef
+                      type: object
                     kind:
                       description: |-
                         Kind of the resource to fetch in the managed Cluster.
@@ -1755,6 +1938,9 @@ spec:
                   - featureID
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: jobCheck cannot be set together with script or evaluateCEL
+                    rule: '!has(self.jobCheck) || (!has(self.script) && !has(self.evaluateCEL))'
                 type: array
                 x-kubernetes-list-type: atomic
               reloader:
@@ -1967,6 +2153,46 @@ spec:
                         Group of the resource to fetch in the managed Cluster.
                         Required when Kind is set. Leave empty for metric-only checks.
                       type: string
+                    jobCheck:
+                      description: |-
+                        JobCheck runs a Job in the managed cluster and uses its Complete/Failed
+                        outcome as the check result. Mutually exclusive with Script and EvaluateCEL.
+                      properties:
+                        jobRef:
+                          description: |-
+                            JobRef references the Secret/ConfigMap containing the Job manifest to
+                            deploy in the managed Cluster as this check.
+                          properties:
+                            kind:
+                              description: 'Kind of the resource. Supported kinds
+                                are: Secrets and ConfigMaps.'
+                              enum:
+                              - Secret
+                              - ConfigMap
+                              type: string
+                            name:
+                              description: Name of the referenced resource.
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace of the referenced resource.
+                                Namespace can be left empty. In such a case, namespace will
+                                be implicit set to cluster's namespace.
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          - namespace
+                          type: object
+                        timeout:
+                          description: |-
+                            Timeout is how long to wait for the Job to reach Complete or Failed
+                            before treating the check as failed. Defaults to 5 minutes when unset.
+                          type: string
+                      required:
+                      - jobRef
+                      type: object
                     kind:
                       description: |-
                         Kind of the resource to fetch in the managed Cluster.
@@ -2081,6 +2307,9 @@ spec:
                   - featureID
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: jobCheck cannot be set together with script or evaluateCEL
+                    rule: '!has(self.jobCheck) || (!has(self.script) && !has(self.evaluateCEL))'
                 type: array
                 x-kubernetes-list-type: atomic
             type: object
