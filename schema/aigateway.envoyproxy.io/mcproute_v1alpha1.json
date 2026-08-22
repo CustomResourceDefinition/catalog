@@ -244,6 +244,48 @@
             }
           ]
         },
+        "backendSelector": {
+          "description": "BackendSelector restricts which of this route's backends a given request may fan\nout to, evaluated once per candidate backend when a client session is initialized.\nIf unspecified, all backends on the route are considered.",
+          "type": "object",
+          "properties": {
+            "defaultAction": {
+              "description": "DefaultAction is the action to take when no rules match. If unspecified, defaults to Deny.",
+              "type": "string",
+              "default": "Deny",
+              "enum": [
+                "Allow",
+                "Deny"
+              ]
+            },
+            "rules": {
+              "description": "Rules defines a list of backend selection rules.\nThese rules are evaluated in order, the first matching rule will be applied,\nand the rest will be skipped.\n\nIf no rules are defined, DefaultAction is applied to every candidate backend\n(defaults to Deny).",
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "description": "MCPBackendSelectorRule defines a single backend selection rule.",
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "description": "Action is the decision for matching backends. If unspecified, defaults to Allow.",
+                    "type": "string",
+                    "default": "Allow",
+                    "enum": [
+                      "Allow",
+                      "Deny"
+                    ]
+                  },
+                  "cel": {
+                    "description": "CEL specifies a Common Expression Language (CEL) expression, evaluated once for\neach backend already listed in backendRefs. It does not parse a list of backends\nout of the request. Each evaluation binds request.mcp.backend to the name of the\none candidate backend under test, so the expression should answer \"is this backend\nallowed\", not \"which backends should be used\". The expression must return a\nboolean; evaluation errors or non-boolean results are treated as \"no match\". A\nmatch means the rule applies, and Action below decides whether that's an Allow or\na Deny for that backend.\n\nExample CEL expressions:\n\t* `request.mcp.backend in request.auth.jwt.claims.mcp_backends`\n\t* `(\",\" + request.headers[\"x-ai-eg-mcp-backend-subset\"] + \",\").contains(\",\" + request.mcp.backend + \",\")`\n\nAvailable attributes are the same as documented on MCPRouteAuthorizationRule.CEL,\nexcept request.mcp.method, request.mcp.tool, and request.mcp.params are not\npopulated (no MCP method has been selected yet at backend-selection time).\n\nNote: The CEL expression support is experimental, and the attributes\navailable to the expression may change in future releases.",
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "headers": {
           "description": "Headers are HTTP headers that must match for this route to be selected.\nMultiple match values are ANDed together, meaning, a request must match all the specified headers to select the route.",
           "type": "array",
@@ -285,6 +327,18 @@
             "name"
           ],
           "x-kubernetes-list-type": "map"
+        },
+        "hostnames": {
+          "description": "Hostnames is a list of hostnames matched against the HTTP Host header to select this MCPRoute.\nThis is equivalent to the Hostnames field in the Gateway API HTTPRouteSpec. When specified, the\ngenerated HTTPRoute includes these hostnames, so the MCP route lands in the per-host virtual host\ninstead of the wildcard vhost (the same scoping AIGatewayRoute.Hostnames provides).\nSee https://gateway-api.sigs.k8s.io/reference/api-types/httproute/#hostnames\nfor the details of the Hostnames field in the Gateway API.",
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "description": "Hostname is the fully qualified domain name of a network host. This matches\nthe RFC 1123 definition of a hostname with 2 notable exceptions:\n\n 1. IPs are not allowed.\n 2. A hostname may be prefixed with a wildcard label (`*.`). The wildcard\n    label must appear by itself as the first label.\n\nHostname can be \"precise\" which is a domain name without the terminating\ndot of a network host (e.g. \"foo.example.com\") or \"wildcard\", which is a\ndomain name prefixed with a single wildcard label (e.g. `*.example.com`).\n\nNote that as per RFC1035 and RFC1123, a *label* must consist of lower case\nalphanumeric characters or '-', and must start and end with an alphanumeric\ncharacter. No other punctuation is allowed.",
+            "type": "string",
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^(\\*\\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          }
         },
         "parentRefs": {
           "description": "ParentRefs are the names of the Gateway resources this MCPRoute is being attached to.\nCross namespace references are not supported. In other words, the Gateway resources must be in the\nsame namespace as the MCPRoute. Currently, each reference's Kind must be Gateway.",

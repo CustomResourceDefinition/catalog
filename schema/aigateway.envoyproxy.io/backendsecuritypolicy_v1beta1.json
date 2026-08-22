@@ -16,7 +16,7 @@
     "spec": {
       "description": "BackendSecurityPolicySpec specifies authentication rules on access the provider from the Gateway.\nOnly one mechanism to access a backend(s) can be specified.\n\nOnly one type of BackendSecurityPolicy can be defined.",
       "type": "object",
-      "maxProperties": 3,
+      "maxProperties": 4,
       "required": [
         "type"
       ],
@@ -3591,6 +3591,55 @@
               "message": "Exactly one of clientSecretRef or oidcExchangeToken must be specified"
             }
           ]
+        },
+        "credentialOverride": {
+          "description": "CredentialOverride, when set, sources the upstream credential per-request instead of using\nthe static credential configured above.\n\nFor AWSCredentials the credential is the three-part SigV4 input rather than a single string;\nsee the source types for how each carries it.",
+          "type": "object",
+          "maxProperties": 1,
+          "minProperties": 1,
+          "properties": {
+            "fromDynamicMetadata": {
+              "description": "FromDynamicMetadata sources the credential from Envoy dynamic metadata set by a trusted\nfilter (e.g. ext_authz). Metadata cannot be forged by the client and is the preferred source.",
+              "type": "object",
+              "required": [
+                "namespace"
+              ],
+              "properties": {
+                "fallbackToConfigured": {
+                  "description": "FallbackToConfigured controls behaviour when the metadata key is absent.\ntrue (default) falls back to the static credential configured in the policy.\nfalse returns a 401 to the client without forwarding the request.",
+                  "type": "boolean",
+                  "default": true
+                },
+                "key": {
+                  "description": "Key is the metadata key within the namespace. Defaults to the x-aigw-* name for the auth type.\n\nFor every type except AWSCredentials the value must be a string holding the credential.\nFor AWSCredentials it must be a struct, since SigV4 needs three inputs:\n  accessKeyId\n  secretAccessKey\n  sessionToken     (optional; omit for long-lived credentials)\nField names are fixed. accessKeyId without secretAccessKey, or the reverse, fails the\nrequest instead of falling back. Defaults to \"x-aigw-aws-credentials\".",
+                  "type": "string"
+                },
+                "namespace": {
+                  "description": "Namespace is the Envoy metadata namespace written by the trusted filter.\nExample: \"envoy.filters.http.ext_authz\"",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "fromRequestHeaders": {
+              "description": "FromRequestHeaders sources the credential from a request header injected by a trusted\ningress filter. The gateway strips the header before forwarding to the upstream backend.\nBecause any client can set request headers, this source is only safe when a trusted filter\nremoves any client-supplied copy and writes the canonical value.",
+              "type": "object",
+              "properties": {
+                "fallbackToConfigured": {
+                  "description": "FallbackToConfigured controls behaviour when the header is absent.\ntrue (default) falls back to the static credential configured in the policy.\nfalse returns a 401 to the client without forwarding the request.",
+                  "type": "boolean",
+                  "default": true
+                },
+                "header": {
+                  "description": "Header is the name of the request header that carries the credential.\nDefaults to the x-aigw-* header for the configured auth type:\n  APIKey          → x-aigw-api-key\n  AnthropicAPIKey → x-aigw-anthropic-api-key\n  AzureAPIKey     → x-aigw-azure-api-key\n  AzureCredentials → x-aigw-azure-access-token\n  GCPCredentials  → x-aigw-gcp-access-token\n\nFor AWSCredentials this is a prefix, not a single header name, since SigV4 needs three\ninputs. Defaults to \"x-aigw-aws-\", yielding:\n  x-aigw-aws-access-key-id\n  x-aigw-aws-secret-access-key\n  x-aigw-aws-session-token     (optional; omit for long-lived credentials)\nAll three are stripped before the backend sees them. An access key ID without a secret\naccess key, or the reverse, fails the request instead of falling back.\n\nPrefer FromDynamicMetadata for AWSCredentials. Headers are client-settable, and a secret\naccess key on the wire is a worse leak than an API key.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         },
         "gcpCredentials": {
           "description": "GCPCredentials is a mechanism to access a backend(s). GCP specific logic will be applied.",
