@@ -39,7 +39,7 @@
           "additionalProperties": false
         },
         "gatewayRef": {
-          "description": "Reference to the TwingateGateway this Kubernetes or WebApp Resource is served by.",
+          "description": "Reference to the TwingateGateway this Kubernetes or WebApp Resource is served by. For Kubernetes Resources it replaces the deprecated proxy field.",
           "type": "object",
           "required": [
             "name"
@@ -50,9 +50,9 @@
               "type": "string"
             },
             "namespace": {
-              "description": "Namespace of the TwingateGateway object. Defaults to the TwingateResource's own namespace when omitted.",
+              "description": "Namespace of the TwingateGateway object.",
               "type": "string",
-              "nullable": true
+              "default": "default"
             }
           },
           "additionalProperties": false
@@ -184,6 +184,53 @@
           "additionalProperties": false,
           "nullable": true
         },
+        "proxy": {
+          "type": "object",
+          "required": [
+            "address"
+          ],
+          "oneOf": [
+            {
+              "required": [
+                "certificateAuthorityCertSecretRef"
+              ]
+            },
+            {
+              "required": [
+                "certificateAuthorityCert"
+              ]
+            }
+          ],
+          "properties": {
+            "address": {
+              "description": "Address of the proxy.",
+              "type": "string"
+            },
+            "certificateAuthorityCert": {
+              "description": "Base64-encoded certificate of the Certificate Authority issuing the proxy's TLS certificate.",
+              "type": "string"
+            },
+            "certificateAuthorityCertSecretRef": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name of the Secret object containing the certificate of the Certificate Authority issuing the proxy's TLS certificate.",
+                  "type": "string"
+                },
+                "namespace": {
+                  "description": "Namespace of the Secret object.",
+                  "type": "string",
+                  "default": "default"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "remoteNetworkId": {
           "description": "ID of the Twingate Remote Network this Resource belongs to. Overrides the operator-wide default (TWINGATE_REMOTE_NETWORK_ID). Immutable once set.",
           "type": "string",
@@ -265,8 +312,8 @@
           "message": "if isBrowserShortcutEnabled is set to true, then address can't be wildcard"
         },
         {
-          "rule": "(self.type == \"Network\" \u0026\u0026 !has(self.gatewayRef)) || ((self.type == \"Kubernetes\" || self.type == \"WebApp\") \u0026\u0026 has(self.gatewayRef))",
-          "message": "Kubernetes and WebApp Resources require gatewayRef; Network Resources do not allow it"
+          "rule": "(self.type == \"Network\" \u0026\u0026 !has(self.proxy) \u0026\u0026 !has(self.gatewayRef)) || (self.type == \"Kubernetes\" \u0026\u0026 (has(self.proxy) != has(self.gatewayRef))) || (self.type == \"WebApp\" \u0026\u0026 has(self.gatewayRef) \u0026\u0026 !has(self.proxy))",
+          "message": "Kubernetes Resource requires exactly one of proxy (deprecated) or gatewayRef; WebApp Resource requires gatewayRef and no proxy; Network Resource allows neither"
         },
         {
           "rule": "(self.type == \"WebApp\" \u0026\u0026 has(self.downstream) \u0026\u0026 has(self.upstream)) || (self.type != \"WebApp\" \u0026\u0026 !has(self.downstream) \u0026\u0026 !has(self.upstream))",
