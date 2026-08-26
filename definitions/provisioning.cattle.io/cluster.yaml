@@ -30,7 +30,7 @@ spec:
       type: date
     - jsonPath: .status.clientSecretName
       name: Kubeconfig
-      type: date
+      type: string
     - jsonPath: .status.ready
       name: Ready
       type: string
@@ -724,8 +724,8 @@ spec:
                               most preferred is the one with the greatest sum of weights, i.e.
                               for each node that meets all of the scheduling requirements (resource
                               request, requiredDuringScheduling anti-affinity expressions, etc.),
-                              compute a sum by iterating through the elements of this field and adding
-                              "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                              compute a sum by iterating through the elements of this field and subtracting
+                              "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                               node(s) with the highest sum are the most preferred.
                             items:
                               description: The weights of all of the matched WeightedPodAffinityTerm
@@ -1081,7 +1081,7 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-                          This is an alpha field and requires enabling the
+                          This field depends on the
                           DynamicResourceAllocation feature gate.
 
                           This field is immutable. It can only be set for containers.
@@ -1841,8 +1841,8 @@ spec:
                               most preferred is the one with the greatest sum of weights, i.e.
                               for each node that meets all of the scheduling requirements (resource
                               request, requiredDuringScheduling anti-affinity expressions, etc.),
-                              compute a sum by iterating through the elements of this field and adding
-                              "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                              compute a sum by iterating through the elements of this field and subtracting
+                              "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                               node(s) with the highest sum are the most preferred.
                             items:
                               description: The weights of all of the matched WeightedPodAffinityTerm
@@ -2198,7 +2198,7 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-                          This is an alpha field and requires enabling the
+                          This field depends on the
                           DynamicResourceAllocation feature gate.
 
                           This field is immutable. It can only be set for containers.
@@ -2593,6 +2593,20 @@ spec:
                       description: RKEMachinePool is the configuration for a RKE2/K3s
                         machine pool within a provisioning cluster.
                       properties:
+                        autoscalingMaxSize:
+                          description: |-
+                            AutoscalingMaxSize is the autoscaler max node size, this maps
+                            to the autoscaling annotations which are mapped to the CAPI machineDeployment object
+                          format: int32
+                          nullable: true
+                          type: integer
+                        autoscalingMinSize:
+                          description: |-
+                            AutoscalingMinSize is the autoscaler min node size, this maps
+                            to the autoscaling annotations which are mapped to the CAPI machineDeployment object
+                          format: int32
+                          nullable: true
+                          type: integer
                         cloudCredentialSecretName:
                           description: |-
                             CloudCredentialSecretName is the id of the secret used to provision
@@ -2846,9 +2860,8 @@ spec:
                                   to a node.
                                 type: string
                               timeAdded:
-                                description: |-
-                                  TimeAdded represents the time at which the taint was added.
-                                  It is only written for NoExecute taints.
+                                description: TimeAdded represents the time at which
+                                  the taint was added.
                                 format: date-time
                                 type: string
                               value:
@@ -2883,6 +2896,24 @@ spec:
                       - machineConfigRef
                       - name
                       type: object
+                      x-kubernetes-validations:
+                      - message: AutoscalingMinSize must be greater than 0 when ControlPlaneRole
+                          is true
+                        rule: '!has(self.controlPlaneRole) || !self.controlPlaneRole
+                          || !has(self.autoscalingMinSize) || self.autoscalingMinSize
+                          > 0'
+                      - message: AutoscalingMinSize must be greater than 0 when EtcdRole
+                          is true
+                        rule: '!has(self.etcdRole) || !self.etcdRole || !has(self.autoscalingMinSize)
+                          || self.autoscalingMinSize > 0'
+                      - message: AutoscalingMinSize must be less than or equal to
+                          AutoscalingMaxSize when both are non-nil
+                        rule: '!has(self.autoscalingMaxSize) || !has(self.autoscalingMinSize)
+                          || self.autoscalingMinSize <= self.autoscalingMaxSize'
+                      - message: AutoscalingMinSize and AutoscalingMaxSize must both
+                          be set if enabling cluster-autoscaling
+                        rule: (has(self.autoscalingMinSize) && has(self.autoscalingMaxSize))
+                          || (!has(self.autoscalingMinSize) && !has(self.autoscalingMaxSize))
                     maxItems: 1000
                     nullable: true
                     type: array
