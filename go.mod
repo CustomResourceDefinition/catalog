@@ -9,7 +9,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.21.4
 	k8s.io/apiextensions-apiserver v0.36.3
-	k8s.io/apimachinery v0.36.3
+	k8s.io/apimachinery v0.36.4
 	sigs.k8s.io/controller-tools v0.21.0
 	sigs.k8s.io/kustomize/api v0.21.1
 	sigs.k8s.io/kustomize/kyaml v0.21.1
@@ -98,7 +98,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.36.3 // indirect
+	k8s.io/api v0.36.4 // indirect
 	k8s.io/cli-runtime v0.36.3 // indirect
 	k8s.io/client-go v0.36.3 // indirect
 	k8s.io/component-base v0.36.3 // indirect
