@@ -1,0 +1,90 @@
+{
+  "description": "Silence is the Schema for the silences API.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "SilenceSpec defines the desired state of Silence.",
+      "type": "object",
+      "required": [
+        "matchers"
+      ],
+      "properties": {
+        "duration": {
+          "description": "Duration defines how long the silence is active from StartsAt (or creation time when StartsAt is unset).\nIgnored when EndsAt is set. Takes precedence over the valid-until annotation.\nSupports weeks (w), days (d), hours (h), minutes (m), and seconds (s): \"7d\", \"2w\", \"1d12h\", \"30m\".",
+          "type": "string",
+          "pattern": "^(\\d+w(\\d+d)?(\\d+h)?(\\d+m)?(\\d+s)?|\\d+d(\\d+h)?(\\d+m)?(\\d+s)?|\\d+h(\\d+m)?(\\d+s)?|\\d+m(\\d+s)?|\\d+s)$"
+        },
+        "endsAt": {
+          "description": "EndsAt defines when the silence expires. Takes precedence over Duration and the valid-until annotation.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "matchers": {
+          "description": "Matchers defines the alert matchers that this silence will apply to.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "description": "SilenceMatcher defines an alert matcher to be muted by the Silence.",
+            "type": "object",
+            "required": [
+              "name",
+              "value"
+            ],
+            "properties": {
+              "matchType": {
+                "description": "MatchType defines the type of matching to perform.",
+                "type": "string",
+                "default": "=",
+                "enum": [
+                  "=",
+                  "!=",
+                  "=~",
+                  "!~"
+                ]
+              },
+              "name": {
+                "description": "Name of the label to match.",
+                "type": "string",
+                "maxLength": 256,
+                "minLength": 1
+              },
+              "value": {
+                "description": "Value to match for the given label name.",
+                "type": "string",
+                "maxLength": 1024
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "startsAt": {
+          "description": "StartsAt defines when the silence becomes active. Defaults to the object's creation timestamp.",
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "!(has(self.spec.endsAt) \u0026\u0026 has(self.spec.duration))",
+      "message": "endsAt and duration are mutually exclusive"
+    },
+    {
+      "rule": "!has(self.spec.startsAt) || !has(self.spec.endsAt) || timestamp(self.spec.startsAt) \u003c timestamp(self.spec.endsAt)",
+      "message": "startsAt must be before endsAt"
+    }
+  ]
+}

@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.50% | 3977 | 11719 | 87 |
+| 99.60% | 3977 | 11729 | 91 |
 
 ### Missing Schemas
 
@@ -39,13 +39,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | applicationnetworkpolicy | v1alpha1 |
 | clusternetworkpolicy | v1alpha1 |
 | clusterpolicyendpoint | v1alpha1 |
-
-| platform.confluent.io | |
-| --- | --- |
-| flinkbluegreendeployment | v1beta1 |
-| flinkdeployment | v1beta1 |
-| flinksessionjob | v1beta1 |
-| flinkstatesnapshot | v1beta1 |
 
 | secret-sync.gke.io | |
 | --- | --- |
@@ -135,6 +128,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | openebs.io | diskpool | v1beta2 |
 | pg.percona.com | perconapgcluster | v1 |
 | pg.percona.com | postgrescluster | v1beta1 |
+| platform.confluent.io | flinkbluegreendeployment | v1beta1 |
+| platform.confluent.io | flinkdeployment | v1beta1 |
+| platform.confluent.io | flinksessionjob | v1beta1 |
+| platform.confluent.io | flinkstatesnapshot | v1beta1 |
 | policies.kyverno.io | policyexception | v2 |
 | policies.kyverno.io | policyexception | v2beta1 |
 | policy.linkerd.io | httproute | v1 |
