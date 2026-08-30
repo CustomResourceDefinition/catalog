@@ -9,13 +9,21 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.60% | 3977 | 11729 | 91 |
+| 99.52% | 3990 | 11730 | 91 |
 
 ### Missing Schemas
+
+| agentgateway.dev | |
+| --- | --- |
+| agentgatewaymodel | v1alpha1 |
 
 | compute.coreweave.com | |
 | --- | --- |
 | nodepool | v1alpha1 |
+
+| datadoghq.com | |
+| --- | --- |
+| datadoginstrumentation | v1alpha1 |
 
 | eks.amazonaws.com | |
 | --- | --- |
@@ -39,6 +47,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | applicationnetworkpolicy | v1alpha1 |
 | clusternetworkpolicy | v1alpha1 |
 | clusterpolicyendpoint | v1alpha1 |
+
+| orgpolicy.cnrm.cloud.google.com | |
+| --- | --- |
+| orgpolicypolicy | v1beta1 |
 
 | secret-sync.gke.io | |
 | --- | --- |
