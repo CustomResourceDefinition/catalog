@@ -3,20 +3,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: loggroups.cloudwatchlogs.services.k8s.aws
+  name: resourcepolicies.cloudwatchlogs.services.k8s.aws
 spec:
   group: cloudwatchlogs.services.k8s.aws
   names:
-    kind: LogGroup
-    listKind: LogGroupList
-    plural: loggroups
-    singular: loggroup
+    kind: ResourcePolicy
+    listKind: ResourcePolicyList
+    plural: resourcepolicies
+    singular: resourcepolicy
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: LogGroup is the Schema for the LogGroups API
+        description: ResourcePolicy is the Schema for the ResourcePolicies API
         properties:
           apiVersion:
             description: |-
@@ -37,80 +37,53 @@ spec:
             type: object
           spec:
             description: |-
-              LogGroupSpec defines the desired state of LogGroup.
+              ResourcePolicySpec defines the desired state of ResourcePolicy.
 
-              Represents a log group.
+              A policy enabling one or more entities to put logs to a log group in this
+              account.
             properties:
-              kmsKeyID:
+              policyDocument:
                 description: |-
-                  The Amazon Resource Name (ARN) of the KMS key to use when encrypting log
-                  data. For more information, see Amazon Resource Names (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#arn-syntax-kms).
-                type: string
-              kmsKeyRef:
-                description: "AWSResourceReferenceWrapper provides a wrapper around
-                  *AWSResourceReference\ntype to provide more user friendly syntax
-                  for references using 'from' field\nEx:\nAPIIDRef:\n\n\tfrom:\n\t
-                  \ name: my-api"
-                properties:
-                  from:
-                    description: |-
-                      AWSResourceReference provides all the values necessary to reference another
-                      k8s resource for finding the identifier(Id/ARN/Name)
-                    properties:
-                      name:
-                        type: string
-                      namespace:
-                        type: string
-                    type: object
-                type: object
-              name:
-                type: string
-              retentionDays:
-                format: int64
-                type: integer
-              subscriptionFilters:
-                items:
-                  properties:
-                    destinationARN:
-                      type: string
-                    distribution:
-                      description: |-
-                        The method used to distribute log data to the destination, which can be either
-                        random or grouped by log stream.
-                      type: string
-                    filterName:
-                      type: string
-                    filterPattern:
-                      description: |-
-                        A symbolic description of how CloudWatch Logs should interpret the data in
-                        each log event. For example, a log event can contain timestamps, IP addresses,
-                        strings, and so on. You use the filter pattern to specify what to look for
-                        in the log event message.
-                      type: string
-                    roleARN:
-                      type: string
-                  type: object
-                type: array
-              tags:
-                additionalProperties:
-                  type: string
-                description: |-
-                  The key-value pairs to use for the tags.
+                  Details of the new policy, including the identity of the principal that is
+                  enabled to put logs to this account. This is formatted as a JSON string.
+                  This parameter is required.
 
-                  You can grant users access to certain log groups while preventing them from
-                  accessing other log groups. To do so, tag your groups and use IAM policies
-                  that refer to those tags. To assign tags when you create a log group, you
-                  must have either the logs:TagResource or logs:TagLogGroup permission. For
-                  more information about tagging, see Tagging Amazon Web Services resources
-                  (https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html). For more
-                  information about using tags to control access, see Controlling access to
-                  Amazon Web Services resources using tags (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_tags.html).
-                type: object
-            required:
-            - name
+                  The following example creates a resource policy enabling the Route 53 service
+                  to put DNS query logs in to the specified log group. Replace "logArn" with
+                  the ARN of your CloudWatch Logs resource, such as a log group or log stream.
+
+                  CloudWatch Logs also supports aws:SourceArn (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-sourcearn)
+                  and aws:SourceAccount (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-sourceaccount)
+                  condition context keys.
+
+                  In the example resource policy, you would replace the value of SourceArn
+                  with the resource making the call from Route 53 to CloudWatch Logs. You would
+                  also replace the value of SourceAccount with the Amazon Web Services account
+                  ID making that call.
+
+                  { "Version": "2012-10-17", "Statement": [ { "Sid": "Route53LogsToCloudWatchLogs",
+                  "Effect": "Allow", "Principal": { "Service": [ "route53.amazonaws.com" ]
+                  }, "Action": "logs:PutLogEvents", "Resource": "logArn", "Condition": { "ArnLike":
+                  { "aws:SourceArn": "myRoute53ResourceArn" }, "StringEquals": { "aws:SourceAccount":
+                  "myAwsAccountId" } } } ] }
+                type: string
+              policyName:
+                description: Name of the new policy. This parameter is required.
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable once set
+                  rule: self == oldSelf
+              resourceARN:
+                description: |-
+                  The ARN of the CloudWatch Logs resource to which the resource policy needs
+                  to be added or attached. Currently only supports LogGroup ARN.
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable once set
+                  rule: self == oldSelf
             type: object
           status:
-            description: LogGroupStatus defines the observed state of LogGroup
+            description: ResourcePolicyStatus defines the observed state of ResourcePolicy
             properties:
               ackResourceMetadata:
                 description: |-
@@ -180,31 +153,25 @@ spec:
                   - type
                   type: object
                 type: array
-              creationTime:
+              lastUpdatedTime:
                 description: |-
-                  The creation time of the log group, expressed as the number of milliseconds
-                  after Jan 1, 1970 00:00:00 UTC.
+                  Timestamp showing when this policy was last updated, expressed as the number
+                  of milliseconds after Jan 1, 1970 00:00:00 UTC.
                 format: int64
                 type: integer
-              dataProtectionStatus:
-                description: |-
-                  Displays whether this log group has a protection policy, or whether it had
-                  one in the past. For more information, see PutDataProtectionPolicy (https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutDataProtectionPolicy.html).
+              policyScope:
+                description: Specifies scope of the resource policy. Valid values
+                  are ACCOUNT or RESOURCE.
                 type: string
-              metricFilterCount:
-                description: The number of metric filters.
-                format: int64
-                type: integer
-              retentionInDays:
-                format: int64
-                type: integer
-              storedBytes:
-                description: The number of bytes stored.
-                format: int64
-                type: integer
+              revisionID:
+                description: |-
+                  The revision ID of the resource policy. Only populated for resource-scoped
+                  policies.
+                type: string
             type: object
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+

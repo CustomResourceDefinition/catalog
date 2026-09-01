@@ -913,7 +913,7 @@
                           ]
                         },
                         "failureDomains": {
-                          "description": "failureDomains contains the definition of region, zone and the vCenter topology.\nIf this is omitted failure domains (regions and zones) will not be used.\nEach failure domain's server must match the server field of an entry in the vcenters list.",
+                          "description": "failureDomains contains the definition of region, zone and the vCenter topology.\nIf this is omitted failure domains (regions and zones) will not be used.",
                           "type": "array",
                           "items": {
                             "description": "VSpherePlatformFailureDomainSpec holds the region and zone failure domain and the vCenter topology of that failure domain.",
@@ -957,7 +957,7 @@
                                 "additionalProperties": false
                               },
                               "server": {
-                                "description": "server is the fully-qualified domain name or the IP address of the vCenter server.\nThis must match the server field of an entry in the vcenters list.\nThe match is case-sensitive; the value must be specified exactly as it appears in the vcenters entry.\nThe value must be between 1 and 255 characters long.",
+                                "description": "server is the fully-qualified domain name or the IP address of the vCenter server.",
                                 "type": "string",
                                 "maxLength": 255,
                                 "minLength": 1
@@ -1208,10 +1208,10 @@
                           "additionalProperties": false
                         },
                         "vcenters": {
-                          "description": "vcenters holds the connection details for services to communicate with vCenter.\nUp to 3 vCenters are supported.\nOnce the cluster has been installed, you are unable to change the current number of defined\nvCenters except when 1.) the cluster has been upgraded from a version of OpenShift\nwhere the vsphere platform spec was not present or 2.) in TechPreview you are able to add and\nremove vCenters but may not remove all vCenters.  You may make modifications to the existing\nvCenters that are defined in the vcenters list in order to match with any added or modified\nfailure domains.",
+                          "description": "vcenters holds the connection details for services to communicate with vCenter.\nCurrently, only a single vCenter is supported, but in tech preview 3 vCenters are supported.\nOnce the cluster has been installed, you are unable to change the current number of defined\nvCenters except in the case where the cluster has been upgraded from a version of OpenShift\nwhere the vsphere platform spec was not present.  You may make modifications to the existing\nvCenters that are defined in the vcenters list in order to match with any added or modified\nfailure domains.",
                           "type": "array",
                           "maxItems": 3,
-                          "minItems": 1,
+                          "minItems": 0,
                           "items": {
                             "description": "VSpherePlatformVCenterSpec stores the vCenter connection fields.\nThis is used by the vSphere CCM.",
                             "type": "object",
@@ -1247,16 +1247,8 @@
                           "x-kubernetes-list-type": "atomic",
                           "x-kubernetes-validations": [
                             {
-                              "rule": "size(self) \u003e= size(oldSelf) ? oldSelf.all(x, self.exists(y, y.server == x.server)) : true",
-                              "message": "Cannot add and remove vCenters at the same time"
-                            },
-                            {
-                              "rule": "size(self) \u003c size(oldSelf) ? self.all(x, oldSelf.exists(y, y.server == x.server)) : true",
-                              "message": "Cannot add and remove vCenters at the same time"
-                            },
-                            {
-                              "rule": "self.all(x, self.exists_one(y, y.server == x.server))",
-                              "message": "vcenters must have unique server values"
+                              "rule": "size(self) != size(oldSelf) ? size(oldSelf) == 0 \u0026\u0026 size(self) \u003c 2 : true",
+                              "message": "vcenters cannot be added or removed once set"
                             }
                           ]
                         }
@@ -1264,16 +1256,16 @@
                       "additionalProperties": false,
                       "x-kubernetes-validations": [
                         {
-                          "rule": "!has(self.failureDomains) || size(self.failureDomains) == 0 || (has(self.vcenters) \u0026\u0026 self.failureDomains.all(fd, self.vcenters.exists(vc, vc.server == fd.server)))",
-                          "message": "all failure domains must have a corresponding vCenter entry"
-                        },
-                        {
                           "rule": "!has(oldSelf.apiServerInternalIPs) || has(self.apiServerInternalIPs)",
                           "message": "apiServerInternalIPs list is required once set"
                         },
                         {
                           "rule": "!has(oldSelf.ingressIPs) || has(self.ingressIPs)",
                           "message": "ingressIPs list is required once set"
+                        },
+                        {
+                          "rule": "!has(oldSelf.vcenters) \u0026\u0026 has(self.vcenters) ? size(self.vcenters) \u003c 2 : true",
+                          "message": "vcenters can have at most 1 item when configured post-install"
                         }
                       ]
                     }
@@ -1281,8 +1273,8 @@
                   "additionalProperties": false,
                   "x-kubernetes-validations": [
                     {
-                      "rule": "oldSelf.?vsphere.vcenters.hasValue() ? self.?vsphere.vcenters.hasValue() : true",
-                      "message": "vcenters is required once set and cannot be removed"
+                      "rule": "!has(oldSelf.vsphere) \u0026\u0026 has(self.vsphere) ? size(self.vsphere.vcenters) \u003c 2 : true",
+                      "message": "vcenters can have at most 1 item when configured post-install"
                     }
                   ]
                 }
@@ -1519,7 +1511,7 @@
                           ]
                         },
                         "ipFamily": {
-                          "description": "ipFamily specifies the IP protocol family that should be used for AWS\nnetwork resources. This controls whether AWS resources are created with\nIPv4-only, or dual-stack networking with IPv4 or IPv6 as the primary\nprotocol family.\n\nValid values are:\n* \"IPv4\" (default): Cloud platform resources use IPv4 addressing only.\n* \"DualStackIPv6Primary\": Cloud platform resources use dual-stack networking with IPv6 as the primary protocol family.\n* \"DualStackIPv4Primary\": Cloud platform resources use dual-stack networking with IPv4 as the primary protocol family.\n\nWhen omitted, this field defaults to \"IPv4\".\n\nThis field is immutable and cannot be changed once set.",
+                          "description": "ipFamily specifies the IP protocol family that should be used for AWS\nnetwork resources. This controls whether AWS resources are created with\nIPv4-only, or dual-stack networking with IPv4 or IPv6 as the primary\nprotocol family.",
                           "type": "string",
                           "default": "IPv4",
                           "enum": [
@@ -2157,18 +2149,6 @@
                             {
                               "rule": "self.all(x, x in oldSelf) \u0026\u0026 oldSelf.all(x, x in self)",
                               "message": "resourceTags are immutable and may only be configured during installation"
-                            }
-                          ]
-                        },
-                        "universeDomain": {
-                          "description": "universeDomain is the GCP universe domain for the cluster, detected from\nthe installer credentials. Components with their own GCP credentials should\nread the universe domain from those credentials, as they are the authoritative\nsource. This field is provided for components that do not have GCP credentials\nand for general observability.\n\nWhen omitted, standard public GCP (googleapis.com) is assumed.\n\nuniverseDomain is an optional field that, when specified, must be non-empty and at most\n253 characters. It must be a valid DNS subdomain: containing only lowercase alphanumeric\ncharacters, '-' or '.', and starting and ending with an alphanumeric character.",
-                          "type": "string",
-                          "maxLength": 253,
-                          "minLength": 1,
-                          "x-kubernetes-validations": [
-                            {
-                              "rule": "!format.dns1123Subdomain().validate(self).hasValue()",
-                              "message": "universeDomain must be a valid DNS subdomain: contain no more than 253 characters, contain only lowercase alphanumeric characters, '-' or '.', and start and end with an alphanumeric character"
                             }
                           ]
                         }
