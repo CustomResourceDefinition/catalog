@@ -133,8 +133,45 @@
                       "description": "ImageName is the full identifier of the image to be tracked,\nincluding the registry (if not Docker Hub), the image name, and an initial/current tag or version.\nThis is the string used to query the container registry and also as a base for finding updates.\nExample: \"docker.io/library/nginx:1.17.10\", \"quay.io/prometheus/node-exporter:v1.5.0\".\nThis field is mandatory.",
                       "type": "string"
                     },
+                    "imagesVerification": {
+                      "description": "ImagesVerification overrides the signature verification policy for this specific image.\nWhen set, it takes precedence over both the spec-level and ApplicationRef-level\nImagesVerification.",
+                      "type": "object",
+                      "properties": {
+                        "cosignKey": {
+                          "description": "CosignKey references a Kubernetes Secret in the same namespace as the\nImageUpdater CR that holds the PEM-encoded ECDSA public key used to verify\ncosign signatures. Providing this field selects cosign key-based verification.",
+                          "type": "object",
+                          "required": [
+                            "key",
+                            "secretName"
+                          ],
+                          "properties": {
+                            "key": {
+                              "description": "Key is the key within the Secret's data map whose value contains the credential material\n(e.g. \"cosign.pub\" for a PEM-encoded public key).",
+                              "type": "string"
+                            },
+                            "secretName": {
+                              "description": "SecretName is the name of the Kubernetes Secret.",
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "enabled": {
+                          "description": "Enabled controls whether signature verification is active at this scope.\nDefaults to true when the ImagesVerification block is present.\nSet to false to explicitly opt out of verification for this image or group.",
+                          "type": "boolean",
+                          "default": true
+                        }
+                      },
+                      "additionalProperties": false,
+                      "x-kubernetes-validations": [
+                        {
+                          "rule": "self.enabled == false || has(self.cosignKey)",
+                          "message": "at least one verification method (cosignKey) is required when verification is enabled"
+                        }
+                      ]
+                    },
                     "manifestTargets": {
-                      "description": "ManifestTarget defines how and where to update this image in Kubernetes manifests.\nOnly one of Helm or Kustomize should be specified within this block.\nThis whole block is optional if the image update isn't written to a manifest in a structured way.",
+                      "description": "ManifestTarget defines how and where to update this image in Kubernetes manifests.\nExactly one of Helm, Kustomize, or Plugin should be specified within this block.\nThis whole block is optional if the image update isn't written to a manifest in a structured way.",
                       "type": "object",
                       "properties": {
                         "helm": {
@@ -169,13 +206,44 @@
                             }
                           },
                           "additionalProperties": false
+                        },
+                        "plugin": {
+                          "description": "Plugin specifies update parameters if the target manifest is managed by a Config Management Plugin.\nWhen the argocd write-back method is configured, updates will be written as environment variables\nin the Argo CD Application spec.source.plugin.env list. When the git write-back method is\nconfigured, updates will be written to the .argocd-source-\u003cappName\u003e.yaml file in the git repository.",
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "description": "Name is the environment variable name for the image repository/name part.\nExample: \"IMAGE_NAME\", \"REDIS_IMAGE_REPO\".\nIf Spec is set, this field is ignored.",
+                              "type": "string",
+                              "maxLength": 253,
+                              "minLength": 1
+                            },
+                            "spec": {
+                              "description": "Spec is the environment variable name where the full image string\n(e.g., \"image/name:1.0\") should be written.\nUse this if your plugin expects the entire image reference in a single env var.\nIf this is set, Name and Tag will be ignored.",
+                              "type": "string",
+                              "maxLength": 253,
+                              "minLength": 1
+                            },
+                            "tag": {
+                              "description": "Tag is the environment variable name for the image tag part.\nExample: \"IMAGE_TAG\", \"REDIS_IMAGE_VERSION\".\nIf Spec is set, this field is ignored.",
+                              "type": "string",
+                              "maxLength": 253,
+                              "minLength": 1
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-validations": [
+                            {
+                              "rule": "has(self.spec) || has(self.name)",
+                              "message": "At least one of spec or name must be specified in plugin target."
+                            }
+                          ]
                         }
                       },
                       "additionalProperties": false,
                       "x-kubernetes-validations": [
                         {
-                          "rule": "has(self.helm) ? !has(self.kustomize) : has(self.kustomize)",
-                          "message": "Exactly one of helm or kustomize must be specified within manifestTargets if the block is present."
+                          "rule": "(has(self.helm) ? 1 : 0) + (has(self.kustomize) ? 1 : 0) + (has(self.plugin) ? 1 : 0) == 1",
+                          "message": "Exactly one of helm, kustomize, or plugin must be specified within manifestTargets if the block is present."
                         }
                       ]
                     }
@@ -186,6 +254,43 @@
                   "alias"
                 ],
                 "x-kubernetes-list-type": "map"
+              },
+              "imagesVerification": {
+                "description": "ImagesVerification overrides the global signature verification policy for applications\nmatched by this ApplicationRef. When set, it takes precedence over the spec-level\nImagesVerification for all images in this group, but can still be overridden\nat the individual ImageConfig level.",
+                "type": "object",
+                "properties": {
+                  "cosignKey": {
+                    "description": "CosignKey references a Kubernetes Secret in the same namespace as the\nImageUpdater CR that holds the PEM-encoded ECDSA public key used to verify\ncosign signatures. Providing this field selects cosign key-based verification.",
+                    "type": "object",
+                    "required": [
+                      "key",
+                      "secretName"
+                    ],
+                    "properties": {
+                      "key": {
+                        "description": "Key is the key within the Secret's data map whose value contains the credential material\n(e.g. \"cosign.pub\" for a PEM-encoded public key).",
+                        "type": "string"
+                      },
+                      "secretName": {
+                        "description": "SecretName is the name of the Kubernetes Secret.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "enabled": {
+                    "description": "Enabled controls whether signature verification is active at this scope.\nDefaults to true when the ImagesVerification block is present.\nSet to false to explicitly opt out of verification for this image or group.",
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "self.enabled == false || has(self.cosignKey)",
+                    "message": "at least one verification method (cosignKey) is required when verification is enabled"
+                  }
+                ]
               },
               "labelSelectors": {
                 "description": "LabelSelectors indicates the label selectors to apply for application selection",
@@ -246,9 +351,6 @@
               "writeBackConfig": {
                 "description": "WriteBackConfig overrides the global WriteBackConfig settings for applications\nmatched by this selector.\nThis field is ignored when UseAnnotations is true.",
                 "type": "object",
-                "required": [
-                  "method"
-                ],
                 "properties": {
                   "gitConfig": {
                     "description": "GitConfig provides Git configuration settings if the write-back method involves Git.\nThis can only be used when method is \"git\" or starts with \"git:\".",
@@ -293,7 +395,6 @@
                   "method": {
                     "description": "Method defines the method for writing back updated image versions.\nThis acts as the default if not overridden. If not specified, defaults to \"argocd\".",
                     "type": "string",
-                    "default": "argocd",
                     "pattern": "^(argocd|git|git:[a-zA-Z0-9][a-zA-Z0-9-._/:]*)$"
                   }
                 },
@@ -354,12 +455,46 @@
           },
           "additionalProperties": false
         },
+        "imagesVerification": {
+          "description": "ImagesVerification defines the global default image signature verification policy.\nWhen set, every image update is subject to cryptographic verification before being\ncommitted to Git or applied to an Argo CD Application.\nCan be overridden at the ApplicationRef or ImageConfig level.",
+          "type": "object",
+          "properties": {
+            "cosignKey": {
+              "description": "CosignKey references a Kubernetes Secret in the same namespace as the\nImageUpdater CR that holds the PEM-encoded ECDSA public key used to verify\ncosign signatures. Providing this field selects cosign key-based verification.",
+              "type": "object",
+              "required": [
+                "key",
+                "secretName"
+              ],
+              "properties": {
+                "key": {
+                  "description": "Key is the key within the Secret's data map whose value contains the credential material\n(e.g. \"cosign.pub\" for a PEM-encoded public key).",
+                  "type": "string"
+                },
+                "secretName": {
+                  "description": "SecretName is the name of the Kubernetes Secret.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "enabled": {
+              "description": "Enabled controls whether signature verification is active at this scope.\nDefaults to true when the ImagesVerification block is present.\nSet to false to explicitly opt out of verification for this image or group.",
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.enabled == false || has(self.cosignKey)",
+              "message": "at least one verification method (cosignKey) is required when verification is enabled"
+            }
+          ]
+        },
         "writeBackConfig": {
           "description": "WriteBackConfig provides global default settings for how and where to write back image updates.\nThis can be overridden at the ApplicationRef level.",
           "type": "object",
-          "required": [
-            "method"
-          ],
           "properties": {
             "gitConfig": {
               "description": "GitConfig provides Git configuration settings if the write-back method involves Git.\nThis can only be used when method is \"git\" or starts with \"git:\".",
@@ -404,7 +539,6 @@
             "method": {
               "description": "Method defines the method for writing back updated image versions.\nThis acts as the default if not overridden. If not specified, defaults to \"argocd\".",
               "type": "string",
-              "default": "argocd",
               "pattern": "^(argocd|git|git:[a-zA-Z0-9][a-zA-Z0-9-._/:]*)$"
             }
           },
