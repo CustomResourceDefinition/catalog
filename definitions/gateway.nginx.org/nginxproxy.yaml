@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: nginxproxies.gateway.nginx.org
 spec:
   group: gateway.nginx.org
@@ -51,6 +51,156 @@ spec:
           spec:
             description: Spec defines the desired state of the NginxProxy.
             properties:
+              compression:
+                description: |-
+                  Compression defines the configuration for HTTP response compression.
+                  When set, NGINX compresses responses for clients that support it,
+                  reducing bandwidth usage.
+                properties:
+                  buffers:
+                    description: |-
+                      Buffers sets the number and size of buffers used to compress a response.
+
+                      NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_buffers
+                    properties:
+                      number:
+                        description: Number sets the number of buffers.
+                        format: int32
+                        maximum: 256
+                        minimum: 1
+                        type: integer
+                      size:
+                        description: Size sets the size of each buffer.
+                        pattern: ^\d{1,4}(k|m|g)?$
+                        type: string
+                    required:
+                    - number
+                    - size
+                    type: object
+                  gzip:
+                    description: Gzip defines gzip module-specific compression settings.
+                    properties:
+                      disable:
+                        description: |-
+                          Disable specifies regular expressions to match User-Agent headers of requests
+                          that should not be gzip-compressed.
+
+                          NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_disable
+                        items:
+                          type: string
+                        maxItems: 16
+                        minItems: 1
+                        type: array
+                      httpVersion:
+                        description: |-
+                          HTTPVersion sets the minimum HTTP version of a request required to compress a response.
+
+                          NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_http_version
+                        enum:
+                        - "1.0"
+                        - "1.1"
+                        type: string
+                      proxied:
+                        description: |-
+                          Proxied enables or disables gzip compression for proxied requests depending on the request and response.
+                          Accepted values are: "off", "expired", "no-cache", "no-store", "private", "no_last_modified",
+                          "no_etag", "auth", "any".
+                          Multiple values can be specified.
+
+                          NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_proxied
+                        items:
+                          description: GzipProxiedType defines the conditions under
+                            which responses from proxied requests are compressed.
+                          enum:
+                          - "off"
+                          - expired
+                          - no-cache
+                          - no-store
+                          - private
+                          - no_last_modified
+                          - no_etag
+                          - auth
+                          - any
+                          type: string
+                        maxItems: 9
+                        minItems: 1
+                        type: array
+                      vary:
+                        description: |-
+                          Vary enables or disables inserting the "Vary: Accept-Encoding" response header
+                          when gzip compression is active.
+
+                          NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_vary
+                        type: boolean
+                    type: object
+                  level:
+                    description: |-
+                      Level sets the compression level.
+                      Higher values provide better compression but use more CPU.
+
+                      NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_comp_level
+                    format: int32
+                    maximum: 9
+                    minimum: 1
+                    type: integer
+                  mimeTypes:
+                    description: |-
+                      MimeTypes specifies the MIME types to compress in addition to "text/html".
+                      "text/html" is always compressed when compression is enabled.
+                      Wildcards like "text/*" are not supported by NGINX.
+                      Example: ["application/json", "text/css", "application/javascript"]
+
+                      NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_types
+                    items:
+                      type: string
+                    maxItems: 32
+                    minItems: 1
+                    type: array
+                  minLength:
+                    description: |-
+                      MinLength sets the minimum length of a response that will be compressed.
+                      The length is determined from the "Content-Length" response header field.
+
+                      NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_min_length
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  type:
+                    description: |-
+                      Type specifies the compression algorithm to use.
+                      Currently only gzip is supported.
+                    enum:
+                    - gzip
+                    type: string
+                required:
+                - type
+                type: object
+                x-kubernetes-validations:
+                - message: type 'gzip' requires spec.compression.gzip to be set
+                  rule: '!(self.type == ''gzip'' && !has(self.gzip))'
+              disableBaseHeaders:
+                description: |-
+                  DisableBaseHeaders specifies which default X-* base headers should be omitted
+                  from being added to the base proxy_set_header directives in the NGINX configuration.
+                  This allows users to set these headers themselves without NGF overriding them.
+
+                  Supported values are limited to X-* base headers and "*".
+                  A value of "*" disables all X-* base headers.
+                items:
+                  description: |-
+                    BaseHeaderName is the name of a base X-* header that can be disabled
+                    from being added to the base proxy_set_header directives in the NGINX configuration.
+                  enum:
+                  - '*'
+                  - X-Forwarded-For
+                  - X-Forwarded-Proto
+                  - X-Forwarded-Host
+                  - X-Forwarded-Port
+                  - X-Real-IP
+                  type: string
+                maxItems: 6
+                type: array
+                x-kubernetes-list-type: set
               disableHTTP2:
                 description: |-
                   DisableHTTP2 defines if http2 should be disabled for all servers.
@@ -117,10 +267,10 @@ spec:
                 - addresses
                 type: object
               ipFamily:
-                default: dual
                 description: |-
                   IPFamily specifies the IP family to be used by the NGINX.
-                  Default is "dual", meaning the server will use both IPv4 and IPv6.
+                  If not set, NGF inspects the `default/kubernetes` Service's `ipFamilies` field at startup
+                  to obtain the IP family of the cluster and configure NGINX accordingly.
                 enum:
                 - dual
                 - ipv4
@@ -259,6 +409,11 @@ spec:
                                           Number must be in the range 1 to 65535.
                                           Name must be an IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
+                                      protocol:
+                                        description: |-
+                                          Protocol selects the wire protocol for the probe connection.
+                                          Nil defaults to HTTP/1.1.
+                                        type: string
                                       scheme:
                                         description: |-
                                           Scheme to use for connecting to the host.
@@ -372,6 +527,11 @@ spec:
                                           Number must be in the range 1 to 65535.
                                           Name must be an IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
+                                      protocol:
+                                        description: |-
+                                          Protocol selects the wire protocol for the probe connection.
+                                          Nil defaults to HTTP/1.1.
+                                        type: string
                                       scheme:
                                         description: |-
                                           Scheme to use for connecting to the host.
@@ -525,10 +685,21 @@ spec:
                               description: VolumeMount describes a mounting of a Volume
                                 within a container.
                               properties:
-                                mountPath:
+                                bindMountOptions:
                                   description: |-
-                                    Path within the container at which the volume should be mounted.  Must
-                                    not contain ':'.
+                                    bindMountOptions is the list of additional bind mount options to apply when
+                                    mounting this volume into the container. Allowed values are noexec,
+                                    nodev, and nosuid. These are Linux mount options and have no effect on
+                                    Windows nodes.
+                                    This field is not supported with image volumes.
+                                    This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: set
+                                mountPath:
+                                  description: Path within the container at which
+                                    the volume should be mounted.
                                   type: string
                                 mountPropagation:
                                   description: |-
@@ -1997,6 +2168,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: |-
                                         items if unspecified, each key-value pair in the Data field of the referenced
@@ -2030,6 +2208,13 @@ spec:
                                               May not contain the path element '..'.
                                               May not start with the string '..'.
                                             type: string
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -2117,6 +2302,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: Items is a list of downward API
                                         volume file
@@ -2187,6 +2379,13 @@ spec:
                                             - resource
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -2205,6 +2404,18 @@ spec:
                                         Must be an empty string (default) or Memory.
                                         More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                                       type: string
+                                    mode:
+                                      description: |-
+                                        mode specifies the permission bits for the emptyDir directory, in numeric
+                                        notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                        If not specified, defaults to 0777.
+                                        This might be in conflict with other options that affect the file
+                                        mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                        will override the mode specified here.
+                                        This field has no effect on Windows.
+                                        This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                                      format: int32
+                                      type: integer
                                     sizeLimit:
                                       anyOf:
                                       - type: integer
@@ -2298,8 +2509,8 @@ spec:
                                                 * An existing PVC (PersistentVolumeClaim)
                                                 If the provisioner or an external controller can support the specified data source,
                                                 it will create a new volume based on the contents of the specified data source.
-                                                When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                                and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                                dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                                copied to dataSource when dataSourceRef.namespace is not specified.
                                                 If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                                               properties:
                                                 apiGroup:
@@ -2344,7 +2555,6 @@ spec:
                                                   specified.
                                                 * While dataSource only allows local objects, dataSourceRef allows objects
                                                   in any namespaces.
-                                                (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                                 (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                                               properties:
                                                 apiGroup:
@@ -2710,7 +2920,7 @@ spec:
                                     A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
                                     The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
                                     The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
-                                    The volume will be mounted read-only (ro) and non-executable files (noexec).
+                                    The volume will be mounted read-only (ro).
                                     Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
                                     The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
                                   properties:
@@ -2884,8 +3094,7 @@ spec:
                                   description: |-
                                     portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
                                     Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
-                                    are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
-                                    is on.
+                                    are redirected to the pxd.portworx.com CSI driver.
                                   properties:
                                     fsType:
                                       description: |-
@@ -2918,6 +3127,13 @@ spec:
                                         This might be in conflict with other options that affect the file
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
+                                      type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
                                       type: integer
                                     sources:
                                       description: |-
@@ -3020,6 +3236,13 @@ spec:
                                                   Mutually-exclusive with name.  The contents of all selected
                                                   ClusterTrustBundles will be unified and deduplicated.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -3061,6 +3284,13 @@ spec:
                                                         May not contain the path element '..'.
                                                         May not start with the string '..'.
                                                       type: string
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -3164,6 +3394,13 @@ spec:
                                                       - resource
                                                       type: object
                                                       x-kubernetes-map-type: atomic
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - path
                                                   type: object
@@ -3271,6 +3508,13 @@ spec:
                                                 description: Kubelet's generated CSRs
                                                   will be addressed to this signer.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                               userAnnotations:
                                                 additionalProperties:
                                                   type: string
@@ -3331,6 +3575,13 @@ spec:
                                                         May not contain the path element '..'.
                                                         May not start with the string '..'.
                                                       type: string
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -3380,6 +3631,13 @@ spec:
                                                   path is the path relative to the mount point of the file to project the
                                                   token into.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -3587,6 +3845,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: |-
                                         items If unspecified, each key-value pair in the Data field of the referenced
@@ -3620,6 +3885,13 @@ spec:
                                               May not contain the path element '..'.
                                               May not start with the string '..'.
                                             type: string
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -3817,10 +4089,21 @@ spec:
                                   description: VolumeMount describes a mounting of
                                     a Volume within a container.
                                   properties:
-                                    mountPath:
+                                    bindMountOptions:
                                       description: |-
-                                        Path within the container at which the volume should be mounted.  Must
-                                        not contain ':'.
+                                        bindMountOptions is the list of additional bind mount options to apply when
+                                        mounting this volume into the container. Allowed values are noexec,
+                                        nodev, and nosuid. These are Linux mount options and have no effect on
+                                        Windows nodes.
+                                        This field is not supported with image volumes.
+                                        This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: set
+                                    mountPath:
+                                      description: Path within the container at which
+                                        the volume should be mounted.
                                       type: string
                                     mountPropagation:
                                       description: |-
@@ -3972,10 +4255,21 @@ spec:
                                   description: VolumeMount describes a mounting of
                                     a Volume within a container.
                                   properties:
-                                    mountPath:
+                                    bindMountOptions:
                                       description: |-
-                                        Path within the container at which the volume should be mounted.  Must
-                                        not contain ':'.
+                                        bindMountOptions is the list of additional bind mount options to apply when
+                                        mounting this volume into the container. Allowed values are noexec,
+                                        nodev, and nosuid. These are Linux mount options and have no effect on
+                                        Windows nodes.
+                                        This field is not supported with image volumes.
+                                        This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: set
+                                    mountPath:
+                                      description: Path within the container at which
+                                        the volume should be mounted.
                                       type: string
                                     mountPropagation:
                                       description: |-
@@ -4117,9 +4411,6 @@ spec:
                                       For example, if autoscaling is configured with a memory consumption target of 100Mi,
                                       and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
                                       triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
-
-                                      This is an beta field and requires the HPAConfigurableTolerance feature
-                                      gate to be enabled.
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                 type: object
@@ -4193,9 +4484,6 @@ spec:
                                       For example, if autoscaling is configured with a memory consumption target of 100Mi,
                                       and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
                                       triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
-
-                                      This is an beta field and requires the HPAConfigurableTolerance feature
-                                      gate to be enabled.
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                 type: object
@@ -4834,6 +5122,11 @@ spec:
                                           Number must be in the range 1 to 65535.
                                           Name must be an IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
+                                      protocol:
+                                        description: |-
+                                          Protocol selects the wire protocol for the probe connection.
+                                          Nil defaults to HTTP/1.1.
+                                        type: string
                                       scheme:
                                         description: |-
                                           Scheme to use for connecting to the host.
@@ -4947,6 +5240,11 @@ spec:
                                           Number must be in the range 1 to 65535.
                                           Name must be an IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
+                                      protocol:
+                                        description: |-
+                                          Protocol selects the wire protocol for the probe connection.
+                                          Nil defaults to HTTP/1.1.
+                                        type: string
                                       scheme:
                                         description: |-
                                           Scheme to use for connecting to the host.
@@ -5100,10 +5398,21 @@ spec:
                               description: VolumeMount describes a mounting of a Volume
                                 within a container.
                               properties:
-                                mountPath:
+                                bindMountOptions:
                                   description: |-
-                                    Path within the container at which the volume should be mounted.  Must
-                                    not contain ':'.
+                                    bindMountOptions is the list of additional bind mount options to apply when
+                                    mounting this volume into the container. Allowed values are noexec,
+                                    nodev, and nosuid. These are Linux mount options and have no effect on
+                                    Windows nodes.
+                                    This field is not supported with image volumes.
+                                    This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: set
+                                mountPath:
+                                  description: Path within the container at which
+                                    the volume should be mounted.
                                   type: string
                                 mountPropagation:
                                   description: |-
@@ -6572,6 +6881,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: |-
                                         items if unspecified, each key-value pair in the Data field of the referenced
@@ -6605,6 +6921,13 @@ spec:
                                               May not contain the path element '..'.
                                               May not start with the string '..'.
                                             type: string
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -6692,6 +7015,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: Items is a list of downward API
                                         volume file
@@ -6762,6 +7092,13 @@ spec:
                                             - resource
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -6780,6 +7117,18 @@ spec:
                                         Must be an empty string (default) or Memory.
                                         More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                                       type: string
+                                    mode:
+                                      description: |-
+                                        mode specifies the permission bits for the emptyDir directory, in numeric
+                                        notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                        If not specified, defaults to 0777.
+                                        This might be in conflict with other options that affect the file
+                                        mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                        will override the mode specified here.
+                                        This field has no effect on Windows.
+                                        This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                                      format: int32
+                                      type: integer
                                     sizeLimit:
                                       anyOf:
                                       - type: integer
@@ -6873,8 +7222,8 @@ spec:
                                                 * An existing PVC (PersistentVolumeClaim)
                                                 If the provisioner or an external controller can support the specified data source,
                                                 it will create a new volume based on the contents of the specified data source.
-                                                When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                                and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                                dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                                copied to dataSource when dataSourceRef.namespace is not specified.
                                                 If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                                               properties:
                                                 apiGroup:
@@ -6919,7 +7268,6 @@ spec:
                                                   specified.
                                                 * While dataSource only allows local objects, dataSourceRef allows objects
                                                   in any namespaces.
-                                                (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                                 (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                                               properties:
                                                 apiGroup:
@@ -7285,7 +7633,7 @@ spec:
                                     A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
                                     The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
                                     The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
-                                    The volume will be mounted read-only (ro) and non-executable files (noexec).
+                                    The volume will be mounted read-only (ro).
                                     Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
                                     The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
                                   properties:
@@ -7459,8 +7807,7 @@ spec:
                                   description: |-
                                     portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
                                     Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
-                                    are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
-                                    is on.
+                                    are redirected to the pxd.portworx.com CSI driver.
                                   properties:
                                     fsType:
                                       description: |-
@@ -7493,6 +7840,13 @@ spec:
                                         This might be in conflict with other options that affect the file
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
+                                      type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
                                       type: integer
                                     sources:
                                       description: |-
@@ -7595,6 +7949,13 @@ spec:
                                                   Mutually-exclusive with name.  The contents of all selected
                                                   ClusterTrustBundles will be unified and deduplicated.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -7636,6 +7997,13 @@ spec:
                                                         May not contain the path element '..'.
                                                         May not start with the string '..'.
                                                       type: string
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -7739,6 +8107,13 @@ spec:
                                                       - resource
                                                       type: object
                                                       x-kubernetes-map-type: atomic
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - path
                                                   type: object
@@ -7846,6 +8221,13 @@ spec:
                                                 description: Kubelet's generated CSRs
                                                   will be addressed to this signer.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                               userAnnotations:
                                                 additionalProperties:
                                                   type: string
@@ -7906,6 +8288,13 @@ spec:
                                                         May not contain the path element '..'.
                                                         May not start with the string '..'.
                                                       type: string
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -7955,6 +8344,13 @@ spec:
                                                   path is the path relative to the mount point of the file to project the
                                                   token into.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -8162,6 +8558,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: |-
                                         items If unspecified, each key-value pair in the Data field of the referenced
@@ -8195,6 +8598,13 @@ spec:
                                               May not contain the path element '..'.
                                               May not start with the string '..'.
                                             type: string
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -8291,6 +8701,44 @@ spec:
                               type: object
                             type: array
                         type: object
+                      podDisruptionBudget:
+                        description: |-
+                          PodDisruptionBudget is the configuration for limiting the number of concurrent disruptions of a pod.
+                          A PodDisruptionBudget is created when this field is set.
+                        properties:
+                          maxUnavailable:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              MaxUnavailable is the maximum number of pods that can be unavailable after an eviction.
+                              Value can be an absolute number (e.g. 1) or a percentage of desired pods (e.g. 50%).
+                              Mutually exclusive with MinAvailable.
+                            x-kubernetes-int-or-string: true
+                          minAvailable:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              MinAvailable is the minimum number of pods that must be available after an eviction.
+                              Value can be an absolute number (e.g. 1) or a percentage of desired pods (e.g. 50%).
+                              Mutually exclusive with MaxUnavailable.
+                            x-kubernetes-int-or-string: true
+                          unhealthyPodEvictionPolicy:
+                            description: |-
+                              UnhealthyPodEvictionPolicy defines when unhealthy pods should be considered for eviction.
+                              Valid values are IfHealthyBudget and AlwaysAllow.
+                              Defaults to IfHealthyBudget if not set.
+                            enum:
+                            - IfHealthyBudget
+                            - AlwaysAllow
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: exactly one of minAvailable or maxUnavailable must
+                            be set
+                          rule: (has(self.minAvailable) && !has(self.maxUnavailable))
+                            || (!has(self.minAvailable) && has(self.maxUnavailable))
                       replicas:
                         description: Number of desired Pods.
                         format: int32
@@ -8396,10 +8844,21 @@ spec:
                                   description: VolumeMount describes a mounting of
                                     a Volume within a container.
                                   properties:
-                                    mountPath:
+                                    bindMountOptions:
                                       description: |-
-                                        Path within the container at which the volume should be mounted.  Must
-                                        not contain ':'.
+                                        bindMountOptions is the list of additional bind mount options to apply when
+                                        mounting this volume into the container. Allowed values are noexec,
+                                        nodev, and nosuid. These are Linux mount options and have no effect on
+                                        Windows nodes.
+                                        This field is not supported with image volumes.
+                                        This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: set
+                                    mountPath:
+                                      description: Path within the container at which
+                                        the volume should be mounted.
                                       type: string
                                     mountPropagation:
                                       description: |-
@@ -8551,10 +9010,21 @@ spec:
                                   description: VolumeMount describes a mounting of
                                     a Volume within a container.
                                   properties:
-                                    mountPath:
+                                    bindMountOptions:
                                       description: |-
-                                        Path within the container at which the volume should be mounted.  Must
-                                        not contain ':'.
+                                        bindMountOptions is the list of additional bind mount options to apply when
+                                        mounting this volume into the container. Allowed values are noexec,
+                                        nodev, and nosuid. These are Linux mount options and have no effect on
+                                        Windows nodes.
+                                        This field is not supported with image volumes.
+                                        This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: set
+                                    mountPath:
+                                      description: Path within the container at which
+                                        the volume should be mounted.
                                       type: string
                                     mountPropagation:
                                       description: |-
@@ -8619,8 +9089,7 @@ spec:
                         default: Local
                         description: |-
                           ExternalTrafficPolicy describes how nodes distribute service traffic they
-                          receive on one of the Service's "externally-facing" addresses (NodePorts, ExternalIPs,
-                          and LoadBalancer IPs).
+                          receive on one of the Service's "externally-facing" addresses (NodePorts and LoadBalancer IPs).
                         enum:
                         - Cluster
                         - Local
@@ -8773,7 +9242,24 @@ spec:
                     - alert
                     - emerg
                     type: string
+                  errorLogFormat:
+                    description: |-
+                      ErrorLogFormat controls the output format of the NGINX error_log directive.
+                      Set to 'json' to enable JSON-formatted error logs for NGINX Plus only and
+                      cannot be combined with errorLevel: debug.
+                      When set to 'json', NGINX Gateway Fabric also emits a JSON-formatted access log
+                      if the user has not supplied a custom access log format.
+                      See https://nginx.org/en/docs/ngx_core_module.html#error_log
+                    enum:
+                    - default
+                    - json
+                    type: string
                 type: object
+                x-kubernetes-validations:
+                - message: JSON-formatted error logs are not supported when errorLevel
+                    is debug
+                  rule: '!(has(self.errorLogFormat) && self.errorLogFormat == ''json''
+                    && has(self.errorLevel) && self.errorLevel == ''debug'')'
               metrics:
                 description: |-
                   Metrics defines the configuration for Prometheus scraping metrics. Changing this value results in a
@@ -8943,7 +9429,7 @@ spec:
                   serviceName:
                     description: |-
                       ServiceName is the "service.name" attribute of the OpenTelemetry resource.
-                      Default is 'ngf:<gateway-namespace>:<gateway-name>'. If a value is provided by the user,
+                      Default is 'ngf:gateway-namespace:gateway-name'. If a value is provided by the user,
                       then the default becomes a prefix to that value.
                     maxLength: 127
                     pattern: ^[a-zA-Z0-9_-]+$
@@ -8981,6 +9467,18 @@ spec:
                     - key
                     x-kubernetes-list-type: map
                 type: object
+              useClusterIP:
+                description: |-
+                  UseClusterIP configures NGINX to route to the Service ClusterIP and port instead of individual
+                  Pod IPs. When enabled, NGINX will target a single upstream server corresponding to the Service's
+                  ClusterIP, which is useful for service mesh compatibility and other Kubernetes
+                  controllers/operators that require traffic to traverse the Service VIP.
+                  This setting applies only when the target Service has a ClusterIP. For headless Services
+                  (ClusterIP: None) and ExternalName Services, normal endpoint resolution is used instead.
+                  This setting is also not applied to L4/stream upstreams.
+                  A UseClusterIP value set in an UpstreamSettingsPolicy for a Service takes precedence over this setting.
+                  Defaults to false.
+                type: boolean
               waf:
                 description: WAF configures NGINX App Protect WAF functionality.
                 properties:
@@ -9017,6 +9515,34 @@ spec:
                 maximum: 65535
                 minimum: 1
                 type: integer
+              workerProcesses:
+                description: |-
+                  WorkerProcesses configures the number of NGINX worker processes.
+                  The value must be an integer between 1 and 1024.
+                  When unset, NGINX uses "auto" (one worker per CPU core).
+                format: int32
+                maximum: 1024
+                minimum: 1
+                type: integer
+              workerRlimitNofile:
+                description: |-
+                  WorkerRlimitNofile changes the limit on the maximum number of open files (RLIMIT_NOFILE)
+                  for worker processes. Used to raise the limit without restarting the main process.
+                  When unset, NGINX inherits the limit from the operating system.
+                  NGINX directive: https://nginx.org/en/docs/ngx_core_module.html#worker_rlimit_nofile
+                format: int32
+                maximum: 1048576
+                minimum: 1
+                type: integer
+              zoneSize:
+                description: |-
+                  ZoneSize is the size of the shared memory zone used by the upstream. This memory zone is used to share
+                  the upstream configuration between nginx worker processes. The more servers that an upstream has,
+                  the larger memory zone is required.
+                  Default: OSS: 512k, Plus: 1m.
+                  Directive: https://nginx.org/en/docs/http/ngx_http_upstream_module.html#zone
+                pattern: ^\d{1,4}(k|m|g)?$
+                type: string
             type: object
         required:
         - spec

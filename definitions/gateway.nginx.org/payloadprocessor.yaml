@@ -6,18 +6,16 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     gateway.networking.k8s.io/policy: inherited
-  name: clientsettingspolicies.gateway.nginx.org
+  name: payloadprocessors.gateway.nginx.org
 spec:
   group: gateway.nginx.org
   names:
     categories:
     - nginx-gateway-fabric
-    kind: ClientSettingsPolicy
-    listKind: ClientSettingsPolicyList
-    plural: clientsettingspolicies
-    shortNames:
-    - cspolicy
-    singular: clientsettingspolicy
+    kind: PayloadProcessor
+    listKind: PayloadProcessorList
+    plural: payloadprocessors
+    singular: payloadprocessor
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -28,8 +26,11 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          ClientSettingsPolicy is an Inherited Attached Policy. It provides a way to configure the behavior of the connection
-          between the client and NGINX Gateway Fabric.
+          PayloadProcessor is an Inherited Attached Policy. It enables declarative processing of HTTP
+          request and response payload content by attaching to a Gateway or HTTPRoute.
+
+          note: this CRD is based on the proposed "PayloadProcessor" policy from the Gateway API.
+          Once the upstream API is finalized, migration to the official API will be considered.
         properties:
           apiVersion:
             description: |-
@@ -49,90 +50,138 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec defines the desired state of the ClientSettingsPolicy.
+            description: Spec defines the desired state of the PayloadProcessor.
             properties:
-              body:
-                description: Body defines the client request body settings.
-                properties:
-                  bufferSize:
-                    description: |-
-                      BufferSize sets the buffer size for reading the client request body.
-                      If the request body is larger than the buffer, the whole body or only its part is written to a
-                      temporary file.
-                      Default: https://nginx.org/en/docs/http/ngx_http_core_module.html#client_body_buffer_size.
-                    pattern: ^\d{1,4}(k|m|g)?$
-                    type: string
-                  maxSize:
-                    description: |-
-                      MaxSize sets the maximum allowed size of the client request body.
-                      If the size in a request exceeds the configured value,
-                      the 413 (Request Entity Too Large) error is returned to the client.
-                      Setting size to 0 disables checking of client request body size.
-                      Default: https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size.
-                    pattern: ^\d{1,4}(k|m|g)?$
-                    type: string
-                  timeout:
-                    description: |-
-                      Timeout defines a timeout for reading client request body. The timeout is set only for a period between
-                      two successive read operations, not for the transmission of the whole request body.
-                      If a client does not transmit anything within this time, the request is terminated with the
-                      408 (Request Time-out) error.
-                      Default: https://nginx.org/en/docs/http/ngx_http_core_module.html#client_body_timeout.
-                    pattern: ^[0-9]{1,4}(ms|s|m|h)?$
-                    type: string
-                type: object
-              keepAlive:
-                description: KeepAlive defines the keep-alive settings.
-                properties:
-                  minTimeout:
-                    description: |-
-                      MinTimeout defines the timeout for which the keep-alive client connection
-                      will not be closed on the server side for connection reuse or on
-                      graceful shutdown of worker processes.
-                      Default: https://nginx.org/en/docs/http/ngx_http_core_module.html#keepalive_min_timeout.
-                    pattern: ^[0-9]{1,4}(ms|s|m|h)?$
-                    type: string
-                  requests:
-                    description: |-
-                      Requests sets the maximum number of requests that can be served through one keep-alive connection.
-                      After the maximum number of requests are made, the connection is closed. Closing connections periodically
-                      is necessary to free per-connection memory allocations. Therefore, using too high maximum number of requests
-                      is not recommended as it can lead to excessive memory usage.
-                      Default: https://nginx.org/en/docs/http/ngx_http_core_module.html#keepalive_requests.
-                    format: int32
-                    minimum: 0
-                    type: integer
-                  time:
-                    description: |-
-                      Time defines the maximum time during which requests can be processed through one keep-alive connection.
-                      After this time is reached, the connection is closed following the subsequent request processing.
-                      Default: https://nginx.org/en/docs/http/ngx_http_core_module.html#keepalive_time.
-                    pattern: ^[0-9]{1,4}(ms|s|m|h)?$
-                    type: string
-                  timeout:
-                    description: Timeout defines the keep-alive timeouts for clients.
-                    properties:
-                      header:
-                        description: 'Header sets the timeout in the "Keep-Alive:
-                          timeout=time" response header field.'
-                        pattern: ^[0-9]{1,4}(ms|s|m|h)?$
-                        type: string
-                      server:
-                        description: |-
-                          Server sets the timeout during which a keep-alive client connection will stay open on the server side.
-                          Setting this value to 0 disables keep-alive client connections.
-                        pattern: ^[0-9]{1,4}(ms|s|m|h)?$
-                        type: string
-                    type: object
-                    x-kubernetes-validations:
-                    - message: header can only be specified if server is specified
-                      rule: '!(has(self.header) && !has(self.server))'
-                type: object
+              processors:
+                description: |-
+                  Processors is an ordered list of processing steps to be applied to the request and response payloads.
+                  It is currently limited to a single processor (MaxItems=1); the list form is reserved for future
+                  multi-processor pipelines.
+                items:
+                  description: PayloadProcessorEntry defines a single processing step
+                    in the pipeline.
+                  properties:
+                    extProcess:
+                      description: ExtProcess defines the configuration for an ExtProcess
+                        processor that delegates to an external service.
+                      properties:
+                        authTokenRef:
+                          description: AuthTokenRef is a reference to a Secret containing
+                            an authentication token for the external service.
+                          properties:
+                            name:
+                              description: Name is the name of the referenced object.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        backendRef:
+                          description: |-
+                            BackendRef is a reference to the external service that will process the payloads.
+                            The referenced backend must be a core Service and must specify a port.
+                          properties:
+                            group:
+                              default: ""
+                              description: |-
+                                Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                                When unspecified or empty string, core API group is inferred.
+                              maxLength: 253
+                              pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                            kind:
+                              default: Service
+                              description: |-
+                                Kind is the Kubernetes resource kind of the referent. For example
+                                "Service".
+
+                                Defaults to "Service" when not specified.
+
+                                ExternalName services can refer to CNAME DNS records that may live
+                                outside of the cluster and as such are difficult to reason about in
+                                terms of conformance. They also may not be safe to forward to (see
+                                CVE-2021-25740 for more information). Implementations SHOULD NOT
+                                support ExternalName Services.
+
+                                Support: Core (Services with a type other than ExternalName)
+
+                                Support: Implementation-specific (Services with type ExternalName)
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                              type: string
+                            name:
+                              description: Name is the name of the referent.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace is the namespace of the backend. When unspecified, the local
+                                namespace is inferred.
+
+                                Note that when a namespace different than the local namespace is specified,
+                                a ReferenceGrant object is required in the referent namespace to allow that
+                                namespace's owner to accept the reference. See the ReferenceGrant
+                                documentation for details.
+
+                                Support: Core
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                            port:
+                              description: |-
+                                Port specifies the destination port number to use for this resource.
+                                Port is required when the referent is a Kubernetes Service. In this
+                                case, the port number is the service port number, not the target port.
+                                For other resources, destination port might be derived from the referent
+                                resource or this field.
+                              format: int32
+                              maximum: 65535
+                              minimum: 1
+                              type: integer
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-validations:
+                          - message: backendRef.name must not be empty
+                            rule: size(self.name) > 0
+                          - message: backendRef.port must be set
+                            rule: has(self.port)
+                          - message: backendRef.group must be core
+                            rule: '!has(self.group) || self.group == '''' || self.group
+                              == ''core'''
+                          - message: backendRef.kind must be Service
+                            rule: '!has(self.kind) || self.kind == ''Service'''
+                          - message: Must have port for Service reference
+                            rule: '(size(self.group) == 0 && self.kind == ''Service'')
+                              ? has(self.port) : true'
+                      required:
+                      - backendRef
+                      type: object
+                    type:
+                      description: |-
+                        Type specifies how the processor executes.
+                        ExtProcess calls an external service.
+                      enum:
+                      - ExtProcess
+                      type: string
+                  required:
+                  - type
+                  type: object
+                  x-kubernetes-validations:
+                  - message: extProcess must be set when type is ExtProcess
+                    rule: self.type != 'ExtProcess' || has(self.extProcess)
+                maxItems: 1
+                minItems: 1
+                type: array
               targetRef:
                 description: |-
-                  TargetRef identifies an API object to apply the policy to.
-                  Object must be in the same namespace as the policy.
-                  Support: Gateway, HTTPRoute, GRPCRoute.
+                  TargetRef identifies the Gateway or HTTPRoute this policy applies to.
+                  Objects must be in the same namespace as the policy.
+                  Follows the standard policy attachment pattern (GEP-713).
+
+                  Support: Gateway, HTTPRoute
                 properties:
                   group:
                     description: Group is the group of the target resource.
@@ -156,16 +205,16 @@ spec:
                 - name
                 type: object
                 x-kubernetes-validations:
-                - message: 'TargetRef Kind must be one of: Gateway, HTTPRoute, or
-                    GRPCRoute'
-                  rule: (self.kind=='Gateway' || self.kind=='HTTPRoute' || self.kind=='GRPCRoute')
-                - message: TargetRef Group must be gateway.networking.k8s.io.
-                  rule: (self.group=='gateway.networking.k8s.io')
+                - message: TargetRef Kind must be Gateway or HTTPRoute
+                  rule: self.kind == 'Gateway' || self.kind == 'HTTPRoute'
+                - message: TargetRef Group must be gateway.networking.k8s.io
+                  rule: self.group == 'gateway.networking.k8s.io'
             required:
+            - processors
             - targetRef
             type: object
           status:
-            description: Status defines the state of the ClientSettingsPolicy.
+            description: Status defines the state of the PayloadProcessor.
             properties:
               ancestors:
                 description: |-

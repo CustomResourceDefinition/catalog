@@ -1,5 +1,5 @@
 {
-  "description": "RateLimitPolicy is an Inherited Attached Policy. It provides a way to set local rate limiting rules in NGINX.",
+  "description": "PayloadProcessor is an Inherited Attached Policy. It enables declarative processing of HTTP\nrequest and response payload content by attaching to a Gateway or HTTPRoute.\n\nnote: this CRD is based on the proposed \"PayloadProcessor\" policy from the Gateway API.\nOnce the upstream API is finalized, migration to the official API will be considered.",
   "type": "object",
   "required": [
     "spec"
@@ -17,151 +17,171 @@
       "type": "object"
     },
     "spec": {
-      "description": "Spec defines the desired state of the RateLimitPolicy.",
+      "description": "Spec defines the desired state of the PayloadProcessor.",
       "type": "object",
       "required": [
-        "targetRefs"
+        "processors",
+        "targetRef"
       ],
       "properties": {
-        "rateLimit": {
-          "description": "RateLimit defines the Rate Limit settings.",
-          "type": "object",
-          "properties": {
-            "dryRun": {
-              "description": "DryRun enables the dry run mode. In this mode, the rate limit is not actually applied, but the number of excessive\nrequests is accounted as usual in the shared memory zone.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req_dry_run",
-              "type": "boolean"
-            },
-            "local": {
-              "description": "Local defines the local rate limit rules for this policy.",
-              "type": "object",
-              "properties": {
-                "rules": {
-                  "description": "Rules contains the list of rate limit rules.",
-                  "type": "array",
-                  "items": {
-                    "description": "RateLimitRule contains settings for a RateLimit Rule.",
+        "processors": {
+          "description": "Processors is an ordered list of processing steps to be applied to the request and response payloads.\nIt is currently limited to a single processor (MaxItems=1); the list form is reserved for future\nmulti-processor pipelines.",
+          "type": "array",
+          "maxItems": 1,
+          "minItems": 1,
+          "items": {
+            "description": "PayloadProcessorEntry defines a single processing step in the pipeline.",
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "extProcess": {
+                "description": "ExtProcess defines the configuration for an ExtProcess processor that delegates to an external service.",
+                "type": "object",
+                "required": [
+                  "backendRef"
+                ],
+                "properties": {
+                  "authTokenRef": {
+                    "description": "AuthTokenRef is a reference to a Secret containing an authentication token for the external service.",
                     "type": "object",
                     "required": [
-                      "key",
-                      "rate"
+                      "name"
                     ],
                     "properties": {
-                      "burst": {
-                        "description": "Burst sets the maximum burst size of requests. If the requests rate exceeds the rate configured for a zone,\ntheir processing is delayed such that requests are processed at a defined rate. Excessive requests are delayed\nuntil their number exceeds the maximum burst size in which case the request is terminated with an error.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req",
+                      "name": {
+                        "description": "Name is the name of the referenced object.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "backendRef": {
+                    "description": "BackendRef is a reference to the external service that will process the payloads.\nThe referenced backend must be a core Service and must specify a port.",
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "group": {
+                        "description": "Group is the group of the referent. For example, \"gateway.networking.k8s.io\".\nWhen unspecified or empty string, core API group is inferred.",
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 253,
+                        "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                      },
+                      "kind": {
+                        "description": "Kind is the Kubernetes resource kind of the referent. For example\n\"Service\".\n\nDefaults to \"Service\" when not specified.\n\nExternalName services can refer to CNAME DNS records that may live\noutside of the cluster and as such are difficult to reason about in\nterms of conformance. They also may not be safe to forward to (see\nCVE-2021-25740 for more information). Implementations SHOULD NOT\nsupport ExternalName Services.\n\nSupport: Core (Services with a type other than ExternalName)\n\nSupport: Implementation-specific (Services with type ExternalName)",
+                        "type": "string",
+                        "default": "Service",
+                        "maxLength": 63,
+                        "minLength": 1,
+                        "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
+                      },
+                      "name": {
+                        "description": "Name is the name of the referent.",
+                        "type": "string",
+                        "maxLength": 253,
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "description": "Namespace is the namespace of the backend. When unspecified, the local\nnamespace is inferred.\n\nNote that when a namespace different than the local namespace is specified,\na ReferenceGrant object is required in the referent namespace to allow that\nnamespace's owner to accept the reference. See the ReferenceGrant\ndocumentation for details.\n\nSupport: Core",
+                        "type": "string",
+                        "maxLength": 63,
+                        "minLength": 1,
+                        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                      },
+                      "port": {
+                        "description": "Port specifies the destination port number to use for this resource.\nPort is required when the referent is a Kubernetes Service. In this\ncase, the port number is the service port number, not the target port.\nFor other resources, destination port might be derived from the referent\nresource or this field.",
                         "type": "integer",
                         "format": "int32",
-                        "minimum": 0
-                      },
-                      "delay": {
-                        "description": "Delay specifies a limit at which excessive requests become delayed.\nDefault value is zero, which means all excessive requests are delayed.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req",
-                        "type": "integer",
-                        "format": "int32",
-                        "minimum": 0
-                      },
-                      "key": {
-                        "description": "Key represents the key to which the rate limit is applied. The key can contain text, variables,\nand their combination.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req_zone",
-                        "type": "string",
-                        "pattern": "^(?:[^ \\t\\r\\n;{}#$]+|\\$\\w+)+$"
-                      },
-                      "noDelay": {
-                        "description": "NoDelay disables the delaying of excessive requests while requests are being limited.\nNoDelay cannot be true when Delay is also set.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req",
-                        "type": "boolean"
-                      },
-                      "rate": {
-                        "description": "Rate represents the rate of requests permitted. The rate is specified in requests per second (r/s)\nor requests per minute (r/m).\n\nDirective: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req_zone",
-                        "type": "string",
-                        "pattern": "^\\d+r/[sm]$"
-                      },
-                      "zoneSize": {
-                        "description": "ZoneSize is the size of the shared memory zone.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req_zone",
-                        "type": "string",
-                        "pattern": "^\\d{1,4}(k|m|g)?$"
+                        "maximum": 65535,
+                        "minimum": 1
                       }
                     },
                     "additionalProperties": false,
                     "x-kubernetes-validations": [
                       {
-                        "rule": "!(has(self.noDelay) \u0026\u0026 has(self.delay) \u0026\u0026 self.noDelay == true)",
-                        "message": "NoDelay cannot be true when Delay is also set"
+                        "rule": "size(self.name) \u003e 0",
+                        "message": "backendRef.name must not be empty"
+                      },
+                      {
+                        "rule": "has(self.port)",
+                        "message": "backendRef.port must be set"
+                      },
+                      {
+                        "rule": "!has(self.group) || self.group == '' || self.group == 'core'",
+                        "message": "backendRef.group must be core"
+                      },
+                      {
+                        "rule": "!has(self.kind) || self.kind == 'Service'",
+                        "message": "backendRef.kind must be Service"
+                      },
+                      {
+                        "rule": "(size(self.group) == 0 \u0026\u0026 self.kind == 'Service') ? has(self.port) : true",
+                        "message": "Must have port for Service reference"
                       }
                     ]
                   }
-                }
+                },
+                "additionalProperties": false
               },
-              "additionalProperties": false
-            },
-            "logLevel": {
-              "description": "LogLevel sets the desired logging level for cases when the server refuses to process requests due to rate exceeding,\nor delays request processing. Allowed values are info, notice, warn or error.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req_log_level",
-              "type": "string",
-              "enum": [
-                "info",
-                "notice",
-                "warn",
-                "error"
-              ]
-            },
-            "rejectCode": {
-              "description": "RejectCode sets the status code to return in response to rejected requests. Must fall into the range 400-599.\n\nDirective: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req_status",
-              "type": "integer",
-              "format": "int32",
-              "maximum": 599,
-              "minimum": 400
-            }
-          },
-          "additionalProperties": false
-        },
-        "targetRefs": {
-          "description": "TargetRefs identifies API object(s) to apply the policy to.\nObjects must be in the same namespace as the policy.\n\nSupport: Gateway, HTTPRoute, GRPCRoute",
-          "type": "array",
-          "maxItems": 16,
-          "minItems": 1,
-          "items": {
-            "description": "LocalPolicyTargetReference identifies an API object to apply a direct or\ninherited policy to. This should be used as part of Policy resources\nthat can target Gateway API resources. For more information on how this\npolicy attachment model works, and a sample Policy resource, refer to\nthe policy attachment documentation for Gateway API.",
-            "type": "object",
-            "required": [
-              "group",
-              "kind",
-              "name"
-            ],
-            "properties": {
-              "group": {
-                "description": "Group is the group of the target resource.",
+              "type": {
+                "description": "Type specifies how the processor executes.\nExtProcess calls an external service.",
                 "type": "string",
-                "maxLength": 253,
-                "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-              },
-              "kind": {
-                "description": "Kind is kind of the target resource.",
-                "type": "string",
-                "maxLength": 63,
-                "minLength": 1,
-                "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
-              },
-              "name": {
-                "description": "Name is the name of the target resource.",
-                "type": "string",
-                "maxLength": 253,
-                "minLength": 1
+                "enum": [
+                  "ExtProcess"
+                ]
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "self.type != 'ExtProcess' || has(self.extProcess)",
+                "message": "extProcess must be set when type is ExtProcess"
+              }
+            ]
+          }
+        },
+        "targetRef": {
+          "description": "TargetRef identifies the Gateway or HTTPRoute this policy applies to.\nObjects must be in the same namespace as the policy.\nFollows the standard policy attachment pattern (GEP-713).\n\nSupport: Gateway, HTTPRoute",
+          "type": "object",
+          "required": [
+            "group",
+            "kind",
+            "name"
+          ],
+          "properties": {
+            "group": {
+              "description": "Group is the group of the target resource.",
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+            },
+            "kind": {
+              "description": "Kind is kind of the target resource.",
+              "type": "string",
+              "maxLength": 63,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
+            },
+            "name": {
+              "description": "Name is the name of the target resource.",
+              "type": "string",
+              "maxLength": 253,
+              "minLength": 1
+            }
           },
+          "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "self.all(t, t.kind == 'Gateway' || t.kind == 'HTTPRoute' || t.kind == 'GRPCRoute')",
-              "message": "TargetRef Kind must be one of: Gateway, HTTPRoute, or GRPCRoute"
+              "rule": "self.kind == 'Gateway' || self.kind == 'HTTPRoute'",
+              "message": "TargetRef Kind must be Gateway or HTTPRoute"
             },
             {
-              "rule": "self.all(t, t.group=='gateway.networking.k8s.io')",
+              "rule": "self.group == 'gateway.networking.k8s.io'",
               "message": "TargetRef Group must be gateway.networking.k8s.io"
-            },
-            {
-              "rule": "self.all(p1, self.exists_one(p2, (p1.name == p2.name) \u0026\u0026 (p1.kind == p2.kind)))",
-              "message": "TargetRef Kind and Name combination must be unique"
-            },
-            {
-              "rule": "!(self.exists(t, t.kind == 'Gateway') \u0026\u0026 self.exists(t, t.kind == 'HTTPRoute' || t.kind == 'GRPCRoute'))",
-              "message": "Cannot mix Gateway kind with HTTPRoute or GRPCRoute kinds in targetRefs"
             }
           ]
         }
@@ -169,7 +189,7 @@
       "additionalProperties": false
     },
     "status": {
-      "description": "Status defines the state of the RateLimitPolicy.",
+      "description": "Status defines the state of the PayloadProcessor.",
       "type": "object",
       "required": [
         "ancestors"

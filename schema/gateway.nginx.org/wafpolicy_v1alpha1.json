@@ -1,5 +1,5 @@
 {
-  "description": "WAFPolicy is an Inherited Attached Policy. It provides a way to configure F5 WAF for NGINX\nfor Gateways and Routes by referencing compiled WAF policy bundles. Bundles can be fetched directly from an\nHTTP/HTTPS URL (type: HTTP), from an NGINX Instance Manager instance (type: NIM), or from an F5 NGINX One\nConsole instance (type: N1C).",
+  "description": "WAFPolicy is an Inherited Attached Policy. It provides a way to configure F5 WAF for NGINX\nfor Gateways and Routes by referencing compiled WAF policy bundles. Bundles can be fetched directly from an\nHTTP/HTTPS URL (type: HTTP), from an NGINX Instance Manager instance (type: NIM), from an F5 NGINX One\nConsole instance (type: N1C), or from a Policy Lifecycle Manager's S3-compatible storage (type: PLM).",
   "type": "object",
   "required": [
     "spec"
@@ -20,13 +20,43 @@
       "description": "Spec defines the desired state of the WAFPolicy.",
       "type": "object",
       "required": [
-        "policySource",
         "targetRefs",
         "type"
       ],
       "properties": {
+        "policyRef": {
+          "description": "PolicyRef holds all CRD-backed policy references.\nUsed for the PLM policy type.",
+          "type": "object",
+          "properties": {
+            "apPolicyRef": {
+              "description": "APPolicyRef references an APPolicy CRD compiled by PLM.\nCross-namespace references require a ReferenceGrant.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name is the name of the APPolicy resource.",
+                  "type": "string",
+                  "maxLength": 253,
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                },
+                "namespace": {
+                  "description": "Namespace is the namespace of the APPolicy resource.\nIf not set, the namespace of the WAFPolicy is used.\nCross-namespace references require a ReferenceGrant.",
+                  "type": "string",
+                  "maxLength": 63,
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "policySource": {
-          "description": "PolicySource holds all policy bundle fetch configuration.",
+          "description": "PolicySource holds all non-CRD bundle fetch configuration.\nUsed for HTTP, NIM, and N1C policy types.\nMust not be set when type is PLM.",
           "type": "object",
           "properties": {
             "auth": {
@@ -61,7 +91,7 @@
               ],
               "properties": {
                 "url": {
-                  "description": "URL is the full URL of the compiled policy bundle (.tgz),\ne.g. \"https://storage.example.com/bundles/policy.tgz\".",
+                  "description": "URL is the full URL of the compiled policy bundle (.tgz),\ne.g. `https://storage.example.com/bundles/policy.tgz`.",
                   "type": "string",
                   "maxLength": 2083,
                   "minLength": 1,
@@ -86,13 +116,15 @@
                   "description": "Namespace is the NGINX One Console namespace that owns the security policy.",
                   "type": "string",
                   "maxLength": 253,
-                  "minLength": 1
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][-A-Za-z0-9_.]*$"
                 },
                 "policyName": {
                   "description": "PolicyName is the name of the security policy in N1C.\nMutually exclusive with policyObjectID.",
                   "type": "string",
                   "maxLength": 253,
-                  "minLength": 1
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][-A-Za-z0-9_.]*$"
                 },
                 "policyObjectID": {
                   "description": "PolicyObjectID is the unique object identifier of the security policy in N1C\n(e.g. \"pol_-IUuEUN7ST63oRC7AlQPLw\").\nMutually exclusive with policyName.",
@@ -105,7 +137,7 @@
                   "pattern": "^pv_[A-Za-z0-9_-]+$"
                 },
                 "url": {
-                  "description": "URL is the base URL of the F5 NGINX One Console instance,\ne.g. \"https://\u003ctenant\u003e.volterra.us\".",
+                  "description": "URL is the base URL of the F5 NGINX One Console instance,\ne.g. `https://\u003ctenant\u003e.volterra.us`.",
                   "type": "string",
                   "maxLength": 2083,
                   "minLength": 1,
@@ -131,7 +163,8 @@
                   "description": "PolicyName is the name of the compiled policy bundle in NIM.\nMutually exclusive with policyUID.",
                   "type": "string",
                   "maxLength": 253,
-                  "minLength": 1
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][-A-Za-z0-9_.]*$"
                 },
                 "policyUID": {
                   "description": "PolicyUID is the unique identifier of the compiled policy bundle in NIM.\nMutually exclusive with policyName.\nMust be a valid UUID (e.g. \"2bc1e3ac-7990-4ca4-910a-8634c444c804\").",
@@ -139,7 +172,7 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                 },
                 "url": {
-                  "description": "URL is the base URL of the NGINX Instance Manager instance,\ne.g. \"https://nim.example.com\".",
+                  "description": "URL is the base URL of the NGINX Instance Manager instance,\ne.g. `https://nim.example.com`.",
                   "type": "string",
                   "maxLength": 2083,
                   "minLength": 1,
@@ -220,18 +253,23 @@
               ]
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "[has(self.httpSource), has(self.nimSource), has(self.n1cSource)].filter(x, x).size() == 1",
+              "message": "exactly one of httpSource, nimSource, or n1cSource must be set"
+            }
+          ]
         },
         "securityLogs": {
           "description": "SecurityLogs defines security logging configurations.",
           "type": "array",
           "maxItems": 32,
           "items": {
-            "description": "WAFSecurityLog defines security logging configuration for app_protect_security_log directives.\nExactly one of logSource.defaultProfile, logSource.httpSource, logSource.nimSource, or logSource.n1cSource must be set.",
+            "description": "WAFSecurityLog defines security logging configuration for app_protect_security_log directives.\nExactly one of logSource or logRef must be set.",
             "type": "object",
             "required": [
-              "destination",
-              "logSource"
+              "destination"
             ],
             "properties": {
               "destination": {
@@ -298,8 +336,39 @@
                   }
                 ]
               },
+              "logRef": {
+                "description": "LogRef configures all CRD-backed log profile references for this log entry.\nUsed for PLM-backed APLogConf references.",
+                "type": "object",
+                "properties": {
+                  "apLogConfRef": {
+                    "description": "APLogConfRef references an APLogConf CRD compiled by PLM.\nCross-namespace references require a ReferenceGrant.",
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "description": "Name is the name of the APLogConf resource.",
+                        "type": "string",
+                        "maxLength": 253,
+                        "minLength": 1,
+                        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                      },
+                      "namespace": {
+                        "description": "Namespace is the namespace of the APLogConf resource.\nIf not set, the namespace of the WAFPolicy is used.\nCross-namespace references require a ReferenceGrant.",
+                        "type": "string",
+                        "maxLength": 63,
+                        "minLength": 1,
+                        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              },
               "logSource": {
-                "description": "LogSource configures the log profile bundle source for this log entry.\nExactly one of url or defaultProfile must be set.",
+                "description": "LogSource configures all non-CRD log profile bundle sources for this log entry.\nUsed for defaultProfile, httpSource, nimSource, and n1cSource.\nMust not be set when logRef is used.",
                 "type": "object",
                 "properties": {
                   "auth": {
@@ -347,7 +416,7 @@
                     ],
                     "properties": {
                       "url": {
-                        "description": "URL is the full URL of the compiled policy bundle (.tgz),\ne.g. \"https://storage.example.com/bundles/policy.tgz\".",
+                        "description": "URL is the full URL of the compiled policy bundle (.tgz),\ne.g. `https://storage.example.com/bundles/policy.tgz`.",
                         "type": "string",
                         "maxLength": 2083,
                         "minLength": 1,
@@ -372,13 +441,15 @@
                         "description": "Namespace is the NGINX One Console namespace that owns the log profile.",
                         "type": "string",
                         "maxLength": 253,
-                        "minLength": 1
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9][-A-Za-z0-9_.]*$"
                       },
                       "profileName": {
                         "description": "ProfileName is the name of the log profile in N1C that corresponds to the log profile bundle.",
                         "type": "string",
                         "maxLength": 253,
-                        "minLength": 1
+                        "minLength": 1,
+                        "pattern": "^[a-zA-Z0-9\\s\\/\\-_.]+$"
                       },
                       "profileObjectID": {
                         "description": "ProfileObjectID is the unique object identifier of the log profile in N1C\n(e.g. \"lp_8s8uZxLpThWwEGF7LTn_rA\") that corresponds to the log profile bundle.",
@@ -386,7 +457,7 @@
                         "pattern": "^lp_[A-Za-z0-9_-]+$"
                       },
                       "url": {
-                        "description": "URL is the base URL of the F5 NGINX One Console instance,\ne.g. \"https://\u003ctenant\u003e.volterra.us\".",
+                        "description": "URL is the base URL of the F5 NGINX One Console instance,\ne.g. `https://\u003ctenant\u003e.volterra.us`.",
                         "type": "string",
                         "maxLength": 2083,
                         "minLength": 1,
@@ -413,10 +484,11 @@
                         "description": "ProfileName is the name of the compiled log profile bundle in NIM.",
                         "type": "string",
                         "maxLength": 253,
-                        "minLength": 1
+                        "minLength": 1,
+                        "pattern": "^[a-zA-Z0-9\\s\\/\\-_.]+$"
                       },
                       "url": {
-                        "description": "URL is the base URL of the NGINX Instance Manager instance,\ne.g. \"https://nim.example.com\".",
+                        "description": "URL is the base URL of the NGINX Instance Manager instance,\ne.g. `https://nim.example.com`.",
                         "type": "string",
                         "maxLength": 2083,
                         "minLength": 1,
@@ -494,13 +566,19 @@
                 "additionalProperties": false,
                 "x-kubernetes-validations": [
                   {
-                    "rule": "(has(self.defaultProfile) \u0026\u0026 !has(self.httpSource) \u0026\u0026 !has(self.nimSource) \u0026\u0026 !has(self.n1cSource)) || (!has(self.defaultProfile) \u0026\u0026 has(self.httpSource) \u0026\u0026 !has(self.nimSource) \u0026\u0026 !has(self.n1cSource)) || (!has(self.defaultProfile) \u0026\u0026 !has(self.httpSource) \u0026\u0026 has(self.nimSource) \u0026\u0026 !has(self.n1cSource)) || (!has(self.defaultProfile) \u0026\u0026 !has(self.httpSource) \u0026\u0026 !has(self.nimSource) \u0026\u0026 has(self.n1cSource))",
-                    "message": "exactly one of logSource.defaultProfile, logSource.httpSource, logSource.nimSource, or logSource.n1cSource must be set"
+                    "rule": "[has(self.defaultProfile), has(self.httpSource), has(self.nimSource), has(self.n1cSource)].filter(x, x).size() == 1",
+                    "message": "exactly one of defaultProfile, httpSource, nimSource, or n1cSource must be set"
                   }
                 ]
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "[has(self.logSource), has(self.logRef) \u0026\u0026 has(self.logRef.apLogConfRef)].filter(x, x).size() == 1",
+                "message": "exactly one of logSource or logRef must be set"
+              }
+            ]
           }
         },
         "targetRefs": {
@@ -559,32 +637,41 @@
           ]
         },
         "type": {
-          "description": "Type identifies the source type for the policy bundle.\nHTTP fetches directly from a URL; NIM uses the NGINX Instance Manager bundles API;\nN1C uses the F5 NGINX One Console security policies API.",
+          "description": "Type identifies the source type for the policy bundle.\nHTTP fetches directly from a URL; NIM uses the NGINX Instance Manager bundles API;\nN1C uses the F5 NGINX One Console security policies API; PLM references an APPolicy\nCRD managed by the Policy Lifecycle Manager.",
           "type": "string",
           "enum": [
             "HTTP",
             "NIM",
-            "N1C"
+            "N1C",
+            "PLM"
           ]
         }
       },
       "additionalProperties": false,
       "x-kubernetes-validations": [
         {
-          "rule": "(self.type == 'HTTP') == (has(self.policySource) \u0026\u0026 has(self.policySource.httpSource))",
-          "message": "policySource.httpSource must be set if and only if type is HTTP"
+          "rule": "!(self.type == 'PLM' \u0026\u0026 has(self.policySource))",
+          "message": "policySource must not be set when type is PLM"
         },
         {
-          "rule": "(self.type == 'NIM') == (has(self.policySource) \u0026\u0026 has(self.policySource.nimSource))",
-          "message": "policySource.nimSource must be set if and only if type is NIM"
+          "rule": "!(self.type != 'PLM' \u0026\u0026 has(self.policyRef))",
+          "message": "policyRef must not be set when type is not PLM"
         },
         {
-          "rule": "(self.type == 'N1C') == (has(self.policySource) \u0026\u0026 has(self.policySource.n1cSource))",
-          "message": "policySource.n1cSource must be set if and only if type is N1C"
+          "rule": "self.type == 'PLM' || (has(self.policySource) \u0026\u0026 ((self.type == 'HTTP' \u0026\u0026 has(self.policySource.httpSource)) || (self.type == 'NIM' \u0026\u0026 has(self.policySource.nimSource)) || (self.type == 'N1C' \u0026\u0026 has(self.policySource.n1cSource))))",
+          "message": "type must match the configured policy source"
         },
         {
-          "rule": "!(self.type != 'HTTP' \u0026\u0026 has(self.policySource) \u0026\u0026 has(self.policySource.validation) \u0026\u0026 has(self.policySource.validation.verifyChecksum) \u0026\u0026 self.policySource.validation.verifyChecksum)",
+          "rule": "self.type != 'PLM' || (has(self.policyRef) \u0026\u0026 has(self.policyRef.apPolicyRef))",
+          "message": "policyRef.apPolicyRef is required when type is PLM"
+        },
+        {
+          "rule": "!has(self.policySource) || !(self.type != 'HTTP' \u0026\u0026 has(self.policySource.validation) \u0026\u0026 has(self.policySource.validation.verifyChecksum) \u0026\u0026 self.policySource.validation.verifyChecksum)",
           "message": "policySource.validation.verifyChecksum is only supported for type HTTP"
+        },
+        {
+          "rule": "self.type == 'PLM' || !has(self.securityLogs) || self.securityLogs.all(sl, !has(sl.logRef) || !has(sl.logRef.apLogConfRef))",
+          "message": "securityLogs[*].logRef.apLogConfRef is only allowed when type is PLM"
         }
       ]
     },

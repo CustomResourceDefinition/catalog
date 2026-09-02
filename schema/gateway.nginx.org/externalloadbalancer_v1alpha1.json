@@ -1,0 +1,371 @@
+{
+  "description": "ExternalLoadBalancer configures an external load balancer that fronts a Gateway.\nIt references a Gateway through TargetRefs. NGINX Gateway Fabric provisions the\nexternal load balancer integration for the Gateway's data plane Service.\n\nExternalLoadBalancer maps one-to-one to a Gateway: a Gateway yields exactly one data plane\nService, so it is fronted by exactly one ExternalLoadBalancer. When more than one\nExternalLoadBalancer references the same Gateway, the oldest is accepted and the others are\nrejected with Accepted=False.\n\nA resource configures exactly one external load balancer backend. The gatewayLink backend\nintegrates F5 BIG-IP through F5 CIS.",
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "Spec defines the desired state of the ExternalLoadBalancer.",
+      "type": "object",
+      "required": [
+        "targetRefs"
+      ],
+      "properties": {
+        "gatewayLink": {
+          "description": "GatewayLink configures F5 BIG-IP as the external load balancer using F5\nContainer Ingress Services. It is the first supported backend. Additional\nbackend types may be added as sibling fields in the future.",
+          "type": "object",
+          "properties": {
+            "additionalIngressLinkSpec": {
+              "description": "AdditionalIngressLinkSpec is an escape hatch for IngressLink fields that are not yet\nmodeled by GatewayLink. Its contents are merged verbatim into the generated IngressLink\nspec and are NOT validated by NGINX Gateway Fabric. Fields set here take lower precedence\nthan the explicitly modeled GatewayLink fields above; NGINX Gateway Fabric always sets the\nIngressLink selector internally and it cannot be overridden through this field. Use with\ncaution since contents bypass schema validation, defaulting, and CEL rules, and flow through to\nBIG-IP via F5 CIS.",
+              "type": "object",
+              "x-kubernetes-preserve-unknown-fields": true
+            },
+            "bigipRouteDomain": {
+              "description": "BigIPRouteDomain is the route domain ID for the BIG-IP virtual server.",
+              "type": "integer",
+              "format": "int32",
+              "maximum": 65535,
+              "minimum": 0
+            },
+            "host": {
+              "description": "Host is the hostname for the BIG-IP virtual server.",
+              "type": "string",
+              "pattern": "^(([a-zA-Z0-9\\*]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$"
+            },
+            "iRules": {
+              "description": "IRules is a list of BIG-IP iRules to apply to the virtual server.\nEach iRule must be specified using the full path format /partition/irule_name,\nfor example \"/Common/Proxy_Protocol_iRule\".",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^\\/[a-zA-Z]+([A-z0-9-_+]+\\/)+([-A-z0-9_.:]+\\/?)*$"
+              }
+            },
+            "ipamLabel": {
+              "description": "IPAMLabel is the label used by F5 IPAM Controller to allocate an IP address.\nThe IPAM controller will assign an IP from the pool associated with this label.\nThis is mutually exclusive with VirtualServerAddress.",
+              "type": "string",
+              "pattern": "^[a-zA-Z]+[-A-z0-9_.:]+[A-z0-9]+$"
+            },
+            "monitors": {
+              "description": "Monitors is a list of BIG-IP health monitors to associate with the virtual server pool.",
+              "type": "array",
+              "items": {
+                "description": "GatewayLinkMonitor defines a BIG-IP health monitor reference.",
+                "type": "object",
+                "required": [
+                  "name",
+                  "reference"
+                ],
+                "properties": {
+                  "name": {
+                    "description": "Name is the full path of the health monitor on BIG-IP (e.g., \"/Common/http\").",
+                    "type": "string",
+                    "pattern": "^\\/[a-zA-Z]+([A-z0-9-_+]+\\/)+([-A-z0-9_.:]+\\/?)*$"
+                  },
+                  "reference": {
+                    "description": "Reference specifies the source of the monitor. Currently only \"bigip\" is supported.",
+                    "type": "string",
+                    "enum": [
+                      "bigip"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "multiCluster": {
+              "description": "MultiCluster defines the multi-cluster configuration for load balancing traffic\nacross NGINX instances in multiple clusters.",
+              "type": "object",
+              "required": [
+                "localClusterName",
+                "remoteClusters"
+              ],
+              "properties": {
+                "localClusterName": {
+                  "description": "LocalClusterName is the name of this cluster as configured in the CIS deployment\nvia the --local-cluster-name flag. NGINX Gateway Fabric uses it as the cluster name\nfor the local entry in the IngressLink's multiClusterServices, which points at this\ncluster's own Gateway Service. It must match the name CIS knows this cluster by,\notherwise CIS cannot resolve the local service.",
+                  "type": "string"
+                },
+                "remoteClusters": {
+                  "description": "RemoteClusters is the list of remote clusters that also run NGINX Gateway Fabric.",
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "description": "GatewayLinkRemoteCluster defines a remote cluster for multi-cluster load balancing.",
+                    "type": "object",
+                    "required": [
+                      "clusterName"
+                    ],
+                    "properties": {
+                      "clusterName": {
+                        "description": "ClusterName is one of the names of the remote clusters as configured in the CIS deployment.",
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "description": "Namespace is the namespace of the NGINX service in the remote cluster.\nIf not specified, defaults to the local Gateway's namespace.",
+                        "type": "string"
+                      },
+                      "service": {
+                        "description": "Service is the name of the NGINX service in the remote cluster.\nIf not specified, defaults to the local Gateway's service name.",
+                        "type": "string"
+                      },
+                      "weight": {
+                        "description": "Weight is the load balancing weight for this cluster's service.",
+                        "type": "integer",
+                        "format": "int32",
+                        "maximum": 256,
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "partition": {
+              "description": "Partition is the BIG-IP partition where resources will be created.\nThe partition must already exist on BIG-IP and cannot be \"Common\".",
+              "type": "string",
+              "pattern": "^[a-zA-Z]+[-A-Za-z0-9_.]+$"
+            },
+            "serviceAddress": {
+              "description": "ServiceAddress configures Layer 3 settings for the BIG-IP virtual server address.",
+              "type": "object",
+              "properties": {
+                "icmpEcho": {
+                  "description": "ICMPEcho controls whether the virtual server address responds to ICMP echo (ping).",
+                  "type": "string",
+                  "enum": [
+                    "enable",
+                    "disable",
+                    "selective"
+                  ]
+                },
+                "trafficGroup": {
+                  "description": "TrafficGroup is the BIG-IP traffic group that owns the virtual server address,\nin the full path format, for example \"/Common/traffic-group-test\".",
+                  "type": "string",
+                  "pattern": "^\\/([A-z0-9-_+]+\\/)+([-A-z0-9_.:]+\\/?)*$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "tls": {
+              "description": "TLS defines the TLS configuration for the BIG-IP virtual server.",
+              "type": "object",
+              "properties": {
+                "clientSSLs": {
+                  "description": "ClientSSLs is a list of client SSL profiles that BIG-IP uses to terminate TLS from the client.\nWhen reference is \"bigip\", each entry is the full path of a profile on BIG-IP in the form\n/partition/profile_name, for example /Common/clientssl. When reference is \"secret\", each entry\nis the name of a Kubernetes secret of type kubernetes.io/tls that holds the certificate and key.",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^\\/?[a-zA-Z]+([-A-z0-9_+]+\\/)*([-A-z0-9_.:]+\\/?)*$"
+                  }
+                },
+                "reference": {
+                  "description": "Reference specifies the source of the SSL profiles. \"bigip\" means the profiles already\nexist on BIG-IP. \"secret\" means they come from Kubernetes secrets of type kubernetes.io/tls.\nIf not specified, defaults to \"bigip\".",
+                  "type": "string",
+                  "enum": [
+                    "bigip",
+                    "secret"
+                  ]
+                },
+                "serverSSLs": {
+                  "description": "ServerSSLs is a list of server SSL profiles that BIG-IP uses to re-encrypt traffic to NGINX.\nWhen reference is \"bigip\", each entry is the full path of a profile on BIG-IP in the form\n/partition/profile_name, for example /Common/serverssl. When reference is \"secret\", each entry\nis the name of a Kubernetes secret of type kubernetes.io/tls that holds the certificate and key.",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^\\/?[a-zA-Z]+([-A-z0-9_+]+\\/)*([-A-z0-9_.:]+\\/?)*$"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "virtualServerAddress": {
+              "description": "VirtualServerAddress is the static IP address to configure on BIG-IP for the virtual server.\nThis is mutually exclusive with IPAMLabel.",
+              "type": "string",
+              "pattern": "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
+            },
+            "virtualServerName": {
+              "description": "VirtualServerName is a custom name for the BIG-IP virtual server.",
+              "type": "string",
+              "pattern": "^[a-zA-Z]+([A-z0-9-._+])*([A-z0-9])$"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!(has(self.virtualServerAddress) \u0026\u0026 has(self.ipamLabel))",
+              "message": "virtualServerAddress and ipamLabel are mutually exclusive"
+            },
+            {
+              "rule": "has(self.virtualServerAddress) || has(self.ipamLabel)",
+              "message": "one of virtualServerAddress or ipamLabel must be set"
+            },
+            {
+              "rule": "!has(self.partition) || self.partition != 'Common'",
+              "message": "partition cannot be Common"
+            },
+            {
+              "rule": "has(self.partition) == has(oldSelf.partition) \u0026\u0026 (!has(self.partition) || self.partition == oldSelf.partition)",
+              "message": "partition cannot be modified; delete the resource and recreate it with the new partition"
+            }
+          ]
+        },
+        "targetRefs": {
+          "description": "TargetRefs identifies the Gateways this external load balancer applies to.\nEach object must be in the same namespace as the ExternalLoadBalancer resource.\nExactly one Gateway is supported for now.\nSupport: Gateway.",
+          "type": "array",
+          "maxItems": 1,
+          "minItems": 1,
+          "items": {
+            "description": "LocalPolicyTargetReference identifies an API object to apply a direct or\ninherited policy to. This should be used as part of Policy resources\nthat can target Gateway API resources. For more information on how this\npolicy attachment model works, and a sample Policy resource, refer to\nthe policy attachment documentation for Gateway API.",
+            "type": "object",
+            "required": [
+              "group",
+              "kind",
+              "name"
+            ],
+            "properties": {
+              "group": {
+                "description": "Group is the group of the target resource.",
+                "type": "string",
+                "maxLength": 253,
+                "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+              },
+              "kind": {
+                "description": "Kind is kind of the target resource.",
+                "type": "string",
+                "maxLength": 63,
+                "minLength": 1,
+                "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
+              },
+              "name": {
+                "description": "Name is the name of the target resource.",
+                "type": "string",
+                "maxLength": 253,
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.all(ref, ref.kind=='Gateway')",
+              "message": "TargetRef Kind must be Gateway"
+            },
+            {
+              "rule": "self.all(ref, ref.group=='gateway.networking.k8s.io')",
+              "message": "TargetRef Group must be gateway.networking.k8s.io"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "has(self.gatewayLink)",
+          "message": "exactly one external load balancer backend must be set"
+        }
+      ]
+    },
+    "status": {
+      "description": "Status defines the state of the ExternalLoadBalancer.",
+      "type": "object",
+      "properties": {
+        "controllers": {
+          "description": "Controllers is a list of Gateway API controllers that processed the ExternalLoadBalancer\nand the status of the ExternalLoadBalancer with respect to each controller.",
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "required": [
+              "controllerName"
+            ],
+            "properties": {
+              "conditions": {
+                "description": "Conditions describe the status of the resource with respect to this controller.",
+                "type": "array",
+                "maxItems": 8,
+                "minItems": 1,
+                "items": {
+                  "description": "Condition contains details for one aspect of the current state of this API Resource.",
+                  "type": "object",
+                  "required": [
+                    "lastTransitionTime",
+                    "message",
+                    "reason",
+                    "status",
+                    "type"
+                  ],
+                  "properties": {
+                    "lastTransitionTime": {
+                      "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "message": {
+                      "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                      "type": "string",
+                      "maxLength": 32768
+                    },
+                    "observedGeneration": {
+                      "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    },
+                    "reason": {
+                      "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                      "type": "string",
+                      "maxLength": 1024,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+                    },
+                    "status": {
+                      "description": "status of the condition, one of True, False, Unknown.",
+                      "type": "string",
+                      "enum": [
+                        "True",
+                        "False",
+                        "Unknown"
+                      ]
+                    },
+                    "type": {
+                      "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                      "type": "string",
+                      "maxLength": 316,
+                      "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "x-kubernetes-list-map-keys": [
+                  "type"
+                ],
+                "x-kubernetes-list-type": "map"
+              },
+              "controllerName": {
+                "description": "ControllerName is a domain/path string that indicates the name of the\ncontroller that wrote this status. This corresponds with the\ncontrollerName field on GatewayClass.\n\nExample: \"example.net/gateway-controller\".\n\nThe format of this field is DOMAIN \"/\" PATH, where DOMAIN and PATH are\nvalid Kubernetes names\n(https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names).\n\nControllers MUST populate this field when writing status. Controllers should ensure that\nentries to status populated with their ControllerName are cleaned up when they are no\nlonger necessary.",
+                "type": "string",
+                "maxLength": 253,
+                "minLength": 1,
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/[A-Za-z0-9\\/\\-._~%!$\u0026'()*+,;=:]+$"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
