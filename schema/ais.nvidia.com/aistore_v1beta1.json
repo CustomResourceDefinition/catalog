@@ -1131,11 +1131,14 @@
           "type": "string"
         },
         "auth": {
-          "description": "Auth specifies the Auth service configuration for admin authentication\nIf not specified, the operator will look for configuration in the legacy ConfigMap",
+          "description": "Auth specifies the Auth service configuration for admin client authentication\nThis is used by admins such as the operator or adminClient",
           "type": "object",
+          "required": [
+            "profileRef"
+          ],
           "properties": {
             "profileRef": {
-              "description": "ProfileRef references the AIStoreAuthProfile holding the auth provider\nconfiguration the operator is allowed to authenticate against.\nWhen set, the operator resolves the provider from the profile and ignores the remaining\nfields of this spec.\nThe submitting user must have \"use\" access to the referenced profile",
+              "description": "ProfileRef references the AIStoreAuthProfile holding the auth provider\nconfiguration the operator is allowed to authenticate against.\nOperator resolves the token request information for the provider from the profile.\nThe submitting user must have \"use\" access to the referenced profile",
               "type": "object",
               "required": [
                 "name"
@@ -1148,87 +1151,9 @@
                 }
               },
               "additionalProperties": false
-            },
-            "serviceURL": {
-              "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.\nServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)\nFormat: \"scheme://hostname[:port]\"\nTLS is determined from the URL scheme (https = TLS enabled)\nPort defaults to 80 for http and 443 for https if not specified\nIf not specified, defaults to \"https://ais-authn.ais:52001\"",
-              "type": "string"
-            },
-            "tls": {
-              "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.\nTLS configuration for secure connections with Auth service",
-              "type": "object",
-              "properties": {
-                "caCertPath": {
-                  "description": "CACertPath is a filesystem path to a CA certificate file (PEM format)\nThis certificate will be added to the trust store for verifying Auth service certificates\nExample: \"/etc/ssl/certs/custom-ca.crt\"",
-                  "type": "string"
-                },
-                "insecureSkipVerify": {
-                  "description": "InsecureSkipVerify disables TLS certificate verification (not recommended for production)\nIf true, the operator will accept any certificate presented by the Auth service",
-                  "type": "boolean"
-                }
-              },
-              "additionalProperties": false
-            },
-            "tokenExchange": {
-              "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.\nTokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange\nThis eliminates the need for static credentials, so is recommended over UsernamePassword for workload identity",
-              "type": "object",
-              "properties": {
-                "tokenExchangeEndpoint": {
-                  "description": "TokenExchangeEndpoint is the AuthN endpoint for token exchange\nIf not specified, defaults to \"/token\"",
-                  "type": "string"
-                },
-                "tokenPath": {
-                  "description": "TokenPath is the path to the token to be exchanged\nIf not specified, the operator requests a short-lived token for its own ServiceAccount",
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false
-            },
-            "usernamePassword": {
-              "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.\nUsernamePassword authentication configuration using static credentials",
-              "type": "object",
-              "required": [
-                "secretName"
-              ],
-              "properties": {
-                "loginConf": {
-                  "description": "LoginConf contains details for OAuth 2.0 compliant password-based login\nIf not set, the operator will log in using the native AIStore AuthN service API",
-                  "type": "object",
-                  "required": [
-                    "clientID"
-                  ],
-                  "properties": {
-                    "clientID": {
-                      "description": "Client ID for the auth service, used when fetching a token",
-                      "type": "string"
-                    },
-                    "scope": {
-                      "description": "Scope to pass when fetching a token from the configured auth service",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "secretName": {
-                  "description": "SecretName is the name of the secret containing auth service admin credentials (SU-NAME and SU-PASS)",
-                  "type": "string",
-                  "minLength": 1
-                },
-                "secretNamespace": {
-                  "description": "SecretNamespace is the namespace of the secret containing auth service admin credentials\nIf not specified, defaults to the AIStore cluster namespace\nThe submitting user's access to the referenced Secret is verified with a SubjectAccessReview\non AIStore create, and on update when the secret reference changes",
-                  "type": "string",
-                  "minLength": 1
-                }
-              },
-              "additionalProperties": false
             }
           },
-          "additionalProperties": false,
-          "x-kubernetes-validations": [
-            {
-              "rule": "has(self.profileRef) || (has(self.usernamePassword) != has(self.tokenExchange))",
-              "message": "exactly one of usernamePassword or tokenExchange must be specified when profileRef is not set"
-            }
-          ]
+          "additionalProperties": false
         },
         "authNSecretName": {
           "description": "Secret name containing AuthN's JWT signing key",
@@ -1245,10 +1170,6 @@
         "cleanupMetadata": {
           "description": "CleanupMetadata determines whether to clean up cluster and bucket metadata when the cluster is decommissioned.\nWhen enabled, the cluster will fully decommission, removing metadata and optionally deleting user data according to the CleanupData option.\nWhen disabled, the operator will call the AIS shutdown API to preserve metadata before deleting other k8s resources.\nState cleanup:\n - All state PVCs will be deleted and cleaned up according to the storage class\n - Any state host paths will be cleaned with operator-managed jobs\nData cleanup:\n - Data PVCs will be deleted but data on disk will remain unless specified by CleanupData\n - The reclamation behavior for PVs bound to the PVCs depends on the PVC's reclaim policy, or, if the PV was dynamically provisioned, on the reclaim policy of the associated StorageClass.",
           "type": "boolean"
-        },
-        "clusterDomain": {
-          "description": "Defines the cluster domain name for DNS.\nIf set, will override the cluster domain the operator is configured with or discovers at startup.\n\nDeprecated: Leave unset to use the cluster domain the operator is configured with or discovers at startup.",
-          "type": "string"
         },
         "configToUpdate": {
           "type": "object",
@@ -1271,7 +1192,11 @@
             "auth": {
               "type": "object",
               "properties": {
+                "client_auth_required": {
+                  "type": "boolean"
+                },
                 "cluster_key": {
+                  "description": "Deprecated: use IntraCluster.",
                   "type": "object",
                   "properties": {
                     "enabled": {
@@ -1290,7 +1215,29 @@
                   "additionalProperties": false
                 },
                 "enabled": {
+                  "description": "Deprecated: use ClientAuthRequired.",
                   "type": "boolean"
+                },
+                "intra_cluster": {
+                  "type": "object",
+                  "properties": {
+                    "node_join_secret_path": {
+                      "type": "string"
+                    },
+                    "nonce_window": {
+                      "type": "string"
+                    },
+                    "request_auth": {
+                      "type": "boolean"
+                    },
+                    "rotation_grace": {
+                      "type": "string"
+                    },
+                    "ttl": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
                 },
                 "oidc": {
                   "type": "object",
@@ -1303,6 +1250,18 @@
                     },
                     "issuer_ca_bundle": {
                       "type": "string"
+                    },
+                    "jwks_cache": {
+                      "type": "object",
+                      "properties": {
+                        "min_background_refresh": {
+                          "type": "string"
+                        },
+                        "min_rotation_refresh": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
                     }
                   },
                   "additionalProperties": false
@@ -1638,6 +1597,30 @@
               },
               "additionalProperties": false
             },
+            "lso": {
+              "type": "object",
+              "properties": {
+                "bundle_multiplier": {
+                  "type": "integer"
+                },
+                "burst_buffer": {
+                  "type": "integer"
+                },
+                "compression": {
+                  "type": "string"
+                },
+                "idle_time": {
+                  "type": "string"
+                },
+                "quiescent": {
+                  "type": "string"
+                },
+                "walk_buffer": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
             "memsys": {
               "type": "object",
               "properties": {
@@ -1684,6 +1667,9 @@
                 "http": {
                   "type": "object",
                   "properties": {
+                    "backend_idle_conn_time": {
+                      "type": "string"
+                    },
                     "chunked_transfer": {
                       "type": "boolean"
                     },
@@ -1705,6 +1691,25 @@
                     "idle_conns_per_host": {
                       "type": "integer"
                     },
+                    "pub": {
+                      "description": "Optional TLS overrides for public listeners.",
+                      "type": "object",
+                      "properties": {
+                        "client_auth_tls": {
+                          "type": "integer"
+                        },
+                        "client_ca_tls": {
+                          "type": "string"
+                        },
+                        "server_crt": {
+                          "type": "string"
+                        },
+                        "server_key": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
                     "read_buffer_size": {
                       "type": "integer"
                     },
@@ -1725,6 +1730,9 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "use_ipv6": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -1749,9 +1757,6 @@
               "properties": {
                 "discovery_url": {
                   "type": "string"
-                },
-                "non_electable": {
-                  "type": "boolean"
                 },
                 "original_url": {
                   "type": "string"
@@ -1990,7 +1995,7 @@
                   "type": "string"
                 },
                 "lz4_block": {
-                  "type": "integer"
+                  "type": "string"
                 },
                 "lz4_frame_checksum": {
                   "type": "boolean"
@@ -2034,10 +2039,6 @@
           },
           "additionalProperties": false
         },
-        "enableExternalLB": {
-          "description": "EnableExternalLB, if set, enables LoadBalancer services for external access to targets and proxies.\n\nDeprecated: set spec.proxySpec.externalAccess and/or spec.targetSpec.externalAccess to enable instead.",
-          "type": "boolean"
-        },
         "gcpSecretName": {
           "description": "Secret name containing GCP config and credentials",
           "type": "string"
@@ -2050,7 +2051,7 @@
           }
         },
         "hostpathPrefix": {
-          "description": "Deprecated: use stateStorage.hostPath.prefix.",
+          "description": "Deprecated: use stateStorage.hostPath.prefix. Rejected on create and on spec updates.",
           "type": "string"
         },
         "imagePullSecrets": {
@@ -2178,7 +2179,7 @@
           "type": "string"
         },
         "operatorSkipVerifyCrt": {
-          "description": "OperatorSkipVerifyCrt controls TLS verification for Operator -\u003e AIS API HTTPS calls.\nWhen false, the operator verifies certificates using trusted CAs.\nWhen true, certificate verification is disabled.\nWhen unset, the operator falls back to deprecated OPERATOR_SKIP_VERIFY_CRT.",
+          "description": "OperatorSkipVerifyCrt controls TLS verification for Operator -\u003e AIS API HTTPS calls.\nWhen false, the operator verifies certificates using trusted CAs.\nWhen true, certificate verification is disabled.\nDefault behavior is to verify certificates.",
           "type": "boolean"
         },
         "priorityClassName": {
@@ -2188,12 +2189,6 @@
         "proxySpec": {
           "description": "Proxy deployment specification.",
           "type": "object",
-          "required": [
-            "portIntraControl",
-            "portIntraData",
-            "portPublic",
-            "servicePort"
-          ],
           "properties": {
             "affinity": {
               "description": "Affinity  - AIS Daemon pod's scheduling constraints",
@@ -3154,150 +3149,6 @@
               },
               "additionalProperties": false
             },
-            "capabilities": {
-              "description": "Deprecated: Capabilities defines the security context for the primary AIS container.\nUse AISContainerSecurityContext instead.",
-              "type": "object",
-              "properties": {
-                "allowPrivilegeEscalation": {
-                  "description": "AllowPrivilegeEscalation controls whether a process can gain more\nprivileges than its parent process. This bool directly controls if\nthe no_new_privs flag will be set on the container process.\nAllowPrivilegeEscalation is true always when the container is:\n1) run as Privileged\n2) has CAP_SYS_ADMIN\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "boolean"
-                },
-                "appArmorProfile": {
-                  "description": "appArmorProfile is the AppArmor options to use by this container. If set, this profile\noverrides the pod's appArmorProfile.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "object",
-                  "required": [
-                    "type"
-                  ],
-                  "properties": {
-                    "localhostProfile": {
-                      "description": "localhostProfile indicates a profile loaded on the node that should be used.\nThe profile must be preconfigured on the node to work.\nMust match the loaded name of the profile.\nMust be set if and only if type is \"Localhost\".",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "type indicates which kind of AppArmor profile will be applied.\nValid options are:\n  Localhost - a profile pre-loaded on the node.\n  RuntimeDefault - the container runtime's default profile.\n  Unconfined - no AppArmor enforcement.",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "capabilities": {
-                  "description": "The capabilities to add/drop when running containers.\nDefaults to the default set of capabilities granted by the container runtime.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "object",
-                  "properties": {
-                    "add": {
-                      "description": "Added capabilities",
-                      "type": "array",
-                      "items": {
-                        "description": "Capability represent POSIX capabilities type",
-                        "type": "string"
-                      },
-                      "x-kubernetes-list-type": "atomic"
-                    },
-                    "drop": {
-                      "description": "Removed capabilities",
-                      "type": "array",
-                      "items": {
-                        "description": "Capability represent POSIX capabilities type",
-                        "type": "string"
-                      },
-                      "x-kubernetes-list-type": "atomic"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "privileged": {
-                  "description": "Run container in privileged mode.\nProcesses in privileged containers are essentially equivalent to root on the host.\nDefaults to false.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "boolean"
-                },
-                "procMount": {
-                  "description": "procMount denotes the type of proc mount to use for the containers.\nThe default value is Default which uses the container runtime defaults for\nreadonly paths and masked paths.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "string"
-                },
-                "readOnlyRootFilesystem": {
-                  "description": "Whether this container has a read-only root filesystem.\nDefault is false.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "boolean"
-                },
-                "runAsGroup": {
-                  "description": "The GID to run the entrypoint of the container process.\nUses runtime default if unset.\nMay also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "integer",
-                  "format": "int64"
-                },
-                "runAsNonRoot": {
-                  "description": "Indicates that the container must run as a non-root user.\nIf true, the Kubelet will validate the image at runtime to ensure that it\ndoes not run as UID 0 (root) and fail to start the container if it does.\nIf unset or false, no such validation will be performed.\nMay also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.",
-                  "type": "boolean"
-                },
-                "runAsUser": {
-                  "description": "The UID to run the entrypoint of the container process.\nDefaults to user specified in image metadata if unspecified.\nMay also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "integer",
-                  "format": "int64"
-                },
-                "seLinuxOptions": {
-                  "description": "The SELinux context to be applied to the container.\nIf unspecified, the container runtime will allocate a random SELinux context for each\ncontainer.  May also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "object",
-                  "properties": {
-                    "level": {
-                      "description": "Level is SELinux level label that applies to the container.",
-                      "type": "string"
-                    },
-                    "role": {
-                      "description": "Role is a SELinux role label that applies to the container.",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "Type is a SELinux type label that applies to the container.",
-                      "type": "string"
-                    },
-                    "user": {
-                      "description": "User is a SELinux user label that applies to the container.",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "seccompProfile": {
-                  "description": "The seccomp options to use by this container. If seccomp options are\nprovided at both the pod \u0026 container level, the container options\noverride the pod options.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "object",
-                  "required": [
-                    "type"
-                  ],
-                  "properties": {
-                    "localhostProfile": {
-                      "description": "localhostProfile indicates a profile defined in a file on the node should be used.\nThe profile must be preconfigured on the node to work.\nMust be a descending path, relative to the kubelet's configured seccomp profile location.\nMust be set if type is \"Localhost\". Must NOT be set for any other type.",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "type indicates which kind of seccomp profile will be applied.\nValid options are:\n\nLocalhost - a profile defined in a file on the node should be used.\nRuntimeDefault - the container runtime default profile should be used.\nUnconfined - no profile should be applied.",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "windowsOptions": {
-                  "description": "The Windows specific settings applied to all containers.\nIf unspecified, the options from the PodSecurityContext will be used.\nIf set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is linux.",
-                  "type": "object",
-                  "properties": {
-                    "gmsaCredentialSpec": {
-                      "description": "GMSACredentialSpec is where the GMSA admission webhook\n(https://github.com/kubernetes-sigs/windows-gmsa) inlines the contents of the\nGMSA credential spec named by the GMSACredentialSpecName field.",
-                      "type": "string"
-                    },
-                    "gmsaCredentialSpecName": {
-                      "description": "GMSACredentialSpecName is the name of the GMSA credential spec to use.",
-                      "type": "string"
-                    },
-                    "hostProcess": {
-                      "description": "HostProcess determines if a container should be run as a 'Host Process' container.\nAll of a Pod's containers must have the same effective HostProcess value\n(it is not allowed to have a mix of HostProcess containers and non-HostProcess containers).\nIn addition, if HostProcess is true then HostNetwork must also be set to true.",
-                      "type": "boolean"
-                    },
-                    "runAsUserName": {
-                      "description": "The UserName in Windows to run the entrypoint of the container process.\nDefaults to the user specified in image metadata if unspecified.\nMay also be set in PodSecurityContext. If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "additionalProperties": false
-            },
             "env": {
               "description": "List of additional environment variables to set in the AIS Daemon container.\nOverrides any default envs set by operator.",
               "type": "array",
@@ -3466,6 +3317,20 @@
                   "additionalProperties": {
                     "type": "string"
                   }
+                },
+                "loadBalancer": {
+                  "description": "LoadBalancer tunes the LoadBalancer services. Omit it to accept the defaults.",
+                  "type": "object",
+                  "properties": {
+                    "port": {
+                      "description": "Port is the port the LoadBalancer service listens on. Defaults to the daemon's portPublic.\nSupported on proxies only.\nProxies redirect requests to the target's public port, so the target load balancer port\nmust remain equal to the target's public port.",
+                      "type": "integer",
+                      "format": "int32",
+                      "maximum": 65535,
+                      "minimum": 1
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "additionalProperties": false
@@ -3490,6 +3355,7 @@
               }
             },
             "portIntraControl": {
+              "description": "IntraControlPort is the container port the AIS proxy or target process listens on for the\nintra-cluster control network.\nDefaults to 51082.",
               "anyOf": [
                 {
                   "type": "integer"
@@ -3501,6 +3367,7 @@
               "x-kubernetes-int-or-string": true
             },
             "portIntraData": {
+              "description": "IntraDataPort is the container port the AIS proxy or target process listens on for the\nintra-cluster data network.\nDefaults to 51083.",
               "anyOf": [
                 {
                   "type": "integer"
@@ -3512,6 +3379,7 @@
               "x-kubernetes-int-or-string": true
             },
             "portPublic": {
+              "description": "PublicPort is the container port the AIS proxy or target process listens on for the public network.\nDefaults to 51080 on proxies and 51081 on targets.",
               "anyOf": [
                 {
                   "type": "integer"
@@ -3848,6 +3716,7 @@
               "additionalProperties": false
             },
             "servicePort": {
+              "description": "Deprecated: use portPublic for the port the daemon binds, and\nexternalAccess.loadBalancer.port for the port a proxy LoadBalancer publishes.",
               "anyOf": [
                 {
                   "type": "integer"
@@ -3967,18 +3836,14 @@
           ]
         },
         "stateStorageClass": {
-          "description": "Deprecated: use stateStorage.pvc.storageClass.",
+          "description": "Deprecated: use stateStorage.pvc.storageClass. Rejected on create and on spec updates.",
           "type": "string"
         },
         "targetSpec": {
           "description": "Target deployment specification.",
           "type": "object",
           "required": [
-            "mounts",
-            "portIntraControl",
-            "portIntraData",
-            "portPublic",
-            "servicePort"
+            "mounts"
           ],
           "properties": {
             "affinity": {
@@ -4940,150 +4805,6 @@
               },
               "additionalProperties": false
             },
-            "capabilities": {
-              "description": "Deprecated: Capabilities defines the security context for the primary AIS container.\nUse AISContainerSecurityContext instead.",
-              "type": "object",
-              "properties": {
-                "allowPrivilegeEscalation": {
-                  "description": "AllowPrivilegeEscalation controls whether a process can gain more\nprivileges than its parent process. This bool directly controls if\nthe no_new_privs flag will be set on the container process.\nAllowPrivilegeEscalation is true always when the container is:\n1) run as Privileged\n2) has CAP_SYS_ADMIN\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "boolean"
-                },
-                "appArmorProfile": {
-                  "description": "appArmorProfile is the AppArmor options to use by this container. If set, this profile\noverrides the pod's appArmorProfile.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "object",
-                  "required": [
-                    "type"
-                  ],
-                  "properties": {
-                    "localhostProfile": {
-                      "description": "localhostProfile indicates a profile loaded on the node that should be used.\nThe profile must be preconfigured on the node to work.\nMust match the loaded name of the profile.\nMust be set if and only if type is \"Localhost\".",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "type indicates which kind of AppArmor profile will be applied.\nValid options are:\n  Localhost - a profile pre-loaded on the node.\n  RuntimeDefault - the container runtime's default profile.\n  Unconfined - no AppArmor enforcement.",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "capabilities": {
-                  "description": "The capabilities to add/drop when running containers.\nDefaults to the default set of capabilities granted by the container runtime.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "object",
-                  "properties": {
-                    "add": {
-                      "description": "Added capabilities",
-                      "type": "array",
-                      "items": {
-                        "description": "Capability represent POSIX capabilities type",
-                        "type": "string"
-                      },
-                      "x-kubernetes-list-type": "atomic"
-                    },
-                    "drop": {
-                      "description": "Removed capabilities",
-                      "type": "array",
-                      "items": {
-                        "description": "Capability represent POSIX capabilities type",
-                        "type": "string"
-                      },
-                      "x-kubernetes-list-type": "atomic"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "privileged": {
-                  "description": "Run container in privileged mode.\nProcesses in privileged containers are essentially equivalent to root on the host.\nDefaults to false.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "boolean"
-                },
-                "procMount": {
-                  "description": "procMount denotes the type of proc mount to use for the containers.\nThe default value is Default which uses the container runtime defaults for\nreadonly paths and masked paths.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "string"
-                },
-                "readOnlyRootFilesystem": {
-                  "description": "Whether this container has a read-only root filesystem.\nDefault is false.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "boolean"
-                },
-                "runAsGroup": {
-                  "description": "The GID to run the entrypoint of the container process.\nUses runtime default if unset.\nMay also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "integer",
-                  "format": "int64"
-                },
-                "runAsNonRoot": {
-                  "description": "Indicates that the container must run as a non-root user.\nIf true, the Kubelet will validate the image at runtime to ensure that it\ndoes not run as UID 0 (root) and fail to start the container if it does.\nIf unset or false, no such validation will be performed.\nMay also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.",
-                  "type": "boolean"
-                },
-                "runAsUser": {
-                  "description": "The UID to run the entrypoint of the container process.\nDefaults to user specified in image metadata if unspecified.\nMay also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "integer",
-                  "format": "int64"
-                },
-                "seLinuxOptions": {
-                  "description": "The SELinux context to be applied to the container.\nIf unspecified, the container runtime will allocate a random SELinux context for each\ncontainer.  May also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "object",
-                  "properties": {
-                    "level": {
-                      "description": "Level is SELinux level label that applies to the container.",
-                      "type": "string"
-                    },
-                    "role": {
-                      "description": "Role is a SELinux role label that applies to the container.",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "Type is a SELinux type label that applies to the container.",
-                      "type": "string"
-                    },
-                    "user": {
-                      "description": "User is a SELinux user label that applies to the container.",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "seccompProfile": {
-                  "description": "The seccomp options to use by this container. If seccomp options are\nprovided at both the pod \u0026 container level, the container options\noverride the pod options.\nNote that this field cannot be set when spec.os.name is windows.",
-                  "type": "object",
-                  "required": [
-                    "type"
-                  ],
-                  "properties": {
-                    "localhostProfile": {
-                      "description": "localhostProfile indicates a profile defined in a file on the node should be used.\nThe profile must be preconfigured on the node to work.\nMust be a descending path, relative to the kubelet's configured seccomp profile location.\nMust be set if type is \"Localhost\". Must NOT be set for any other type.",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "type indicates which kind of seccomp profile will be applied.\nValid options are:\n\nLocalhost - a profile defined in a file on the node should be used.\nRuntimeDefault - the container runtime default profile should be used.\nUnconfined - no profile should be applied.",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "windowsOptions": {
-                  "description": "The Windows specific settings applied to all containers.\nIf unspecified, the options from the PodSecurityContext will be used.\nIf set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is linux.",
-                  "type": "object",
-                  "properties": {
-                    "gmsaCredentialSpec": {
-                      "description": "GMSACredentialSpec is where the GMSA admission webhook\n(https://github.com/kubernetes-sigs/windows-gmsa) inlines the contents of the\nGMSA credential spec named by the GMSACredentialSpecName field.",
-                      "type": "string"
-                    },
-                    "gmsaCredentialSpecName": {
-                      "description": "GMSACredentialSpecName is the name of the GMSA credential spec to use.",
-                      "type": "string"
-                    },
-                    "hostProcess": {
-                      "description": "HostProcess determines if a container should be run as a 'Host Process' container.\nAll of a Pod's containers must have the same effective HostProcess value\n(it is not allowed to have a mix of HostProcess containers and non-HostProcess containers).\nIn addition, if HostProcess is true then HostNetwork must also be set to true.",
-                      "type": "boolean"
-                    },
-                    "runAsUserName": {
-                      "description": "The UserName in Windows to run the entrypoint of the container process.\nDefaults to the user specified in image metadata if unspecified.\nMay also be set in PodSecurityContext. If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "additionalProperties": false
-            },
             "disablePodAntiAffinity": {
               "description": "DisablePodAntiAffinity allows more than one target pod to be scheduled on same K8s node.",
               "type": "boolean"
@@ -5256,6 +4977,20 @@
                   "additionalProperties": {
                     "type": "string"
                   }
+                },
+                "loadBalancer": {
+                  "description": "LoadBalancer tunes the LoadBalancer services. Omit it to accept the defaults.",
+                  "type": "object",
+                  "properties": {
+                    "port": {
+                      "description": "Port is the port the LoadBalancer service listens on. Defaults to the daemon's portPublic.\nSupported on proxies only.\nProxies redirect requests to the target's public port, so the target load balancer port\nmust remain equal to the target's public port.",
+                      "type": "integer",
+                      "format": "int32",
+                      "maximum": 65535,
+                      "minimum": 1
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "additionalProperties": false
@@ -5391,6 +5126,7 @@
               "additionalProperties": false
             },
             "portIntraControl": {
+              "description": "IntraControlPort is the container port the AIS proxy or target process listens on for the\nintra-cluster control network.\nDefaults to 51082.",
               "anyOf": [
                 {
                   "type": "integer"
@@ -5402,6 +5138,7 @@
               "x-kubernetes-int-or-string": true
             },
             "portIntraData": {
+              "description": "IntraDataPort is the container port the AIS proxy or target process listens on for the\nintra-cluster data network.\nDefaults to 51083.",
               "anyOf": [
                 {
                   "type": "integer"
@@ -5413,6 +5150,7 @@
               "x-kubernetes-int-or-string": true
             },
             "portPublic": {
+              "description": "PublicPort is the container port the AIS proxy or target process listens on for the public network.\nDefaults to 51080 on proxies and 51081 on targets.",
               "anyOf": [
                 {
                   "type": "integer"
@@ -5759,6 +5497,7 @@
               "additionalProperties": false
             },
             "servicePort": {
+              "description": "Deprecated: use portPublic for the port the daemon binds, and\nexternalAccess.loadBalancer.port for the port a proxy LoadBalancer publishes.",
               "anyOf": [
                 {
                   "type": "integer"

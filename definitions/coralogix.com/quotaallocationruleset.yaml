@@ -27,8 +27,10 @@ spec:
         description: |-
           QuotaAllocationRuleSet is the Schema for the QuotaAllocationRuleSet API.
           NOTE: This account-level singleton resource replaces all user-managed backend
-          quota allocation rules. Coralogix-managed rules returned by the backend are
-          preserved by the controller.
+          quota allocation rules. An empty rules list clears customer-managed rules.
+          Delete clears customer-managed rules only. Coralogix-managed (cx_managed)
+          rules returned by the backend are preserved by the controller and are never
+          taken from the CR.
 
           **Added in v0.4.0**
         properties:
@@ -54,7 +56,13 @@ spec:
               quota allocation rules.
             properties:
               rules:
-                description: Coralogix quota allocation rules.
+                description: |-
+                  Complete set of customer-managed quota allocation rules.
+                  Because the backend stores a single account-level rule set, the controller
+                  replaces the full customer-managed set during reconcile.
+                  Set rules to an empty list to clear all customer-managed rules.
+                  Coralogix-managed (cx_managed) rules are never taken from this list; the
+                  controller preserves them from the backend.
                 items:
                   description: QuotaAllocationRule defines quota allocation for a
                     single entity type.
@@ -64,27 +72,43 @@ spec:
                       - type: integer
                       - type: string
                       description: |-
-                        Allocation value. Percent allocations are 0-100; locked unit allocations are absolute units.
+                        Quota allocation value for this entity type.
+                        For percentage, this is a share of the pool left after lockedUnits (0-100).
+                        For lockedUnits, this is a fixed reservation from the team daily quota.
+                        The sum of enabled locked units plus any Coralogix bundle units must fit
+                        within the team daily quota.
                         Fractional values must be supplied as quoted quantities, for example "12.5".
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     allocationType:
                       description: |-
-                        Interprets allocation as a percentage, locked units, or unspecified.
-                        Defaults to percentage when omitted.
+                        How the allocation value is interpreted.
+                        Valid values are percentage (default) and lockedUnits.
+                        unspecified is accepted as a compatible alias of percentage and is
+                        normalized to percentage before the API call.
+                        Locked units are reserved first from the team daily quota; percentage
+                        rules share the remaining pool and their enabled allocations must sum to
+                        at most 100.
                       enum:
                       - percentage
                       - lockedUnits
                       - unspecified
                       type: string
                     canOverflow:
-                      description: Whether this quota allocation rule can overflow.
+                      description: Whether this entity type can overflow beyond its
+                        allocation.
                       type: boolean
                     enabled:
                       description: Whether this quota allocation rule is enabled.
                       type: boolean
                     entityType:
-                      description: Entity type to allocate quota for.
+                      description: |-
+                        Entity type covered by the rule.
+                        Known values include logs, spans, metrics, cpuProfiles, memoryProfiles,
+                        browserLogs, browserLogs/v2, sessionRecordings, olly, auditEvents, alerts,
+                        quotaEvents, engineQueries, engineSchemaFields, labsLimitViolations, and
+                        notificationDeliveries. The list is additive; the API may accept more
+                        values over time.
                       minLength: 1
                       type: string
                   required:
@@ -93,7 +117,6 @@ spec:
                   - enabled
                   - entityType
                   type: object
-                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - entityType

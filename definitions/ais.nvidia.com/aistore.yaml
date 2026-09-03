@@ -1283,15 +1283,14 @@ spec:
                 type: string
               auth:
                 description: |-
-                  Auth specifies the Auth service configuration for admin authentication
-                  If not specified, the operator will look for configuration in the legacy ConfigMap
+                  Auth specifies the Auth service configuration for admin client authentication
+                  This is used by admins such as the operator or adminClient
                 properties:
                   profileRef:
                     description: |-
                       ProfileRef references the AIStoreAuthProfile holding the auth provider
                       configuration the operator is allowed to authenticate against.
-                      When set, the operator resolves the provider from the profile and ignores the remaining
-                      fields of this spec.
+                      Operator resolves the token request information for the provider from the profile.
                       The submitting user must have "use" access to the referenced profile
                     properties:
                       name:
@@ -1302,91 +1301,9 @@ spec:
                     required:
                     - name
                     type: object
-                  serviceURL:
-                    description: |-
-                      Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
-                      ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)
-                      Format: "scheme://hostname[:port]"
-                      TLS is determined from the URL scheme (https = TLS enabled)
-                      Port defaults to 80 for http and 443 for https if not specified
-                      If not specified, defaults to "https://ais-authn.ais:52001"
-                    type: string
-                  tls:
-                    description: |-
-                      Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
-                      TLS configuration for secure connections with Auth service
-                    properties:
-                      caCertPath:
-                        description: |-
-                          CACertPath is a filesystem path to a CA certificate file (PEM format)
-                          This certificate will be added to the trust store for verifying Auth service certificates
-                          Example: "/etc/ssl/certs/custom-ca.crt"
-                        type: string
-                      insecureSkipVerify:
-                        description: |-
-                          InsecureSkipVerify disables TLS certificate verification (not recommended for production)
-                          If true, the operator will accept any certificate presented by the Auth service
-                        type: boolean
-                    type: object
-                  tokenExchange:
-                    description: |-
-                      Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
-                      TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange
-                      This eliminates the need for static credentials, so is recommended over UsernamePassword for workload identity
-                    properties:
-                      tokenExchangeEndpoint:
-                        description: |-
-                          TokenExchangeEndpoint is the AuthN endpoint for token exchange
-                          If not specified, defaults to "/token"
-                        type: string
-                      tokenPath:
-                        description: |-
-                          TokenPath is the path to the token to be exchanged
-                          If not specified, the operator requests a short-lived token for its own ServiceAccount
-                        type: string
-                    type: object
-                  usernamePassword:
-                    description: |-
-                      Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
-                      UsernamePassword authentication configuration using static credentials
-                    properties:
-                      loginConf:
-                        description: |-
-                          LoginConf contains details for OAuth 2.0 compliant password-based login
-                          If not set, the operator will log in using the native AIStore AuthN service API
-                        properties:
-                          clientID:
-                            description: Client ID for the auth service, used when
-                              fetching a token
-                            type: string
-                          scope:
-                            description: Scope to pass when fetching a token from
-                              the configured auth service
-                            type: string
-                        required:
-                        - clientID
-                        type: object
-                      secretName:
-                        description: SecretName is the name of the secret containing
-                          auth service admin credentials (SU-NAME and SU-PASS)
-                        minLength: 1
-                        type: string
-                      secretNamespace:
-                        description: |-
-                          SecretNamespace is the namespace of the secret containing auth service admin credentials
-                          If not specified, defaults to the AIStore cluster namespace
-                          The submitting user's access to the referenced Secret is verified with a SubjectAccessReview
-                          on AIStore create, and on update when the secret reference changes
-                        minLength: 1
-                        type: string
-                    required:
-                    - secretName
-                    type: object
+                required:
+                - profileRef
                 type: object
-                x-kubernetes-validations:
-                - message: exactly one of usernamePassword or tokenExchange must be
-                    specified when profileRef is not set
-                  rule: has(self.profileRef) || (has(self.usernamePassword) != has(self.tokenExchange))
               authNSecretName:
                 description: Secret name containing AuthN's JWT signing key
                 type: string
@@ -1412,13 +1329,6 @@ spec:
                    - Data PVCs will be deleted but data on disk will remain unless specified by CleanupData
                    - The reclamation behavior for PVs bound to the PVCs depends on the PVC's reclaim policy, or, if the PV was dynamically provisioned, on the reclaim policy of the associated StorageClass.
                 type: boolean
-              clusterDomain:
-                description: |-
-                  Defines the cluster domain name for DNS.
-                  If set, will override the cluster domain the operator is configured with or discovers at startup.
-
-                  Deprecated: Leave unset to use the cluster domain the operator is configured with or discovers at startup.
-                type: string
               configToUpdate:
                 properties:
                   arch:
@@ -1432,7 +1342,10 @@ spec:
                     type: object
                   auth:
                     properties:
+                      client_auth_required:
+                        type: boolean
                       cluster_key:
+                        description: 'Deprecated: use IntraCluster.'
                         properties:
                           enabled:
                             type: boolean
@@ -1444,7 +1357,21 @@ spec:
                             type: string
                         type: object
                       enabled:
+                        description: 'Deprecated: use ClientAuthRequired.'
                         type: boolean
+                      intra_cluster:
+                        properties:
+                          node_join_secret_path:
+                            type: string
+                          nonce_window:
+                            type: string
+                          request_auth:
+                            type: boolean
+                          rotation_grace:
+                            type: string
+                          ttl:
+                            type: string
+                        type: object
                       oidc:
                         properties:
                           allowed_iss:
@@ -1453,6 +1380,13 @@ spec:
                             type: array
                           issuer_ca_bundle:
                             type: string
+                          jwks_cache:
+                            properties:
+                              min_background_refresh:
+                                type: string
+                              min_rotation_refresh:
+                                type: string
+                            type: object
                         type: object
                       required_claims:
                         properties:
@@ -1665,6 +1599,21 @@ spec:
                       enabled:
                         type: boolean
                     type: object
+                  lso:
+                    properties:
+                      bundle_multiplier:
+                        type: integer
+                      burst_buffer:
+                        type: integer
+                      compression:
+                        type: string
+                      idle_time:
+                        type: string
+                      quiescent:
+                        type: string
+                      walk_buffer:
+                        type: integer
+                    type: object
                   memsys:
                     properties:
                       default_buf:
@@ -1694,6 +1643,8 @@ spec:
                     properties:
                       http:
                         properties:
+                          backend_idle_conn_time:
+                            type: string
                           chunked_transfer:
                             type: boolean
                           client_auth_tls:
@@ -1708,6 +1659,18 @@ spec:
                             type: integer
                           idle_conns_per_host:
                             type: integer
+                          pub:
+                            description: Optional TLS overrides for public listeners.
+                            properties:
+                              client_auth_tls:
+                                type: integer
+                              client_ca_tls:
+                                type: string
+                              server_crt:
+                                type: string
+                              server_key:
+                                type: string
+                            type: object
                           read_buffer_size:
                             type: integer
                           server_crt:
@@ -1721,6 +1684,8 @@ spec:
                           write_buffer_size:
                             type: integer
                         type: object
+                      use_ipv6:
+                        type: boolean
                     type: object
                   periodic:
                     properties:
@@ -1735,8 +1700,6 @@ spec:
                     properties:
                       discovery_url:
                         type: string
-                      non_electable:
-                        type: boolean
                       original_url:
                         type: string
                       primary_url:
@@ -1888,7 +1851,7 @@ spec:
                       idle_teardown:
                         type: string
                       lz4_block:
-                        type: integer
+                        type: string
                       lz4_frame_checksum:
                         type: boolean
                       max_header:
@@ -1913,12 +1876,6 @@ spec:
                         type: string
                     type: object
                 type: object
-              enableExternalLB:
-                description: |-
-                  EnableExternalLB, if set, enables LoadBalancer services for external access to targets and proxies.
-
-                  Deprecated: set spec.proxySpec.externalAccess and/or spec.targetSpec.externalAccess to enable instead.
-                type: boolean
               gcpSecretName:
                 description: Secret name containing GCP config and credentials
                 type: string
@@ -1929,7 +1886,8 @@ spec:
                   hosts for multi-home
                 type: object
               hostpathPrefix:
-                description: 'Deprecated: use stateStorage.hostPath.prefix.'
+                description: 'Deprecated: use stateStorage.hostPath.prefix. Rejected
+                  on create and on spec updates.'
                 type: string
               imagePullSecrets:
                 description: |-
@@ -2059,7 +2017,7 @@ spec:
                   OperatorSkipVerifyCrt controls TLS verification for Operator -> AIS API HTTPS calls.
                   When false, the operator verifies certificates using trusted CAs.
                   When true, certificate verification is disabled.
-                  When unset, the operator falls back to deprecated OPERATOR_SKIP_VERIFY_CRT.
+                  Default behavior is to verify certificates.
                 type: boolean
               priorityClassName:
                 description: |-
@@ -3205,199 +3163,6 @@ spec:
                         minimum: 1
                         type: integer
                     type: object
-                  capabilities:
-                    description: |-
-                      Deprecated: Capabilities defines the security context for the primary AIS container.
-                      Use AISContainerSecurityContext instead.
-                    properties:
-                      allowPrivilegeEscalation:
-                        description: |-
-                          AllowPrivilegeEscalation controls whether a process can gain more
-                          privileges than its parent process. This bool directly controls if
-                          the no_new_privs flag will be set on the container process.
-                          AllowPrivilegeEscalation is true always when the container is:
-                          1) run as Privileged
-                          2) has CAP_SYS_ADMIN
-                          Note that this field cannot be set when spec.os.name is windows.
-                        type: boolean
-                      appArmorProfile:
-                        description: |-
-                          appArmorProfile is the AppArmor options to use by this container. If set, this profile
-                          overrides the pod's appArmorProfile.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        properties:
-                          localhostProfile:
-                            description: |-
-                              localhostProfile indicates a profile loaded on the node that should be used.
-                              The profile must be preconfigured on the node to work.
-                              Must match the loaded name of the profile.
-                              Must be set if and only if type is "Localhost".
-                            type: string
-                          type:
-                            description: |-
-                              type indicates which kind of AppArmor profile will be applied.
-                              Valid options are:
-                                Localhost - a profile pre-loaded on the node.
-                                RuntimeDefault - the container runtime's default profile.
-                                Unconfined - no AppArmor enforcement.
-                            type: string
-                        required:
-                        - type
-                        type: object
-                      capabilities:
-                        description: |-
-                          The capabilities to add/drop when running containers.
-                          Defaults to the default set of capabilities granted by the container runtime.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        properties:
-                          add:
-                            description: Added capabilities
-                            items:
-                              description: Capability represent POSIX capabilities
-                                type
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          drop:
-                            description: Removed capabilities
-                            items:
-                              description: Capability represent POSIX capabilities
-                                type
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        type: object
-                      privileged:
-                        description: |-
-                          Run container in privileged mode.
-                          Processes in privileged containers are essentially equivalent to root on the host.
-                          Defaults to false.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        type: boolean
-                      procMount:
-                        description: |-
-                          procMount denotes the type of proc mount to use for the containers.
-                          The default value is Default which uses the container runtime defaults for
-                          readonly paths and masked paths.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        type: string
-                      readOnlyRootFilesystem:
-                        description: |-
-                          Whether this container has a read-only root filesystem.
-                          Default is false.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        type: boolean
-                      runAsGroup:
-                        description: |-
-                          The GID to run the entrypoint of the container process.
-                          Uses runtime default if unset.
-                          May also be set in PodSecurityContext.  If set in both SecurityContext and
-                          PodSecurityContext, the value specified in SecurityContext takes precedence.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        format: int64
-                        type: integer
-                      runAsNonRoot:
-                        description: |-
-                          Indicates that the container must run as a non-root user.
-                          If true, the Kubelet will validate the image at runtime to ensure that it
-                          does not run as UID 0 (root) and fail to start the container if it does.
-                          If unset or false, no such validation will be performed.
-                          May also be set in PodSecurityContext.  If set in both SecurityContext and
-                          PodSecurityContext, the value specified in SecurityContext takes precedence.
-                        type: boolean
-                      runAsUser:
-                        description: |-
-                          The UID to run the entrypoint of the container process.
-                          Defaults to user specified in image metadata if unspecified.
-                          May also be set in PodSecurityContext.  If set in both SecurityContext and
-                          PodSecurityContext, the value specified in SecurityContext takes precedence.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        format: int64
-                        type: integer
-                      seLinuxOptions:
-                        description: |-
-                          The SELinux context to be applied to the container.
-                          If unspecified, the container runtime will allocate a random SELinux context for each
-                          container.  May also be set in PodSecurityContext.  If set in both SecurityContext and
-                          PodSecurityContext, the value specified in SecurityContext takes precedence.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        properties:
-                          level:
-                            description: Level is SELinux level label that applies
-                              to the container.
-                            type: string
-                          role:
-                            description: Role is a SELinux role label that applies
-                              to the container.
-                            type: string
-                          type:
-                            description: Type is a SELinux type label that applies
-                              to the container.
-                            type: string
-                          user:
-                            description: User is a SELinux user label that applies
-                              to the container.
-                            type: string
-                        type: object
-                      seccompProfile:
-                        description: |-
-                          The seccomp options to use by this container. If seccomp options are
-                          provided at both the pod & container level, the container options
-                          override the pod options.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        properties:
-                          localhostProfile:
-                            description: |-
-                              localhostProfile indicates a profile defined in a file on the node should be used.
-                              The profile must be preconfigured on the node to work.
-                              Must be a descending path, relative to the kubelet's configured seccomp profile location.
-                              Must be set if type is "Localhost". Must NOT be set for any other type.
-                            type: string
-                          type:
-                            description: |-
-                              type indicates which kind of seccomp profile will be applied.
-                              Valid options are:
-
-                              Localhost - a profile defined in a file on the node should be used.
-                              RuntimeDefault - the container runtime default profile should be used.
-                              Unconfined - no profile should be applied.
-                            type: string
-                        required:
-                        - type
-                        type: object
-                      windowsOptions:
-                        description: |-
-                          The Windows specific settings applied to all containers.
-                          If unspecified, the options from the PodSecurityContext will be used.
-                          If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
-                          Note that this field cannot be set when spec.os.name is linux.
-                        properties:
-                          gmsaCredentialSpec:
-                            description: |-
-                              GMSACredentialSpec is where the GMSA admission webhook
-                              (https://github.com/kubernetes-sigs/windows-gmsa) inlines the contents of the
-                              GMSA credential spec named by the GMSACredentialSpecName field.
-                            type: string
-                          gmsaCredentialSpecName:
-                            description: GMSACredentialSpecName is the name of the
-                              GMSA credential spec to use.
-                            type: string
-                          hostProcess:
-                            description: |-
-                              HostProcess determines if a container should be run as a 'Host Process' container.
-                              All of a Pod's containers must have the same effective HostProcess value
-                              (it is not allowed to have a mix of HostProcess containers and non-HostProcess containers).
-                              In addition, if HostProcess is true then HostNetwork must also be set to true.
-                            type: boolean
-                          runAsUserName:
-                            description: |-
-                              The UserName in Windows to run the entrypoint of the container process.
-                              Defaults to the user specified in image metadata if unspecified.
-                              May also be set in PodSecurityContext. If set in both SecurityContext and
-                              PodSecurityContext, the value specified in SecurityContext takes precedence.
-                            type: string
-                        type: object
-                    type: object
                   env:
                     description: |-
                       List of additional environment variables to set in the AIS Daemon container.
@@ -3569,6 +3334,21 @@ spec:
                           Annotations are merged onto the created service(s)
                           (for example cloud provider or external-dns annotations).
                         type: object
+                      loadBalancer:
+                        description: LoadBalancer tunes the LoadBalancer services.
+                          Omit it to accept the defaults.
+                        properties:
+                          port:
+                            description: |-
+                              Port is the port the LoadBalancer service listens on. Defaults to the daemon's portPublic.
+                              Supported on proxies only.
+                              Proxies redirect requests to the target's public port, so the target load balancer port
+                              must remain equal to the target's public port.
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                        type: object
                     type: object
                   hostPort:
                     description: HostPort - Port to bind directly to a specific port
@@ -3591,16 +3371,27 @@ spec:
                     anyOf:
                     - type: integer
                     - type: string
+                    description: |-
+                      IntraControlPort is the container port the AIS proxy or target process listens on for the
+                      intra-cluster control network.
+                      Defaults to 51082.
                     x-kubernetes-int-or-string: true
                   portIntraData:
                     anyOf:
                     - type: integer
                     - type: string
+                    description: |-
+                      IntraDataPort is the container port the AIS proxy or target process listens on for the
+                      intra-cluster data network.
+                      Defaults to 51083.
                     x-kubernetes-int-or-string: true
                   portPublic:
                     anyOf:
                     - type: integer
                     - type: string
+                    description: |-
+                      PublicPort is the container port the AIS proxy or target process listens on for the public network.
+                      Defaults to 51080 on proxies and 51081 on targets.
                     x-kubernetes-int-or-string: true
                   probes:
                     description: |-
@@ -3992,6 +3783,9 @@ spec:
                     anyOf:
                     - type: integer
                     - type: string
+                    description: |-
+                      Deprecated: use portPublic for the port the daemon binds, and
+                      externalAccess.loadBalancer.port for the port a proxy LoadBalancer publishes.
                     x-kubernetes-int-or-string: true
                   size:
                     description: |-
@@ -4041,11 +3835,6 @@ spec:
                           type: string
                       type: object
                     type: array
-                required:
-                - portIntraControl
-                - portIntraData
-                - portPublic
-                - servicePort
                 type: object
               publicNetDNSMode:
                 default: IP
@@ -4112,7 +3901,8 @@ spec:
                   rule: '[has(self.hostPath), has(self.pvc), has(self.emptyDir)].filter(x,
                     x).size() == 1'
               stateStorageClass:
-                description: 'Deprecated: use stateStorage.pvc.storageClass.'
+                description: 'Deprecated: use stateStorage.pvc.storageClass. Rejected
+                  on create and on spec updates.'
                 type: string
               targetSpec:
                 description: Target deployment specification.
@@ -5252,199 +5042,6 @@ spec:
                         minimum: 1
                         type: integer
                     type: object
-                  capabilities:
-                    description: |-
-                      Deprecated: Capabilities defines the security context for the primary AIS container.
-                      Use AISContainerSecurityContext instead.
-                    properties:
-                      allowPrivilegeEscalation:
-                        description: |-
-                          AllowPrivilegeEscalation controls whether a process can gain more
-                          privileges than its parent process. This bool directly controls if
-                          the no_new_privs flag will be set on the container process.
-                          AllowPrivilegeEscalation is true always when the container is:
-                          1) run as Privileged
-                          2) has CAP_SYS_ADMIN
-                          Note that this field cannot be set when spec.os.name is windows.
-                        type: boolean
-                      appArmorProfile:
-                        description: |-
-                          appArmorProfile is the AppArmor options to use by this container. If set, this profile
-                          overrides the pod's appArmorProfile.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        properties:
-                          localhostProfile:
-                            description: |-
-                              localhostProfile indicates a profile loaded on the node that should be used.
-                              The profile must be preconfigured on the node to work.
-                              Must match the loaded name of the profile.
-                              Must be set if and only if type is "Localhost".
-                            type: string
-                          type:
-                            description: |-
-                              type indicates which kind of AppArmor profile will be applied.
-                              Valid options are:
-                                Localhost - a profile pre-loaded on the node.
-                                RuntimeDefault - the container runtime's default profile.
-                                Unconfined - no AppArmor enforcement.
-                            type: string
-                        required:
-                        - type
-                        type: object
-                      capabilities:
-                        description: |-
-                          The capabilities to add/drop when running containers.
-                          Defaults to the default set of capabilities granted by the container runtime.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        properties:
-                          add:
-                            description: Added capabilities
-                            items:
-                              description: Capability represent POSIX capabilities
-                                type
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          drop:
-                            description: Removed capabilities
-                            items:
-                              description: Capability represent POSIX capabilities
-                                type
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        type: object
-                      privileged:
-                        description: |-
-                          Run container in privileged mode.
-                          Processes in privileged containers are essentially equivalent to root on the host.
-                          Defaults to false.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        type: boolean
-                      procMount:
-                        description: |-
-                          procMount denotes the type of proc mount to use for the containers.
-                          The default value is Default which uses the container runtime defaults for
-                          readonly paths and masked paths.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        type: string
-                      readOnlyRootFilesystem:
-                        description: |-
-                          Whether this container has a read-only root filesystem.
-                          Default is false.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        type: boolean
-                      runAsGroup:
-                        description: |-
-                          The GID to run the entrypoint of the container process.
-                          Uses runtime default if unset.
-                          May also be set in PodSecurityContext.  If set in both SecurityContext and
-                          PodSecurityContext, the value specified in SecurityContext takes precedence.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        format: int64
-                        type: integer
-                      runAsNonRoot:
-                        description: |-
-                          Indicates that the container must run as a non-root user.
-                          If true, the Kubelet will validate the image at runtime to ensure that it
-                          does not run as UID 0 (root) and fail to start the container if it does.
-                          If unset or false, no such validation will be performed.
-                          May also be set in PodSecurityContext.  If set in both SecurityContext and
-                          PodSecurityContext, the value specified in SecurityContext takes precedence.
-                        type: boolean
-                      runAsUser:
-                        description: |-
-                          The UID to run the entrypoint of the container process.
-                          Defaults to user specified in image metadata if unspecified.
-                          May also be set in PodSecurityContext.  If set in both SecurityContext and
-                          PodSecurityContext, the value specified in SecurityContext takes precedence.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        format: int64
-                        type: integer
-                      seLinuxOptions:
-                        description: |-
-                          The SELinux context to be applied to the container.
-                          If unspecified, the container runtime will allocate a random SELinux context for each
-                          container.  May also be set in PodSecurityContext.  If set in both SecurityContext and
-                          PodSecurityContext, the value specified in SecurityContext takes precedence.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        properties:
-                          level:
-                            description: Level is SELinux level label that applies
-                              to the container.
-                            type: string
-                          role:
-                            description: Role is a SELinux role label that applies
-                              to the container.
-                            type: string
-                          type:
-                            description: Type is a SELinux type label that applies
-                              to the container.
-                            type: string
-                          user:
-                            description: User is a SELinux user label that applies
-                              to the container.
-                            type: string
-                        type: object
-                      seccompProfile:
-                        description: |-
-                          The seccomp options to use by this container. If seccomp options are
-                          provided at both the pod & container level, the container options
-                          override the pod options.
-                          Note that this field cannot be set when spec.os.name is windows.
-                        properties:
-                          localhostProfile:
-                            description: |-
-                              localhostProfile indicates a profile defined in a file on the node should be used.
-                              The profile must be preconfigured on the node to work.
-                              Must be a descending path, relative to the kubelet's configured seccomp profile location.
-                              Must be set if type is "Localhost". Must NOT be set for any other type.
-                            type: string
-                          type:
-                            description: |-
-                              type indicates which kind of seccomp profile will be applied.
-                              Valid options are:
-
-                              Localhost - a profile defined in a file on the node should be used.
-                              RuntimeDefault - the container runtime default profile should be used.
-                              Unconfined - no profile should be applied.
-                            type: string
-                        required:
-                        - type
-                        type: object
-                      windowsOptions:
-                        description: |-
-                          The Windows specific settings applied to all containers.
-                          If unspecified, the options from the PodSecurityContext will be used.
-                          If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
-                          Note that this field cannot be set when spec.os.name is linux.
-                        properties:
-                          gmsaCredentialSpec:
-                            description: |-
-                              GMSACredentialSpec is where the GMSA admission webhook
-                              (https://github.com/kubernetes-sigs/windows-gmsa) inlines the contents of the
-                              GMSA credential spec named by the GMSACredentialSpecName field.
-                            type: string
-                          gmsaCredentialSpecName:
-                            description: GMSACredentialSpecName is the name of the
-                              GMSA credential spec to use.
-                            type: string
-                          hostProcess:
-                            description: |-
-                              HostProcess determines if a container should be run as a 'Host Process' container.
-                              All of a Pod's containers must have the same effective HostProcess value
-                              (it is not allowed to have a mix of HostProcess containers and non-HostProcess containers).
-                              In addition, if HostProcess is true then HostNetwork must also be set to true.
-                            type: boolean
-                          runAsUserName:
-                            description: |-
-                              The UserName in Windows to run the entrypoint of the container process.
-                              Defaults to the user specified in image metadata if unspecified.
-                              May also be set in PodSecurityContext. If set in both SecurityContext and
-                              PodSecurityContext, the value specified in SecurityContext takes precedence.
-                            type: string
-                        type: object
-                    type: object
                   disablePodAntiAffinity:
                     description: DisablePodAntiAffinity allows more than one target
                       pod to be scheduled on same K8s node.
@@ -5620,6 +5217,21 @@ spec:
                           Annotations are merged onto the created service(s)
                           (for example cloud provider or external-dns annotations).
                         type: object
+                      loadBalancer:
+                        description: LoadBalancer tunes the LoadBalancer services.
+                          Omit it to accept the defaults.
+                        properties:
+                          port:
+                            description: |-
+                              Port is the port the LoadBalancer service listens on. Defaults to the daemon's portPublic.
+                              Supported on proxies only.
+                              Proxies redirect requests to the target's public port, so the target load balancer port
+                              must remain equal to the target's public port.
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                        type: object
                     type: object
                   hostNetwork:
                     description: hostNetwork - if set to true, the AIS Daemon pods
@@ -5744,16 +5356,27 @@ spec:
                     anyOf:
                     - type: integer
                     - type: string
+                    description: |-
+                      IntraControlPort is the container port the AIS proxy or target process listens on for the
+                      intra-cluster control network.
+                      Defaults to 51082.
                     x-kubernetes-int-or-string: true
                   portIntraData:
                     anyOf:
                     - type: integer
                     - type: string
+                    description: |-
+                      IntraDataPort is the container port the AIS proxy or target process listens on for the
+                      intra-cluster data network.
+                      Defaults to 51083.
                     x-kubernetes-int-or-string: true
                   portPublic:
                     anyOf:
                     - type: integer
                     - type: string
+                    description: |-
+                      PublicPort is the container port the AIS proxy or target process listens on for the public network.
+                      Defaults to 51080 on proxies and 51081 on targets.
                     x-kubernetes-int-or-string: true
                   probes:
                     description: |-
@@ -6162,6 +5785,9 @@ spec:
                     anyOf:
                     - type: integer
                     - type: string
+                    description: |-
+                      Deprecated: use portPublic for the port the daemon binds, and
+                      externalAccess.loadBalancer.port for the port a proxy LoadBalancer publishes.
                     x-kubernetes-int-or-string: true
                   size:
                     description: |-
@@ -6213,10 +5839,6 @@ spec:
                     type: array
                 required:
                 - mounts
-                - portIntraControl
-                - portIntraData
-                - portPublic
-                - servicePort
                 type: object
               tls:
                 description: TLS configures TLS certificate provisioning
