@@ -50,6 +50,14 @@
                 "publicModelName": {
                   "description": "Required. The model garden source model resource name.",
                   "type": "string"
+                },
+                "skipHfModelCache": {
+                  "description": "Optional. Whether to avoid pulling the model from the HF cache.",
+                  "type": "boolean"
+                },
+                "versionID": {
+                  "description": "Optional. The model garden source model version ID.",
+                  "type": "string"
                 }
               },
               "additionalProperties": false
@@ -130,10 +138,99 @@
                   },
                   "additionalProperties": false
                 },
+                "failureThreshold": {
+                  "description": "Number of consecutive failures before the probe is considered failed.\n Defaults to 3. Minimum value is 1.\n\n Maps to Kubernetes probe argument 'failureThreshold'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "grpc": {
+                  "description": "GrpcAction probes the health of a container by sending a gRPC request.",
+                  "type": "object",
+                  "properties": {
+                    "port": {
+                      "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "service": {
+                      "description": "Service is the name of the service to place in the gRPC\n HealthCheckRequest (see\n https://github.com/grpc/grpc/blob/master/doc/health-checking.md).\n\n If this is not specified, the default behavior is defined by gRPC.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "httpGet": {
+                  "description": "HttpGetAction probes the health of a container by sending an HTTP GET request.",
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "description": "Host name to connect to, defaults to the model serving container's IP. You probably want to set \"Host\" in httpHeaders instead.",
+                      "type": "string"
+                    },
+                    "httpHeaders": {
+                      "description": "Custom headers to set in the request. HTTP allows repeated headers.",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "description": "The header field name. This will be canonicalized upon output, so case-variant names will be understood as the same header.",
+                            "type": "string"
+                          },
+                          "value": {
+                            "description": "The header field value",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "path": {
+                      "description": "Path to access on the HTTP server.",
+                      "type": "string"
+                    },
+                    "port": {
+                      "description": "Number of the port to access on the container. Number must be in the range 1 to 65535.",
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "scheme": {
+                      "description": "Scheme to use for connecting to the host. Defaults to HTTP. Acceptable values are \"HTTP\" or \"HTTPS\".",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "initialDelaySeconds": {
+                  "description": "Number of seconds to wait before starting the probe. Defaults to 0.\n Minimum value is 0.\n\n Maps to Kubernetes probe argument 'initialDelaySeconds'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
                 "periodSeconds": {
                   "description": "How often (in seconds) to perform the probe. Default to 10 seconds.\n Minimum value is 1. Must be less than timeout_seconds.\n\n Maps to Kubernetes probe argument 'periodSeconds'.",
                   "type": "integer",
                   "format": "int32"
+                },
+                "successThreshold": {
+                  "description": "Number of consecutive successes before the probe is considered successful.\n Defaults to 1. Minimum value is 1.\n\n Maps to Kubernetes probe argument 'successThreshold'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "tcpSocket": {
+                  "description": "TcpSocketAction probes the health of a container by opening a TCP socket connection.",
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "description": "Optional: Host name to connect to, defaults to the model serving container's IP.",
+                      "type": "string"
+                    },
+                    "port": {
+                      "description": "Number of the port to access on the container. Number must be in the range 1 to 65535.",
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  },
+                  "additionalProperties": false
                 },
                 "timeoutSeconds": {
                   "description": "Number of seconds after which the probe times out. Defaults to 1 second.\n Minimum value is 1. Must be greater or equal to period_seconds.\n\n Maps to Kubernetes probe argument 'timeoutSeconds'.",
@@ -150,6 +247,130 @@
             "imageURI": {
               "description": "Required. Immutable. URI of the Docker image to be used as the custom\n container for serving predictions. This URI must identify an image in\n Artifact Registry or Container Registry. Learn more about the [container\n publishing\n requirements](https://cloud.google.com/vertex-ai/docs/predictions/custom-container-requirements#publishing),\n including permissions requirements for the Vertex AI Service Agent.\n\n The container image is ingested upon\n [ModelService.UploadModel][google.cloud.aiplatform.v1.ModelService.UploadModel],\n stored internally, and this original path is afterwards not used.\n\n To learn about the requirements for the Docker image itself, see\n [Custom container\n requirements](https://cloud.google.com/vertex-ai/docs/predictions/custom-container-requirements#).\n\n You can use the URI to one of Vertex AI's [pre-built container images for\n prediction](https://cloud.google.com/vertex-ai/docs/predictions/pre-built-containers)\n in this field.",
               "type": "string"
+            },
+            "invokeRoutePrefix": {
+              "description": "Immutable. Invoke route prefix for the custom container. \"/*\" is the only\n supported value right now. By setting this field, any non-root route on\n this model will be accessible with invoke http call eg: \"/invoke/foo/bar\",\n however the [PredictionService.Invoke] RPC is not supported yet.\n\n Only one of `predict_route` or `invoke_route_prefix` can be set, and we\n default to using `predict_route` if this field is not set. If this field\n is set, the Model can only be deployed to dedicated endpoint.",
+              "type": "string"
+            },
+            "livenessProbe": {
+              "description": "Immutable. Specification for Kubernetes liveness probe.",
+              "type": "object",
+              "properties": {
+                "exec": {
+                  "description": "ExecAction probes the health of a container by executing a command.",
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "description": "Command is the command line to execute inside the container, the working directory for the command is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "failureThreshold": {
+                  "description": "Number of consecutive failures before the probe is considered failed.\n Defaults to 3. Minimum value is 1.\n\n Maps to Kubernetes probe argument 'failureThreshold'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "grpc": {
+                  "description": "GrpcAction probes the health of a container by sending a gRPC request.",
+                  "type": "object",
+                  "properties": {
+                    "port": {
+                      "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "service": {
+                      "description": "Service is the name of the service to place in the gRPC\n HealthCheckRequest (see\n https://github.com/grpc/grpc/blob/master/doc/health-checking.md).\n\n If this is not specified, the default behavior is defined by gRPC.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "httpGet": {
+                  "description": "HttpGetAction probes the health of a container by sending an HTTP GET request.",
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "description": "Host name to connect to, defaults to the model serving container's IP. You probably want to set \"Host\" in httpHeaders instead.",
+                      "type": "string"
+                    },
+                    "httpHeaders": {
+                      "description": "Custom headers to set in the request. HTTP allows repeated headers.",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "description": "The header field name. This will be canonicalized upon output, so case-variant names will be understood as the same header.",
+                            "type": "string"
+                          },
+                          "value": {
+                            "description": "The header field value",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "path": {
+                      "description": "Path to access on the HTTP server.",
+                      "type": "string"
+                    },
+                    "port": {
+                      "description": "Number of the port to access on the container. Number must be in the range 1 to 65535.",
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "scheme": {
+                      "description": "Scheme to use for connecting to the host. Defaults to HTTP. Acceptable values are \"HTTP\" or \"HTTPS\".",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "initialDelaySeconds": {
+                  "description": "Number of seconds to wait before starting the probe. Defaults to 0.\n Minimum value is 0.\n\n Maps to Kubernetes probe argument 'initialDelaySeconds'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "periodSeconds": {
+                  "description": "How often (in seconds) to perform the probe. Default to 10 seconds.\n Minimum value is 1. Must be less than timeout_seconds.\n\n Maps to Kubernetes probe argument 'periodSeconds'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "successThreshold": {
+                  "description": "Number of consecutive successes before the probe is considered successful.\n Defaults to 1. Minimum value is 1.\n\n Maps to Kubernetes probe argument 'successThreshold'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "tcpSocket": {
+                  "description": "TcpSocketAction probes the health of a container by opening a TCP socket connection.",
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "description": "Optional: Host name to connect to, defaults to the model serving container's IP.",
+                      "type": "string"
+                    },
+                    "port": {
+                      "description": "Number of the port to access on the container. Number must be in the range 1 to 65535.",
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "timeoutSeconds": {
+                  "description": "Number of seconds after which the probe times out. Defaults to 1 second.\n Minimum value is 1. Must be greater or equal to period_seconds.\n\n Maps to Kubernetes probe argument 'timeoutSeconds'.",
+                  "type": "integer",
+                  "format": "int32"
+                }
+              },
+              "additionalProperties": false
             },
             "ports": {
               "description": "Immutable. List of ports to expose from the container. Vertex AI sends any\n prediction requests that it receives to the first port on this list. Vertex\n AI also sends\n [liveness and health\n checks](https://cloud.google.com/vertex-ai/docs/predictions/custom-container-requirements#liveness)\n to this port.\n\n If you do not specify this field, it defaults to following value:\n\n ```json\n [\n   {\n     \"containerPort\": 8080\n   }\n ]\n ```\n\n Vertex AI does not use ports other than the first one listed. This field\n corresponds to the `ports` field of the Kubernetes Containers\n [v1 core\n API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#container-v1-core).",
@@ -193,10 +414,99 @@
                   },
                   "additionalProperties": false
                 },
+                "failureThreshold": {
+                  "description": "Number of consecutive failures before the probe is considered failed.\n Defaults to 3. Minimum value is 1.\n\n Maps to Kubernetes probe argument 'failureThreshold'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "grpc": {
+                  "description": "GrpcAction probes the health of a container by sending a gRPC request.",
+                  "type": "object",
+                  "properties": {
+                    "port": {
+                      "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "service": {
+                      "description": "Service is the name of the service to place in the gRPC\n HealthCheckRequest (see\n https://github.com/grpc/grpc/blob/master/doc/health-checking.md).\n\n If this is not specified, the default behavior is defined by gRPC.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "httpGet": {
+                  "description": "HttpGetAction probes the health of a container by sending an HTTP GET request.",
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "description": "Host name to connect to, defaults to the model serving container's IP. You probably want to set \"Host\" in httpHeaders instead.",
+                      "type": "string"
+                    },
+                    "httpHeaders": {
+                      "description": "Custom headers to set in the request. HTTP allows repeated headers.",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "description": "The header field name. This will be canonicalized upon output, so case-variant names will be understood as the same header.",
+                            "type": "string"
+                          },
+                          "value": {
+                            "description": "The header field value",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "path": {
+                      "description": "Path to access on the HTTP server.",
+                      "type": "string"
+                    },
+                    "port": {
+                      "description": "Number of the port to access on the container. Number must be in the range 1 to 65535.",
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "scheme": {
+                      "description": "Scheme to use for connecting to the host. Defaults to HTTP. Acceptable values are \"HTTP\" or \"HTTPS\".",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "initialDelaySeconds": {
+                  "description": "Number of seconds to wait before starting the probe. Defaults to 0.\n Minimum value is 0.\n\n Maps to Kubernetes probe argument 'initialDelaySeconds'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
                 "periodSeconds": {
                   "description": "How often (in seconds) to perform the probe. Default to 10 seconds.\n Minimum value is 1. Must be less than timeout_seconds.\n\n Maps to Kubernetes probe argument 'periodSeconds'.",
                   "type": "integer",
                   "format": "int32"
+                },
+                "successThreshold": {
+                  "description": "Number of consecutive successes before the probe is considered successful.\n Defaults to 1. Minimum value is 1.\n\n Maps to Kubernetes probe argument 'successThreshold'.",
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "tcpSocket": {
+                  "description": "TcpSocketAction probes the health of a container by opening a TCP socket connection.",
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "description": "Optional: Host name to connect to, defaults to the model serving container's IP.",
+                      "type": "string"
+                    },
+                    "port": {
+                      "description": "Number of the port to access on the container. Number must be in the range 1 to 65535.",
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  },
+                  "additionalProperties": false
                 },
                 "timeoutSeconds": {
                   "description": "Number of seconds after which the probe times out. Defaults to 1 second.\n Minimum value is 1. Must be greater or equal to period_seconds.\n\n Maps to Kubernetes probe argument 'timeoutSeconds'.",
@@ -258,9 +568,55 @@
           "description": "Customer-managed encryption key spec for a Model. If set, this Model and all sub-resources of this Model will be secured by this key.",
           "type": "object",
           "properties": {
-            "kmsKeyName": {
+            "kmsKeyRef": {
               "description": "Required. The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`. The key needs to be in the same region as where the compute resource is created.",
-              "type": "string"
+              "type": "object",
+              "oneOf": [
+                {
+                  "required": [
+                    "name"
+                  ],
+                  "not": {
+                    "required": [
+                      "external"
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "external"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "namespace"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "properties": {
+                "external": {
+                  "description": "A reference to an externally managed KMSCryptoKey resource. Should be in the format \"projects/{{projectID}}/locations/{{location}}/keyRings/{{keyring}}/cryptoKeys/{{cryptokey}}\".",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "The name of a KMSCryptoKey resource.",
+                  "type": "string"
+                },
+                "namespace": {
+                  "description": "The namespace of a KMSCryptoKey resource.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -311,10 +667,7 @@
                             },
                             "structValue": {
                               "description": "Represents a structured value.",
-                              "type": "object",
-                              "additionalProperties": {
-                                "type": "string"
-                              }
+                              "x-kubernetes-preserve-unknown-fields": true
                             }
                           }
                         }
@@ -388,10 +741,7 @@
                             },
                             "structValue": {
                               "description": "Represents a structured value.",
-                              "type": "object",
-                              "additionalProperties": {
-                                "type": "string"
-                              }
+                              "x-kubernetes-preserve-unknown-fields": true
                             }
                           }
                         }
@@ -473,10 +823,7 @@
                           },
                           "structValue": {
                             "description": "Represents a structured value.",
-                            "type": "object",
-                            "additionalProperties": {
-                              "type": "string"
-                            }
+                            "x-kubernetes-preserve-unknown-fields": true
                           }
                         }
                       },
@@ -511,7 +858,7 @@
                           "type": "object",
                           "properties": {
                             "uris": {
-                              "description": "Required. Google Cloud Storage URI(-s) to the input file(s). May contain wildcards. For more information on wildcards, see https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames.",
+                              "description": "Required. Google Cloud Storage URI(-s) to the input file(s). May contain wildcards. For more information on wildcards, see https://cloud.google.com/storage/docs/wildcards.",
                               "type": "array",
                               "items": {
                                 "type": "string"
@@ -545,10 +892,7 @@
                         },
                         "structValue": {
                           "description": "Represents a structured value.",
-                          "type": "object",
-                          "additionalProperties": {
-                            "type": "string"
-                          }
+                          "x-kubernetes-preserve-unknown-fields": true
                         }
                       },
                       "additionalProperties": false
@@ -760,10 +1104,7 @@
             },
             "structValue": {
               "description": "Represents a structured value.",
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
+              "x-kubernetes-preserve-unknown-fields": true
             }
           },
           "additionalProperties": false
@@ -854,7 +1195,7 @@
           "type": "string"
         },
         "versionAliases": {
-          "description": "User provided version aliases so that a model version can be referenced via alias (i.e. `projects/{project}/locations/{location}/models/{model_id}@{version_alias}` instead of auto-generated version id (i.e. `projects/{project}/locations/{location}/models/{model_id}@{version_id})`. The format is [a-z][a-zA-Z0-9-]{0,126}[a-z0-9] to distinguish from version_id. A default version alias will be created for the first version of the model, and there must be exactly one default version alias for a model.",
+          "description": "User provided version aliases so that a model version can be referenced via alias (i.e. `projects/PROJECT/locations/LOCATION/models/MODEL_ID@VERSION_ALIAS` instead of auto-generated version id (i.e. `projects/PROJECT/locations/LOCATION/models/MODEL_ID@VERSION_ID`). The format is [a-z][a-zA-Z0-9-]{0,126}[a-z0-9] to distinguish from version_id. A default version alias will be created for the first version of the model, and there must be exactly one default version alias for a model.",
           "type": "array",
           "items": {
             "type": "string"
