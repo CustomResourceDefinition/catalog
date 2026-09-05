@@ -9,17 +9,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.57% | 3990 | 12146 | 91 |
+| 99.60% | 3990 | 12147 | 91 |
 
 ### Missing Schemas
 
 | compute.coreweave.com | |
 | --- | --- |
 | nodepool | v1alpha1 |
-
-| datadoghq.com | |
-| --- | --- |
-| datadoginstrumentation | v1alpha1 |
 
 | eks.amazonaws.com | |
 | --- | --- |
