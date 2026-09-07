@@ -51,14 +51,27 @@ spec:
               build:
                 description: specify how to build the Integration/IntegrationKits
                 properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotation to use for the builder pod. Only used
+                      for `pod` strategy
+                    type: object
                   baseImage:
                     description: |-
                       a base image that can be used as base layer for all images.
                       It can be useful if you want to provide some custom base image with further utility software
                     type: string
+                  limitCPU:
+                    description: The maximum amount of CPU required. Only used for
+                      `pod` strategy
+                    type: string
+                  limitMemory:
+                    description: The maximum amount of memory required. Only used
+                      for `pod` strategy
+                    type: string
                   maven:
-                    description: Maven configuration used to build the Camel/Camel-Quarkus
-                      applications
+                    description: Maven configuration used to build the Camel applications
                     properties:
                       caSecrets:
                         description: |-
@@ -102,9 +115,7 @@ spec:
                           type: string
                         type: array
                       extension:
-                        description: |-
-                          The Maven build extensions.
-                          See https://maven.apache.org/guides/mini/guide-using-extensions.html.
+                        description: 'Deprecated: no longer in use.'
                         items:
                           description: MavenArtifact defines a GAV (Group:Artifact:Type:Version:Classifier)
                             Maven artifact.
@@ -133,9 +144,7 @@ spec:
                         description: The path of the local Maven repository.
                         type: string
                       profiles:
-                        description: |-
-                          A reference to the ConfigMap or Secret key that contains
-                          the Maven profile.
+                        description: 'Deprecated: no longer in use.'
                         items:
                           description: ValueSource --.
                           properties:
@@ -300,6 +309,40 @@ spec:
                             x-kubernetes-map-type: atomic
                         type: object
                     type: object
+                  maxRunningBuilds:
+                    description: the maximum amount of parallel running pipelines
+                      started by this operator instance
+                    format: int32
+                    type: integer
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: The node selector for the builder pod. Only used
+                      for `pod` strategy
+                    type: object
+                  operatorNamespace:
+                    description: |-
+                      The namespace where to run the builder Pod (must be the same of the operator in charge of this Build reconciliation).
+
+                      Deprecated: no longer in use.
+                    type: string
+                  orderStrategy:
+                    description: the build order strategy to adopt
+                    enum:
+                    - dependencies
+                    - fifo
+                    - sequential
+                    type: string
+                  platforms:
+                    description: The list of platforms used in order to build a container
+                      image.
+                    items:
+                      type: string
+                    type: array
+                  publishStrategy:
+                    description: the strategy to adopt for publishing an Integration
+                      container image
+                    type: string
                   registry:
                     description: the image registry used to push/pull Integration
                       images
@@ -321,17 +364,37 @@ spec:
                         description: the secret where credentials are stored
                         type: string
                     type: object
+                  repositories:
+                    description: Maven repositories used to build the Camel applications
+                    items:
+                      type: string
+                    type: array
+                  requestCPU:
+                    description: The minimum amount of CPU required. Only used for
+                      `pod` strategy
+                    type: string
+                  requestMemory:
+                    description: The minimum amount of memory required. Only used
+                      for `pod` strategy
+                    type: string
                   runtimeProvider:
-                    description: the runtime used. Likely Camel Quarkus (we used to
-                      have main runtime which has been discontinued since version
-                      1.5)
+                    description: the runtime provider to use. Likely Camel Quarkus.
                     type: string
                   runtimeVersion:
-                    description: the Camel K Runtime dependency version
+                    description: the runtime dependency version to use.
+                    type: string
+                  strategy:
+                    description: the strategy to adopt
+                    enum:
+                    - routine
+                    - pod
                     type: string
                   timeout:
                     description: how much time to wait before time out the pipeline
                       process
+                    type: string
+                  toolImage:
+                    description: The container image to be used to run the build.
                     type: string
                 type: object
               dependencies:
@@ -464,11 +527,7 @@ spec:
                           Deprecated: use TasksRequestCPU instead with task name `builder`.
                         type: string
                       mavenProfiles:
-                        description: |-
-                          A list of references pointing to configmaps/secrets that contains a maven profile.
-                          This configmap/secret is a resource of the IntegrationKit created, therefore it needs to be present in the namespace where the operator is going to create the IntegrationKit.
-                          The content of the maven profile is expected to be a text containing a valid maven profile starting with `<profile>` and ending with `</profile>` that will be integrated as an inline profile in the POM.
-                          Syntax: [configmap|secret]:name[/key], where name represents the resource name, key optionally represents the resource key to be filtered (default key value = profile.xml).
+                        description: 'Deprecated: no longer in use.'
                         items:
                           type: string
                         type: array
@@ -518,8 +577,10 @@ spec:
                         - routine
                         type: string
                       tasks:
-                        description: A list of tasks to be executed (available only
-                          when using `pod` strategy) with format `<name>;<container-image>;<container-command>`.
+                        description: |-
+                          A list of tasks to be executed (available only when using `pod` strategy) with format `<name>;<container-image>;<container-command>`.
+
+                          Deprecated: may be removed in future versions.
                         items:
                           type: string
                         type: array
@@ -527,7 +588,10 @@ spec:
                         description: |-
                           A list of tasks sorted by the order of execution in a csv format, ie, `<taskName1>,<taskName2>,...`.
                           Mind that you must include also the operator tasks (`builder`, `quarkus-native`, `package`, `jib`, `s2i`)
-                          if you need to execute them. Useful only with `pod` strategy.
+                          if you need to execute them. Useful only with `pod` strategy. Disabled by default, you need to enable via
+                          BUILDER_TASKS_ENABLED=true environment variable on operator Deployment.
+
+                          Deprecated: may be removed in future versions.
                         type: string
                       tasksLimitCPU:
                         description: A list of limit cpu configuration for the specific
@@ -581,7 +645,7 @@ spec:
                         type: array
                       runtimeProvider:
                         description: The runtime provider to use for the integration.
-                          (Default, Camel K Runtime).
+                          (Default, plain Quarkus).
                         enum:
                         - quarkus
                         - plain-quarkus
@@ -1067,7 +1131,7 @@ spec:
                         type: integer
                       livenessProbe:
                         description: The liveness probe path to use (default provided
-                          by the Catalog runtime used).
+                          by the dependency used).
                         type: string
                       livenessProbeEnabled:
                         description: Configures the liveness probe for the integration
@@ -1107,7 +1171,7 @@ spec:
                         type: integer
                       readinessProbe:
                         description: The readiness probe path to use (default provided
-                          by the Catalog runtime used).
+                          by the dependency used).
                         type: string
                       readinessProbeEnabled:
                         description: Configures the readiness probe for the integration
@@ -1129,7 +1193,8 @@ spec:
                         type: integer
                       startupFailureThreshold:
                         description: Minimum consecutive failures for the startup
-                          probe to be considered failed after having succeeded.
+                          probe to be considered failed after having succeeded (default
+                          10 if not specified).
                         format: int32
                         type: integer
                       startupInitialDelay:
@@ -1147,7 +1212,7 @@ spec:
                         type: integer
                       startupProbe:
                         description: The startup probe path to use (default provided
-                          by the Catalog runtime used).
+                          by the dependency used).
                         type: string
                       startupProbeEnabled:
                         description: Configures the startup probe for the integration
@@ -1247,14 +1312,20 @@ spec:
                           traits share this common property.
                         type: boolean
                       initTasks:
-                        description: A list of init tasks to be executed with format
-                          `<name>;<container-image>;<container-command>`.
+                        description: |-
+                          A list of init tasks to be executed.
+                          Each task accepts the format `<name>;<container-image>;<container-command>` or key=value format
+                          `name=<name>;image=<image>;command=<command>;request-cpu=<quantity>;limit-cpu=<quantity>;request-memory=<quantity>;limit-memory=<quantity>`.
+                          Resource keys (request-cpu, limit-cpu, request-memory, limit-memory) are optional and accept Kubernetes resource quantities.
                         items:
                           type: string
                         type: array
                       sideCarTasks:
-                        description: A list of sidecar tasks to be executed with format
-                          `<name>;<container-image>;<container-command>`.
+                        description: |-
+                          A list of sidecar tasks to be executed.
+                          Each task accepts the format `<name>;<container-image>;<container-command>` or key=value format
+                          `name=<name>;image=<image>;command=<command>;request-cpu=<quantity>;limit-cpu=<quantity>;request-memory=<quantity>;limit-memory=<quantity>`.
+                          Resource keys (request-cpu, limit-cpu, request-memory, limit-memory) are optional and accept Kubernetes resource quantities.
                         items:
                           type: string
                         type: array
@@ -1288,7 +1359,7 @@ spec:
                     description: |-
                       The configuration of Jolokia trait.
 
-                      Deprecated: use jvm.agent instead.
+                      Deprecated: no longer in use.
                     properties:
                       CACert:
                         description: |-
@@ -1539,6 +1610,15 @@ spec:
                               description: The trigger metadata (see Keda documentation
                                 to learn how to fill for each type).
                               type: object
+                            metricType:
+                              description: |-
+                                The metric type for this trigger, mapping to KEDA's trigger-level `metricType`
+                                (`Utilization`, `AverageValue` or `Value`).
+                              enum:
+                              - Utilization
+                              - AverageValue
+                              - Value
+                              type: string
                             secrets:
                               description: The secrets mapping to use. Keda allows
                                 the possibility to use values coming from different
@@ -1917,12 +1997,14 @@ spec:
                           traits share this common property.
                         type: boolean
                       targetAnnotations:
-                        description: The set of annotations to be transferred
+                        description: The set of annotations to be transferred. Use
+                          "*" to transfer all annotations.
                         items:
                           type: string
                         type: array
                       targetLabels:
-                        description: The set of labels to be transferred
+                        description: The set of labels to be transferred. Use "*"
+                          to transfer all labels.
                         items:
                           type: string
                         type: array
@@ -1978,10 +2060,7 @@ spec:
                         type: boolean
                     type: object
                   pod:
-                    description: |-
-                      The configuration of Pod trait.
-
-                      Deprecated: use init-containers instead.
+                    description: The configuration of Pod trait.
                     properties:
                       configuration:
                         description: |-
@@ -1991,8 +2070,7 @@ spec:
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
                       enabled:
-                        description: Can be used to enable or disable a trait. All
-                          traits share this common property.
+                        description: 'Deprecated: no longer in use.'
                         type: boolean
                     type: object
                   prometheus:
@@ -2039,15 +2117,14 @@ spec:
                           traits share this common property.
                         type: boolean
                       imagePullerDelegation:
-                        description: When using a global operator with a shared platform,
-                          this enables delegation of the `system:image-puller` cluster
-                          role on the operator namespace to the integration service
-                          account.
+                        description: |-
+                          When using a global operator with a shared platform, this enables delegation of the `system:image-puller`
+                          cluster role on the operator namespace to the integration service account.
+
+                          Deprecated: may be removed in future releases.
                         type: boolean
                       secretName:
-                        description: The pull secret name to set on the Pod. If left
-                          empty this is automatically taken from the `IntegrationPlatform`
-                          registry configuration.
+                        description: The pull secret name to set on the Pod.
                         type: string
                     type: object
                   quarkus:
@@ -2109,7 +2186,7 @@ spec:
                     description: |-
                       The configuration of Registry trait (support removed since version 2.5.0).
 
-                      Deprecated: use jvm trait or read documentation.
+                      Deprecated: no longer in use.
                     properties:
                       configuration:
                         description: |-
@@ -2240,11 +2317,11 @@ spec:
                         type: boolean
                       runAsNonRoot:
                         description: Security Context RunAsNonRoot configuration (default
-                          false).
+                          true).
                         type: boolean
                       runAsUser:
                         description: 'Security Context RunAsUser configuration (default
-                          none): this value is automatically retrieved in Openshift
+                          user 1000): this value is automatically retrieved in Openshift
                           clusters when not explicitly set.'
                         format: int64
                         type: integer
@@ -2418,14 +2495,27 @@ spec:
               build:
                 description: specify how to build the Integration/IntegrationKits
                 properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotation to use for the builder pod. Only used
+                      for `pod` strategy
+                    type: object
                   baseImage:
                     description: |-
                       a base image that can be used as base layer for all images.
                       It can be useful if you want to provide some custom base image with further utility software
                     type: string
+                  limitCPU:
+                    description: The maximum amount of CPU required. Only used for
+                      `pod` strategy
+                    type: string
+                  limitMemory:
+                    description: The maximum amount of memory required. Only used
+                      for `pod` strategy
+                    type: string
                   maven:
-                    description: Maven configuration used to build the Camel/Camel-Quarkus
-                      applications
+                    description: Maven configuration used to build the Camel applications
                     properties:
                       caSecrets:
                         description: |-
@@ -2469,9 +2559,7 @@ spec:
                           type: string
                         type: array
                       extension:
-                        description: |-
-                          The Maven build extensions.
-                          See https://maven.apache.org/guides/mini/guide-using-extensions.html.
+                        description: 'Deprecated: no longer in use.'
                         items:
                           description: MavenArtifact defines a GAV (Group:Artifact:Type:Version:Classifier)
                             Maven artifact.
@@ -2500,9 +2588,7 @@ spec:
                         description: The path of the local Maven repository.
                         type: string
                       profiles:
-                        description: |-
-                          A reference to the ConfigMap or Secret key that contains
-                          the Maven profile.
+                        description: 'Deprecated: no longer in use.'
                         items:
                           description: ValueSource --.
                           properties:
@@ -2667,6 +2753,40 @@ spec:
                             x-kubernetes-map-type: atomic
                         type: object
                     type: object
+                  maxRunningBuilds:
+                    description: the maximum amount of parallel running pipelines
+                      started by this operator instance
+                    format: int32
+                    type: integer
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: The node selector for the builder pod. Only used
+                      for `pod` strategy
+                    type: object
+                  operatorNamespace:
+                    description: |-
+                      The namespace where to run the builder Pod (must be the same of the operator in charge of this Build reconciliation).
+
+                      Deprecated: no longer in use.
+                    type: string
+                  orderStrategy:
+                    description: the build order strategy to adopt
+                    enum:
+                    - dependencies
+                    - fifo
+                    - sequential
+                    type: string
+                  platforms:
+                    description: The list of platforms used in order to build a container
+                      image.
+                    items:
+                      type: string
+                    type: array
+                  publishStrategy:
+                    description: the strategy to adopt for publishing an Integration
+                      container image
+                    type: string
                   registry:
                     description: the image registry used to push/pull Integration
                       images
@@ -2688,25 +2808,47 @@ spec:
                         description: the secret where credentials are stored
                         type: string
                     type: object
+                  repositories:
+                    description: Maven repositories used to build the Camel applications
+                    items:
+                      type: string
+                    type: array
+                  requestCPU:
+                    description: The minimum amount of CPU required. Only used for
+                      `pod` strategy
+                    type: string
+                  requestMemory:
+                    description: The minimum amount of memory required. Only used
+                      for `pod` strategy
+                    type: string
                   runtimeProvider:
-                    description: the runtime used. Likely Camel Quarkus (we used to
-                      have main runtime which has been discontinued since version
-                      1.5)
+                    description: the runtime provider to use. Likely Camel Quarkus.
                     type: string
                   runtimeVersion:
-                    description: the Camel K Runtime dependency version
+                    description: the runtime dependency version to use.
+                    type: string
+                  strategy:
+                    description: the strategy to adopt
+                    enum:
+                    - routine
+                    - pod
                     type: string
                   timeout:
                     description: how much time to wait before time out the pipeline
                       process
+                    type: string
+                  toolImage:
+                    description: The container image to be used to run the build.
                     type: string
                 type: object
               conditions:
                 description: which are the conditions met (particularly useful when
                   in ERROR phase)
                 items:
-                  description: IntegrationProfileCondition describes the state of
-                    a resource at a certain point.
+                  description: |-
+                    DeprecatedIntegrationProfileCondition describes the state of a resource at a certain point.
+
+                    Deprecated: no longer in use.
                   properties:
                     lastTransitionTime:
                       description: Last time the condition transitioned from one status
@@ -2873,11 +3015,7 @@ spec:
                           Deprecated: use TasksRequestCPU instead with task name `builder`.
                         type: string
                       mavenProfiles:
-                        description: |-
-                          A list of references pointing to configmaps/secrets that contains a maven profile.
-                          This configmap/secret is a resource of the IntegrationKit created, therefore it needs to be present in the namespace where the operator is going to create the IntegrationKit.
-                          The content of the maven profile is expected to be a text containing a valid maven profile starting with `<profile>` and ending with `</profile>` that will be integrated as an inline profile in the POM.
-                          Syntax: [configmap|secret]:name[/key], where name represents the resource name, key optionally represents the resource key to be filtered (default key value = profile.xml).
+                        description: 'Deprecated: no longer in use.'
                         items:
                           type: string
                         type: array
@@ -2927,8 +3065,10 @@ spec:
                         - routine
                         type: string
                       tasks:
-                        description: A list of tasks to be executed (available only
-                          when using `pod` strategy) with format `<name>;<container-image>;<container-command>`.
+                        description: |-
+                          A list of tasks to be executed (available only when using `pod` strategy) with format `<name>;<container-image>;<container-command>`.
+
+                          Deprecated: may be removed in future versions.
                         items:
                           type: string
                         type: array
@@ -2936,7 +3076,10 @@ spec:
                         description: |-
                           A list of tasks sorted by the order of execution in a csv format, ie, `<taskName1>,<taskName2>,...`.
                           Mind that you must include also the operator tasks (`builder`, `quarkus-native`, `package`, `jib`, `s2i`)
-                          if you need to execute them. Useful only with `pod` strategy.
+                          if you need to execute them. Useful only with `pod` strategy. Disabled by default, you need to enable via
+                          BUILDER_TASKS_ENABLED=true environment variable on operator Deployment.
+
+                          Deprecated: may be removed in future versions.
                         type: string
                       tasksLimitCPU:
                         description: A list of limit cpu configuration for the specific
@@ -2990,7 +3133,7 @@ spec:
                         type: array
                       runtimeProvider:
                         description: The runtime provider to use for the integration.
-                          (Default, Camel K Runtime).
+                          (Default, plain Quarkus).
                         enum:
                         - quarkus
                         - plain-quarkus
@@ -3476,7 +3619,7 @@ spec:
                         type: integer
                       livenessProbe:
                         description: The liveness probe path to use (default provided
-                          by the Catalog runtime used).
+                          by the dependency used).
                         type: string
                       livenessProbeEnabled:
                         description: Configures the liveness probe for the integration
@@ -3516,7 +3659,7 @@ spec:
                         type: integer
                       readinessProbe:
                         description: The readiness probe path to use (default provided
-                          by the Catalog runtime used).
+                          by the dependency used).
                         type: string
                       readinessProbeEnabled:
                         description: Configures the readiness probe for the integration
@@ -3538,7 +3681,8 @@ spec:
                         type: integer
                       startupFailureThreshold:
                         description: Minimum consecutive failures for the startup
-                          probe to be considered failed after having succeeded.
+                          probe to be considered failed after having succeeded (default
+                          10 if not specified).
                         format: int32
                         type: integer
                       startupInitialDelay:
@@ -3556,7 +3700,7 @@ spec:
                         type: integer
                       startupProbe:
                         description: The startup probe path to use (default provided
-                          by the Catalog runtime used).
+                          by the dependency used).
                         type: string
                       startupProbeEnabled:
                         description: Configures the startup probe for the integration
@@ -3656,14 +3800,20 @@ spec:
                           traits share this common property.
                         type: boolean
                       initTasks:
-                        description: A list of init tasks to be executed with format
-                          `<name>;<container-image>;<container-command>`.
+                        description: |-
+                          A list of init tasks to be executed.
+                          Each task accepts the format `<name>;<container-image>;<container-command>` or key=value format
+                          `name=<name>;image=<image>;command=<command>;request-cpu=<quantity>;limit-cpu=<quantity>;request-memory=<quantity>;limit-memory=<quantity>`.
+                          Resource keys (request-cpu, limit-cpu, request-memory, limit-memory) are optional and accept Kubernetes resource quantities.
                         items:
                           type: string
                         type: array
                       sideCarTasks:
-                        description: A list of sidecar tasks to be executed with format
-                          `<name>;<container-image>;<container-command>`.
+                        description: |-
+                          A list of sidecar tasks to be executed.
+                          Each task accepts the format `<name>;<container-image>;<container-command>` or key=value format
+                          `name=<name>;image=<image>;command=<command>;request-cpu=<quantity>;limit-cpu=<quantity>;request-memory=<quantity>;limit-memory=<quantity>`.
+                          Resource keys (request-cpu, limit-cpu, request-memory, limit-memory) are optional and accept Kubernetes resource quantities.
                         items:
                           type: string
                         type: array
@@ -3697,7 +3847,7 @@ spec:
                     description: |-
                       The configuration of Jolokia trait.
 
-                      Deprecated: use jvm.agent instead.
+                      Deprecated: no longer in use.
                     properties:
                       CACert:
                         description: |-
@@ -3948,6 +4098,15 @@ spec:
                               description: The trigger metadata (see Keda documentation
                                 to learn how to fill for each type).
                               type: object
+                            metricType:
+                              description: |-
+                                The metric type for this trigger, mapping to KEDA's trigger-level `metricType`
+                                (`Utilization`, `AverageValue` or `Value`).
+                              enum:
+                              - Utilization
+                              - AverageValue
+                              - Value
+                              type: string
                             secrets:
                               description: The secrets mapping to use. Keda allows
                                 the possibility to use values coming from different
@@ -4326,12 +4485,14 @@ spec:
                           traits share this common property.
                         type: boolean
                       targetAnnotations:
-                        description: The set of annotations to be transferred
+                        description: The set of annotations to be transferred. Use
+                          "*" to transfer all annotations.
                         items:
                           type: string
                         type: array
                       targetLabels:
-                        description: The set of labels to be transferred
+                        description: The set of labels to be transferred. Use "*"
+                          to transfer all labels.
                         items:
                           type: string
                         type: array
@@ -4387,10 +4548,7 @@ spec:
                         type: boolean
                     type: object
                   pod:
-                    description: |-
-                      The configuration of Pod trait.
-
-                      Deprecated: use init-containers instead.
+                    description: The configuration of Pod trait.
                     properties:
                       configuration:
                         description: |-
@@ -4400,8 +4558,7 @@ spec:
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
                       enabled:
-                        description: Can be used to enable or disable a trait. All
-                          traits share this common property.
+                        description: 'Deprecated: no longer in use.'
                         type: boolean
                     type: object
                   prometheus:
@@ -4448,15 +4605,14 @@ spec:
                           traits share this common property.
                         type: boolean
                       imagePullerDelegation:
-                        description: When using a global operator with a shared platform,
-                          this enables delegation of the `system:image-puller` cluster
-                          role on the operator namespace to the integration service
-                          account.
+                        description: |-
+                          When using a global operator with a shared platform, this enables delegation of the `system:image-puller`
+                          cluster role on the operator namespace to the integration service account.
+
+                          Deprecated: may be removed in future releases.
                         type: boolean
                       secretName:
-                        description: The pull secret name to set on the Pod. If left
-                          empty this is automatically taken from the `IntegrationPlatform`
-                          registry configuration.
+                        description: The pull secret name to set on the Pod.
                         type: string
                     type: object
                   quarkus:
@@ -4518,7 +4674,7 @@ spec:
                     description: |-
                       The configuration of Registry trait (support removed since version 2.5.0).
 
-                      Deprecated: use jvm trait or read documentation.
+                      Deprecated: no longer in use.
                     properties:
                       configuration:
                         description: |-
@@ -4649,11 +4805,11 @@ spec:
                         type: boolean
                       runAsNonRoot:
                         description: Security Context RunAsNonRoot configuration (default
-                          false).
+                          true).
                         type: boolean
                       runAsUser:
                         description: 'Security Context RunAsUser configuration (default
-                          none): this value is automatically retrieved in Openshift
+                          user 1000): this value is automatically retrieved in Openshift
                           clusters when not explicitly set.'
                         format: int64
                         type: integer
