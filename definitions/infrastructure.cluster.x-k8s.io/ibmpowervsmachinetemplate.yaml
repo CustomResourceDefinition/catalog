@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     cluster.x-k8s.io/v1beta1: v1beta2
     cluster.x-k8s.io/v1beta2: v1beta3
@@ -205,11 +205,10 @@ spec:
                         description: |-
                           systemType is the System type used to host the instance.
                           systemType determines the number of cores and memory that is available.
-                          Few of the supported SystemTypes are s922,e980,s1022,e1050,e1080.
+                          Few of the supported SystemTypes are e980,s1022,e1050,e1080.
                           When omitted, this means that the user has no opinion and the platform is left to choose a
-                          reasonable default, which is subject to change over time. The current default is s922 which is generally available.
+                          reasonable default, which is subject to change over time. The current default is s1022 which is generally available.
                         enum:
-                        - s922
                         - e980
                         - s1022
                         - e1050
@@ -276,6 +275,7 @@ spec:
             properties:
               template:
                 description: template is the IBMPowerVSMachineTemplateResource.
+                minProperties: 1
                 properties:
                   metadata:
                     description: |-
@@ -304,40 +304,65 @@ spec:
                     type: object
                   spec:
                     description: spec is the IBMPowerVSMachineSpec.
+                    minProperties: 1
                     properties:
                       image:
-                        description: |-
-                          image the reference to the image which is used to create the instance.
-                          supported image identifier in IBMPowerVSResourceReference are Name and ID and that can be obtained from IBM Cloud UI or IBM Cloud cli.
+                        description: image specifies how to resolve the OS image used
+                          to create the instance.
                         properties:
-                          id:
-                            description: id of resource
-                            minLength: 1
-                            type: string
-                          name:
-                            description: name of resource
-                            minLength: 1
-                            type: string
-                          regex:
+                          import:
+                            description: import is a reference to an IBMPowerVSImage
+                              CRD, which manages importing an image from an IBM COS
+                              Bucket.
+                            properties:
+                              name:
+                                description: name of the IBMPowerVSImage resource.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          reference:
                             description: |-
-                              regex is the regular expression to match resource,
-                              In case of multiple resources matches the provided regular expression the first matched resource will be selected
-                            minLength: 1
-                            type: string
-                        type: object
-                      imageRef:
-                        description: |-
-                          imageRef is a reference to a IBMPowerVSImage resource, which will be imported from IBM COS Bucket to PowerVS workspace.
-                          This is an alternative to the image field.
-                        properties:
-                          name:
-                            description: name of the IBMPowerVSImage resource.
-                            maxLength: 253
-                            minLength: 1
+                              reference contains the information to identify an existing image in the PowerVS workspace.
+                              Supported identifiers are Name, ID, and RegEx.
+                            minProperties: 1
+                            properties:
+                              id:
+                                description: id of the resource.
+                                maxLength: 64
+                                minLength: 1
+                                type: string
+                              name:
+                                description: name of the resource.
+                                maxLength: 128
+                                minLength: 1
+                                type: string
+                            type: object
+                            x-kubernetes-validations:
+                            - message: exactly one of id or name must be specified
+                              rule: '(has(self.id) ? 1 : 0) + (has(self.name) ? 1
+                                : 0) == 1'
+                          type:
+                            description: type defines whether to use an existing image
+                              in IBM Cloud or import a new one via the IBMPowerVSImage
+                              CRD.
+                            enum:
+                            - Reference
+                            - Import
                             type: string
                         required:
-                        - name
+                        - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: reference configuration is required when type is
+                            Reference, and forbidden otherwise
+                          rule: 'self.type == ''Reference'' ? has(self.reference)
+                            : !has(self.reference)'
+                        - message: import configuration is required when type is Import,
+                            and forbidden otherwise
+                          rule: 'self.type == ''Import'' ? has(self.import) : !has(self.import)'
                       memoryGiB:
                         description: |-
                           memoryGiB is the size of a virtual machine's memory, in GiB.
@@ -346,27 +371,29 @@ spec:
                           When omitted, this means the user has no opinion and the platform is left to choose a reasonable
                           default, which is subject to change over time. The current default is 2.
                         format: int32
+                        minimum: 2
                         type: integer
                       network:
                         description: |-
                           network is the reference to the Network to use for this instance.
-                          supported network identifier in IBMPowerVSResourceReference are Name, ID and RegEx and that can be obtained from IBM Cloud UI or IBM Cloud cli.
+                          Supported identifiers in ResourceIdentifier are Name, ID, and RegEx and can be obtained from IBM Cloud UI or IBM Cloud CLI.
+                        minProperties: 1
                         properties:
                           id:
-                            description: id of resource
+                            description: id of the resource.
+                            maxLength: 64
                             minLength: 1
                             type: string
                           name:
-                            description: name of resource
-                            minLength: 1
-                            type: string
-                          regex:
-                            description: |-
-                              regex is the regular expression to match resource,
-                              In case of multiple resources matches the provided regular expression the first matched resource will be selected
+                            description: name of the resource.
+                            maxLength: 128
                             minLength: 1
                             type: string
                         type: object
+                        x-kubernetes-validations:
+                        - message: exactly one of id or name must be specified
+                          rule: '(has(self.id) ? 1 : 0) + (has(self.name) ? 1 : 0)
+                            == 1'
                       processorType:
                         description: |-
                           processorType is the VM instance processor type.
@@ -405,61 +432,56 @@ spec:
                         maxLength: 512
                         minLength: 1
                         type: string
-                      serviceInstance:
-                        description: |-
-                          serviceInstance is the reference to the Power VS workspace on which the server instance(VM) will be created.
-                          Power VS workspace is a container for all Power VS instances at a specific geographic region.
-                          serviceInstance can be created via IBM Cloud catalog or CLI.
-                          supported serviceInstance identifier in PowerVSResource are Name and ID and that can be obtained from IBM Cloud UI or IBM Cloud cli.
-                          More detail about Power VS service instance.
-                          https://cloud.ibm.com/docs/power-iaas?topic=power-iaas-creating-power-virtual-server
-                          when omitted system will dynamically create the service instance
-                        properties:
-                          id:
-                            description: id of resource
-                            minLength: 1
-                            type: string
-                          name:
-                            description: name of resource
-                            minLength: 1
-                            type: string
-                          regex:
-                            description: |-
-                              regex is the regular expression to match resource,
-                              In case of multiple resources matches the provided regular expression the first matched resource will be selected
-                            minLength: 1
-                            type: string
-                        type: object
                       sshKey:
                         description: sshKey is the name of the SSH key pair provided
-                          to the vsi for authenticating users.
+                          to the VM for authenticating users.
+                        maxLength: 128
+                        minLength: 1
                         type: string
                       systemType:
                         description: |-
                           systemType is the System type used to host the instance.
                           systemType determines the number of cores and memory that is available.
-                          Few of the supported SystemTypes are s922,e980,s1022,e1050,e1080.
+                          Few of the supported SystemTypes are e980,s1022,s1122,e1050,e1080.
                           When omitted, this means that the user has no opinion and the platform is left to choose a
-                          reasonable default, which is subject to change over time. The current default is s922 which is generally available.
-                        enum:
-                        - s922
-                        - e980
-                        - s1022
-                        - e1050
-                        - e1080
-                        - ""
+                          reasonable default, which is subject to change over time. The current default is s1022 which is generally available.
+                        maxLength: 16
+                        minLength: 1
+                        pattern: ^[a-z][0-9]+$
                         type: string
+                      workspace:
+                        description: |-
+                          workspace identifies the PowerVS workspace where the instance will be created.
+                          If omitted, the workspace is inherited from the associated IBMPowerVSCluster.
+                          Supported identifiers are name and id.
+                          More details: https://cloud.ibm.com/docs/power-iaas?topic=power-iaas-creating-power-virtual-server
+                        minProperties: 1
+                        properties:
+                          id:
+                            description: id of the resource.
+                            maxLength: 64
+                            minLength: 1
+                            type: string
+                          name:
+                            description: name of the resource.
+                            maxLength: 128
+                            minLength: 1
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: exactly one of id or name must be specified
+                          rule: '(has(self.id) ? 1 : 0) + (has(self.name) ? 1 : 0)
+                            == 1'
                     required:
-                    - network
+                    - image
                     type: object
-                required:
-                - spec
                 type: object
             required:
             - template
             type: object
           status:
             description: status defines the observed state of IBMPowerVSMachineTemplate
+            minProperties: 1
             properties:
               capacity:
                 additionalProperties:

@@ -26,9 +26,7 @@
         "template": {
           "description": "template is the IBMPowerVSMachineTemplateResource.",
           "type": "object",
-          "required": [
-            "spec"
-          ],
+          "minProperties": 1,
           "properties": {
             "metadata": {
               "description": "metadata is the standard object's metadata.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
@@ -55,74 +53,112 @@
             "spec": {
               "description": "spec is the IBMPowerVSMachineSpec.",
               "type": "object",
+              "minProperties": 1,
               "required": [
-                "network"
+                "image"
               ],
               "properties": {
                 "image": {
-                  "description": "image the reference to the image which is used to create the instance.\nsupported image identifier in IBMPowerVSResourceReference are Name and ID and that can be obtained from IBM Cloud UI or IBM Cloud cli.",
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "description": "id of resource",
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "name": {
-                      "description": "name of resource",
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "regex": {
-                      "description": "regex is the regular expression to match resource,\nIn case of multiple resources matches the provided regular expression the first matched resource will be selected",
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "imageRef": {
-                  "description": "imageRef is a reference to a IBMPowerVSImage resource, which will be imported from IBM COS Bucket to PowerVS workspace.\nThis is an alternative to the image field.",
+                  "description": "image specifies how to resolve the OS image used to create the instance.",
                   "type": "object",
                   "required": [
-                    "name"
+                    "type"
                   ],
                   "properties": {
-                    "name": {
-                      "description": "name of the IBMPowerVSImage resource.",
+                    "import": {
+                      "description": "import is a reference to an IBMPowerVSImage CRD, which manages importing an image from an IBM COS Bucket.",
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "description": "name of the IBMPowerVSImage resource.",
+                          "type": "string",
+                          "maxLength": 253,
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "reference": {
+                      "description": "reference contains the information to identify an existing image in the PowerVS workspace.\nSupported identifiers are Name, ID, and RegEx.",
+                      "type": "object",
+                      "minProperties": 1,
+                      "properties": {
+                        "id": {
+                          "description": "id of the resource.",
+                          "type": "string",
+                          "maxLength": 64,
+                          "minLength": 1
+                        },
+                        "name": {
+                          "description": "name of the resource.",
+                          "type": "string",
+                          "maxLength": 128,
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false,
+                      "x-kubernetes-validations": [
+                        {
+                          "rule": "(has(self.id) ? 1 : 0) + (has(self.name) ? 1 : 0) == 1",
+                          "message": "exactly one of id or name must be specified"
+                        }
+                      ]
+                    },
+                    "type": {
+                      "description": "type defines whether to use an existing image in IBM Cloud or import a new one via the IBMPowerVSImage CRD.",
                       "type": "string",
-                      "maxLength": 253,
-                      "minLength": 1
+                      "enum": [
+                        "Reference",
+                        "Import"
+                      ]
                     }
                   },
-                  "additionalProperties": false
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.type == 'Reference' ? has(self.reference) : !has(self.reference)",
+                      "message": "reference configuration is required when type is Reference, and forbidden otherwise"
+                    },
+                    {
+                      "rule": "self.type == 'Import' ? has(self.import) : !has(self.import)",
+                      "message": "import configuration is required when type is Import, and forbidden otherwise"
+                    }
+                  ]
                 },
                 "memoryGiB": {
                   "description": "memoryGiB is the size of a virtual machine's memory, in GiB.\nmaximum value for the MemoryGiB depends on the selected SystemType, which can be found here: https://cloud.ibm.com/docs/power-iaas?topic=power-iaas-pricing-virtual-server-on-cloud\nThe minimum memory is 2 GiB.\nWhen omitted, this means the user has no opinion and the platform is left to choose a reasonable\ndefault, which is subject to change over time. The current default is 2.",
                   "type": "integer",
-                  "format": "int32"
+                  "format": "int32",
+                  "minimum": 2
                 },
                 "network": {
-                  "description": "network is the reference to the Network to use for this instance.\nsupported network identifier in IBMPowerVSResourceReference are Name, ID and RegEx and that can be obtained from IBM Cloud UI or IBM Cloud cli.",
+                  "description": "network is the reference to the Network to use for this instance.\nSupported identifiers in ResourceIdentifier are Name, ID, and RegEx and can be obtained from IBM Cloud UI or IBM Cloud CLI.",
                   "type": "object",
+                  "minProperties": 1,
                   "properties": {
                     "id": {
-                      "description": "id of resource",
+                      "description": "id of the resource.",
                       "type": "string",
+                      "maxLength": 64,
                       "minLength": 1
                     },
                     "name": {
-                      "description": "name of resource",
+                      "description": "name of the resource.",
                       "type": "string",
-                      "minLength": 1
-                    },
-                    "regex": {
-                      "description": "regex is the regular expression to match resource,\nIn case of multiple resources matches the provided regular expression the first matched resource will be selected",
-                      "type": "string",
+                      "maxLength": 128,
                       "minLength": 1
                     }
                   },
-                  "additionalProperties": false
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "(has(self.id) ? 1 : 0) + (has(self.name) ? 1 : 0) == 1",
+                      "message": "exactly one of id or name must be specified"
+                    }
+                  ]
                 },
                 "processorType": {
                   "description": "processorType is the VM instance processor type.\nIt must be set to one of the following values: Dedicated, Capped or Shared.\nDedicated: resources are allocated for a specific client, The hypervisor makes a 1:1 binding of a partition’s processor to a physical processor core.\nShared: Shared among other clients.\nCapped: Shared, but resources do not expand beyond those that are requested, the amount of CPU time is Capped to the value specified for the entitlement.\nif the processorType is selected as Dedicated, then processors value cannot be fractional.\nWhen omitted, this means that the user has no opinion and the platform is left to choose a\nreasonable default, which is subject to change over time. The current default is Shared.",
@@ -152,42 +188,43 @@
                   "maxLength": 512,
                   "minLength": 1
                 },
-                "serviceInstance": {
-                  "description": "serviceInstance is the reference to the Power VS workspace on which the server instance(VM) will be created.\nPower VS workspace is a container for all Power VS instances at a specific geographic region.\nserviceInstance can be created via IBM Cloud catalog or CLI.\nsupported serviceInstance identifier in PowerVSResource are Name and ID and that can be obtained from IBM Cloud UI or IBM Cloud cli.\nMore detail about Power VS service instance.\nhttps://cloud.ibm.com/docs/power-iaas?topic=power-iaas-creating-power-virtual-server\nwhen omitted system will dynamically create the service instance",
+                "sshKey": {
+                  "description": "sshKey is the name of the SSH key pair provided to the VM for authenticating users.",
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                },
+                "systemType": {
+                  "description": "systemType is the System type used to host the instance.\nsystemType determines the number of cores and memory that is available.\nFew of the supported SystemTypes are e980,s1022,s1122,e1050,e1080.\nWhen omitted, this means that the user has no opinion and the platform is left to choose a\nreasonable default, which is subject to change over time. The current default is s1022 which is generally available.",
+                  "type": "string",
+                  "maxLength": 16,
+                  "minLength": 1,
+                  "pattern": "^[a-z][0-9]+$"
+                },
+                "workspace": {
+                  "description": "workspace identifies the PowerVS workspace where the instance will be created.\nIf omitted, the workspace is inherited from the associated IBMPowerVSCluster.\nSupported identifiers are name and id.\nMore details: https://cloud.ibm.com/docs/power-iaas?topic=power-iaas-creating-power-virtual-server",
                   "type": "object",
+                  "minProperties": 1,
                   "properties": {
                     "id": {
-                      "description": "id of resource",
+                      "description": "id of the resource.",
                       "type": "string",
+                      "maxLength": 64,
                       "minLength": 1
                     },
                     "name": {
-                      "description": "name of resource",
+                      "description": "name of the resource.",
                       "type": "string",
-                      "minLength": 1
-                    },
-                    "regex": {
-                      "description": "regex is the regular expression to match resource,\nIn case of multiple resources matches the provided regular expression the first matched resource will be selected",
-                      "type": "string",
+                      "maxLength": 128,
                       "minLength": 1
                     }
                   },
-                  "additionalProperties": false
-                },
-                "sshKey": {
-                  "description": "sshKey is the name of the SSH key pair provided to the vsi for authenticating users.",
-                  "type": "string"
-                },
-                "systemType": {
-                  "description": "systemType is the System type used to host the instance.\nsystemType determines the number of cores and memory that is available.\nFew of the supported SystemTypes are s922,e980,s1022,e1050,e1080.\nWhen omitted, this means that the user has no opinion and the platform is left to choose a\nreasonable default, which is subject to change over time. The current default is s922 which is generally available.",
-                  "type": "string",
-                  "enum": [
-                    "s922",
-                    "e980",
-                    "s1022",
-                    "e1050",
-                    "e1080",
-                    ""
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "(has(self.id) ? 1 : 0) + (has(self.name) ? 1 : 0) == 1",
+                      "message": "exactly one of id or name must be specified"
+                    }
                   ]
                 }
               },
@@ -202,6 +239,7 @@
     "status": {
       "description": "status defines the observed state of IBMPowerVSMachineTemplate",
       "type": "object",
+      "minProperties": 1,
       "properties": {
         "capacity": {
           "description": "capacity defines the resource capacity for this machine.\nThis value is used for autoscaling from zero operations as defined in:\nhttps://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20210310-opt-in-autoscaling-from-zero.md",

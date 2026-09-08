@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     cluster.x-k8s.io/v1beta1: v1beta2
     cluster.x-k8s.io/v1beta2: v1beta3
@@ -281,10 +281,6 @@ spec:
       jsonPath: .status.imageState
       name: State
       type: string
-    - description: Image is ready for IBM PowerVS instances
-      jsonPath: .status.ready
-      name: Ready
-      type: string
     name: v1beta3
     schema:
       openAPIV3Schema:
@@ -309,17 +305,20 @@ spec:
             type: object
           spec:
             description: spec defines the desired state of IBMPowerVSImage
+            minProperties: 1
             properties:
               bucket:
                 description: bucket is the Cloud Object Storage bucket name; bucket-name[/optional/folder]
+                maxLength: 63
+                minLength: 1
                 type: string
               clusterName:
                 description: clusterName is the name of the Cluster this object belongs
                   to.
+                maxLength: 63
                 minLength: 1
                 type: string
               deletePolicy:
-                default: delete
                 description: deletePolicy defines the policy used to identify images
                   to be preserved beyond the lifecycle of associated cluster.
                 enum:
@@ -328,37 +327,15 @@ spec:
                 type: string
               object:
                 description: object is the Cloud Object Storage image filename.
+                maxLength: 1024
+                minLength: 1
                 type: string
               region:
                 description: region is the Cloud Object Storage region.
+                maxLength: 32
+                minLength: 1
                 type: string
-              serviceInstance:
-                description: |-
-                  serviceInstance is the reference to the Power VS workspace on which the server instance(VM) will be created.
-                  Power VS workspace is a container for all Power VS instances at a specific geographic region.
-                  serviceInstance can be created via IBM Cloud catalog or CLI.
-                  supported serviceInstance identifier in PowerVSResource are Name and ID and that can be obtained from IBM Cloud UI or IBM Cloud cli.
-                  More detail about Power VS service instance.
-                  https://cloud.ibm.com/docs/power-iaas?topic=power-iaas-creating-power-virtual-server
-                  when omitted system will dynamically create the service instance
-                properties:
-                  id:
-                    description: id of resource
-                    minLength: 1
-                    type: string
-                  name:
-                    description: name of resource
-                    minLength: 1
-                    type: string
-                  regex:
-                    description: |-
-                      regex is the regular expression to match resource,
-                      In case of multiple resources matches the provided regular expression the first matched resource will be selected
-                    minLength: 1
-                    type: string
-                type: object
               storageType:
-                default: tier1
                 description: storageType is the type of storage, storage pool with
                   the most available space will be selected.
                 enum:
@@ -366,6 +343,26 @@ spec:
                 - tier1
                 - tier3
                 type: string
+              workspace:
+                description: |-
+                  workspace identifies the PowerVS workspace into which the image will be imported.
+                  If omitted, the workspace is inherited from the associated IBMPowerVSCluster.
+                minProperties: 1
+                properties:
+                  id:
+                    description: id of the resource.
+                    maxLength: 64
+                    minLength: 1
+                    type: string
+                  name:
+                    description: name of the resource.
+                    maxLength: 128
+                    minLength: 1
+                    type: string
+                type: object
+                x-kubernetes-validations:
+                - message: exactly one of id or name must be specified
+                  rule: '(has(self.id) ? 1 : 0) + (has(self.name) ? 1 : 0) == 1'
             required:
             - bucket
             - clusterName
@@ -374,6 +371,7 @@ spec:
             type: object
           status:
             description: status defines the observed state of IBMPowerVSImage
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represents the observations of a IBMPowerVSImage's
@@ -509,16 +507,19 @@ spec:
                 type: object
               imageID:
                 description: imageID is the id of the imported image.
+                maxLength: 64
+                minLength: 1
                 type: string
               imageState:
                 description: imageState is the status of the imported image.
+                maxLength: 128
+                minLength: 1
                 type: string
               jobID:
                 description: jobID is the job ID of an import operation.
+                maxLength: 64
+                minLength: 1
                 type: string
-              ready:
-                description: ready is true when the provider resource is ready.
-                type: boolean
             type: object
         required:
         - spec
