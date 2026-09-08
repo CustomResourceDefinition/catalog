@@ -211,11 +211,12 @@
           "additionalProperties": false
         },
         "inspectionMode": {
-          "description": "Specifies the mode for host inspection.\n\"disabled\" - no inspection will be performed\n\"agent\" - normal agent-based inspection will run",
+          "description": "Specifies the mode for host inspection.\n\"disabled\" - no inspection will be performed\n\"agent\" - normal agent-based inspection will run\n\"fast\" - out-of-band inspection via BMC (Redfish), no ramdisk boot",
           "type": "string",
           "enum": [
             "disabled",
-            "agent"
+            "agent",
+            "fast"
           ]
         },
         "metaData": {
@@ -249,6 +250,64 @@
           },
           "additionalProperties": false,
           "x-kubernetes-map-type": "atomic"
+        },
+        "networkInterfaces": {
+          "description": "NetworkInterfaces defines the network configuration for each interface.\nThis will be used to configure switch ports for the host.  Interface\nnames must correspond to actual NICs discovered during inspection\n(see HardwareData resource).  They are referenced by either the name\nor MAC address of the NIC.",
+          "type": "array",
+          "items": {
+            "description": "NetworkInterface defines the network configuration for a specific interface.",
+            "type": "object",
+            "properties": {
+              "hostNetworkAttachment": {
+                "description": "HostNetworkAttachment references the HostNetworkAttachment for this interface",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "Name of the HostNetworkAttachment resource",
+                    "type": "string",
+                    "maxLength": 253
+                  },
+                  "namespace": {
+                    "description": "Namespace of the HostNetworkAttachment (defaults to BMH namespace)",
+                    "type": "string",
+                    "maxLength": 63
+                  }
+                },
+                "additionalProperties": false
+              },
+              "macAddress": {
+                "description": "MAC address of the network interface.  This must match the MAC address\nof a NIC discovered during inspection (see HardwareData resource).\nMutually exclusive with Name.",
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$"
+              },
+              "name": {
+                "description": "Name of the network interface (e.g., \"eth0\", \"ens1f0\")\nThis must match the name of a NIC discovered during inspection\n(see HardwareData resource).\nMutually exclusive with MACAddress.",
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9._-]+$"
+              },
+              "switchPort": {
+                "description": "SwitchPort defines the switch port on which this interface is attached.\nThis is intended to be a replacement for LLDP information if\nLLDP is not enabled on the neighboring switches or if inspection is not\nused on the BMH.  If LLDP information is acquired during inspection and\nthis field is provided then it will override the LLDP provided\ninformation; therefore, caution must be exercised when supplying this\nvalue.",
+                "type": "object",
+                "required": [
+                  "portID",
+                  "switchID"
+                ],
+                "properties": {
+                  "portID": {
+                    "description": "PortID is expected to be the configuration name of the port in the\nswitch management system.",
+                    "type": "string"
+                  },
+                  "switchID": {
+                    "description": "SwitchID is expected to be the management MAC address of the switch",
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
         },
         "online": {
           "description": "Should the host be powered on? If the host is currently in a stable\nstate (e.g. provisioned), its power state will be forced to match\nthis value.",
@@ -394,6 +453,11 @@
                       "additionalProperties": false
                     }
                   },
+                  "rootVolume": {
+                    "description": "Setting this to true, causes installer to consider this volume as root device for installation.\nThis can only be set for one of the volumes.",
+                    "type": "boolean",
+                    "default": false
+                  },
                   "sizeGibibytes": {
                     "description": "Size of the logical disk to be created in GiB.\nIf unspecified or set be 0, the maximum capacity of disk will be used for logical disk.",
                     "type": "integer",
@@ -456,7 +520,7 @@
           "additionalProperties": false
         },
         "taints": {
-          "description": "Taints is the full, authoritative list of taints to apply to\nthe corresponding Machine. This list will overwrite any\nmodifications made to the Machine on an ongoing basis.",
+          "description": "Taints is the full, authoritative list of taints to apply to\nthe corresponding Machine.\n\nDeprecated: the Taints field was never actually implemented.",
           "type": "array",
           "items": {
             "description": "The node this Taint is attached to has the \"effect\" on\nany pod that does not tolerate the Taint.",
@@ -514,7 +578,8 @@
         "errorMessage",
         "operationalStatus",
         "poweredOn",
-        "provisioning"
+        "provisioning",
+        "provisioningFailCount"
       ],
       "properties": {
         "conditions": {
@@ -869,6 +934,49 @@
           "description": "The name of the profile matching the hardware details.\nHardware profiles are deprecated and should not be relied on.",
           "type": "string"
         },
+        "lastAttemptedImage": {
+          "description": "LastAttemptedImage stores the full image spec of the last provisioning\nattempt, used to detect user-initiated image changes (URL, checksum,\nformat, etc.) that should reset the provisioning retry limit counter.",
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "checksum": {
+              "description": "Checksum is the checksum for the image. Required for all formats\nexcept for \"live-iso\" and OCI images (oci://).",
+              "type": "string"
+            },
+            "checksumType": {
+              "description": "ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.\nThe special value \"auto\" can be used to detect the algorithm from the checksum.\nIf missing, MD5 is used. If in doubt, use \"auto\".",
+              "type": "string",
+              "enum": [
+                "md5",
+                "sha256",
+                "sha512",
+                "auto"
+              ]
+            },
+            "format": {
+              "description": "Format contains the format of the image (raw, qcow2, ...).\nWhen set to \"live-iso\", an ISO 9660 image referenced by the url will\nbe live-booted and not deployed to disk.",
+              "type": "string",
+              "enum": [
+                "raw",
+                "qcow2",
+                "vdi",
+                "vmdk",
+                "live-iso"
+              ]
+            },
+            "ociAuthSecretName": {
+              "description": "OCIAuthSecretName optionally names a Docker-config secret containing\nregistry credentials for oci:// images. Must be in the same namespace\nas the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.\nOnly used when Image.URL has the oci:// scheme.",
+              "type": "string"
+            },
+            "url": {
+              "description": "URL is a location of an image to deploy.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
         "lastUpdated": {
           "description": "LastUpdated identifies when this status was last observed.",
           "type": "string",
@@ -1211,6 +1319,11 @@
                           "additionalProperties": false
                         }
                       },
+                      "rootVolume": {
+                        "description": "Setting this to true, causes installer to consider this volume as root device for installation.\nThis can only be set for one of the volumes.",
+                        "type": "boolean",
+                        "default": false
+                      },
                       "sizeGibibytes": {
                         "description": "Size of the logical disk to be created in GiB.\nIf unspecified or set be 0, the maximum capacity of disk will be used for logical disk.",
                         "type": "integer",
@@ -1278,6 +1391,11 @@
             }
           },
           "additionalProperties": false
+        },
+        "provisioningFailCount": {
+          "description": "ProvisioningFailCount records how many times provisioning has failed\nconsecutively for the current image. Unlike ErrorCount, it is not reset\non deprovisioning and is only cleared on successful provisioning or when\na new image is specified.",
+          "type": "integer",
+          "default": 0
         },
         "triedCredentials": {
           "description": "The last credentials we sent to the provisioning backend.",
