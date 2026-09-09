@@ -1,5 +1,5 @@
 {
-  "description": "IP is the Schema for the ips API",
+  "description": "ConfigurationGroup is the Schema for the configurationgroups API.\nThis resource is in Beta. It uses the Fleet Manager Preview configuration-group API.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -14,106 +14,110 @@
       "type": "object"
     },
     "spec": {
-      "description": "IPSpec defines the desired state of IP",
+      "description": "ConfigurationGroupSpec defines the desired state of a Fleet Manager configuration group.\nThis resource is in Beta and uses the Preview configuration-group API.",
       "type": "object",
+      "required": [
+        "family",
+        "name"
+      ],
       "properties": {
-        "address": {
-          "description": "IP address (omit if type is dynamic)",
+        "description": {
+          "description": "Human-readable description.",
           "type": "string"
         },
-        "interval": {
-          "description": "Interval at which a dynamic IP should be checked",
-          "type": "string",
-          "pattern": "^([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h)(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))*$",
-          "x-kubernetes-validations": [
-            {
-              "rule": "duration(self) \u003e duration('0s')",
-              "message": "interval must be a valid positive Go duration"
-            }
-          ]
-        },
-        "ipSources": {
-          "description": "IPSources can be configured to get an IP from an external source (e.g. an API or public IP echo service)",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "insecureSkipVerify": {
-                "description": "InsecureSkipVerify defines whether to skip TLS certificate verification",
-                "type": "boolean"
-              },
-              "postProcessingRegex": {
-                "description": "PostProcessingRegex defines the regular expression to be used to extract the IP from the response or a JQ filter result",
-                "type": "string"
-              },
-              "requestBody": {
-                "description": "RequestBody to be sent to the URL",
-                "type": "string"
-              },
-              "requestHeaders": {
-                "description": "RequestHeaders to be sent to the URL",
-                "x-kubernetes-preserve-unknown-fields": true
-              },
-              "requestHeadersSecretRef": {
-                "description": "RequestHeadersSecretRef is a secret reference to the headers to be sent to the URL (e.g. for authentication)\nwhere the key is the header name and the value is the header value",
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "description": "name is unique within a namespace to reference a secret resource.",
-                    "type": "string"
-                  },
-                  "namespace": {
-                    "description": "namespace defines the space within which the secret name must be unique.",
-                    "type": "string"
-                  }
-                },
-                "additionalProperties": false,
-                "x-kubernetes-map-type": "atomic"
-              },
-              "requestMethod": {
-                "description": "RequestMethod defines the HTTP method to be used",
-                "type": "string",
-                "enum": [
-                  "GET",
-                  "POST",
-                  "PUT",
-                  "DELETE"
-                ]
-              },
-              "responseJQFilter": {
-                "description": "ResponseJQFilter applies a JQ filter to the response to extract the IP",
-                "type": "string"
-              },
-              "url": {
-                "description": "URL of the IP source (e.g. https://checkip.amazonaws.com)",
+        "family": {
+          "description": "Latest configuration family for this group.",
+          "type": "object",
+          "required": [
+            "remoteConfigurations"
+          ],
+          "properties": {
+            "active": {
+              "description": "Whether this family is active.",
+              "type": "boolean",
+              "default": true
+            },
+            "collectorVersion": {
+              "description": "Collector semantic version this family targets, without a leading v prefix.\nThe replace API keeps the existing value when this field is omitted.",
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 5,
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+            },
+            "description": {
+              "description": "Human-readable description.",
+              "type": "string"
+            },
+            "metadata": {
+              "description": "Metadata stored with this configuration family.",
+              "type": "object",
+              "additionalProperties": {
                 "type": "string"
               }
             },
-            "additionalProperties": false
-          }
+            "remoteConfigurations": {
+              "description": "Remote OpenTelemetry Collector configurations in this family.",
+              "type": "array",
+              "maxItems": 128,
+              "minItems": 1,
+              "items": {
+                "description": "RemoteConfigurationSpec is a remote OpenTelemetry Collector configuration.",
+                "type": "object",
+                "required": [
+                  "name",
+                  "rawConfiguration"
+                ],
+                "properties": {
+                  "agentSelector": {
+                    "description": "Flat agent attributes that match agents for this configuration.",
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "name": {
+                    "description": "Remote configuration name.",
+                    "type": "string"
+                  },
+                  "rawConfiguration": {
+                    "description": "OpenTelemetry Collector configuration YAML. The supervisor-managed OpAMP extension must not be configured.",
+                    "type": "string",
+                    "maxLength": 1048576,
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
         },
-        "type": {
-          "description": "IP address type (static or dynamic)",
-          "type": "string",
-          "default": "static",
-          "enum": [
-            "static",
-            "dynamic"
-          ]
+        "name": {
+          "description": "Display name.",
+          "type": "string"
+        },
+        "priorityOrder": {
+          "description": "Selection precedence. Higher values win on ties and 0 is the default.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "tags": {
+          "description": "Tags attached to the configuration group.",
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 256
+          }
         }
       },
       "additionalProperties": false
     },
     "status": {
-      "description": "IPStatus defines the observed state of IP",
+      "description": "ConfigurationGroupStatus defines the observed state of ConfigurationGroup.",
       "type": "object",
       "properties": {
-        "address": {
-          "description": "Address contains the resolved IP address currently used by the operator.\nFor static IPs this mirrors spec.address after validation, for dynamic IPs\nit is the last successfully discovered address.",
-          "type": "string"
-        },
         "conditions": {
-          "description": "Conditions contains the different condition statuses for the IP object.",
           "type": "array",
           "items": {
             "description": "Condition contains details for one aspect of the current state of this API Resource.",
@@ -167,6 +171,12 @@
             },
             "additionalProperties": false
           }
+        },
+        "id": {
+          "type": "string"
+        },
+        "printableStatus": {
+          "type": "string"
         }
       },
       "additionalProperties": false
