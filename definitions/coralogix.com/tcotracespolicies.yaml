@@ -133,6 +133,12 @@ spec:
                     disabled:
                       description: Whether the policy is disabled.
                       type: boolean
+                    dpxlExpression:
+                      description: A DPXL expression to match spans on. Mutually exclusive
+                        with services, actions, tags, applications and subsystems.
+                      maxLength: 65535
+                      minLength: 1
+                      type: string
                     name:
                       description: Name of the policy.
                       type: string
@@ -144,6 +150,41 @@ spec:
                       - medium
                       - low
                       type: string
+                    priorityOverride:
+                      description: Dynamic quota-based priority override for the policy.
+                      properties:
+                        quotaBased:
+                          description: TCOPolicyQuotaBased maps daily quota consumption
+                            percentages to priority levels.
+                          properties:
+                            usageTiers:
+                              items:
+                                description: TCOPolicyUsageTier maps a daily quota
+                                  threshold percentage to a priority.
+                                properties:
+                                  dailyQuotaPercentage:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  priority:
+                                    enum:
+                                    - block
+                                    - high
+                                    - low
+                                    - medium
+                                    type: string
+                                required:
+                                - dailyQuotaPercentage
+                                - priority
+                                type: object
+                              minItems: 1
+                              type: array
+                          required:
+                          - usageTiers
+                          type: object
+                      type: object
                     services:
                       description: The services to apply the policy on. Applies the
                         policy on all the services by default.
@@ -225,6 +266,13 @@ spec:
                   - name
                   - priority
                   type: object
+                  x-kubernetes-validations:
+                  - message: dpxlExpression is mutually exclusive with services, actions,
+                      tags, applications and subsystems
+                    rule: '!(has(self.dpxlExpression) && (has(self.services) || has(self.actions)
+                      || has(self.applications) || has(self.subsystems) || (has(self.tags)
+                      && size(self.tags) > 0)))'
+                maxItems: 200
                 type: array
             required:
             - policies

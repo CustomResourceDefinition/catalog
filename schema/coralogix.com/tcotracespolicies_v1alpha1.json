@@ -23,6 +23,7 @@
         "policies": {
           "description": "Coralogix TCO-Policies-List.",
           "type": "array",
+          "maxItems": 200,
           "items": {
             "description": "Coralogix TCO policy for traces.",
             "type": "object",
@@ -132,6 +133,12 @@
                 "description": "Whether the policy is disabled.",
                 "type": "boolean"
               },
+              "dpxlExpression": {
+                "description": "A DPXL expression to match spans on. Mutually exclusive with services, actions, tags, applications and subsystems.",
+                "type": "string",
+                "maxLength": 65535,
+                "minLength": 1
+              },
               "name": {
                 "description": "Name of the policy.",
                 "type": "string"
@@ -145,6 +152,59 @@
                   "medium",
                   "low"
                 ]
+              },
+              "priorityOverride": {
+                "description": "Dynamic quota-based priority override for the policy.",
+                "type": "object",
+                "properties": {
+                  "quotaBased": {
+                    "description": "TCOPolicyQuotaBased maps daily quota consumption percentages to priority levels.",
+                    "type": "object",
+                    "required": [
+                      "usageTiers"
+                    ],
+                    "properties": {
+                      "usageTiers": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "description": "TCOPolicyUsageTier maps a daily quota threshold percentage to a priority.",
+                          "type": "object",
+                          "required": [
+                            "dailyQuotaPercentage",
+                            "priority"
+                          ],
+                          "properties": {
+                            "dailyQuotaPercentage": {
+                              "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "string"
+                                }
+                              ],
+                              "x-kubernetes-int-or-string": true
+                            },
+                            "priority": {
+                              "type": "string",
+                              "enum": [
+                                "block",
+                                "high",
+                                "low",
+                                "medium"
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
               },
               "services": {
                 "description": "The services to apply the policy on. Applies the policy on all the services by default.",
@@ -247,7 +307,13 @@
                 }
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "!(has(self.dpxlExpression) \u0026\u0026 (has(self.services) || has(self.actions) || has(self.applications) || has(self.subsystems) || (has(self.tags) \u0026\u0026 size(self.tags) \u003e 0)))",
+                "message": "dpxlExpression is mutually exclusive with services, actions, tags, applications and subsystems"
+              }
+            ]
           }
         }
       },
