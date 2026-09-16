@@ -38,10 +38,215 @@
           "description": "SLO name",
           "type": "string"
         },
-        "sliType": {
-          "description": "SliType defines the type of SLI used for the SLO. Exactly one of metric or windowBasedMetric must be set.",
+        "ownershipTags": {
+          "description": "OwnershipTags assign the SLO to a service, environment and team. Omitting the block\nclears the tags on the remote SLO, which is the declarative contract. An empty block,\nor a dimension whose lists are both empty, is discarded by the API and has no effect.",
           "type": "object",
           "properties": {
+            "environment": {
+              "description": "Environment tags the SLO with a free-form environment name.",
+              "type": "object",
+              "properties": {
+                "labelKeys": {
+                  "description": "LabelKeys assigns the dimension from metric label names, resolved per series.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "staticValues": {
+                  "description": "StaticValues assigns the dimension group-wide, with fixed values.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!(has(self.staticValues) \u0026\u0026 self.staticValues.size() \u003e 0 \u0026\u0026 has(self.labelKeys) \u0026\u0026 self.labelKeys.size() \u003e 0)",
+                  "message": "Use either staticValues or labelKeys, not both"
+                }
+              ]
+            },
+            "service": {
+              "description": "Service tags the SLO with an APM service. The API validates static values against\nthe APM Service Catalog, so the operator does not.",
+              "type": "object",
+              "properties": {
+                "labelKeys": {
+                  "description": "LabelKeys assigns the dimension from metric label names, resolved per series.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "staticValues": {
+                  "description": "StaticValues assigns the dimension group-wide, with fixed values.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!(has(self.staticValues) \u0026\u0026 self.staticValues.size() \u003e 0 \u0026\u0026 has(self.labelKeys) \u0026\u0026 self.labelKeys.size() \u003e 0)",
+                  "message": "Use either staticValues or labelKeys, not both"
+                }
+              ]
+            },
+            "team": {
+              "description": "Team tags the SLO with a free-form team name.",
+              "type": "object",
+              "properties": {
+                "labelKeys": {
+                  "description": "LabelKeys assigns the dimension from metric label names, resolved per series.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "staticValues": {
+                  "description": "StaticValues assigns the dimension group-wide, with fixed values.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!(has(self.staticValues) \u0026\u0026 self.staticValues.size() \u003e 0 \u0026\u0026 has(self.labelKeys) \u0026\u0026 self.labelKeys.size() \u003e 0)",
+                  "message": "Use either staticValues or labelKeys, not both"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "productType": {
+          "description": "ProductType selects the Coralogix product the SLO is built from. Valid values are\n\"unspecified\" and \"apm\". Setting \"apm\" requires sliType.apmSli.\n\nSetting it is never necessary. The API infers \"apm\" from the presence of\nsliType.apmSli and stores SLO_PRODUCT_TYPE_APM even when this field is omitted or\nset to \"unspecified\". For a metric SLI the API stores SLO_PRODUCT_TYPE_UNSPECIFIED.\n\nThe coupling only runs one way. \"apm\" without an apmSli answers\n`400 slo.apm_sli is required when slo.product_type is SLO_PRODUCT_TYPE_APM`, so the\nrule on this struct mirrors that. An apmSli without \"apm\" is accepted, so there is\nno rule in the other direction.",
+          "type": "string",
+          "enum": [
+            "unspecified",
+            "apm"
+          ]
+        },
+        "sliType": {
+          "description": "SliType defines the type of SLI used for the SLO.\nExactly one of requestBasedMetric, windowBasedMetric or apmSli must be set.",
+          "type": "object",
+          "properties": {
+            "apmSli": {
+              "description": "ApmSli builds the SLO from an APM Service Catalog service instead of a PromQL query.\nIt requires spec.productType \"apm\".",
+              "type": "object",
+              "required": [
+                "services"
+              ],
+              "properties": {
+                "errorConfig": {
+                  "description": "ErrorConfig makes this an APM error-rate SLI. It carries no settings.",
+                  "type": "object"
+                },
+                "filters": {
+                  "description": "Filters narrows the SLI to spans matching every filter.",
+                  "type": "array",
+                  "items": {
+                    "description": "ApmFilter matches a span attribute against a set of values.",
+                    "type": "object",
+                    "required": [
+                      "key"
+                    ],
+                    "properties": {
+                      "key": {
+                        "description": "Key is the span attribute name. Omitting it makes the API build a malformed query\nand answer HTTP 400, so it is required.",
+                        "type": "string"
+                      },
+                      "values": {
+                        "description": "Values are the accepted values for Key. There is deliberately no MinItems: the API\naccepts and stores an empty list, so rejecting one here would be stricter than the\nAPI. An absent list is sent as an empty list, which is the form the API is known to\naccept.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "groupingKeys": {
+                  "description": "GroupingKeys splits the SLI by the given span attributes.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "latencyConfig": {
+                  "description": "LatencyConfig makes this an APM latency SLI.",
+                  "type": "object",
+                  "required": [
+                    "timeWindow"
+                  ],
+                  "properties": {
+                    "average": {
+                      "description": "Average measures average latency. It carries no settings.",
+                      "type": "object"
+                    },
+                    "quantile": {
+                      "description": "Quantile measures a latency quantile.",
+                      "type": "object",
+                      "properties": {
+                        "percentile": {
+                          "description": "Percentile is a fraction, so 0.95 means P95. The API stores 0 when omitted.\nThere is deliberately no range validator: the API accepts and stores any float,\nincluding 5 and -1, so rejecting them here would be stricter than the API.",
+                          "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "x-kubernetes-int-or-string": true
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "threshold": {
+                      "description": "Threshold is the latency threshold in milliseconds, so 500 means 500ms. Latency at\nor below the threshold is good. The API stores 0 when omitted.",
+                      "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "x-kubernetes-int-or-string": true
+                    },
+                    "timeWindow": {
+                      "description": "TimeWindow defines the evaluation window. Valid values are \"1m\" and \"5m\".\nOmitting it answers HTTP 500 with the same \"Not implemented yet\" error as an\nomitted windowBasedMetric.window, so it is required.",
+                      "type": "string",
+                      "enum": [
+                        "1m",
+                        "5m"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "services": {
+                  "description": "Services lists the APM Service Catalog services the SLO covers. The Coralogix API\naccepts exactly one service today and rejects names that are not in the catalog.\nThe count is deliberately not capped here, so a server-side relaxation needs no\noperator release.",
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
             "requestBasedMetric": {
               "type": "object",
               "required": [
@@ -64,7 +269,7 @@
                   "additionalProperties": false
                 },
                 "groupByLabels": {
-                  "description": "GroupByLabels defines the labels to group the SLI by.",
+                  "description": "GroupByLabels has no effect. The Coralogix API derives the SLO grouping itself and\nthe value is never sent. The field is kept because removing it would break existing\nresources.\nDeprecated: ignored by the operator and by the API.",
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -89,20 +294,33 @@
             },
             "windowBasedMetric": {
               "type": "object",
+              "required": [
+                "comparisonOperator",
+                "query",
+                "window"
+              ],
               "properties": {
                 "comparisonOperator": {
-                  "description": "ComparisonOperator defines the comparison operator for the SLO. Valid values are \"unspecified\", \"greaterThan\", \"lessThan\", \"greaterThanOrEquals\", and \"lessThanOrEquals\".",
+                  "description": "ComparisonOperator defines the comparison operator for the SLO. Valid values are\n\"greaterThan\", \"lessThan\", \"greaterThanOrEquals\" and \"lessThanOrEquals\".",
                   "type": "string",
                   "enum": [
-                    "unspecified",
                     "greaterThan",
                     "lessThan",
                     "greaterThanOrEquals",
                     "lessThanOrEquals"
                   ]
                 },
+                "missingDataStrategy": {
+                  "description": "MissingDataStrategy decides how a window with no data counts. Valid values are\n\"uncounted\", \"good\" and \"bad\". When omitted, the API stores\nMISSING_DATA_STRATEGY_UNCOUNTED.",
+                  "type": "string",
+                  "enum": [
+                    "uncounted",
+                    "good",
+                    "bad"
+                  ]
+                },
                 "query": {
-                  "description": "Optional query for the metric.",
+                  "description": "Query defines the metric query for the SLO.",
                   "type": "object",
                   "required": [
                     "query"
@@ -116,7 +334,7 @@
                   "additionalProperties": false
                 },
                 "threshold": {
-                  "description": "Threshold defines the threshold for the SLO.",
+                  "description": "Threshold defines the threshold the comparisonOperator applies to.\nThe protobuf field is a bare float with no presence tracking, so the API cannot tell\nan omitted threshold from a threshold of 0. Omitting it here sends 0.",
                   "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
                   "anyOf": [
                     {
@@ -129,10 +347,9 @@
                   "x-kubernetes-int-or-string": true
                 },
                 "window": {
-                  "description": "Window defines the time window for the SLO. Valid values are \"unspecified\", \"1m\", and \"5m\".",
+                  "description": "Window defines the time window for the SLO. Valid values are \"1m\" and \"5m\".",
                   "type": "string",
                   "enum": [
-                    "unspecified",
                     "1m",
                     "5m"
                   ]
@@ -144,13 +361,13 @@
           "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "has(self.requestBasedMetric) != has(self.windowBasedMetric)",
-              "message": "Exactly one of requestBasedMetricSli or windowBasedMetric must be set"
+              "rule": "[has(self.requestBasedMetric),has(self.windowBasedMetric),has(self.apmSli)].filter(x, x).size() == 1",
+              "message": "Exactly one of requestBasedMetric, windowBasedMetric or apmSli must be set"
             }
           ]
         },
         "targetThresholdPercentage": {
-          "description": "TargetThresholdPercentage is the target threshold percentage for the SLO.",
+          "description": "TargetThresholdPercentage is the target compliance percentage for the SLO, so 99.9\nmeans three nines. The API rejects a value above 100 with\n`400 \"slo.targetThresholdPercentage\" must be less than or equal to 100`. The bound\nis not declared in the protobuf and is not enforced here either: the field is a\nresource.Quantity, which renders as int-or-string in the CRD, so the numeric\nMinimum and Maximum markers do not apply to it. The lower bound is unverified.",
           "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
           "anyOf": [
             {
@@ -182,7 +399,13 @@
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!(has(self.productType) \u0026\u0026 self.productType == 'apm') || has(self.sliType.apmSli)",
+          "message": "productType 'apm' requires sliType.apmSli"
+        }
+      ]
     },
     "status": {
       "description": "SLOStatus defines the observed state of SLO.",
