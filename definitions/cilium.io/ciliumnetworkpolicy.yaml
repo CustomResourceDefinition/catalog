@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: ciliumnetworkpolicies.cilium.io
 spec:
   group: cilium.io
@@ -100,9 +100,7 @@ spec:
                         member will have no effect on the rule.
 
                       - If multiple members of the structure are specified, then all members
-                        must match in order for the rule to take effect. The exception to this
-                        rule is the ToRequires member; the effects of any Requires field in any
-                        rule will apply to all other rules as well.
+                        must match in order for the rule to take effect.
 
                       - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
                         mutually exclusive. Only one of these members may be present within an
@@ -331,6 +329,11 @@ spec:
                         Example:
                         Any endpoint with the label "role=frontend" can communicate with any
                         endpoint carrying the label "role=backend".
+
+                        Note that while an empty non-nil ToEndpoints does not select anything,
+                        nil ToEndpoints is implicitly treated as a wildcard selector if ToPorts
+                        are also specified.
+                        To select everything, use one EndpointSelector without any match requirements.
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
@@ -453,17 +456,19 @@ spec:
                               the pattern. As a special case a "*" as the leftmost character, without a
                               following "." matches all subdomains as well as the name to the right.
                               A trailing "." is automatically added when missing.
+                              - "**." is a special prefix which matches all multilevel subdomains in the prefix.
 
                               Examples:
-                              `*.cilium.io` matches subdomains of cilium at that level
+                              1. `*.cilium.io` matches subdomains of cilium at that level
                                 www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
-                              `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
+                              2. `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                 except those containing "." separator, subcilium.io and sub-cilium.io match,
                                 www.cilium.io and blog.cilium.io does not
-                              sub*.cilium.io matches subdomains of cilium where the subdomain component
-                              begins with "sub"
-                                sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
+                              3. `sub*.cilium.io` matches subdomains of cilium where the subdomain component
+                                begins with "sub". sub.cilium.io and subdomain.cilium.io match while www.cilium.io,
                                 blog.cilium.io, cilium.io and google.com do not
+                              4. `**.cilium.io` matches all multilevel subdomains of cilium.io.
+                                "app.cilium.io" and "test.app.cilium.io" match but not "cilium.io"
                             maxLength: 255
                             pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                             type: string
@@ -696,8 +701,10 @@ spec:
                                   type: string
                                 protocol:
                                   description: |-
-                                    Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                    with transport ports (TCP, UDP, SCTP) match.
+
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -707,10 +714,10 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
-                              required:
-                              - port
                               type: object
                             maxItems: 40
                             type: array
@@ -767,17 +774,19 @@ spec:
                                         the pattern. As a special case a "*" as the leftmost character, without a
                                         following "." matches all subdomains as well as the name to the right.
                                         A trailing "." is automatically added when missing.
+                                        - "**." is a special prefix which matches all multilevel subdomains in the prefix.
 
                                         Examples:
-                                        `*.cilium.io` matches subdomains of cilium at that level
+                                        1. `*.cilium.io` matches subdomains of cilium at that level
                                           www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
-                                        `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
+                                        2. `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                           except those containing "." separator, subcilium.io and sub-cilium.io match,
                                           www.cilium.io and blog.cilium.io does not
-                                        sub*.cilium.io matches subdomains of cilium where the subdomain component
-                                        begins with "sub"
-                                          sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
+                                        3. `sub*.cilium.io` matches subdomains of cilium where the subdomain component
+                                          begins with "sub". sub.cilium.io and subdomain.cilium.io match while www.cilium.io,
                                           blog.cilium.io, cilium.io and google.com do not
+                                        4. `**.cilium.io` matches all multilevel subdomains of cilium.io.
+                                          "app.cilium.io" and "test.app.cilium.io" match but not "cilium.io"
                                       maxLength: 255
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
@@ -889,7 +898,9 @@ spec:
                                   type: object
                                 type: array
                               kafka:
-                                description: Kafka-specific rules.
+                                description: |-
+                                  Kafka-specific rules.
+                                  Deprecated: This beta feature is deprecated and will be removed in a future release.
                                 items:
                                   description: |-
                                     PortRule is a list of Kafka protocol constraints. All fields are
@@ -1059,71 +1070,10 @@ spec:
                         type: object
                       type: array
                     toRequires:
-                      description: |-
-                        ToRequires is a list of additional constraints which must be met
-                        in order for the selected endpoints to be able to connect to other
-                        endpoints. These additional constraints do no by itself grant access
-                        privileges and must always be accompanied with at least one matching
-                        ToEndpoints.
-
-                        Example:
-                        Any Endpoint with the label "team=A" requires any endpoint to which it
-                        communicates to also carry the label "team=A".
+                      description: Deprecated.
                       items:
-                        description: EndpointSelector is a wrapper for k8s LabelSelector.
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector
-                              requirements. The requirements are ANDed.
-                            items:
-                              description: |-
-                                A label selector requirement is a selector that contains values, a key, and an operator that
-                                relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector
-                                    applies to.
-                                  type: string
-                                operator:
-                                  description: |-
-                                    operator represents a key's relationship to a set of values.
-                                    Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  enum:
-                                  - In
-                                  - NotIn
-                                  - Exists
-                                  - DoesNotExist
-                                  type: string
-                                values:
-                                  description: |-
-                                    values is an array of string values. If the operator is In or NotIn,
-                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                    the values array must be empty. This array is replaced during a strategic
-                                    merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          matchLabels:
-                            additionalProperties:
-                              description: MatchLabelsValue represents the value from
-                                the MatchLabels {key,value} pair.
-                              maxLength: 63
-                              pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                              type: string
-                            description: |-
-                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                              map is equivalent to an element of matchExpressions, whose key field is "key", the
-                              operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
+                        type: string
+                      maxItems: 0
                       type: array
                     toServices:
                       description: |-
@@ -1232,9 +1182,7 @@ spec:
                         member will have no effect on the rule.
 
                       - If multiple members of the structure are specified, then all members
-                        must match in order for the rule to take effect. The exception to this
-                        rule is the ToRequires member; the effects of any Requires field in any
-                        rule will apply to all other rules as well.
+                        must match in order for the rule to take effect.
 
                       - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
                         mutually exclusive. Only one of these members may be present within an
@@ -1448,6 +1396,11 @@ spec:
                         Example:
                         Any endpoint with the label "role=frontend" can communicate with any
                         endpoint carrying the label "role=backend".
+
+                        Note that while an empty non-nil ToEndpoints does not select anything,
+                        nil ToEndpoints is implicitly treated as a wildcard selector if ToPorts
+                        are also specified.
+                        To select everything, use one EndpointSelector without any match requirements.
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
@@ -1661,8 +1614,10 @@ spec:
                                   type: string
                                 protocol:
                                   description: |-
-                                    Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                    with transport ports (TCP, UDP, SCTP) match.
+
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -1672,80 +1627,19 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
-                              required:
-                              - port
                               type: object
                             type: array
                         type: object
                       type: array
                     toRequires:
-                      description: |-
-                        ToRequires is a list of additional constraints which must be met
-                        in order for the selected endpoints to be able to connect to other
-                        endpoints. These additional constraints do no by itself grant access
-                        privileges and must always be accompanied with at least one matching
-                        ToEndpoints.
-
-                        Example:
-                        Any Endpoint with the label "team=A" requires any endpoint to which it
-                        communicates to also carry the label "team=A".
+                      description: Deprecated.
                       items:
-                        description: EndpointSelector is a wrapper for k8s LabelSelector.
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector
-                              requirements. The requirements are ANDed.
-                            items:
-                              description: |-
-                                A label selector requirement is a selector that contains values, a key, and an operator that
-                                relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector
-                                    applies to.
-                                  type: string
-                                operator:
-                                  description: |-
-                                    operator represents a key's relationship to a set of values.
-                                    Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  enum:
-                                  - In
-                                  - NotIn
-                                  - Exists
-                                  - DoesNotExist
-                                  type: string
-                                values:
-                                  description: |-
-                                    values is an array of string values. If the operator is In or NotIn,
-                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                    the values array must be empty. This array is replaced during a strategic
-                                    merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          matchLabels:
-                            additionalProperties:
-                              description: MatchLabelsValue represents the value from
-                                the MatchLabels {key,value} pair.
-                              maxLength: 63
-                              pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                              type: string
-                            description: |-
-                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                              map is equivalent to an element of matchExpressions, whose key field is "key", the
-                              operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
+                        type: string
+                      maxItems: 0
                       type: array
                     toServices:
                       description: |-
@@ -1939,9 +1833,7 @@ spec:
                         member will have no effect on the rule.
 
                       - If multiple members are set, all of them need to match in order for
-                        the rule to take effect. The exception to this rule is FromRequires field;
-                        the effects of any Requires field in any rule will apply to all other
-                        rules as well.
+                        the rule to take effect.
 
                       - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually
                         exclusive. Only one of these members may be present within an individual
@@ -2111,6 +2003,11 @@ spec:
                         Example:
                         Any endpoint with the label "role=backend" can be consumed by any
                         endpoint carrying the label "role=frontend".
+
+                        Note that while an empty non-nil FromEndpoints does not select anything,
+                        nil FromEndpoints is implicitly treated as a wildcard selector if ToPorts
+                        are also specified.
+                        To select everything, use one EndpointSelector without any match requirements.
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
@@ -2291,70 +2188,10 @@ spec:
                         x-kubernetes-map-type: atomic
                       type: array
                     fromRequires:
-                      description: |-
-                        FromRequires is a list of additional constraints which must be met
-                        in order for the selected endpoints to be reachable. These
-                        additional constraints do no by itself grant access privileges and
-                        must always be accompanied with at least one matching FromEndpoints.
-
-                        Example:
-                        Any Endpoint with the label "team=A" requires consuming endpoint
-                        to also carry the label "team=A".
+                      description: Deprecated.
                       items:
-                        description: EndpointSelector is a wrapper for k8s LabelSelector.
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector
-                              requirements. The requirements are ANDed.
-                            items:
-                              description: |-
-                                A label selector requirement is a selector that contains values, a key, and an operator that
-                                relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector
-                                    applies to.
-                                  type: string
-                                operator:
-                                  description: |-
-                                    operator represents a key's relationship to a set of values.
-                                    Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  enum:
-                                  - In
-                                  - NotIn
-                                  - Exists
-                                  - DoesNotExist
-                                  type: string
-                                values:
-                                  description: |-
-                                    values is an array of string values. If the operator is In or NotIn,
-                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                    the values array must be empty. This array is replaced during a strategic
-                                    merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          matchLabels:
-                            additionalProperties:
-                              description: MatchLabelsValue represents the value from
-                                the MatchLabels {key,value} pair.
-                              maxLength: 63
-                              pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                              type: string
-                            description: |-
-                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                              map is equivalent to an element of matchExpressions, whose key field is "key", the
-                              operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
+                        type: string
+                      maxItems: 0
                       type: array
                     icmps:
                       description: |-
@@ -2547,8 +2384,10 @@ spec:
                                   type: string
                                 protocol:
                                   description: |-
-                                    Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                    with transport ports (TCP, UDP, SCTP) match.
+
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -2558,10 +2397,10 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
-                              required:
-                              - port
                               type: object
                             maxItems: 40
                             type: array
@@ -2618,17 +2457,19 @@ spec:
                                         the pattern. As a special case a "*" as the leftmost character, without a
                                         following "." matches all subdomains as well as the name to the right.
                                         A trailing "." is automatically added when missing.
+                                        - "**." is a special prefix which matches all multilevel subdomains in the prefix.
 
                                         Examples:
-                                        `*.cilium.io` matches subdomains of cilium at that level
+                                        1. `*.cilium.io` matches subdomains of cilium at that level
                                           www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
-                                        `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
+                                        2. `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                           except those containing "." separator, subcilium.io and sub-cilium.io match,
                                           www.cilium.io and blog.cilium.io does not
-                                        sub*.cilium.io matches subdomains of cilium where the subdomain component
-                                        begins with "sub"
-                                          sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
+                                        3. `sub*.cilium.io` matches subdomains of cilium where the subdomain component
+                                          begins with "sub". sub.cilium.io and subdomain.cilium.io match while www.cilium.io,
                                           blog.cilium.io, cilium.io and google.com do not
+                                        4. `**.cilium.io` matches all multilevel subdomains of cilium.io.
+                                          "app.cilium.io" and "test.app.cilium.io" match but not "cilium.io"
                                       maxLength: 255
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
@@ -2740,7 +2581,9 @@ spec:
                                   type: object
                                 type: array
                               kafka:
-                                description: Kafka-specific rules.
+                                description: |-
+                                  Kafka-specific rules.
+                                  Deprecated: This beta feature is deprecated and will be removed in a future release.
                                 items:
                                   description: |-
                                     PortRule is a list of Kafka protocol constraints. All fields are
@@ -2927,9 +2770,7 @@ spec:
                         member will have no effect on the rule.
 
                       - If multiple members are set, all of them need to match in order for
-                        the rule to take effect. The exception to this rule is FromRequires field;
-                        the effects of any Requires field in any rule will apply to all other
-                        rules as well.
+                        the rule to take effect.
 
                       - FromEndpoints, FromCIDR, FromCIDRSet, FromGroups and FromEntities are mutually
                         exclusive. Only one of these members may be present within an individual
@@ -3084,6 +2925,11 @@ spec:
                         Example:
                         Any endpoint with the label "role=backend" can be consumed by any
                         endpoint carrying the label "role=frontend".
+
+                        Note that while an empty non-nil FromEndpoints does not select anything,
+                        nil FromEndpoints is implicitly treated as a wildcard selector if ToPorts
+                        are also specified.
+                        To select everything, use one EndpointSelector without any match requirements.
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
@@ -3264,70 +3110,10 @@ spec:
                         x-kubernetes-map-type: atomic
                       type: array
                     fromRequires:
-                      description: |-
-                        FromRequires is a list of additional constraints which must be met
-                        in order for the selected endpoints to be reachable. These
-                        additional constraints do no by itself grant access privileges and
-                        must always be accompanied with at least one matching FromEndpoints.
-
-                        Example:
-                        Any Endpoint with the label "team=A" requires consuming endpoint
-                        to also carry the label "team=A".
+                      description: Deprecated.
                       items:
-                        description: EndpointSelector is a wrapper for k8s LabelSelector.
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector
-                              requirements. The requirements are ANDed.
-                            items:
-                              description: |-
-                                A label selector requirement is a selector that contains values, a key, and an operator that
-                                relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector
-                                    applies to.
-                                  type: string
-                                operator:
-                                  description: |-
-                                    operator represents a key's relationship to a set of values.
-                                    Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  enum:
-                                  - In
-                                  - NotIn
-                                  - Exists
-                                  - DoesNotExist
-                                  type: string
-                                values:
-                                  description: |-
-                                    values is an array of string values. If the operator is In or NotIn,
-                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                    the values array must be empty. This array is replaced during a strategic
-                                    merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          matchLabels:
-                            additionalProperties:
-                              description: MatchLabelsValue represents the value from
-                                the MatchLabels {key,value} pair.
-                              maxLength: 63
-                              pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                              type: string
-                            description: |-
-                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                              map is equivalent to an element of matchExpressions, whose key field is "key", the
-                              operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
+                        type: string
+                      maxItems: 0
                       type: array
                     icmps:
                       description: |-
@@ -3425,8 +3211,10 @@ spec:
                                   type: string
                                 protocol:
                                   description: |-
-                                    Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                    with transport ports (TCP, UDP, SCTP) match.
+
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -3436,10 +3224,10 @@ spec:
                                   - TCP
                                   - UDP
                                   - SCTP
+                                  - VRRP
+                                  - IGMP
                                   - ANY
                                   type: string
-                              required:
-                              - port
                               type: object
                             type: array
                         type: object
@@ -3599,9 +3387,7 @@ spec:
                           member will have no effect on the rule.
 
                         - If multiple members of the structure are specified, then all members
-                          must match in order for the rule to take effect. The exception to this
-                          rule is the ToRequires member; the effects of any Requires field in any
-                          rule will apply to all other rules as well.
+                          must match in order for the rule to take effect.
 
                         - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
                           mutually exclusive. Only one of these members may be present within an
@@ -3831,6 +3617,11 @@ spec:
                           Example:
                           Any endpoint with the label "role=frontend" can communicate with any
                           endpoint carrying the label "role=backend".
+
+                          Note that while an empty non-nil ToEndpoints does not select anything,
+                          nil ToEndpoints is implicitly treated as a wildcard selector if ToPorts
+                          are also specified.
+                          To select everything, use one EndpointSelector without any match requirements.
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
@@ -3953,17 +3744,19 @@ spec:
                                 the pattern. As a special case a "*" as the leftmost character, without a
                                 following "." matches all subdomains as well as the name to the right.
                                 A trailing "." is automatically added when missing.
+                                - "**." is a special prefix which matches all multilevel subdomains in the prefix.
 
                                 Examples:
-                                `*.cilium.io` matches subdomains of cilium at that level
+                                1. `*.cilium.io` matches subdomains of cilium at that level
                                   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
-                                `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
+                                2. `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                   except those containing "." separator, subcilium.io and sub-cilium.io match,
                                   www.cilium.io and blog.cilium.io does not
-                                sub*.cilium.io matches subdomains of cilium where the subdomain component
-                                begins with "sub"
-                                  sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
+                                3. `sub*.cilium.io` matches subdomains of cilium where the subdomain component
+                                  begins with "sub". sub.cilium.io and subdomain.cilium.io match while www.cilium.io,
                                   blog.cilium.io, cilium.io and google.com do not
+                                4. `**.cilium.io` matches all multilevel subdomains of cilium.io.
+                                  "app.cilium.io" and "test.app.cilium.io" match but not "cilium.io"
                               maxLength: 255
                               pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                               type: string
@@ -4196,8 +3989,10 @@ spec:
                                     type: string
                                   protocol:
                                     description: |-
-                                      Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                      with transport ports (TCP, UDP, SCTP) match.
+
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -4207,10 +4002,10 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
-                                required:
-                                - port
                                 type: object
                               maxItems: 40
                               type: array
@@ -4267,17 +4062,19 @@ spec:
                                           the pattern. As a special case a "*" as the leftmost character, without a
                                           following "." matches all subdomains as well as the name to the right.
                                           A trailing "." is automatically added when missing.
+                                          - "**." is a special prefix which matches all multilevel subdomains in the prefix.
 
                                           Examples:
-                                          `*.cilium.io` matches subdomains of cilium at that level
+                                          1. `*.cilium.io` matches subdomains of cilium at that level
                                             www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
-                                          `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
+                                          2. `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                             except those containing "." separator, subcilium.io and sub-cilium.io match,
                                             www.cilium.io and blog.cilium.io does not
-                                          sub*.cilium.io matches subdomains of cilium where the subdomain component
-                                          begins with "sub"
-                                            sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
+                                          3. `sub*.cilium.io` matches subdomains of cilium where the subdomain component
+                                            begins with "sub". sub.cilium.io and subdomain.cilium.io match while www.cilium.io,
                                             blog.cilium.io, cilium.io and google.com do not
+                                          4. `**.cilium.io` matches all multilevel subdomains of cilium.io.
+                                            "app.cilium.io" and "test.app.cilium.io" match but not "cilium.io"
                                         maxLength: 255
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                         type: string
@@ -4389,7 +4186,9 @@ spec:
                                     type: object
                                   type: array
                                 kafka:
-                                  description: Kafka-specific rules.
+                                  description: |-
+                                    Kafka-specific rules.
+                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
                                   items:
                                     description: |-
                                       PortRule is a list of Kafka protocol constraints. All fields are
@@ -4559,71 +4358,10 @@ spec:
                           type: object
                         type: array
                       toRequires:
-                        description: |-
-                          ToRequires is a list of additional constraints which must be met
-                          in order for the selected endpoints to be able to connect to other
-                          endpoints. These additional constraints do no by itself grant access
-                          privileges and must always be accompanied with at least one matching
-                          ToEndpoints.
-
-                          Example:
-                          Any Endpoint with the label "team=A" requires any endpoint to which it
-                          communicates to also carry the label "team=A".
+                        description: Deprecated.
                         items:
-                          description: EndpointSelector is a wrapper for k8s LabelSelector.
-                          properties:
-                            matchExpressions:
-                              description: matchExpressions is a list of label selector
-                                requirements. The requirements are ANDed.
-                              items:
-                                description: |-
-                                  A label selector requirement is a selector that contains values, a key, and an operator that
-                                  relates the key and values.
-                                properties:
-                                  key:
-                                    description: key is the label key that the selector
-                                      applies to.
-                                    type: string
-                                  operator:
-                                    description: |-
-                                      operator represents a key's relationship to a set of values.
-                                      Valid operators are In, NotIn, Exists and DoesNotExist.
-                                    enum:
-                                    - In
-                                    - NotIn
-                                    - Exists
-                                    - DoesNotExist
-                                    type: string
-                                  values:
-                                    description: |-
-                                      values is an array of string values. If the operator is In or NotIn,
-                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                      the values array must be empty. This array is replaced during a strategic
-                                      merge patch.
-                                    items:
-                                      type: string
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                required:
-                                - key
-                                - operator
-                                type: object
-                              type: array
-                              x-kubernetes-list-type: atomic
-                            matchLabels:
-                              additionalProperties:
-                                description: MatchLabelsValue represents the value
-                                  from the MatchLabels {key,value} pair.
-                                maxLength: 63
-                                pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                                type: string
-                              description: |-
-                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                operator is "In", and the values array contains only "value". The requirements are ANDed.
-                              type: object
-                          type: object
-                          x-kubernetes-map-type: atomic
+                          type: string
+                        maxItems: 0
                         type: array
                       toServices:
                         description: |-
@@ -4732,9 +4470,7 @@ spec:
                           member will have no effect on the rule.
 
                         - If multiple members of the structure are specified, then all members
-                          must match in order for the rule to take effect. The exception to this
-                          rule is the ToRequires member; the effects of any Requires field in any
-                          rule will apply to all other rules as well.
+                          must match in order for the rule to take effect.
 
                         - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
                           mutually exclusive. Only one of these members may be present within an
@@ -4949,6 +4685,11 @@ spec:
                           Example:
                           Any endpoint with the label "role=frontend" can communicate with any
                           endpoint carrying the label "role=backend".
+
+                          Note that while an empty non-nil ToEndpoints does not select anything,
+                          nil ToEndpoints is implicitly treated as a wildcard selector if ToPorts
+                          are also specified.
+                          To select everything, use one EndpointSelector without any match requirements.
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
@@ -5162,8 +4903,10 @@ spec:
                                     type: string
                                   protocol:
                                     description: |-
-                                      Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                      with transport ports (TCP, UDP, SCTP) match.
+
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -5173,80 +4916,19 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
-                                required:
-                                - port
                                 type: object
                               type: array
                           type: object
                         type: array
                       toRequires:
-                        description: |-
-                          ToRequires is a list of additional constraints which must be met
-                          in order for the selected endpoints to be able to connect to other
-                          endpoints. These additional constraints do no by itself grant access
-                          privileges and must always be accompanied with at least one matching
-                          ToEndpoints.
-
-                          Example:
-                          Any Endpoint with the label "team=A" requires any endpoint to which it
-                          communicates to also carry the label "team=A".
+                        description: Deprecated.
                         items:
-                          description: EndpointSelector is a wrapper for k8s LabelSelector.
-                          properties:
-                            matchExpressions:
-                              description: matchExpressions is a list of label selector
-                                requirements. The requirements are ANDed.
-                              items:
-                                description: |-
-                                  A label selector requirement is a selector that contains values, a key, and an operator that
-                                  relates the key and values.
-                                properties:
-                                  key:
-                                    description: key is the label key that the selector
-                                      applies to.
-                                    type: string
-                                  operator:
-                                    description: |-
-                                      operator represents a key's relationship to a set of values.
-                                      Valid operators are In, NotIn, Exists and DoesNotExist.
-                                    enum:
-                                    - In
-                                    - NotIn
-                                    - Exists
-                                    - DoesNotExist
-                                    type: string
-                                  values:
-                                    description: |-
-                                      values is an array of string values. If the operator is In or NotIn,
-                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                      the values array must be empty. This array is replaced during a strategic
-                                      merge patch.
-                                    items:
-                                      type: string
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                required:
-                                - key
-                                - operator
-                                type: object
-                              type: array
-                              x-kubernetes-list-type: atomic
-                            matchLabels:
-                              additionalProperties:
-                                description: MatchLabelsValue represents the value
-                                  from the MatchLabels {key,value} pair.
-                                maxLength: 63
-                                pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                                type: string
-                              description: |-
-                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                operator is "In", and the values array contains only "value". The requirements are ANDed.
-                              type: object
-                          type: object
-                          x-kubernetes-map-type: atomic
+                          type: string
+                        maxItems: 0
                         type: array
                       toServices:
                         description: |-
@@ -5440,9 +5122,7 @@ spec:
                           member will have no effect on the rule.
 
                         - If multiple members are set, all of them need to match in order for
-                          the rule to take effect. The exception to this rule is FromRequires field;
-                          the effects of any Requires field in any rule will apply to all other
-                          rules as well.
+                          the rule to take effect.
 
                         - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually
                           exclusive. Only one of these members may be present within an individual
@@ -5612,6 +5292,11 @@ spec:
                           Example:
                           Any endpoint with the label "role=backend" can be consumed by any
                           endpoint carrying the label "role=frontend".
+
+                          Note that while an empty non-nil FromEndpoints does not select anything,
+                          nil FromEndpoints is implicitly treated as a wildcard selector if ToPorts
+                          are also specified.
+                          To select everything, use one EndpointSelector without any match requirements.
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
@@ -5792,70 +5477,10 @@ spec:
                           x-kubernetes-map-type: atomic
                         type: array
                       fromRequires:
-                        description: |-
-                          FromRequires is a list of additional constraints which must be met
-                          in order for the selected endpoints to be reachable. These
-                          additional constraints do no by itself grant access privileges and
-                          must always be accompanied with at least one matching FromEndpoints.
-
-                          Example:
-                          Any Endpoint with the label "team=A" requires consuming endpoint
-                          to also carry the label "team=A".
+                        description: Deprecated.
                         items:
-                          description: EndpointSelector is a wrapper for k8s LabelSelector.
-                          properties:
-                            matchExpressions:
-                              description: matchExpressions is a list of label selector
-                                requirements. The requirements are ANDed.
-                              items:
-                                description: |-
-                                  A label selector requirement is a selector that contains values, a key, and an operator that
-                                  relates the key and values.
-                                properties:
-                                  key:
-                                    description: key is the label key that the selector
-                                      applies to.
-                                    type: string
-                                  operator:
-                                    description: |-
-                                      operator represents a key's relationship to a set of values.
-                                      Valid operators are In, NotIn, Exists and DoesNotExist.
-                                    enum:
-                                    - In
-                                    - NotIn
-                                    - Exists
-                                    - DoesNotExist
-                                    type: string
-                                  values:
-                                    description: |-
-                                      values is an array of string values. If the operator is In or NotIn,
-                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                      the values array must be empty. This array is replaced during a strategic
-                                      merge patch.
-                                    items:
-                                      type: string
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                required:
-                                - key
-                                - operator
-                                type: object
-                              type: array
-                              x-kubernetes-list-type: atomic
-                            matchLabels:
-                              additionalProperties:
-                                description: MatchLabelsValue represents the value
-                                  from the MatchLabels {key,value} pair.
-                                maxLength: 63
-                                pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                                type: string
-                              description: |-
-                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                operator is "In", and the values array contains only "value". The requirements are ANDed.
-                              type: object
-                          type: object
-                          x-kubernetes-map-type: atomic
+                          type: string
+                        maxItems: 0
                         type: array
                       icmps:
                         description: |-
@@ -6049,8 +5674,10 @@ spec:
                                     type: string
                                   protocol:
                                     description: |-
-                                      Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                      with transport ports (TCP, UDP, SCTP) match.
+
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -6060,10 +5687,10 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
-                                required:
-                                - port
                                 type: object
                               maxItems: 40
                               type: array
@@ -6120,17 +5747,19 @@ spec:
                                           the pattern. As a special case a "*" as the leftmost character, without a
                                           following "." matches all subdomains as well as the name to the right.
                                           A trailing "." is automatically added when missing.
+                                          - "**." is a special prefix which matches all multilevel subdomains in the prefix.
 
                                           Examples:
-                                          `*.cilium.io` matches subdomains of cilium at that level
+                                          1. `*.cilium.io` matches subdomains of cilium at that level
                                             www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
-                                          `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
+                                          2. `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                             except those containing "." separator, subcilium.io and sub-cilium.io match,
                                             www.cilium.io and blog.cilium.io does not
-                                          sub*.cilium.io matches subdomains of cilium where the subdomain component
-                                          begins with "sub"
-                                            sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
+                                          3. `sub*.cilium.io` matches subdomains of cilium where the subdomain component
+                                            begins with "sub". sub.cilium.io and subdomain.cilium.io match while www.cilium.io,
                                             blog.cilium.io, cilium.io and google.com do not
+                                          4. `**.cilium.io` matches all multilevel subdomains of cilium.io.
+                                            "app.cilium.io" and "test.app.cilium.io" match but not "cilium.io"
                                         maxLength: 255
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                         type: string
@@ -6242,7 +5871,9 @@ spec:
                                     type: object
                                   type: array
                                 kafka:
-                                  description: Kafka-specific rules.
+                                  description: |-
+                                    Kafka-specific rules.
+                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
                                   items:
                                     description: |-
                                       PortRule is a list of Kafka protocol constraints. All fields are
@@ -6429,9 +6060,7 @@ spec:
                           member will have no effect on the rule.
 
                         - If multiple members are set, all of them need to match in order for
-                          the rule to take effect. The exception to this rule is FromRequires field;
-                          the effects of any Requires field in any rule will apply to all other
-                          rules as well.
+                          the rule to take effect.
 
                         - FromEndpoints, FromCIDR, FromCIDRSet, FromGroups and FromEntities are mutually
                           exclusive. Only one of these members may be present within an individual
@@ -6586,6 +6215,11 @@ spec:
                           Example:
                           Any endpoint with the label "role=backend" can be consumed by any
                           endpoint carrying the label "role=frontend".
+
+                          Note that while an empty non-nil FromEndpoints does not select anything,
+                          nil FromEndpoints is implicitly treated as a wildcard selector if ToPorts
+                          are also specified.
+                          To select everything, use one EndpointSelector without any match requirements.
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
@@ -6766,70 +6400,10 @@ spec:
                           x-kubernetes-map-type: atomic
                         type: array
                       fromRequires:
-                        description: |-
-                          FromRequires is a list of additional constraints which must be met
-                          in order for the selected endpoints to be reachable. These
-                          additional constraints do no by itself grant access privileges and
-                          must always be accompanied with at least one matching FromEndpoints.
-
-                          Example:
-                          Any Endpoint with the label "team=A" requires consuming endpoint
-                          to also carry the label "team=A".
+                        description: Deprecated.
                         items:
-                          description: EndpointSelector is a wrapper for k8s LabelSelector.
-                          properties:
-                            matchExpressions:
-                              description: matchExpressions is a list of label selector
-                                requirements. The requirements are ANDed.
-                              items:
-                                description: |-
-                                  A label selector requirement is a selector that contains values, a key, and an operator that
-                                  relates the key and values.
-                                properties:
-                                  key:
-                                    description: key is the label key that the selector
-                                      applies to.
-                                    type: string
-                                  operator:
-                                    description: |-
-                                      operator represents a key's relationship to a set of values.
-                                      Valid operators are In, NotIn, Exists and DoesNotExist.
-                                    enum:
-                                    - In
-                                    - NotIn
-                                    - Exists
-                                    - DoesNotExist
-                                    type: string
-                                  values:
-                                    description: |-
-                                      values is an array of string values. If the operator is In or NotIn,
-                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                      the values array must be empty. This array is replaced during a strategic
-                                      merge patch.
-                                    items:
-                                      type: string
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                required:
-                                - key
-                                - operator
-                                type: object
-                              type: array
-                              x-kubernetes-list-type: atomic
-                            matchLabels:
-                              additionalProperties:
-                                description: MatchLabelsValue represents the value
-                                  from the MatchLabels {key,value} pair.
-                                maxLength: 63
-                                pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                                type: string
-                              description: |-
-                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                operator is "In", and the values array contains only "value". The requirements are ANDed.
-                              type: object
-                          type: object
-                          x-kubernetes-map-type: atomic
+                          type: string
+                        maxItems: 0
                         type: array
                       icmps:
                         description: |-
@@ -6928,8 +6502,10 @@ spec:
                                     type: string
                                   protocol:
                                     description: |-
-                                      Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+                                      with transport ports (TCP, UDP, SCTP) match.
+
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -6939,10 +6515,10 @@ spec:
                                     - TCP
                                     - UDP
                                     - SCTP
+                                    - VRRP
+                                    - IGMP
                                     - ANY
                                     type: string
-                                required:
-                                - port
                                 type: object
                               type: array
                           type: object
