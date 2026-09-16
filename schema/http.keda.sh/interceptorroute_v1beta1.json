@@ -72,6 +72,21 @@
               },
               "additionalProperties": false
             },
+            "maxPendingRequests": {
+              "description": "Maximum number of pending requests held while the backend is not\nready (e.g. during scale-from-zero). Requests arriving when the limit\nis reached are handled according to overflow. Unset: uses the\ninterceptor's KEDA_HTTP_COLD_START_MAX_PENDING_REQUESTS (default:\nunlimited). When set together with a placeholder and\noverflow: Placeholder, requests are held up to this limit instead of\nreceiving the placeholder immediately; only overflowing requests\nreceive it.\nThe limit applies per interceptor replica: the effective cluster-wide\ncapacity is maxPendingRequests multiplied by the number of\ninterceptor replicas.",
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1
+            },
+            "overflow": {
+              "description": "How to handle requests arriving when the pending request limit is\nreached. Reject: return HTTP 503. Placeholder: serve the configured\nplaceholder response.",
+              "type": "string",
+              "default": "Reject",
+              "enum": [
+                "Reject",
+                "Placeholder"
+              ]
+            },
             "placeholder": {
               "description": "Placeholder response to serve while the target has no ready endpoints.",
               "type": "object",
@@ -118,7 +133,6 @@
                       "description": "HTTP status code.",
                       "type": "integer",
                       "format": "int32",
-                      "default": 503,
                       "maximum": 599,
                       "minimum": 100
                     }
@@ -138,8 +152,12 @@
           "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "has(self.fallback) || has(self.placeholder)",
-              "message": "at least one of 'fallback' or 'placeholder' must be set"
+              "rule": "has(self.fallback) || has(self.placeholder) || has(self.maxPendingRequests)",
+              "message": "at least one of 'fallback', 'placeholder' or 'maxPendingRequests' must be set"
+            },
+            {
+              "rule": "self.overflow != 'Placeholder' || has(self.placeholder)",
+              "message": "'placeholder' must be set when 'overflow' is 'Placeholder'"
             }
           ]
         },
@@ -264,6 +282,150 @@
               "message": "at least one of 'concurrency' or 'requestRate' must be set"
             }
           ]
+        },
+        "staticRoutes": {
+          "description": "Sub-routes that serve static responses without affecting scaling.\nEvaluated in list order (first match wins).",
+          "type": "array",
+          "items": {
+            "description": "StaticRoute defines a sub-route excluded from scaling metrics.\nMultiple rules within a StaticRoute use OR semantics.\nMultiple StaticRoute entries use first-match-wins ordering.",
+            "type": "object",
+            "required": [
+              "response",
+              "rules"
+            ],
+            "properties": {
+              "response": {
+                "description": "Static response configuration.",
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "description": "Inline response body.",
+                    "type": "string",
+                    "maxLength": 32768
+                  },
+                  "bodyFromConfigMap": {
+                    "description": "Response body from a ConfigMap in the same namespace. The ConfigMap must\ncarry the label \"http.keda.sh/response-body: true\". A missing ConfigMap\nor a missing explicit key returns HTTP 500.",
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "key": {
+                        "description": "Key within the ConfigMap. When omitted, the key is the request path\nwithout the leading \"/\" (defaulting to \"index.html\" for \"/\").\nThe Content-Type header is auto-detected from the key's file extension\nunless explicitly set in headers.",
+                        "type": "string"
+                      },
+                      "name": {
+                        "description": "Name of the ConfigMap.",
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "headers": {
+                    "description": "HTTP response headers.",
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "statusCode": {
+                    "description": "HTTP status code.",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 599,
+                    "minimum": 100
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "!(has(self.body) \u0026\u0026 has(self.bodyFromConfigMap))",
+                    "message": "at most one of 'body' or 'bodyFromConfigMap' may be set"
+                  }
+                ]
+              },
+              "responseMode": {
+                "description": "Determines when the static response is served.\nAlways: the response is always returned, the backend is never contacted.\nWhenUnavailable: the request is forwarded to the backend when it has\nready endpoints; the static response is returned only when unavailable.",
+                "type": "string",
+                "default": "WhenUnavailable",
+                "enum": [
+                  "Always",
+                  "WhenUnavailable"
+                ]
+              },
+              "rules": {
+                "description": "Matching rules for this static route. A request matching any rule\nis handled by this static route.",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "description": "RoutingRule defines a set of matching criteria for routing requests.",
+                  "type": "object",
+                  "properties": {
+                    "headers": {
+                      "description": "All listed headers must match the request (AND semantics).\nIf a header's Value is omitted, the header must be present but any\nvalue is accepted.",
+                      "type": "array",
+                      "items": {
+                        "description": "HeaderMatch defines a header matching rule.",
+                        "type": "object",
+                        "required": [
+                          "name"
+                        ],
+                        "properties": {
+                          "name": {
+                            "description": "Name of the HTTP header.",
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "value": {
+                            "description": "Value to match against (exact match). If omitted, matches any value for given header name.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "x-kubernetes-list-map-keys": [
+                        "name"
+                      ],
+                      "x-kubernetes-list-type": "map"
+                    },
+                    "hosts": {
+                      "description": "Match any of these hostnames. Wildcard patterns (e.g. \"*.example.com\")\nare supported. A single \"*\" acts as a catch-all. Exact matches take\npriority over wildcards; more specific wildcards (e.g. \"*.bar.example.com\")\ntake priority over less specific ones.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-kubernetes-list-type": "set"
+                    },
+                    "paths": {
+                      "description": "Match any of these path prefixes. When multiple paths match,\nthe longest prefix wins.",
+                      "type": "array",
+                      "items": {
+                        "description": "PathMatch defines a path matching rule.",
+                        "type": "object",
+                        "required": [
+                          "value"
+                        ],
+                        "properties": {
+                          "value": {
+                            "description": "Path prefix to match against. The longest matching prefix wins.",
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "x-kubernetes-list-type": "atomic"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "x-kubernetes-list-type": "atomic"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-type": "atomic"
         },
         "target": {
           "description": "Backend service to route traffic to.",
