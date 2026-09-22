@@ -90,6 +90,39 @@
             "register"
           ],
           "properties": {
+            "deletePolicy": {
+              "description": "What to do about in-flight invocations when this RestateDeployment is deleted.\nDefaults to `drain`.\n- `drain`: wait for in-flight invocations to finish, on the terms set by `drain`.\n- `force`: deregister and tear down immediately, without draining.",
+              "type": "string",
+              "enum": [
+                "drain",
+                "force"
+              ],
+              "nullable": true
+            },
+            "drain": {
+              "description": "How `deletePolicy: drain` waits: how long, and whether it eventually gives up.\nIgnored by `deletePolicy: force`, which never waits.",
+              "type": "object",
+              "properties": {
+                "onTimeout": {
+                  "description": "What to do once `timeoutSeconds` has passed. Defaults to `hold`.\n- `hold`: keep waiting, and report the drain as overdue\n- `force`: force-deregister, abandoning whatever is left",
+                  "type": "string",
+                  "enum": [
+                    "hold",
+                    "force"
+                  ],
+                  "nullable": true
+                },
+                "timeoutSeconds": {
+                  "description": "Seconds to wait for in-flight invocations to finish. Defaults to 3600 (1 hour).\nUnder `onTimeout: hold` this only sets when the drain reports itself overdue; it\nnever lets the deletion through",
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0,
+                  "nullable": true
+                }
+              },
+              "additionalProperties": false,
+              "nullable": true
+            },
             "drainDelaySeconds": {
               "description": "Seconds to wait before removing old versions after they are drained.\nDefaults to 300 (5 minutes).",
               "type": "integer",
@@ -352,6 +385,102 @@
           },
           "nullable": true
         },
+        "deletion": {
+          "description": "Progress of an in-flight deletion. Only set once the RestateDeployment has been\ndeleted and the operator is working through `spec.restate.deletePolicy`",
+          "type": "object",
+          "required": [
+            "phase",
+            "policy",
+            "totalPendingInvocations"
+          ],
+          "properties": {
+            "deadline": {
+              "description": "When the drain timeout expires. Unset under `deletePolicy: force`",
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "message": {
+              "description": "Human-readable explanation of what the deletion is waiting for",
+              "type": "string",
+              "nullable": true
+            },
+            "onTimeout": {
+              "description": "What happens at the `deadline`: `hold` keeps waiting, `force` gives up and\nderegisters. Unset under `deletePolicy: force`, which has no deadline to reach",
+              "type": "string",
+              "enum": [
+                "hold",
+                "force"
+              ],
+              "nullable": true
+            },
+            "pendingInvocations": {
+              "description": "The versions holding the deletion, and the invocations they are waiting on",
+              "type": "array",
+              "items": {
+                "description": "Invocations holding one version of a deleting RestateDeployment",
+                "type": "object",
+                "required": [
+                  "pinned",
+                  "unpinned",
+                  "version"
+                ],
+                "properties": {
+                  "deploymentId": {
+                    "description": "The Restate deployment ID this version is registered as",
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "pinned": {
+                    "description": "Unfinished invocations already bound to this version",
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "unpinned": {
+                    "description": "Unfinished invocations not yet bound to any version, but targeting a service this\nversion is the endpoint for. Not counted under `deletePolicy: force`, which does\nnot run the query that attributes them",
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "version": {
+                    "description": "The ReplicaSet (or Knative Configuration) name",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "phase": {
+              "description": "Where the deletion has got to",
+              "type": "string",
+              "enum": [
+                "Draining",
+                "Overdue",
+                "Forcing"
+              ]
+            },
+            "policy": {
+              "description": "The policy being applied",
+              "type": "string",
+              "enum": [
+                "drain",
+                "force"
+              ]
+            },
+            "startedAt": {
+              "description": "When deletion was requested",
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "totalPendingInvocations": {
+              "description": "Total invocations across all versions holding the deletion",
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "additionalProperties": false,
+          "nullable": true
+        },
         "deploymentId": {
           "description": "Restate deployment ID for the current tag",
           "type": "string",
@@ -406,6 +535,16 @@
           "description": "Total number of updated ready pods",
           "type": "integer",
           "format": "int32",
+          "nullable": true
+        },
+        "reconciliation": {
+          "description": "What the operator is currently doing with this deployment.",
+          "type": "string",
+          "enum": [
+            "Reconciling",
+            "Disabled",
+            "ResumingReconciliation"
+          ],
           "nullable": true
         },
         "replicas": {
