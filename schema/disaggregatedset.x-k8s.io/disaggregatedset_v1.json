@@ -117,6 +117,24 @@
                   "leaderWorkerTemplate"
                 ],
                 "properties": {
+                  "groupIdentity": {
+                    "description": "groupIdentity determines how group identities are assigned.\nOrdinal (default) manages leaders through a StatefulSet: groups are named\n\u003clws\u003e-0..\u003clws\u003e-N-1 and scale down always removes the highest ordinal.\nHash manages leaders through a Deployment: group names are hash-suffixed,\nscale down prefers unscheduled and not-ready groups over healthy ones, and\nrollouts are paced by a group readiness gate on the leader pods.\nThis field is immutable.",
+                    "type": "string",
+                    "default": "Ordinal",
+                    "enum": [
+                      "Ordinal",
+                      "Hash"
+                    ]
+                  },
+                  "groupReplacementPolicy": {
+                    "description": "groupReplacementPolicy controls when a replacement group may start\nscheduling after a group is deleted, whether by the restart policy\nrecreating a failed group, by a rolling update or by a scale down that\nraces a scale up.\nPostTermination (default) admits a replacement only once a previously\ndeleted group has been fully removed, so the new group lands on the\ncapacity the old one released instead of preempting other workloads.\nThis matches the StatefulSet semantics of groupIdentity Ordinal, where a\nleader pod cannot be recreated until its predecessor is gone, and is the\nonly supported value in that mode.\nImmediate admits replacement groups as soon as the leader Deployment\ncreates them, overlapping with the teardown of the old group. Only\nsupported with groupIdentity Hash.",
+                    "type": "string",
+                    "default": "PostTermination",
+                    "enum": [
+                      "Immediate",
+                      "PostTermination"
+                    ]
+                  },
                   "leaderWorkerTemplate": {
                     "description": "leaderWorkerTemplate defines the template for leader/worker pods",
                     "type": "object",
@@ -1020,7 +1038,7 @@
                                                 ],
                                                 "properties": {
                                                   "key": {
-                                                    "description": "The key to select.",
+                                                    "description": "The key to select from the ConfigMap's Data field.\nKeys in the BinaryData field are not currently propagated to container env vars.",
                                                     "type": "string"
                                                   },
                                                   "name": {
@@ -1284,6 +1302,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -1405,6 +1427,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -1494,6 +1520,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -1557,6 +1587,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -1696,6 +1730,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -1759,6 +1797,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -2131,6 +2173,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -2194,6 +2240,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -2314,8 +2364,16 @@
                                           "name"
                                         ],
                                         "properties": {
+                                          "bindMountOptions": {
+                                            "description": "bindMountOptions is the list of additional bind mount options to apply when\nmounting this volume into the container. Allowed values are noexec,\nnodev, and nosuid. These are Linux mount options and have no effect on\nWindows nodes.\nThis field is not supported with image volumes.\nThis is an alpha field and requires enabling the VolumeBindMountOptions feature gate.",
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string"
+                                            },
+                                            "x-kubernetes-list-type": "set"
+                                          },
                                           "mountPath": {
-                                            "description": "Path within the container at which the volume should be mounted.  Must\nnot contain ':'.",
+                                            "description": "Path within the container at which the volume should be mounted.",
                                             "type": "string"
                                           },
                                           "mountPropagation": {
@@ -2469,7 +2527,7 @@
                                                 ],
                                                 "properties": {
                                                   "key": {
-                                                    "description": "The key to select.",
+                                                    "description": "The key to select from the ConfigMap's Data field.\nKeys in the BinaryData field are not currently propagated to container env vars.",
                                                     "type": "string"
                                                   },
                                                   "name": {
@@ -2733,6 +2791,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -2854,6 +2916,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -2943,6 +3009,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -3006,6 +3076,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -3145,6 +3219,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -3208,6 +3286,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -3580,6 +3662,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -3643,6 +3729,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -3767,8 +3857,16 @@
                                           "name"
                                         ],
                                         "properties": {
+                                          "bindMountOptions": {
+                                            "description": "bindMountOptions is the list of additional bind mount options to apply when\nmounting this volume into the container. Allowed values are noexec,\nnodev, and nosuid. These are Linux mount options and have no effect on\nWindows nodes.\nThis field is not supported with image volumes.\nThis is an alpha field and requires enabling the VolumeBindMountOptions feature gate.",
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string"
+                                            },
+                                            "x-kubernetes-list-type": "set"
+                                          },
                                           "mountPath": {
-                                            "description": "Path within the container at which the volume should be mounted.  Must\nnot contain ':'.",
+                                            "description": "Path within the container at which the volume should be mounted.",
                                             "type": "string"
                                           },
                                           "mountPropagation": {
@@ -3809,6 +3907,35 @@
                                     }
                                   },
                                   "additionalProperties": false
+                                },
+                                "x-kubernetes-list-map-keys": [
+                                  "name"
+                                ],
+                                "x-kubernetes-list-type": "map"
+                              },
+                              "evictionResponders": {
+                                "description": "evictionResponders reference responders that react to Evictions based on EvictionRequests.\nResponders should observe and communicate through the Eviction Resource API to help with\nthe graceful termination of a pod. The responders are selected sequentially, according to\ntheir specified priority.\n\nResponders should periodically report on an eviction progress by updating the\n.status.responders[].heartbeatTime field of the Eviction object. If this field is not updated\nwithin the heartbeat deadline defined by the Eviction API (currently 20 minutes), the eviction\nis passed over to the next responder with a lower priority. If there is no other responder,\nthe last default imperative-eviction.k8s.io/evictor responder with a priority of 100 will\nevict the pod using the imperative Eviction API (pods/\u003cname\u003e/eviction subresource).\n\nThe maximum length of the responders list is 10.\nResponders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set).\nThis field can only be set on creation and is immutable afterwards.",
+                                "type": "array",
+                                "items": {
+                                  "description": "EvictionResponder allows you to specify the responder reacting to an Eviction.\nResponders should observe and communicate through the Eviction Resource API to help with\nthe graceful eviction of a target (e.g. termination of a pod).",
+                                  "type": "object",
+                                  "required": [
+                                    "name",
+                                    "priority"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "description": "name allows you to identify the responder responding to the Eviction.\n\nIt must be a valid domain-prefixed key (such as \"acme.io/foo\").\nDomain names *.k8s.io and *.kubernetes.io are reserved.\nThis field must be unique for each responder.\nThis field is required.",
+                                      "type": "string"
+                                    },
+                                    "priority": {
+                                      "description": "priority for this responder. Higher priorities are selected first by the evictionrequest-controller.\nIf there are responders with the same priority, the responder whose domain name comes first in the\nalphabetical higher domain order, will be picked. This means that the top domain labels are compared\nalphabetically first, followed by the lower domain labels. The key is compared last.\n\nThe responder that is the managing controller of the pod should set the value of\nthis field to 10000 to allow both for preemption or fallback registration by other\nresponders.\n\nThe minimum value is 0 and the maximum value is 100000.\nThe interval 0-999 is reserved for responders with *.k8s.io suffix.\nThis field is required.",
+                                      "type": "integer",
+                                      "format": "int32"
+                                    }
+                                  },
+                                  "additionalProperties": false,
+                                  "x-kubernetes-map-type": "atomic"
                                 },
                                 "x-kubernetes-list-map-keys": [
                                   "name"
@@ -3866,7 +3993,7 @@
                                 "type": "string"
                               },
                               "hostnameOverride": {
-                                "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod.\nThis field only specifies the pod's hostname and does not affect its DNS records.\nWhen this field is set to a non-empty string:\n- It takes precedence over the values set in `hostname` and `subdomain`.\n- The Pod's hostname will be set to this value.\n- `setHostnameAsFQDN` must be nil or set to false.\n- `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.\nRequires the HostnameOverride feature gate to be enabled.",
+                                "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod.\nThis field only specifies the pod's hostname and does not affect its DNS records.\nWhen this field is set to a non-empty string:\n- It takes precedence over the values set in `hostname` and `subdomain`.\n- The Pod's hostname will be set to this value.\n- `setHostnameAsFQDN` must be nil or set to false.\n- `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.",
                                 "type": "string"
                               },
                               "imagePullSecrets": {
@@ -3946,7 +4073,7 @@
                                                 ],
                                                 "properties": {
                                                   "key": {
-                                                    "description": "The key to select.",
+                                                    "description": "The key to select from the ConfigMap's Data field.\nKeys in the BinaryData field are not currently propagated to container env vars.",
                                                     "type": "string"
                                                   },
                                                   "name": {
@@ -4210,6 +4337,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -4331,6 +4462,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -4420,6 +4555,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -4483,6 +4622,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -4622,6 +4765,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -4685,6 +4832,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -5057,6 +5208,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -5120,6 +5275,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -5240,8 +5399,16 @@
                                           "name"
                                         ],
                                         "properties": {
+                                          "bindMountOptions": {
+                                            "description": "bindMountOptions is the list of additional bind mount options to apply when\nmounting this volume into the container. Allowed values are noexec,\nnodev, and nosuid. These are Linux mount options and have no effect on\nWindows nodes.\nThis field is not supported with image volumes.\nThis is an alpha field and requires enabling the VolumeBindMountOptions feature gate.",
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string"
+                                            },
+                                            "x-kubernetes-list-type": "set"
+                                          },
                                           "mountPath": {
-                                            "description": "Path within the container at which the volume should be mounted.  Must\nnot contain ':'.",
+                                            "description": "Path within the container at which the volume should be mounted.",
                                             "type": "string"
                                           },
                                           "mountPropagation": {
@@ -5331,7 +5498,7 @@
                                 }
                               },
                               "preemptionPolicy": {
-                                "description": "PreemptionPolicy is the Policy for preempting pods with lower priority.\nOne of Never, PreemptLowerPriority.\nDefaults to PreemptLowerPriority if unset.",
+                                "description": "PreemptionPolicy is the Policy for preempting pods with lower priority.\nOne of Never, PreemptLowerPriority.\nWhen Priority Admission Controller is enabled, it prevents users from setting\nthis field. The admission controller populates this field from PriorityClassName.\nDefaults to PreemptLowerPriority if unset.",
                                 "type": "string"
                               },
                               "priority": {
@@ -5548,7 +5715,7 @@
                                     "format": "int64"
                                   },
                                   "seLinuxChangePolicy": {
-                                    "description": "seLinuxChangePolicy defines how the container's SELinux label is applied to all volumes used by the Pod.\nIt has no effect on nodes that do not support SELinux or to volumes does not support SELinux.\nValid values are \"MountOption\" and \"Recursive\".\n\n\"Recursive\" means relabeling of all files on all Pod volumes by the container runtime.\nThis may be slow for large volumes, but allows mixing privileged and unprivileged Pods sharing the same volume on the same node.\n\n\"MountOption\" mounts all eligible Pod volumes with `-o context` mount option.\nThis requires all Pods that share the same volume to use the same SELinux label.\nIt is not possible to share the same volume among privileged and unprivileged Pods.\nEligible volumes are in-tree FibreChannel and iSCSI volumes, and all CSI volumes\nwhose CSI driver announces SELinux support by setting spec.seLinuxMount: true in their\nCSIDriver instance. Other volumes are always re-labelled recursively.\n\"MountOption\" value is allowed only when SELinuxMount feature gate is enabled.\n\nIf not specified and SELinuxMount feature gate is enabled, \"MountOption\" is used.\nIf not specified and SELinuxMount feature gate is disabled, \"MountOption\" is used for ReadWriteOncePod volumes\nand \"Recursive\" for all other volumes.\n\nThis field affects only Pods that have SELinux label set, either in PodSecurityContext or in SecurityContext of all containers.\n\nAll Pods that use the same volume should use the same seLinuxChangePolicy, otherwise some pods can get stuck in ContainerCreating state.\nNote that this field cannot be set when spec.os.name is windows.",
+                                    "description": "seLinuxChangePolicy defines how the container's SELinux label is applied to all volumes used by the Pod.\nIt has no effect on nodes that do not support SELinux or to volumes does not support SELinux.\nValid values are \"MountOption\" and \"Recursive\".\n\n\"Recursive\" means relabeling of all files on all Pod volumes by the container runtime.\nThis may be slow for large volumes, but allows mixing privileged and unprivileged Pods sharing the same volume on the same node.\n\n\"MountOption\" mounts all eligible Pod volumes with `-o context` mount option.\nThis requires all Pods that share the same volume to use the same SELinux label.\nIt is not possible to share the same volume among privileged and unprivileged Pods.\nEligible volumes are in-tree FibreChannel and iSCSI volumes, and all CSI volumes\nwhose CSI driver announces SELinux support by setting spec.seLinuxMount: true in their\nCSIDriver instance. Other volumes are always re-labelled recursively.\n\nIf not specified, \"MountOption\" is used.\n\nThis field affects only Pods that have SELinux label set, either in PodSecurityContext or in SecurityContext of all containers.\n\nAll Pods that use the same volume should use the same seLinuxChangePolicy, otherwise some pods can get stuck in ContainerCreating state.\nNote that this field cannot be set when spec.os.name is windows.",
                                     "type": "string"
                                   },
                                   "seLinuxOptions": {
@@ -6003,6 +6170,11 @@
                                           "type": "integer",
                                           "format": "int32"
                                         },
+                                        "defaultUser": {
+                                          "description": "defaultUser is Optional: The owner UID of the created files by default.\nThe defaultUser field is only used as a fallback when the item-level user field is unset.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
                                         "items": {
                                           "description": "items if unspecified, each key-value pair in the Data field of the referenced\nConfigMap will be projected into the volume as a file whose name is the\nkey and content is the value. If specified, the listed keys will be\nprojected into the specified paths, and unlisted keys will not be\npresent. If a key is specified which is not present in the ConfigMap,\nthe volume setup will error unless it is marked optional. Paths must be\nrelative and may not contain the '..' path or start with '..'.",
                                           "type": "array",
@@ -6026,6 +6198,11 @@
                                               "path": {
                                                 "description": "path is the relative path of the file to map the key to.\nMay not be an absolute path.\nMay not contain the path element '..'.\nMay not start with the string '..'.",
                                                 "type": "string"
+                                              },
+                                              "user": {
+                                                "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                "type": "integer",
+                                                "format": "int64"
                                               }
                                             },
                                             "additionalProperties": false
@@ -6096,6 +6273,11 @@
                                           "type": "integer",
                                           "format": "int32"
                                         },
+                                        "defaultUser": {
+                                          "description": "defaultUser is Optional: The owner UID of the created files by default.\nThe defaultUser field is only used as a fallback when the item-level user field is unset.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
                                         "items": {
                                           "description": "Items is a list of downward API volume file",
                                           "type": "array",
@@ -6165,6 +6347,11 @@
                                                 },
                                                 "additionalProperties": false,
                                                 "x-kubernetes-map-type": "atomic"
+                                              },
+                                              "user": {
+                                                "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                "type": "integer",
+                                                "format": "int64"
                                               }
                                             },
                                             "additionalProperties": false
@@ -6181,6 +6368,11 @@
                                         "medium": {
                                           "description": "medium represents what type of storage medium should back this directory.\nThe default is \"\" which means to use the node's default medium.\nMust be an empty string (default) or Memory.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir",
                                           "type": "string"
+                                        },
+                                        "mode": {
+                                          "description": "mode specifies the permission bits for the emptyDir directory, in numeric\nnotation (e.g., 0755, 01777). Must be a value between 0000 and 01777.\nIf not specified, defaults to 0777.\nThis might be in conflict with other options that affect the file\nmode, like fsGroup. If fsGroup is specified, the fsGroup permissions\nwill override the mode specified here.\nThis field has no effect on Windows.\nThis field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int32"
                                         },
                                         "sizeLimit": {
                                           "description": "sizeLimit is the total amount of local storage required for this EmptyDir volume.\nThe size limit is also applicable for memory medium.\nThe maximum usage on memory medium EmptyDir would be the minimum value between\nthe SizeLimit specified here and the sum of memory limits of all containers in a pod.\nThe default is nil which means that the limit is undefined.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir",
@@ -6253,7 +6445,7 @@
                                                   "x-kubernetes-list-type": "atomic"
                                                 },
                                                 "dataSource": {
-                                                  "description": "dataSource field can be used to specify either:\n* An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)\n* An existing PVC (PersistentVolumeClaim)\nIf the provisioner or an external controller can support the specified data source,\nit will create a new volume based on the contents of the specified data source.\nWhen the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,\nand dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.\nIf the namespace is specified, then dataSourceRef will not be copied to dataSource.",
+                                                  "description": "dataSource field can be used to specify either:\n* An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)\n* An existing PVC (PersistentVolumeClaim)\nIf the provisioner or an external controller can support the specified data source,\nit will create a new volume based on the contents of the specified data source.\ndataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be\ncopied to dataSource when dataSourceRef.namespace is not specified.\nIf the namespace is specified, then dataSourceRef will not be copied to dataSource.",
                                                   "type": "object",
                                                   "required": [
                                                     "kind",
@@ -6277,7 +6469,7 @@
                                                   "x-kubernetes-map-type": "atomic"
                                                 },
                                                 "dataSourceRef": {
-                                                  "description": "dataSourceRef specifies the object from which to populate the volume with data, if a non-empty\nvolume is desired. This may be any object from a non-empty API group (non\ncore object) or a PersistentVolumeClaim object.\nWhen this field is specified, volume binding will only succeed if the type of\nthe specified object matches some installed volume populator or dynamic\nprovisioner.\nThis field will replace the functionality of the dataSource field and as such\nif both fields are non-empty, they must have the same value. For backwards\ncompatibility, when namespace isn't specified in dataSourceRef,\nboth fields (dataSource and dataSourceRef) will be set to the same\nvalue automatically if one of them is empty and the other is non-empty.\nWhen namespace is specified in dataSourceRef,\ndataSource isn't set to the same value and must be empty.\nThere are three important differences between dataSource and dataSourceRef:\n* While dataSource only allows two specific types of objects, dataSourceRef\n  allows any non-core object, as well as PersistentVolumeClaim objects.\n* While dataSource ignores disallowed values (dropping them), dataSourceRef\n  preserves all values, and generates an error if a disallowed value is\n  specified.\n* While dataSource only allows local objects, dataSourceRef allows objects\n  in any namespaces.\n(Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.\n(Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.",
+                                                  "description": "dataSourceRef specifies the object from which to populate the volume with data, if a non-empty\nvolume is desired. This may be any object from a non-empty API group (non\ncore object) or a PersistentVolumeClaim object.\nWhen this field is specified, volume binding will only succeed if the type of\nthe specified object matches some installed volume populator or dynamic\nprovisioner.\nThis field will replace the functionality of the dataSource field and as such\nif both fields are non-empty, they must have the same value. For backwards\ncompatibility, when namespace isn't specified in dataSourceRef,\nboth fields (dataSource and dataSourceRef) will be set to the same\nvalue automatically if one of them is empty and the other is non-empty.\nWhen namespace is specified in dataSourceRef,\ndataSource isn't set to the same value and must be empty.\nThere are three important differences between dataSource and dataSourceRef:\n* While dataSource only allows two specific types of objects, dataSourceRef\n  allows any non-core object, as well as PersistentVolumeClaim objects.\n* While dataSource ignores disallowed values (dropping them), dataSourceRef\n  preserves all values, and generates an error if a disallowed value is\n  specified.\n* While dataSource only allows local objects, dataSourceRef allows objects\n  in any namespaces.\n(Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.",
                                                   "type": "object",
                                                   "required": [
                                                     "kind",
@@ -6777,6 +6969,11 @@
                                           "type": "integer",
                                           "format": "int32"
                                         },
+                                        "defaultUser": {
+                                          "description": "defaultUser is Optional: The owner UID of the created files by default.\nThe defaultUser field is only used as a fallback when the item-level user field is unset.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
                                         "sources": {
                                           "description": "sources is the list of volume projections. Each entry in this list\nhandles one source.",
                                           "type": "array",
@@ -6853,6 +7050,11 @@
                                                   "signerName": {
                                                     "description": "Select all ClusterTrustBundles that match this signer name.\nMutually-exclusive with name.  The contents of all selected\nClusterTrustBundles will be unified and deduplicated.",
                                                     "type": "string"
+                                                  },
+                                                  "user": {
+                                                    "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                    "type": "integer",
+                                                    "format": "int64"
                                                   }
                                                 },
                                                 "additionalProperties": false
@@ -6884,6 +7086,11 @@
                                                         "path": {
                                                           "description": "path is the relative path of the file to map the key to.\nMay not be an absolute path.\nMay not contain the path element '..'.\nMay not start with the string '..'.",
                                                           "type": "string"
+                                                        },
+                                                        "user": {
+                                                          "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                          "type": "integer",
+                                                          "format": "int64"
                                                         }
                                                       },
                                                       "additionalProperties": false
@@ -6976,6 +7183,11 @@
                                                           },
                                                           "additionalProperties": false,
                                                           "x-kubernetes-map-type": "atomic"
+                                                        },
+                                                        "user": {
+                                                          "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                          "type": "integer",
+                                                          "format": "int64"
                                                         }
                                                       },
                                                       "additionalProperties": false
@@ -7018,6 +7230,11 @@
                                                     "description": "Kubelet's generated CSRs will be addressed to this signer.",
                                                     "type": "string"
                                                   },
+                                                  "user": {
+                                                    "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                    "type": "integer",
+                                                    "format": "int64"
+                                                  },
                                                   "userAnnotations": {
                                                     "description": "userAnnotations allow pod authors to pass additional information to\nthe signer implementation.  Kubernetes does not restrict or validate this\nmetadata in any way.\n\nThese values are copied verbatim into the `spec.unverifiedUserAnnotations` field of\nthe PodCertificateRequest objects that Kubelet creates.\n\nEntries are subject to the same validation as object metadata annotations,\nwith the addition that all keys must be domain-prefixed. No restrictions\nare placed on values, except an overall size limitation on the entire field.\n\nSigners should document the keys and values they support. Signers should\ndeny requests that contain keys they do not recognize.",
                                                     "type": "object",
@@ -7055,6 +7272,11 @@
                                                         "path": {
                                                           "description": "path is the relative path of the file to map the key to.\nMay not be an absolute path.\nMay not contain the path element '..'.\nMay not start with the string '..'.",
                                                           "type": "string"
+                                                        },
+                                                        "user": {
+                                                          "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                          "type": "integer",
+                                                          "format": "int64"
                                                         }
                                                       },
                                                       "additionalProperties": false
@@ -7093,6 +7315,11 @@
                                                   "path": {
                                                     "description": "path is the path relative to the mount point of the file to project the\ntoken into.",
                                                     "type": "string"
+                                                  },
+                                                  "user": {
+                                                    "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                    "type": "integer",
+                                                    "format": "int64"
                                                   }
                                                 },
                                                 "additionalProperties": false
@@ -7271,6 +7498,11 @@
                                           "type": "integer",
                                           "format": "int32"
                                         },
+                                        "defaultUser": {
+                                          "description": "defaultUser is Optional: The owner UID of the created files by default.\nThe defaultUser field is only used as a fallback when the item-level user field is unset.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
                                         "items": {
                                           "description": "items If unspecified, each key-value pair in the Data field of the referenced\nSecret will be projected into the volume as a file whose name is the\nkey and content is the value. If specified, the listed keys will be\nprojected into the specified paths, and unlisted keys will not be\npresent. If a key is specified which is not present in the Secret,\nthe volume setup will error unless it is marked optional. Paths must be\nrelative and may not contain the '..' path or start with '..'.",
                                           "type": "array",
@@ -7294,6 +7526,11 @@
                                               "path": {
                                                 "description": "path is the relative path of the file to map the key to.\nMay not be an absolute path.\nMay not contain the path element '..'.\nMay not start with the string '..'.",
                                                 "type": "string"
+                                              },
+                                              "user": {
+                                                "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                "type": "integer",
+                                                "format": "int64"
                                               }
                                             },
                                             "additionalProperties": false
@@ -7499,7 +7736,7 @@
                                   "x-kubernetes-list-type": "atomic"
                                 },
                                 "dataSource": {
-                                  "description": "dataSource field can be used to specify either:\n* An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)\n* An existing PVC (PersistentVolumeClaim)\nIf the provisioner or an external controller can support the specified data source,\nit will create a new volume based on the contents of the specified data source.\nWhen the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,\nand dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.\nIf the namespace is specified, then dataSourceRef will not be copied to dataSource.",
+                                  "description": "dataSource field can be used to specify either:\n* An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)\n* An existing PVC (PersistentVolumeClaim)\nIf the provisioner or an external controller can support the specified data source,\nit will create a new volume based on the contents of the specified data source.\ndataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be\ncopied to dataSource when dataSourceRef.namespace is not specified.\nIf the namespace is specified, then dataSourceRef will not be copied to dataSource.",
                                   "type": "object",
                                   "required": [
                                     "kind",
@@ -7523,7 +7760,7 @@
                                   "x-kubernetes-map-type": "atomic"
                                 },
                                 "dataSourceRef": {
-                                  "description": "dataSourceRef specifies the object from which to populate the volume with data, if a non-empty\nvolume is desired. This may be any object from a non-empty API group (non\ncore object) or a PersistentVolumeClaim object.\nWhen this field is specified, volume binding will only succeed if the type of\nthe specified object matches some installed volume populator or dynamic\nprovisioner.\nThis field will replace the functionality of the dataSource field and as such\nif both fields are non-empty, they must have the same value. For backwards\ncompatibility, when namespace isn't specified in dataSourceRef,\nboth fields (dataSource and dataSourceRef) will be set to the same\nvalue automatically if one of them is empty and the other is non-empty.\nWhen namespace is specified in dataSourceRef,\ndataSource isn't set to the same value and must be empty.\nThere are three important differences between dataSource and dataSourceRef:\n* While dataSource only allows two specific types of objects, dataSourceRef\n  allows any non-core object, as well as PersistentVolumeClaim objects.\n* While dataSource ignores disallowed values (dropping them), dataSourceRef\n  preserves all values, and generates an error if a disallowed value is\n  specified.\n* While dataSource only allows local objects, dataSourceRef allows objects\n  in any namespaces.\n(Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.\n(Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.",
+                                  "description": "dataSourceRef specifies the object from which to populate the volume with data, if a non-empty\nvolume is desired. This may be any object from a non-empty API group (non\ncore object) or a PersistentVolumeClaim object.\nWhen this field is specified, volume binding will only succeed if the type of\nthe specified object matches some installed volume populator or dynamic\nprovisioner.\nThis field will replace the functionality of the dataSource field and as such\nif both fields are non-empty, they must have the same value. For backwards\ncompatibility, when namespace isn't specified in dataSourceRef,\nboth fields (dataSource and dataSourceRef) will be set to the same\nvalue automatically if one of them is empty and the other is non-empty.\nWhen namespace is specified in dataSourceRef,\ndataSource isn't set to the same value and must be empty.\nThere are three important differences between dataSource and dataSourceRef:\n* While dataSource only allows two specific types of objects, dataSourceRef\n  allows any non-core object, as well as PersistentVolumeClaim objects.\n* While dataSource ignores disallowed values (dropping them), dataSourceRef\n  preserves all values, and generates an error if a disallowed value is\n  specified.\n* While dataSource only allows local objects, dataSourceRef allows objects\n  in any namespaces.\n(Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.",
                                   "type": "object",
                                   "required": [
                                     "kind",
@@ -7755,6 +7992,55 @@
                                 "currentVolumeAttributesClassName": {
                                   "description": "currentVolumeAttributesClassName is the current name of the VolumeAttributesClass the PVC is using.\nWhen unset, there is no VolumeAttributeClass applied to this PersistentVolumeClaim",
                                   "type": "string"
+                                },
+                                "healthStatus": {
+                                  "description": "healthStatus contains the latest controller-reported health information\nfor the volume bound to this claim.",
+                                  "type": "object",
+                                  "properties": {
+                                    "healthConditions": {
+                                      "description": "conditions is the set of adverse conditions reported by\nthe CSI controller plugin. An empty list means no adverse condition.\nAt most 16 conditions may be reported.",
+                                      "type": "array",
+                                      "items": {
+                                        "description": "VolumeHealthCondition represents an adverse health condition reported for a volume.",
+                                        "type": "object",
+                                        "required": [
+                                          "reason",
+                                          "status"
+                                        ],
+                                        "properties": {
+                                          "message": {
+                                            "description": "message is a human-readable description.\nMaximum permitted length of a message is 1024 bytes.",
+                                            "type": "string"
+                                          },
+                                          "reason": {
+                                            "description": "reason is a brief CamelCase machine-parseable reason.\nTogether with status it forms the unique identity of a condition entry.\nMaximum permitted length of a reason is 256 bytes.",
+                                            "type": "string"
+                                          },
+                                          "status": {
+                                            "description": "status is the machine-parseable health category.\nPossible values:\n- \"Inaccessible\": the volume cannot be accessed.\n- \"DataLoss\": data loss has been detected on the volume.\n- \"Degraded\": the volume is functioning with reduced capability.",
+                                            "type": "string",
+                                            "enum": [
+                                              "DataLoss",
+                                              "Degraded",
+                                              "Inaccessible"
+                                            ]
+                                          }
+                                        },
+                                        "additionalProperties": false
+                                      },
+                                      "x-kubernetes-list-map-keys": [
+                                        "status",
+                                        "reason"
+                                      ],
+                                      "x-kubernetes-list-type": "map"
+                                    },
+                                    "lastTransitionTime": {
+                                      "description": "lastTransitionTime is when the current set of conditions first appeared.",
+                                      "type": "string",
+                                      "format": "date-time"
+                                    }
+                                  },
+                                  "additionalProperties": false
                                 },
                                 "modifyVolumeStatus": {
                                   "description": "ModifyVolumeStatus represents the status object of ControllerModifyVolume operation.\nWhen this is unset, there is no ModifyVolume operation being attempted.",
@@ -8681,7 +8967,7 @@
                                                 ],
                                                 "properties": {
                                                   "key": {
-                                                    "description": "The key to select.",
+                                                    "description": "The key to select from the ConfigMap's Data field.\nKeys in the BinaryData field are not currently propagated to container env vars.",
                                                     "type": "string"
                                                   },
                                                   "name": {
@@ -8945,6 +9231,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -9066,6 +9356,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -9155,6 +9449,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -9218,6 +9516,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -9357,6 +9659,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -9420,6 +9726,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -9792,6 +10102,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -9855,6 +10169,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -9975,8 +10293,16 @@
                                           "name"
                                         ],
                                         "properties": {
+                                          "bindMountOptions": {
+                                            "description": "bindMountOptions is the list of additional bind mount options to apply when\nmounting this volume into the container. Allowed values are noexec,\nnodev, and nosuid. These are Linux mount options and have no effect on\nWindows nodes.\nThis field is not supported with image volumes.\nThis is an alpha field and requires enabling the VolumeBindMountOptions feature gate.",
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string"
+                                            },
+                                            "x-kubernetes-list-type": "set"
+                                          },
                                           "mountPath": {
-                                            "description": "Path within the container at which the volume should be mounted.  Must\nnot contain ':'.",
+                                            "description": "Path within the container at which the volume should be mounted.",
                                             "type": "string"
                                           },
                                           "mountPropagation": {
@@ -10130,7 +10456,7 @@
                                                 ],
                                                 "properties": {
                                                   "key": {
-                                                    "description": "The key to select.",
+                                                    "description": "The key to select from the ConfigMap's Data field.\nKeys in the BinaryData field are not currently propagated to container env vars.",
                                                     "type": "string"
                                                   },
                                                   "name": {
@@ -10394,6 +10720,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -10515,6 +10845,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -10604,6 +10938,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -10667,6 +11005,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -10806,6 +11148,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -10869,6 +11215,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -11241,6 +11591,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -11304,6 +11658,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -11428,8 +11786,16 @@
                                           "name"
                                         ],
                                         "properties": {
+                                          "bindMountOptions": {
+                                            "description": "bindMountOptions is the list of additional bind mount options to apply when\nmounting this volume into the container. Allowed values are noexec,\nnodev, and nosuid. These are Linux mount options and have no effect on\nWindows nodes.\nThis field is not supported with image volumes.\nThis is an alpha field and requires enabling the VolumeBindMountOptions feature gate.",
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string"
+                                            },
+                                            "x-kubernetes-list-type": "set"
+                                          },
                                           "mountPath": {
-                                            "description": "Path within the container at which the volume should be mounted.  Must\nnot contain ':'.",
+                                            "description": "Path within the container at which the volume should be mounted.",
                                             "type": "string"
                                           },
                                           "mountPropagation": {
@@ -11470,6 +11836,35 @@
                                     }
                                   },
                                   "additionalProperties": false
+                                },
+                                "x-kubernetes-list-map-keys": [
+                                  "name"
+                                ],
+                                "x-kubernetes-list-type": "map"
+                              },
+                              "evictionResponders": {
+                                "description": "evictionResponders reference responders that react to Evictions based on EvictionRequests.\nResponders should observe and communicate through the Eviction Resource API to help with\nthe graceful termination of a pod. The responders are selected sequentially, according to\ntheir specified priority.\n\nResponders should periodically report on an eviction progress by updating the\n.status.responders[].heartbeatTime field of the Eviction object. If this field is not updated\nwithin the heartbeat deadline defined by the Eviction API (currently 20 minutes), the eviction\nis passed over to the next responder with a lower priority. If there is no other responder,\nthe last default imperative-eviction.k8s.io/evictor responder with a priority of 100 will\nevict the pod using the imperative Eviction API (pods/\u003cname\u003e/eviction subresource).\n\nThe maximum length of the responders list is 10.\nResponders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set).\nThis field can only be set on creation and is immutable afterwards.",
+                                "type": "array",
+                                "items": {
+                                  "description": "EvictionResponder allows you to specify the responder reacting to an Eviction.\nResponders should observe and communicate through the Eviction Resource API to help with\nthe graceful eviction of a target (e.g. termination of a pod).",
+                                  "type": "object",
+                                  "required": [
+                                    "name",
+                                    "priority"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "description": "name allows you to identify the responder responding to the Eviction.\n\nIt must be a valid domain-prefixed key (such as \"acme.io/foo\").\nDomain names *.k8s.io and *.kubernetes.io are reserved.\nThis field must be unique for each responder.\nThis field is required.",
+                                      "type": "string"
+                                    },
+                                    "priority": {
+                                      "description": "priority for this responder. Higher priorities are selected first by the evictionrequest-controller.\nIf there are responders with the same priority, the responder whose domain name comes first in the\nalphabetical higher domain order, will be picked. This means that the top domain labels are compared\nalphabetically first, followed by the lower domain labels. The key is compared last.\n\nThe responder that is the managing controller of the pod should set the value of\nthis field to 10000 to allow both for preemption or fallback registration by other\nresponders.\n\nThe minimum value is 0 and the maximum value is 100000.\nThe interval 0-999 is reserved for responders with *.k8s.io suffix.\nThis field is required.",
+                                      "type": "integer",
+                                      "format": "int32"
+                                    }
+                                  },
+                                  "additionalProperties": false,
+                                  "x-kubernetes-map-type": "atomic"
                                 },
                                 "x-kubernetes-list-map-keys": [
                                   "name"
@@ -11527,7 +11922,7 @@
                                 "type": "string"
                               },
                               "hostnameOverride": {
-                                "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod.\nThis field only specifies the pod's hostname and does not affect its DNS records.\nWhen this field is set to a non-empty string:\n- It takes precedence over the values set in `hostname` and `subdomain`.\n- The Pod's hostname will be set to this value.\n- `setHostnameAsFQDN` must be nil or set to false.\n- `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.\nRequires the HostnameOverride feature gate to be enabled.",
+                                "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod.\nThis field only specifies the pod's hostname and does not affect its DNS records.\nWhen this field is set to a non-empty string:\n- It takes precedence over the values set in `hostname` and `subdomain`.\n- The Pod's hostname will be set to this value.\n- `setHostnameAsFQDN` must be nil or set to false.\n- `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.",
                                 "type": "string"
                               },
                               "imagePullSecrets": {
@@ -11607,7 +12002,7 @@
                                                 ],
                                                 "properties": {
                                                   "key": {
-                                                    "description": "The key to select.",
+                                                    "description": "The key to select from the ConfigMap's Data field.\nKeys in the BinaryData field are not currently propagated to container env vars.",
                                                     "type": "string"
                                                   },
                                                   "name": {
@@ -11871,6 +12266,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -11992,6 +12391,10 @@
                                                   ],
                                                   "x-kubernetes-int-or-string": true
                                                 },
+                                                "protocol": {
+                                                  "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                                  "type": "string"
+                                                },
                                                 "scheme": {
                                                   "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
                                                   "type": "string"
@@ -12081,6 +12484,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -12144,6 +12551,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -12283,6 +12694,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -12346,6 +12761,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -12718,6 +13137,10 @@
                                             "port"
                                           ],
                                           "properties": {
+                                            "mode": {
+                                              "description": "mode specifies the connection mode for the gRPC health probe.\nSet to \"TLS\" to use TLS without certificate verification.\nSet to \"Plaintext\" to use a plaintext (insecure) connection explicitly.\nIf not specified, the probe uses a plaintext (insecure) connection.",
+                                              "type": "string"
+                                            },
                                             "port": {
                                               "description": "Port number of the gRPC service. Number must be in the range 1 to 65535.",
                                               "type": "integer",
@@ -12781,6 +13204,10 @@
                                                 }
                                               ],
                                               "x-kubernetes-int-or-string": true
+                                            },
+                                            "protocol": {
+                                              "description": "Protocol selects the wire protocol for the probe connection.\nNil defaults to HTTP/1.1.",
+                                              "type": "string"
                                             },
                                             "scheme": {
                                               "description": "Scheme to use for connecting to the host.\nDefaults to HTTP.",
@@ -12901,8 +13328,16 @@
                                           "name"
                                         ],
                                         "properties": {
+                                          "bindMountOptions": {
+                                            "description": "bindMountOptions is the list of additional bind mount options to apply when\nmounting this volume into the container. Allowed values are noexec,\nnodev, and nosuid. These are Linux mount options and have no effect on\nWindows nodes.\nThis field is not supported with image volumes.\nThis is an alpha field and requires enabling the VolumeBindMountOptions feature gate.",
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string"
+                                            },
+                                            "x-kubernetes-list-type": "set"
+                                          },
                                           "mountPath": {
-                                            "description": "Path within the container at which the volume should be mounted.  Must\nnot contain ':'.",
+                                            "description": "Path within the container at which the volume should be mounted.",
                                             "type": "string"
                                           },
                                           "mountPropagation": {
@@ -12992,7 +13427,7 @@
                                 }
                               },
                               "preemptionPolicy": {
-                                "description": "PreemptionPolicy is the Policy for preempting pods with lower priority.\nOne of Never, PreemptLowerPriority.\nDefaults to PreemptLowerPriority if unset.",
+                                "description": "PreemptionPolicy is the Policy for preempting pods with lower priority.\nOne of Never, PreemptLowerPriority.\nWhen Priority Admission Controller is enabled, it prevents users from setting\nthis field. The admission controller populates this field from PriorityClassName.\nDefaults to PreemptLowerPriority if unset.",
                                 "type": "string"
                               },
                               "priority": {
@@ -13209,7 +13644,7 @@
                                     "format": "int64"
                                   },
                                   "seLinuxChangePolicy": {
-                                    "description": "seLinuxChangePolicy defines how the container's SELinux label is applied to all volumes used by the Pod.\nIt has no effect on nodes that do not support SELinux or to volumes does not support SELinux.\nValid values are \"MountOption\" and \"Recursive\".\n\n\"Recursive\" means relabeling of all files on all Pod volumes by the container runtime.\nThis may be slow for large volumes, but allows mixing privileged and unprivileged Pods sharing the same volume on the same node.\n\n\"MountOption\" mounts all eligible Pod volumes with `-o context` mount option.\nThis requires all Pods that share the same volume to use the same SELinux label.\nIt is not possible to share the same volume among privileged and unprivileged Pods.\nEligible volumes are in-tree FibreChannel and iSCSI volumes, and all CSI volumes\nwhose CSI driver announces SELinux support by setting spec.seLinuxMount: true in their\nCSIDriver instance. Other volumes are always re-labelled recursively.\n\"MountOption\" value is allowed only when SELinuxMount feature gate is enabled.\n\nIf not specified and SELinuxMount feature gate is enabled, \"MountOption\" is used.\nIf not specified and SELinuxMount feature gate is disabled, \"MountOption\" is used for ReadWriteOncePod volumes\nand \"Recursive\" for all other volumes.\n\nThis field affects only Pods that have SELinux label set, either in PodSecurityContext or in SecurityContext of all containers.\n\nAll Pods that use the same volume should use the same seLinuxChangePolicy, otherwise some pods can get stuck in ContainerCreating state.\nNote that this field cannot be set when spec.os.name is windows.",
+                                    "description": "seLinuxChangePolicy defines how the container's SELinux label is applied to all volumes used by the Pod.\nIt has no effect on nodes that do not support SELinux or to volumes does not support SELinux.\nValid values are \"MountOption\" and \"Recursive\".\n\n\"Recursive\" means relabeling of all files on all Pod volumes by the container runtime.\nThis may be slow for large volumes, but allows mixing privileged and unprivileged Pods sharing the same volume on the same node.\n\n\"MountOption\" mounts all eligible Pod volumes with `-o context` mount option.\nThis requires all Pods that share the same volume to use the same SELinux label.\nIt is not possible to share the same volume among privileged and unprivileged Pods.\nEligible volumes are in-tree FibreChannel and iSCSI volumes, and all CSI volumes\nwhose CSI driver announces SELinux support by setting spec.seLinuxMount: true in their\nCSIDriver instance. Other volumes are always re-labelled recursively.\n\nIf not specified, \"MountOption\" is used.\n\nThis field affects only Pods that have SELinux label set, either in PodSecurityContext or in SecurityContext of all containers.\n\nAll Pods that use the same volume should use the same seLinuxChangePolicy, otherwise some pods can get stuck in ContainerCreating state.\nNote that this field cannot be set when spec.os.name is windows.",
                                     "type": "string"
                                   },
                                   "seLinuxOptions": {
@@ -13664,6 +14099,11 @@
                                           "type": "integer",
                                           "format": "int32"
                                         },
+                                        "defaultUser": {
+                                          "description": "defaultUser is Optional: The owner UID of the created files by default.\nThe defaultUser field is only used as a fallback when the item-level user field is unset.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
                                         "items": {
                                           "description": "items if unspecified, each key-value pair in the Data field of the referenced\nConfigMap will be projected into the volume as a file whose name is the\nkey and content is the value. If specified, the listed keys will be\nprojected into the specified paths, and unlisted keys will not be\npresent. If a key is specified which is not present in the ConfigMap,\nthe volume setup will error unless it is marked optional. Paths must be\nrelative and may not contain the '..' path or start with '..'.",
                                           "type": "array",
@@ -13687,6 +14127,11 @@
                                               "path": {
                                                 "description": "path is the relative path of the file to map the key to.\nMay not be an absolute path.\nMay not contain the path element '..'.\nMay not start with the string '..'.",
                                                 "type": "string"
+                                              },
+                                              "user": {
+                                                "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                "type": "integer",
+                                                "format": "int64"
                                               }
                                             },
                                             "additionalProperties": false
@@ -13757,6 +14202,11 @@
                                           "type": "integer",
                                           "format": "int32"
                                         },
+                                        "defaultUser": {
+                                          "description": "defaultUser is Optional: The owner UID of the created files by default.\nThe defaultUser field is only used as a fallback when the item-level user field is unset.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
                                         "items": {
                                           "description": "Items is a list of downward API volume file",
                                           "type": "array",
@@ -13826,6 +14276,11 @@
                                                 },
                                                 "additionalProperties": false,
                                                 "x-kubernetes-map-type": "atomic"
+                                              },
+                                              "user": {
+                                                "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                "type": "integer",
+                                                "format": "int64"
                                               }
                                             },
                                             "additionalProperties": false
@@ -13842,6 +14297,11 @@
                                         "medium": {
                                           "description": "medium represents what type of storage medium should back this directory.\nThe default is \"\" which means to use the node's default medium.\nMust be an empty string (default) or Memory.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir",
                                           "type": "string"
+                                        },
+                                        "mode": {
+                                          "description": "mode specifies the permission bits for the emptyDir directory, in numeric\nnotation (e.g., 0755, 01777). Must be a value between 0000 and 01777.\nIf not specified, defaults to 0777.\nThis might be in conflict with other options that affect the file\nmode, like fsGroup. If fsGroup is specified, the fsGroup permissions\nwill override the mode specified here.\nThis field has no effect on Windows.\nThis field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int32"
                                         },
                                         "sizeLimit": {
                                           "description": "sizeLimit is the total amount of local storage required for this EmptyDir volume.\nThe size limit is also applicable for memory medium.\nThe maximum usage on memory medium EmptyDir would be the minimum value between\nthe SizeLimit specified here and the sum of memory limits of all containers in a pod.\nThe default is nil which means that the limit is undefined.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir",
@@ -13914,7 +14374,7 @@
                                                   "x-kubernetes-list-type": "atomic"
                                                 },
                                                 "dataSource": {
-                                                  "description": "dataSource field can be used to specify either:\n* An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)\n* An existing PVC (PersistentVolumeClaim)\nIf the provisioner or an external controller can support the specified data source,\nit will create a new volume based on the contents of the specified data source.\nWhen the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,\nand dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.\nIf the namespace is specified, then dataSourceRef will not be copied to dataSource.",
+                                                  "description": "dataSource field can be used to specify either:\n* An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)\n* An existing PVC (PersistentVolumeClaim)\nIf the provisioner or an external controller can support the specified data source,\nit will create a new volume based on the contents of the specified data source.\ndataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be\ncopied to dataSource when dataSourceRef.namespace is not specified.\nIf the namespace is specified, then dataSourceRef will not be copied to dataSource.",
                                                   "type": "object",
                                                   "required": [
                                                     "kind",
@@ -13938,7 +14398,7 @@
                                                   "x-kubernetes-map-type": "atomic"
                                                 },
                                                 "dataSourceRef": {
-                                                  "description": "dataSourceRef specifies the object from which to populate the volume with data, if a non-empty\nvolume is desired. This may be any object from a non-empty API group (non\ncore object) or a PersistentVolumeClaim object.\nWhen this field is specified, volume binding will only succeed if the type of\nthe specified object matches some installed volume populator or dynamic\nprovisioner.\nThis field will replace the functionality of the dataSource field and as such\nif both fields are non-empty, they must have the same value. For backwards\ncompatibility, when namespace isn't specified in dataSourceRef,\nboth fields (dataSource and dataSourceRef) will be set to the same\nvalue automatically if one of them is empty and the other is non-empty.\nWhen namespace is specified in dataSourceRef,\ndataSource isn't set to the same value and must be empty.\nThere are three important differences between dataSource and dataSourceRef:\n* While dataSource only allows two specific types of objects, dataSourceRef\n  allows any non-core object, as well as PersistentVolumeClaim objects.\n* While dataSource ignores disallowed values (dropping them), dataSourceRef\n  preserves all values, and generates an error if a disallowed value is\n  specified.\n* While dataSource only allows local objects, dataSourceRef allows objects\n  in any namespaces.\n(Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.\n(Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.",
+                                                  "description": "dataSourceRef specifies the object from which to populate the volume with data, if a non-empty\nvolume is desired. This may be any object from a non-empty API group (non\ncore object) or a PersistentVolumeClaim object.\nWhen this field is specified, volume binding will only succeed if the type of\nthe specified object matches some installed volume populator or dynamic\nprovisioner.\nThis field will replace the functionality of the dataSource field and as such\nif both fields are non-empty, they must have the same value. For backwards\ncompatibility, when namespace isn't specified in dataSourceRef,\nboth fields (dataSource and dataSourceRef) will be set to the same\nvalue automatically if one of them is empty and the other is non-empty.\nWhen namespace is specified in dataSourceRef,\ndataSource isn't set to the same value and must be empty.\nThere are three important differences between dataSource and dataSourceRef:\n* While dataSource only allows two specific types of objects, dataSourceRef\n  allows any non-core object, as well as PersistentVolumeClaim objects.\n* While dataSource ignores disallowed values (dropping them), dataSourceRef\n  preserves all values, and generates an error if a disallowed value is\n  specified.\n* While dataSource only allows local objects, dataSourceRef allows objects\n  in any namespaces.\n(Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.",
                                                   "type": "object",
                                                   "required": [
                                                     "kind",
@@ -14438,6 +14898,11 @@
                                           "type": "integer",
                                           "format": "int32"
                                         },
+                                        "defaultUser": {
+                                          "description": "defaultUser is Optional: The owner UID of the created files by default.\nThe defaultUser field is only used as a fallback when the item-level user field is unset.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
                                         "sources": {
                                           "description": "sources is the list of volume projections. Each entry in this list\nhandles one source.",
                                           "type": "array",
@@ -14514,6 +14979,11 @@
                                                   "signerName": {
                                                     "description": "Select all ClusterTrustBundles that match this signer name.\nMutually-exclusive with name.  The contents of all selected\nClusterTrustBundles will be unified and deduplicated.",
                                                     "type": "string"
+                                                  },
+                                                  "user": {
+                                                    "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                    "type": "integer",
+                                                    "format": "int64"
                                                   }
                                                 },
                                                 "additionalProperties": false
@@ -14545,6 +15015,11 @@
                                                         "path": {
                                                           "description": "path is the relative path of the file to map the key to.\nMay not be an absolute path.\nMay not contain the path element '..'.\nMay not start with the string '..'.",
                                                           "type": "string"
+                                                        },
+                                                        "user": {
+                                                          "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                          "type": "integer",
+                                                          "format": "int64"
                                                         }
                                                       },
                                                       "additionalProperties": false
@@ -14637,6 +15112,11 @@
                                                           },
                                                           "additionalProperties": false,
                                                           "x-kubernetes-map-type": "atomic"
+                                                        },
+                                                        "user": {
+                                                          "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                          "type": "integer",
+                                                          "format": "int64"
                                                         }
                                                       },
                                                       "additionalProperties": false
@@ -14679,6 +15159,11 @@
                                                     "description": "Kubelet's generated CSRs will be addressed to this signer.",
                                                     "type": "string"
                                                   },
+                                                  "user": {
+                                                    "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                    "type": "integer",
+                                                    "format": "int64"
+                                                  },
                                                   "userAnnotations": {
                                                     "description": "userAnnotations allow pod authors to pass additional information to\nthe signer implementation.  Kubernetes does not restrict or validate this\nmetadata in any way.\n\nThese values are copied verbatim into the `spec.unverifiedUserAnnotations` field of\nthe PodCertificateRequest objects that Kubelet creates.\n\nEntries are subject to the same validation as object metadata annotations,\nwith the addition that all keys must be domain-prefixed. No restrictions\nare placed on values, except an overall size limitation on the entire field.\n\nSigners should document the keys and values they support. Signers should\ndeny requests that contain keys they do not recognize.",
                                                     "type": "object",
@@ -14716,6 +15201,11 @@
                                                         "path": {
                                                           "description": "path is the relative path of the file to map the key to.\nMay not be an absolute path.\nMay not contain the path element '..'.\nMay not start with the string '..'.",
                                                           "type": "string"
+                                                        },
+                                                        "user": {
+                                                          "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                          "type": "integer",
+                                                          "format": "int64"
                                                         }
                                                       },
                                                       "additionalProperties": false
@@ -14754,6 +15244,11 @@
                                                   "path": {
                                                     "description": "path is the path relative to the mount point of the file to project the\ntoken into.",
                                                     "type": "string"
+                                                  },
+                                                  "user": {
+                                                    "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                    "type": "integer",
+                                                    "format": "int64"
                                                   }
                                                 },
                                                 "additionalProperties": false
@@ -14932,6 +15427,11 @@
                                           "type": "integer",
                                           "format": "int32"
                                         },
+                                        "defaultUser": {
+                                          "description": "defaultUser is Optional: The owner UID of the created files by default.\nThe defaultUser field is only used as a fallback when the item-level user field is unset.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
                                         "items": {
                                           "description": "items If unspecified, each key-value pair in the Data field of the referenced\nSecret will be projected into the volume as a file whose name is the\nkey and content is the value. If specified, the listed keys will be\nprojected into the specified paths, and unlisted keys will not be\npresent. If a key is specified which is not present in the Secret,\nthe volume setup will error unless it is marked optional. Paths must be\nrelative and may not contain the '..' path or start with '..'.",
                                           "type": "array",
@@ -14955,6 +15455,11 @@
                                               "path": {
                                                 "description": "path is the relative path of the file to map the key to.\nMay not be an absolute path.\nMay not contain the path element '..'.\nMay not start with the string '..'.",
                                                 "type": "string"
+                                              },
+                                              "user": {
+                                                "description": "user is Optional: The owner UID of the created file.\nIf specified, the item-level user field takes precedence over defaultUser.\n(Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.",
+                                                "type": "integer",
+                                                "format": "int64"
                                               }
                                             },
                                             "additionalProperties": false
@@ -15134,6 +15639,352 @@
                     },
                     "additionalProperties": false
                   },
+                  "scheduling": {
+                    "description": "scheduling defines Workload-Aware Scheduling for this LeaderWorkerSet.\nThis field is immutable.",
+                    "type": "object",
+                    "properties": {
+                      "disruptionMode": {
+                        "description": "disruptionMode defines how replica groups may be disrupted.",
+                        "type": "object",
+                        "properties": {
+                          "all": {
+                            "description": "all specifies that all child groups must be disrupted together.",
+                            "type": "object"
+                          },
+                          "single": {
+                            "description": "single specifies that child groups can be disrupted independently from\neach other.",
+                            "type": "object"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "replica": {
+                        "description": "replica defines scheduling for each replica.",
+                        "type": "object",
+                        "properties": {
+                          "disruptionMode": {
+                            "description": "disruptionMode defines how the leader and worker groups may be disrupted.",
+                            "type": "object",
+                            "properties": {
+                              "all": {
+                                "description": "all specifies that all child groups must be disrupted together.",
+                                "type": "object"
+                              },
+                              "single": {
+                                "description": "single specifies that child groups can be disrupted independently from\neach other.",
+                                "type": "object"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "leader": {
+                            "description": "leader defines scheduling for the leader PodGroup.",
+                            "type": "object",
+                            "properties": {
+                              "disruptionMode": {
+                                "description": "disruptionMode defines how leader pods may be disrupted.",
+                                "type": "object",
+                                "properties": {
+                                  "all": {
+                                    "description": "all specifies that all pods in the group must be disrupted together.",
+                                    "type": "object"
+                                  },
+                                  "single": {
+                                    "description": "single specifies that pods can be disrupted independently from each other.",
+                                    "type": "object"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "resourceClaims": {
+                                "description": "resourceClaims lists dynamic resource claims shared by leader pods.",
+                                "type": "array",
+                                "maxItems": 4,
+                                "items": {
+                                  "description": "WorkloadPodGroupResourceClaim references a dynamic resource claim\nthat is shared across pods in the group.\n",
+                                  "type": "object",
+                                  "required": [
+                                    "name"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "description": "name uniquely identifies this resource claim inside the group.\nThis field is required. It must be a DNS_LABEL.",
+                                      "type": "string"
+                                    },
+                                    "resourceClaimName": {
+                                      "description": "resourceClaimName is the name of a ResourceClaim object in the same\nnamespace.\nThis field is optional. If it is not specified, no resource claim\nis used. If set, it must be a DNS subdomain.",
+                                      "type": "string"
+                                    },
+                                    "resourceClaimTemplateName": {
+                                      "description": "resourceClaimTemplateName is the name of a ResourceClaimTemplate\nobject in the same namespace.\nThis field is optional. If it is not specified, no resource claim\ntemplate is used. If set, it must be a DNS subdomain.",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "x-kubernetes-list-map-keys": [
+                                  "name"
+                                ],
+                                "x-kubernetes-list-type": "map"
+                              },
+                              "schedulingConstraints": {
+                                "description": "schedulingConstraints defines placement constraints for the leader PodGroup.",
+                                "type": "object",
+                                "properties": {
+                                  "topology": {
+                                    "description": "topology specifies desired topological placements for all pods\nwithin the pod group.\nIf unset, no topology placement is requested.",
+                                    "type": "array",
+                                    "items": {
+                                      "description": "TopologyConstraint defines a topology constraint for a PodGroup.",
+                                      "type": "object",
+                                      "required": [
+                                        "key"
+                                      ],
+                                      "properties": {
+                                        "key": {
+                                          "description": "key specifies the key of the node label representing the topology domain.\nAll pods within the PodGroup must be colocated within the same domain instance.\nDifferent PodGroups can land on different domain instances even if they derive from the same PodGroupTemplate.\nExamples: \"topology.kubernetes.io/rack\"",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    },
+                                    "x-kubernetes-list-type": "atomic"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "schedulingPolicy": {
+                                "description": "schedulingPolicy defines scheduling for the leader PodGroup.",
+                                "type": "object",
+                                "properties": {
+                                  "basic": {
+                                    "description": "basic specifies that standard, pod-by-pod Kubernetes scheduling\nbehavior should be used.",
+                                    "type": "object"
+                                  },
+                                  "gang": {
+                                    "description": "gang specifies all-or-nothing scheduling semantics.",
+                                    "type": "object",
+                                    "properties": {
+                                      "minCount": {
+                                        "description": "minCount is the minimum number of pods that must be scheduled\nat the same time for the scheduler to admit the entire group.\nThis field is optional. If it is not specified, the controller\nshould inject a context-specific sane default (e.g.,\nparallelism for a Job).\nIf set, it must be a positive integer.",
+                                        "type": "integer",
+                                        "format": "int32"
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "schedulingConstraints": {
+                            "description": "schedulingConstraints defines placement constraints for a replica.",
+                            "type": "object",
+                            "properties": {
+                              "topology": {
+                                "description": "topology specifies desired topological placements for all child groups\nwithin the composite group.\nIf unset, no topology placement is requested.",
+                                "type": "array",
+                                "items": {
+                                  "description": "TopologyConstraint defines a topology constraint for a PodGroup.",
+                                  "type": "object",
+                                  "required": [
+                                    "key"
+                                  ],
+                                  "properties": {
+                                    "key": {
+                                      "description": "key specifies the key of the node label representing the topology domain.\nAll pods within the PodGroup must be colocated within the same domain instance.\nDifferent PodGroups can land on different domain instances even if they derive from the same PodGroupTemplate.\nExamples: \"topology.kubernetes.io/rack\"",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "x-kubernetes-list-type": "atomic"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "schedulingPolicy": {
+                            "description": "schedulingPolicy defines scheduling for a leader and its workers.",
+                            "type": "object",
+                            "properties": {
+                              "basic": {
+                                "description": "basic specifies that the child groups of this composite group should be\nscheduled independently.",
+                                "type": "object"
+                              },
+                              "gang": {
+                                "description": "gang specifies that the child groups of this composite group should be\nscheduled using all-or-nothing semantics.",
+                                "type": "object",
+                                "properties": {
+                                  "minGroupCount": {
+                                    "description": "minGroupCount is the minimum number of child groups that must be\nschedulable at the same time for the scheduler to admit the entire\ncomposite group.\nThis field is optional. If it is not specified, the controller\nshould inject a context-specific sane default (e.g., the number of\nchild groups).\nIf set, it must be a positive integer.",
+                                    "type": "integer",
+                                    "format": "int32"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "worker": {
+                            "description": "worker defines scheduling for the worker PodGroup.",
+                            "type": "object",
+                            "properties": {
+                              "disruptionMode": {
+                                "description": "disruptionMode defines how worker pods may be disrupted.",
+                                "type": "object",
+                                "properties": {
+                                  "all": {
+                                    "description": "all specifies that all pods in the group must be disrupted together.",
+                                    "type": "object"
+                                  },
+                                  "single": {
+                                    "description": "single specifies that pods can be disrupted independently from each other.",
+                                    "type": "object"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "resourceClaims": {
+                                "description": "resourceClaims lists dynamic resource claims shared by worker pods.",
+                                "type": "array",
+                                "maxItems": 4,
+                                "items": {
+                                  "description": "WorkloadPodGroupResourceClaim references a dynamic resource claim\nthat is shared across pods in the group.\n",
+                                  "type": "object",
+                                  "required": [
+                                    "name"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "description": "name uniquely identifies this resource claim inside the group.\nThis field is required. It must be a DNS_LABEL.",
+                                      "type": "string"
+                                    },
+                                    "resourceClaimName": {
+                                      "description": "resourceClaimName is the name of a ResourceClaim object in the same\nnamespace.\nThis field is optional. If it is not specified, no resource claim\nis used. If set, it must be a DNS subdomain.",
+                                      "type": "string"
+                                    },
+                                    "resourceClaimTemplateName": {
+                                      "description": "resourceClaimTemplateName is the name of a ResourceClaimTemplate\nobject in the same namespace.\nThis field is optional. If it is not specified, no resource claim\ntemplate is used. If set, it must be a DNS subdomain.",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "x-kubernetes-list-map-keys": [
+                                  "name"
+                                ],
+                                "x-kubernetes-list-type": "map"
+                              },
+                              "schedulingConstraints": {
+                                "description": "schedulingConstraints defines placement constraints for the worker PodGroup.",
+                                "type": "object",
+                                "properties": {
+                                  "topology": {
+                                    "description": "topology specifies desired topological placements for all pods\nwithin the pod group.\nIf unset, no topology placement is requested.",
+                                    "type": "array",
+                                    "items": {
+                                      "description": "TopologyConstraint defines a topology constraint for a PodGroup.",
+                                      "type": "object",
+                                      "required": [
+                                        "key"
+                                      ],
+                                      "properties": {
+                                        "key": {
+                                          "description": "key specifies the key of the node label representing the topology domain.\nAll pods within the PodGroup must be colocated within the same domain instance.\nDifferent PodGroups can land on different domain instances even if they derive from the same PodGroupTemplate.\nExamples: \"topology.kubernetes.io/rack\"",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    },
+                                    "x-kubernetes-list-type": "atomic"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "schedulingPolicy": {
+                                "description": "schedulingPolicy defines scheduling for the worker PodGroup.",
+                                "type": "object",
+                                "properties": {
+                                  "basic": {
+                                    "description": "basic specifies that standard, pod-by-pod Kubernetes scheduling\nbehavior should be used.",
+                                    "type": "object"
+                                  },
+                                  "gang": {
+                                    "description": "gang specifies all-or-nothing scheduling semantics.",
+                                    "type": "object",
+                                    "properties": {
+                                      "minCount": {
+                                        "description": "minCount is the minimum number of pods that must be scheduled\nat the same time for the scheduler to admit the entire group.\nThis field is optional. If it is not specified, the controller\nshould inject a context-specific sane default (e.g.,\nparallelism for a Job).\nIf set, it must be a positive integer.",
+                                        "type": "integer",
+                                        "format": "int32"
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "schedulingConstraints": {
+                        "description": "schedulingConstraints defines placement constraints for all replicas.",
+                        "type": "object",
+                        "properties": {
+                          "topology": {
+                            "description": "topology specifies desired topological placements for all child groups\nwithin the composite group.\nIf unset, no topology placement is requested.",
+                            "type": "array",
+                            "items": {
+                              "description": "TopologyConstraint defines a topology constraint for a PodGroup.",
+                              "type": "object",
+                              "required": [
+                                "key"
+                              ],
+                              "properties": {
+                                "key": {
+                                  "description": "key specifies the key of the node label representing the topology domain.\nAll pods within the PodGroup must be colocated within the same domain instance.\nDifferent PodGroups can land on different domain instances even if they derive from the same PodGroupTemplate.\nExamples: \"topology.kubernetes.io/rack\"",
+                                  "type": "string"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "x-kubernetes-list-type": "atomic"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "schedulingPolicy": {
+                        "description": "schedulingPolicy defines scheduling for all replicas.",
+                        "type": "object",
+                        "properties": {
+                          "basic": {
+                            "description": "basic specifies that the child groups of this composite group should be\nscheduled independently.",
+                            "type": "object"
+                          },
+                          "gang": {
+                            "description": "gang specifies that the child groups of this composite group should be\nscheduled using all-or-nothing semantics.",
+                            "type": "object",
+                            "properties": {
+                              "minGroupCount": {
+                                "description": "minGroupCount is the minimum number of child groups that must be\nschedulable at the same time for the scheduler to admit the entire\ncomposite group.\nThis field is optional. If it is not specified, the controller\nshould inject a context-specific sane default (e.g., the number of\nchild groups).\nIf set, it must be a positive integer.",
+                                "type": "integer",
+                                "format": "int32"
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "startupPolicy": {
                     "description": "startupPolicy determines the startup policy for the worker statefulset.",
                     "type": "string",
@@ -15176,7 +16027,7 @@
       "type": "object",
       "properties": {
         "conditions": {
-          "description": "conditions represent the current state of the DisaggregatedSet resource.\nEach condition has a unique type and reflects the status of a specific aspect of the resource.\n\nStandard condition types include:\n- \"Available\": the resource is fully functional\n- \"Progressing\": the resource is being created or updated\n- \"Degraded\": the resource failed to reach or maintain its desired state\n\nThe status of each condition is one of True, False, or Unknown.",
+          "description": "conditions represent the current state of the DisaggregatedSet resource.\nEach condition has a unique type and reflects the status of a specific aspect of the resource.\n\nStandard condition types include:\n- \"Available\": the resource is fully functional\n- \"Progressing\": the resource is being created or updated\n\nThe status of each condition is one of True, False, or Unknown.",
           "type": "array",
           "items": {
             "description": "Condition contains details for one aspect of the current state of this API Resource.",
@@ -15235,8 +16086,13 @@
           ],
           "x-kubernetes-list-type": "map"
         },
+        "observedGeneration": {
+          "description": "observedGeneration is the most recent generation observed for this DisaggregatedSet.",
+          "type": "integer",
+          "format": "int64"
+        },
         "roleStatuses": {
-          "description": "RoleStatuses contains the status for each role.\nThe order matches spec.roles.",
+          "description": "RoleStatuses contains the status for each role currently in spec.roles.\nThe order matches spec.roles. A role removed from spec.roles has no entry\nhere, even if LeaderWorkerSets for that role still exist while draining.",
           "type": "array",
           "items": {
             "description": "RoleStatus defines the observed state of a single role.",
