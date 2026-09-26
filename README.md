@@ -4,7 +4,7 @@ This repository aggregates hundreds of popular Kubernetes CRDs (`CustomResourceD
 
 The intended purpose with this repository is aid with validation, language servers and code generation.
 
-The catalog are checked for updates every 8 hours, but the catalog is also tagged with kubernetes versions to make the catalog available as it were when a specific version was released.
+The catalog are checked for updates every 8 hours, but the catalog is also tagged with kubernetes release versions to make the catalog available as it were when a specific version was released.
 
 ## Known use cases
 

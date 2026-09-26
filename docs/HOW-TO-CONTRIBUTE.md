@@ -3,8 +3,8 @@
 You need to create a pull request with changes to the sources list using the methods (prepared in order of preference) below:
 
 - [Helm charts](#helm-charts)
-- [OCI charts](#oci-charts)
 - [Git](#git)
+- [OCI charts](#oci-charts)
 - [Uris](#uris) - when everything else fails
 
 We prefer using the [Helm charts](#helm-charts) method to avoid issues like needing to specify each release version with CRD changes or version history being unavailable.
@@ -119,9 +119,9 @@ This entry should contain a complete list of unique value specified in the CRDs 
 
 ### `crds`
 
-Each release version that contains addition, changes or removal to CRDs must be listed separately in this list.
+Each source version that contains addition, changes or removal to CRDs must be listed separately in this list.
 
 The `baseUri` combined with each entry in `paths` using the template `${baseUri}/${pathEntry}` must be a URI to a manifest file that is publicly available. You can split the uris as you want, for instance to optimize for the longest common `baseUri`.
 
 > [!TIP]
-> Each release version has their own `baseUri` and `paths` entries.
+> Each source version has their own `baseUri` and `paths` entries.
