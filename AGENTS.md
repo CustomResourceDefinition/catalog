@@ -129,3 +129,7 @@ go run . verify --schema internal/configuration/schema.json --file configuration
 ## Maintaining AGENTS.md
 
 This file documents project conventions for agentic coding tools. Update this file to reflect changes when adding new commands, changing build processes, updating dependencies, or modifying code style conventions. Agents operating in this repository should follow the guidelines outlined here.
+
+When planning or reviewing changes, consult the [CODEBASE.md](./CODEBASE.md) to account for known risks and constraints involving consequential or fragile code paths, integrations, and operational workflows. This map contains selective information; the absence of an entry does not imply an area is safe or unconstrained.
+
+For work involving domain terms, their meanings, preferred wording, or concept relationships, read the [TERMINOLOGY.md](./TERMINOLOGY.md) in the repository root first. Use the terminology file as the source of domain vocabulary; it does not describe implementation.
