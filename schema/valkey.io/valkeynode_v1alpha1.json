@@ -810,6 +810,10 @@
           },
           "additionalProperties": false
         },
+        "clusterDomain": {
+          "description": "ClusterDomain is set by the ValkeyCluster controller from\nspec.networking.clusterDomain for TLS ServerName and Hostname FQDNs.",
+          "type": "string"
+        },
         "config": {
           "description": "Config is the user-facing Valkey configuration, copied verbatim from the\nowning cluster's Spec.Config. The controller applies the subset of these\nkeys that are live-settable (see the operator's allowlist) via CONFIG SET;\nthe rest take effect on the next pod roll.",
           "type": "object",
@@ -2659,6 +2663,14 @@
           },
           "additionalProperties": false
         },
+        "preferredEndpointType": {
+          "description": "PreferredEndpointType is set by the ValkeyCluster controller from\nspec.networking.discovery. PreferredEndpointTypeHostname switches announce\nflags and managed config to hostname mode. Standalone nodes leave this empty\n(IP announce).",
+          "type": "string",
+          "enum": [
+            "IP",
+            "Hostname"
+          ]
+        },
         "priorityClassName": {
           "description": "PriorityClassName is the name of an existing PriorityClass applied to\nthe pod, protecting it from eviction under resource pressure.",
           "type": "string"
@@ -2770,6 +2782,51 @@
                 }
               },
               "additionalProperties": false
+            },
+            "clientAuth": {
+              "description": "ClientAuth is the resolved client certificate authentication settings\nrendered into `tls-auth-clients` and `tls-auth-clients-user`. For\ncluster-owned nodes the ValkeyCluster controller copies\nspec.networking.tls.clientAuth here.",
+              "type": "object",
+              "properties": {
+                "certificateUser": {
+                  "description": "CertificateUser configures how Valkey maps an authenticated client\ncertificate to an ACL user. Set to `CN` to use the certificate's Common Name\n(requires Valkey \u003e= 9.0), or `URI` to use the first matching URI from the\ncertificate's Subject Alternative Name (SAN) (requires Valkey \u003e= 9.1).\nDefaults to `Disabled`, which leaves the directive unset.",
+                  "type": "string",
+                  "default": "Disabled",
+                  "enum": [
+                    "CN",
+                    "URI",
+                    "Disabled"
+                  ]
+                },
+                "mode": {
+                  "description": "Mode controls whether clients must authenticate with a TLS certificate.\n`Required` enforces mTLS, `Optional` allows both authenticated and\nunauthenticated clients, and `Disabled` turns client certificate processing\noff entirely.\nDefaults to `Optional`.",
+                  "type": "string",
+                  "default": "Optional",
+                  "enum": [
+                    "Required",
+                    "Optional",
+                    "Disabled"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!(has(self.mode) \u0026\u0026 self.mode == 'Disabled' \u0026\u0026 has(self.certificateUser) \u0026\u0026 self.certificateUser != 'Disabled')",
+                  "message": "certificateUser has no effect when mode=Disabled: Valkey ignores client certificates in that mode"
+                }
+              ]
+            },
+            "serverName": {
+              "description": "ServerName is the hostname used for TLS verification when connecting\nto the pod IP. For cluster-owned nodes this is\nspec.networking.tls.serverName, or\nvalkey-\u003ccluster\u003e.\u003cns\u003e.svc.\u003cclusterDomain\u003e if that is unset. When this\nfield is empty on a node with the valkey.io/cluster label, the node\ncontroller verifies against that default name.",
+              "type": "string",
+              "maxLength": 253,
+              "minLength": 1,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$')",
+                  "message": "must be a valid DNS-1123 subdomain (lowercase alphanumerics, '-' and '.', starting and ending with an alphanumeric)"
+                }
+              ]
             }
           },
           "additionalProperties": false
