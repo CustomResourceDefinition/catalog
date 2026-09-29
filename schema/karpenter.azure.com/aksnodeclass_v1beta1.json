@@ -28,6 +28,21 @@
           },
           "additionalProperties": false
         },
+        "capacityReservation": {
+          "description": "capacityReservation configures the Capacity Reservation Group that instances\nprovisioned by this NodeClass target.",
+          "type": "object",
+          "required": [
+            "groupID"
+          ],
+          "properties": {
+            "groupID": {
+              "description": "groupID is the ARM resource ID of the Capacity Reservation Group.\nThe group must be in the same subscription and region as the cluster, and\nmust be of the Targeted reservation type. When set, every instance from\nthis NodeClass targets the reservation group. Azure may allocate instances beyond the\nreserved quantity, in which case the excess is ordinary On-Demand capacity\nthat is not covered by the capacity reservation SLA.",
+              "type": "string",
+              "pattern": "(?i)^\\/subscriptions\\/[^\\/]+\\/resourceGroups\\/[a-zA-Z0-9_\\-().]{0,89}[a-zA-Z0-9_\\-()]\\/providers\\/Microsoft\\.Compute\\/capacityReservationGroups\\/[^\\/]+$"
+            }
+          },
+          "additionalProperties": false
+        },
         "fipsMode": {
           "description": "fipsMode controls FIPS compliance for the provisioned nodes",
           "type": "string",
@@ -669,6 +684,13 @@
           "maximum": 2048,
           "minimum": 30
         },
+        "osDiskType": {
+          "description": "osDiskType is the type of disk to use for the OS.\nIf unspecified, an ephemeral OS disk is used when the VM size supports an ephemeral OS disk\nof at least osDiskSizeGB, falling back to a managed disk otherwise. Managed always uses a managed disk.",
+          "type": "string",
+          "enum": [
+            "Managed"
+          ]
+        },
         "security": {
           "description": "security is a collection of security related karpenter fields",
           "type": "object",
@@ -676,6 +698,21 @@
             "encryptionAtHost": {
               "description": "encryptionAtHost specifies whether host-level encryption is enabled for provisioned nodes.\nFor more information, see:\nhttps://learn.microsoft.com/en-us/azure/aks/enable-host-encryption\nhttps://learn.microsoft.com/en-us/azure/virtual-machines/disk-encryption#encryption-at-host---end-to-end-encryption-for-your-vm-data",
               "type": "boolean"
+            },
+            "trustedLaunch": {
+              "description": "trustedLaunch specifies Trusted Launch settings for provisioned nodes.",
+              "type": "object",
+              "properties": {
+                "secureBoot": {
+                  "description": "secureBoot specifies whether Secure Boot should be enabled for provisioned nodes.",
+                  "type": "boolean"
+                },
+                "vtpm": {
+                  "description": "vtpm specifies whether virtual TPM should be enabled for provisioned nodes.",
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -705,21 +742,68 @@
             }
           ]
         },
+        "versions": {
+          "description": "versions controls the Kubernetes and node image versions for the NodeClass.\nIf omitted, both versions follow their automatic defaults.",
+          "type": "object",
+          "properties": {
+            "kubernetesVersion": {
+              "description": "kubernetesVersion is the Kubernetes version to use for nodes provisioned for the NodeClass.\nIf omitted, the observed control plane version is used.",
+              "type": "string",
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+            },
+            "nodeImageVersion": {
+              "description": "nodeImageVersion is the node image ID suffix to use for the NodeClass.\nIt must match the suffix of a currently resolved image in status.images,\nstatus.observedVersions.latestImageVersion, or a nodeImageVersion in status.observedVersions.recentlyUsedVersions.\nWhen set, kubernetesVersion must also be set. A recently used image version must be paired\nwith its recorded Kubernetes version.\nIf omitted, the latest compatible image is selected automatically, subject to maintenance windows.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!has(self.nodeImageVersion) || has(self.kubernetesVersion)",
+              "message": "kubernetesVersion must be set when nodeImageVersion is set"
+            }
+          ]
+        },
         "vnetSubnetID": {
           "description": "vnetSubnetID is the subnet used by nics provisioned with this nodeclass.\nIf not specified, we will use the default --vnet-subnet-id specified in karpenter's options config",
           "type": "string",
           "pattern": "(?i)^\\/subscriptions\\/[^\\/]+\\/resourceGroups\\/[a-zA-Z0-9_\\-().]{0,89}[a-zA-Z0-9_\\-()]\\/providers\\/Microsoft\\.Network\\/virtualNetworks\\/[^\\/]+\\/subnets\\/[^\\/]+$"
+        },
+        "workloadRuntime": {
+          "description": "workloadRuntime determines the additional workload runtime a node can run.\nOCIContainer (the default) runs standard OCI containers only.\nKataVmIsolation enables AKS Pod Sandboxing alongside standard containers,\nso pods with runtimeClassName: kata-vm-isolation\nrun in lightweight VMs while other pods on the same node keep running as normal containers.\nPod Sandboxing requires imageFamily: AzureLinux, is incompatible with fipsMode: FIPS and Trusted Launch, and\nrequires a nested-virtualization-capable VM size.\nSee https://learn.microsoft.com/azure/aks/use-pod-sandboxing for more details.",
+          "type": "string",
+          "default": "OCIContainer",
+          "enum": [
+            "OCIContainer",
+            "KataVmIsolation"
+          ]
         }
       },
       "additionalProperties": false,
       "x-kubernetes-validations": [
         {
-          "rule": "has(self.fipsMode) \u0026\u0026 self.fipsMode == 'FIPS' ? (has(self.imageFamily) \u0026\u0026 self.imageFamily != 'Ubuntu2204' \u0026\u0026 self.imageFamily != 'Ubuntu2404') : true",
-          "message": "FIPS is not yet supported for Ubuntu2204 or Ubuntu2404"
+          "rule": "has(self.fipsMode) \u0026\u0026 self.fipsMode == 'FIPS' ? (has(self.imageFamily) \u0026\u0026 self.imageFamily != 'Ubuntu2404') : true",
+          "message": "FIPS is not yet supported for Ubuntu2404"
+        },
+        {
+          "rule": "has(self.fipsMode) \u0026\u0026 self.fipsMode == 'FIPS' \u0026\u0026 has(self.security) \u0026\u0026 has(self.security.trustedLaunch) \u0026\u0026 ((has(self.security.trustedLaunch.vtpm) \u0026\u0026 self.security.trustedLaunch.vtpm) || (has(self.security.trustedLaunch.secureBoot) \u0026\u0026 self.security.trustedLaunch.secureBoot)) ? (!has(self.imageFamily) || self.imageFamily == 'Ubuntu' || self.imageFamily == 'Ubuntu2204') : true",
+          "message": "TrustedLaunch with FIPSMode FIPS is only supported for Ubuntu and Ubuntu2204"
         },
         {
           "rule": "!has(self.linuxOSConfig) || !has(self.linuxOSConfig.swapFileSize) || (has(self.kubelet) \u0026\u0026 has(self.kubelet.failSwapOn) \u0026\u0026 self.kubelet.failSwapOn == false)",
           "message": "kubelet.failSwapOn must be set to false when linuxOSConfig.swapFileSize is specified"
+        },
+        {
+          "rule": "has(self.workloadRuntime) \u0026\u0026 self.workloadRuntime == 'KataVmIsolation' ? (has(self.imageFamily) \u0026\u0026 self.imageFamily == 'AzureLinux') : true",
+          "message": "workloadRuntime KataVmIsolation requires imageFamily AzureLinux"
+        },
+        {
+          "rule": "has(self.workloadRuntime) \u0026\u0026 self.workloadRuntime == 'KataVmIsolation' ? (!has(self.fipsMode) || self.fipsMode != 'FIPS') : true",
+          "message": "workloadRuntime KataVmIsolation is not supported with fipsMode FIPS"
+        },
+        {
+          "rule": "has(self.workloadRuntime) \u0026\u0026 self.workloadRuntime == 'KataVmIsolation' ? (!has(self.security) || !has(self.security.trustedLaunch) || !((has(self.security.trustedLaunch.vtpm) \u0026\u0026 self.security.trustedLaunch.vtpm) || (has(self.security.trustedLaunch.secureBoot) \u0026\u0026 self.security.trustedLaunch.secureBoot))) : true",
+          "message": "workloadRuntime KataVmIsolation is not supported with TrustedLaunch"
         }
       ]
     },
@@ -727,6 +811,84 @@
       "description": "status contains the resolved state of the AKSNodeClass.",
       "type": "object",
       "properties": {
+        "capacityReservationGroup": {
+          "description": "capacityReservationGroup is the resolved shape of the capacity reservation\ngroup named by spec.capacityReservation.groupID. It is unset when no group is\nconfigured.",
+          "type": "object",
+          "required": [
+            "id",
+            "location"
+          ],
+          "properties": {
+            "capacityReservations": {
+              "description": "capacityReservations are the resolved member reservations of the group.",
+              "type": "array",
+              "items": {
+                "description": "CapacityReservation is a resolved member reservation of the configured\nCapacity Reservation Group. Each member reserves one VM size in one\nplacement, which is what makes it eligible to back an offering.",
+                "type": "object",
+                "required": [
+                  "id",
+                  "name",
+                  "vmSize"
+                ],
+                "properties": {
+                  "id": {
+                    "description": "id is the ARM resource ID of the capacity reservation.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "description": "name is the name of the capacity reservation within its group.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "provisioningState": {
+                    "description": "provisioningState is the ARM provisioning state of the capacity reservation.\nOnly a reservation explicitly reported as Succeeded backs offerings. Members that\ncannot back offerings are still listed here, so that a NodePool authored against one\nshows why it stopped placing.",
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "description": "quantity is the number of instances reserved. Zero is valid: a zero-quantity\nreservation can be associated and intentionally overallocated. Unset means ARM\nreported no quantity, which is not the same as a reservation of zero.",
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "vmSize": {
+                    "description": "vmSize is the VM size reserved by this capacity reservation.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "zones": {
+                    "description": "zones are the ARM availability zones of this capacity reservation. Empty for\na regional reservation.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "x-kubernetes-list-type": "atomic"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-list-type": "atomic"
+            },
+            "id": {
+              "description": "id is the ARM resource ID of the capacity reservation group.",
+              "type": "string",
+              "minLength": 1
+            },
+            "location": {
+              "description": "location is the Azure region of the capacity reservation group.",
+              "type": "string",
+              "minLength": 1
+            },
+            "zones": {
+              "description": "zones are the ARM availability zones of the group. An empty list means the\ngroup is regional, and consuming instances must omit zones.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "x-kubernetes-list-type": "atomic"
+            }
+          },
+          "additionalProperties": false
+        },
         "conditions": {
           "description": "conditions contains signals for health and readiness",
           "type": "array",
@@ -844,6 +1006,50 @@
             "Enabled",
             "Disabled"
           ]
+        },
+        "observedVersions": {
+          "description": "observedVersions contains observed version metadata and previously effective\nKubernetes and node image version pairs.",
+          "type": "object",
+          "properties": {
+            "currentControlPlaneKubernetesVersion": {
+              "description": "currentControlPlaneKubernetesVersion is the current Kubernetes version of the control plane.\nIt can differ from status.kubernetesVersion when spec.versions.kubernetesVersion is pinned.",
+              "type": "string"
+            },
+            "latestImageVersion": {
+              "description": "latestImageVersion is the latest node image version resolved from the gallery.",
+              "type": "string"
+            },
+            "recentlyUsedVersions": {
+              "description": "recentlyUsedVersions contains previously effective node image versions.",
+              "type": "array",
+              "items": {
+                "description": "RecentlyUsedVersion contains a previously effective node image version and the Kubernetes version it was paired with.",
+                "type": "object",
+                "required": [
+                  "kubernetesVersion",
+                  "nodeImageVersion"
+                ],
+                "properties": {
+                  "kubernetesVersion": {
+                    "description": "kubernetesVersion is the Kubernetes version paired with the image version.",
+                    "type": "string"
+                  },
+                  "nodeImageVersion": {
+                    "description": "nodeImageVersion is the version suffix from the node image ID.",
+                    "type": "string"
+                  },
+                  "timeUsed": {
+                    "description": "timeUsed is when this image version was last effective.",
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-list-type": "atomic"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
