@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.60% | 4046 | 12483 | 91 |
+| 99.58% | 4055 | 12483 | 91 |
 
 ### Missing Schemas
 
@@ -39,6 +39,10 @@ This page lists missing CRD validation schemas that are present in alternative c
 | applicationnetworkpolicy | v1alpha1 |
 | clusternetworkpolicy | v1alpha1 |
 | clusterpolicyendpoint | v1alpha1 |
+
+| opentelemetry.io | |
+| --- | --- |
+| clusterobservability | v1alpha1 |
 
 | secret-sync.gke.io | |
 | --- | --- |
