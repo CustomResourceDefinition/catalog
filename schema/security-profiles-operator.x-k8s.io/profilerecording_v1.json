@@ -1,5 +1,5 @@
 {
-  "description": "ProfileRecording is the Schema for the profilerecordings API.",
+  "description": "ProfileRecording is the Schema for the profilerecordings API.\n\nThe name is used as a label value on the recorded profiles, so it is\nlimited to 63 characters. Existing objects are exempt, so that they can\nstill be updated and deleted.",
   "type": "object",
   "required": [
     "spec"
@@ -29,7 +29,8 @@
           "description": "containers is a set of containers to record. This allows to select\nonly specific containers to record instead of all containers present\nin the pod.",
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 63
           },
           "x-kubernetes-list-type": "set"
         },
@@ -39,7 +40,7 @@
           "default": false
         },
         "kind": {
-          "description": "kind specifies the type of object to be recorded.",
+          "description": "kind specifies the type of object to be recorded. SelinuxProfile\nrecordings require the Logs recorder and AppArmorProfile recordings\nrequire the Bpf recorder.",
           "type": "string",
           "enum": [
             "SeccompProfile",
@@ -101,7 +102,13 @@
             }
           },
           "additionalProperties": false,
-          "x-kubernetes-map-type": "atomic"
+          "x-kubernetes-map-type": "atomic",
+          "x-kubernetes-validations": [
+            {
+              "rule": "!has(self.matchExpressions) || self.matchExpressions.all(e, e.operator in ['In', 'NotIn'] ? (has(e.values) \u0026\u0026 size(e.values) \u003e 0) : (e.operator in ['Exists', 'DoesNotExist'] \u0026\u0026 (!has(e.values) || size(e.values) == 0)))",
+              "message": "matchExpressions operator must be In, NotIn, Exists or DoesNotExist, In and NotIn require values, Exists and DoesNotExist must not have values"
+            }
+          ]
         },
         "recorder": {
           "description": "recorder specifies which recorder to use.",
@@ -112,7 +119,17 @@
           ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "self.kind != 'SelinuxProfile' || self.recorder == 'Logs'",
+          "message": "SelinuxProfile recordings only support the Logs recorder"
+        },
+        {
+          "rule": "self.kind != 'AppArmorProfile' || self.recorder == 'Bpf'",
+          "message": "AppArmorProfile recordings only support the Bpf recorder"
+        }
+      ]
     },
     "status": {
       "description": "status contains the observed state of the ProfileRecording.",
@@ -125,9 +142,76 @@
             "type": "string"
           },
           "x-kubernetes-list-type": "set"
+        },
+        "conditions": {
+          "description": "conditions contains the conditions of the resource.",
+          "type": "array",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
         }
       },
       "additionalProperties": false
     }
-  }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "oldSelf.hasValue() || size(self.metadata.name) \u003c= 63",
+      "message": "name must be no more than 63 characters",
+      "optionalOldSelf": true
+    }
+  ]
 }

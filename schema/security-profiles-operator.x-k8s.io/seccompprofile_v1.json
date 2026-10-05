@@ -54,11 +54,17 @@
           "x-kubernetes-list-type": "set"
         },
         "baseProfileName": {
-          "description": "baseProfileName is the name of base profile (in the same namespace) that\nwill be unioned into this profile. Base profiles can be references as\nremote OCI artifacts as well when prefixed with `oci://`.",
-          "type": "string"
+          "description": "baseProfileName is the name of the base profile (a cluster-scoped\nSeccompProfile) that will be unioned into this profile. Base profiles can\nbe referenced as remote OCI artifacts as well when prefixed with `oci://`.\nAny other value is the name of a SeccompProfile. Values which are no\nvalid object name are rejected, because no base profile of that name can\nexist, so a profile referencing it could never be installed.",
+          "type": "string",
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == '' || self.startsWith('oci://') || self.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$')",
+              "message": "baseProfileName must be an oci:// reference or the name of a SeccompProfile"
+            }
+          ]
         },
         "defaultAction": {
-          "description": "defaultAction is the default action for seccomp. Valid values are:\nSCMP_ACT_KILL, SCMP_ACT_KILL_PROCESS, SCMP_ACT_KILL_THREAD,\nSCMP_ACT_TRAP, SCMP_ACT_ERRNO, SCMP_ACT_TRACE, SCMP_ACT_ALLOW,\nSCMP_ACT_LOG, SCMP_ACT_NOTIFY.",
+          "description": "defaultAction is the default action for seccomp. Valid values are:\nSCMP_ACT_KILL, SCMP_ACT_KILL_PROCESS, SCMP_ACT_KILL_THREAD,\nSCMP_ACT_TRAP, SCMP_ACT_ERRNO, SCMP_ACT_TRACE, SCMP_ACT_ALLOW,\nSCMP_ACT_LOG. SCMP_ACT_NOTIFY is not supported as the default action\nby container runtimes.",
           "type": "string",
           "enum": [
             "SCMP_ACT_KILL",
@@ -70,6 +76,12 @@
             "SCMP_ACT_ALLOW",
             "SCMP_ACT_LOG",
             "SCMP_ACT_NOTIFY"
+          ],
+          "x-kubernetes-validations": [
+            {
+              "rule": "self != 'SCMP_ACT_NOTIFY'",
+              "message": "SCMP_ACT_NOTIFY cannot be used as the default action"
+            }
           ]
         },
         "flags": {
@@ -93,6 +105,7 @@
         "listenerPath": {
           "description": "listenerPath is the path of UNIX domain socket to contact a seccomp\nagent for SCMP_ACT_NOTIFY.",
           "type": "string",
+          "maxLength": 107,
           "pattern": "^/var/run/security-profiles-operator/[a-zA-Z0-9_\\-\\.]+$"
         },
         "state": {
@@ -146,6 +159,7 @@
                       "description": "index is the index for syscall arguments in seccomp.",
                       "type": "integer",
                       "format": "int32",
+                      "maximum": 5,
                       "minimum": 0
                     },
                     "op": {
@@ -168,7 +182,7 @@
                       "minimum": 0
                     },
                     "valueTwo": {
-                      "description": "valueTwo is the second value for syscall arguments in seccomp.",
+                      "description": "valueTwo is the second value for syscall arguments in seccomp. It is\nonly used by the SCMP_CMP_MASKED_EQ operator.",
                       "type": "integer",
                       "format": "int64",
                       "minimum": 0
@@ -179,7 +193,7 @@
                 "x-kubernetes-list-type": "atomic"
               },
               "errnoRet": {
-                "description": "errnoRet is the errno return code to use. Some actions like\nSCMP_ACT_ERRNO and SCMP_ACT_TRACE allow to specify the errno\ncode to return.",
+                "description": "errnoRet is the errno return code to use. Some actions like\nSCMP_ACT_ERRNO and SCMP_ACT_TRACE allow to specify the errno\ncode to return. A value of 0 is treated like an unset field, so the\ncontainer runtime returns EPERM.",
                 "type": "integer",
                 "format": "int32",
                 "maximum": 4095,

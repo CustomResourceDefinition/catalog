@@ -22,10 +22,18 @@ spec:
     - jsonPath: .status.status
       name: State
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1
     schema:
       openAPIV3Schema:
-        description: SelinuxProfile is the Schema for the selinuxprofiles API.
+        description: |-
+          SelinuxProfile is the Schema for the selinuxprofiles API.
+
+          The name is used as the name of a CIL block, which has to start with a
+          letter and must not contain dots. Existing objects are exempt, so that they
+          can still be updated and deleted.
         properties:
           apiVersion:
             description: |-
@@ -50,19 +58,36 @@ spec:
               allow:
                 additionalProperties:
                   additionalProperties:
+                    description: PermissionSet is a list of SELinux permissions.
                     items:
+                      pattern: ^[-a-zA-Z0-9._]+$
                       type: string
                     type: array
+                  description: ObjectClassPermissions maps SELinux object classes
+                    to their permissions.
+                  maxProperties: 256
                   type: object
-                description: allow defines the allow policy for the profile.
+                  x-kubernetes-validations:
+                  - message: object classes may only contain alphanumeric characters,
+                      '.', '-' and '_'
+                    rule: self.all(k, k.matches('^[-a-zA-Z0-9._]+$'))
+                description: |-
+                  allow defines the allow policy for the profile. It maps SELinux types
+                  (or "@self" for the profile's own type) to object classes and their
+                  permissions.
+                maxProperties: 1024
                 type: object
+                x-kubernetes-validations:
+                - message: types may only contain alphanumeric characters, '.', '-'
+                    and '_', or be '@self'
+                  rule: self.all(k, k.matches('^([-a-zA-Z0-9._]+|@self)$'))
               inherit:
                 default:
                 - kind: System
                   name: container
                 description: |-
                   inherit specifies a SELinuxProfile or set of profiles that this inherits from.
-                  Note that they need to be in the same namespace.
+                  Referenced SelinuxProfiles are cluster-scoped and resolved by name.
                 items:
                   properties:
                     kind:
@@ -78,9 +103,11 @@ spec:
                       - SelinuxProfile
                       type: string
                     name:
-                      description: name is the name of the policy that this inherits
-                        from.
+                      description: |-
+                        name is the name of the policy that this inherits from. It may only
+                        contain alphanumeric characters, '.', '-' and '_'.
                       minLength: 1
+                      pattern: ^[-a-zA-Z0-9._]+$
                       type: string
                   required:
                   - name
@@ -195,6 +222,11 @@ spec:
                 type: string
             type: object
         type: object
+        x-kubernetes-validations:
+        - message: name must start with a letter and may only contain lowercase alphanumeric
+            characters and '-'
+          optionalOldSelf: true
+          rule: oldSelf.hasValue() || self.metadata.name.matches('^[a-z][-a-z0-9]*$')
     served: true
     storage: true
     subresources:

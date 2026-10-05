@@ -55,6 +55,178 @@ spec:
               alertType:
                 description: Type of alert.
                 properties:
+                  analyticsImmediate:
+                    description: Immediate alerts for DataPrime query results (preview).
+                    properties:
+                      dataprimeQuery:
+                        description: DataPrime query that triggers the alert when
+                          it returns results.
+                        properties:
+                          query:
+                            description: DataPrime query text, e.g. `source logs |
+                              filter $m.severity == Severity.ERROR | count`.
+                            maxLength: 65535
+                            minLength: 1
+                            type: string
+                        required:
+                        - query
+                        type: object
+                      evaluationDelayMs:
+                        description: Evaluation delay in milliseconds.
+                        format: int32
+                        maximum: 10800000
+                        minimum: 0
+                        type: integer
+                      noDataPolicy:
+                        description: Policy for handling missing data.
+                        properties:
+                          autoRetireSeconds:
+                            description: |-
+                              The timeframe in seconds for auto retiring values that were detected as no-data.
+                              Must be a multiple of 60 seconds.
+                            format: int32
+                            type: integer
+                          state:
+                            description: State to use when no data is present.
+                            enum:
+                            - ok
+                            - alerting
+                            - keepLast
+                            - noData
+                            type: string
+                        required:
+                        - state
+                        type: object
+                      timeframeMinutes:
+                        description: Time frame in minutes the query is evaluated
+                          over.
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      useRowsAsPermutations:
+                        description: Whether each result row is treated as a separate
+                          permutation.
+                        type: boolean
+                    required:
+                    - dataprimeQuery
+                    - timeframeMinutes
+                    type: object
+                  analyticsThreshold:
+                    description: Alerts for when a DataPrime query result column crosses
+                      a threshold (preview).
+                    properties:
+                      dataprimeQuery:
+                        description: DataPrime query whose results are evaluated against
+                          the rules.
+                        properties:
+                          query:
+                            description: DataPrime query text, e.g. `source logs |
+                              filter $m.severity == Severity.ERROR | count`.
+                            maxLength: 65535
+                            minLength: 1
+                            type: string
+                        required:
+                        - query
+                        type: object
+                      evaluationDelayMs:
+                        description: Evaluation delay in milliseconds.
+                        format: int32
+                        maximum: 10800000
+                        minimum: 0
+                        type: integer
+                      noDataPolicy:
+                        description: Policy for handling missing data.
+                        properties:
+                          autoRetireSeconds:
+                            description: |-
+                              The timeframe in seconds for auto retiring values that were detected as no-data.
+                              Must be a multiple of 60 seconds.
+                            format: int32
+                            type: integer
+                          state:
+                            description: State to use when no data is present.
+                            enum:
+                            - ok
+                            - alerting
+                            - keepLast
+                            - noData
+                            type: string
+                        required:
+                        - state
+                        type: object
+                      operator:
+                        description: Comparison operator applied to the rule thresholds.
+                          Defaults to moreThan when unset.
+                        enum:
+                        - moreThan
+                        - lessThan
+                        - moreThanOrEquals
+                        - lessThanOrEquals
+                        - equals
+                        - notEquals
+                        type: string
+                      rules:
+                        description: Rules that match the alert to the data. Each
+                          rule must have a different priority.
+                        items:
+                          description: Rules that match the alert to the data.
+                          properties:
+                            condition:
+                              description: Conditions to match for the rule.
+                              properties:
+                                threshold:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  description: Threshold to compare the target column
+                                    against.
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - threshold
+                              type: object
+                            override:
+                              description: Alert property overrides. Defaults to the
+                                alert priority when unset.
+                              properties:
+                                priority:
+                                  description: Priority to override it
+                                  enum:
+                                  - p1
+                                  - p2
+                                  - p3
+                                  - p4
+                                  - p5
+                                  type: string
+                              required:
+                              - priority
+                              type: object
+                          required:
+                          - condition
+                          type: object
+                        maxItems: 5
+                        minItems: 1
+                        type: array
+                      targetColumn:
+                        description: Numeric column of the query result to compare
+                          against the thresholds.
+                        maxLength: 255
+                        type: string
+                      timeframeMinutes:
+                        description: Time frame in minutes the query is evaluated
+                          over.
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      useRowsAsPermutations:
+                        description: Whether each result row is treated as a separate
+                          permutation.
+                        type: boolean
+                    required:
+                    - dataprimeQuery
+                    - rules
+                    - timeframeMinutes
+                    type: object
                   flow:
                     description: Flow alerts chaining multiple alerts together.
                     properties:
@@ -2090,14 +2262,16 @@ spec:
                 - message: Exactly one of logsImmediate, logsThreshold, logsRatioThreshold,
                     logsTimeRelativeThreshold, metricThreshold, tracingThreshold,
                     tracingImmediate, flow, logsAnomaly, metricAnomaly, logsNewValue,
-                    logsUniqueCount, sloThreshold must be set
+                    logsUniqueCount, sloThreshold, analyticsImmediate, analyticsThreshold
+                    must be set
                   rule: '(has(self.logsImmediate) ? 1 : 0) + (has(self.logsThreshold)
                     ? 1 : 0) + (has(self.logsRatioThreshold) ? 1 : 0) + (has(self.logsTimeRelativeThreshold)
                     ? 1 : 0) + (has(self.metricThreshold) ? 1 : 0) + (has(self.tracingThreshold)
                     ? 1 : 0) + (has(self.tracingImmediate) ? 1 : 0) + (has(self.flow)
                     ? 1 : 0) + (has(self.logsAnomaly) ? 1 : 0) + (has(self.metricAnomaly)
                     ? 1 : 0) + (has(self.logsNewValue) ? 1 : 0) + (has(self.logsUniqueCount)
-                    ? 1 : 0) + (has(self.sloThreshold) ? 1 : 0) == 1'
+                    ? 1 : 0) + (has(self.sloThreshold) ? 1 : 0) + (has(self.analyticsImmediate)
+                    ? 1 : 0) + (has(self.analyticsThreshold) ? 1 : 0) == 1'
               dataSources:
                 description: Data sources to run the alert on.
                 items:
