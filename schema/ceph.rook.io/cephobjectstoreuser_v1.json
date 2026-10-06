@@ -18,7 +18,7 @@
       "type": "object"
     },
     "spec": {
-      "description": "ObjectStoreUserSpec represent the spec of an Objectstoreuser",
+      "description": "ObjectStoreUserSpec represents the spec of a CephObjectStoreUser",
       "type": "object",
       "properties": {
         "accountRef": {
@@ -48,6 +48,16 @@
           "description": "Additional admin-level capabilities for the Ceph object store user",
           "type": "object",
           "properties": {
+            "accounts": {
+              "description": "Add capabilities for user to manage accounts. Documented in https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities\nNote: Only supported from Ceph Squid (v19.2.3) onwards",
+              "type": "string",
+              "enum": [
+                "*",
+                "read",
+                "write",
+                "read, write"
+              ]
+            },
             "amz-cache": {
               "description": "Add capabilities for user to send request to RGW Cache API header. Documented in https://docs.ceph.com/en/latest/radosgw/rgw-cache/#cache-api",
               "type": "string",
@@ -188,6 +198,16 @@
                 "read, write"
               ]
             },
+            "userInfoWithoutKeys": {
+              "description": "Add capabilities for user to fetch user info without keys. Documented in https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities\nNote: Only supported from Ceph Squid (v19.2.0) onwards",
+              "type": "string",
+              "enum": [
+                "*",
+                "read",
+                "write",
+                "read, write"
+              ]
+            },
             "users": {
               "description": "Admin capabilities to read/write Ceph object store users. Documented in https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities",
               "type": "string",
@@ -215,6 +235,20 @@
         "clusterNamespace": {
           "description": "The namespace where the parent CephCluster and CephObjectStore are found",
           "type": "string"
+        },
+        "defaultPlacement": {
+          "description": "DefaultPlacement sets the default pool placement target for buckets\ncreated by this user. It must name a placement target known to the\nzonegroup serving the referenced object store; RGW rejects unknown\ntargets. If this field is absent the controller does not manage the\nuser's placement: an existing value (set previously through this\nfield, or outside of Rook) is left in place.",
+          "type": "string",
+          "maxLength": 2048,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$"
+        },
+        "defaultStorageClass": {
+          "description": "DefaultStorageClass sets the default storage class for objects created\nby this user, within the placement set by DefaultPlacement (which must\nalso be set). The storage class must exist on that placement target;\nRGW rejects unknown storage classes. If this field is absent the\ncontroller does not manage the user's storage class: an existing value\nis preserved, except when DefaultPlacement changes, which resets the\nstorage class to the new target's default (STANDARD).",
+          "type": "string",
+          "maxLength": 2048,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$"
         },
         "displayName": {
           "description": "The display name for the ceph user.",
@@ -285,7 +319,7 @@
           "maxItems": 3,
           "minItems": 0,
           "items": {
-            "description": "Internally, RGW labels \"operations\" on persistent state as `RGW_OP_TYPE_READ` (`read`), `RGW_OP_TYPE_WRITE` (`write`), or `RGW_OP_TYPE_DELETE` (`delete`). All RGW users have an \"operation mask\", which does not function as mask or filter as is typically implied by the word \"mask\", but as a set of allowed or permissible \"operation\" types the user is able to perform. The \"operation mask\" is applied regardless of the bucket or IAM policy. For example, in order for an RGW user to be able to read an object from a bucket, that user must have **both** the `read` \"op mask\" bit and an IAM/bucket policy that allows `s3:GetObject`. The default operations allowed are `read`, `write`, and `delete`. Setting the value to `[]` (an empty YAML sequence) causes all \"operations\" in the mask to be removed, meaning that the user will not be able to perform any operations. These operation masks are supported: `read`, `write`, `delete`",
+            "description": "Internally, RGW labels \"operations\" on persistent state as `RGW_OP_TYPE_READ` (`read`), `RGW_OP_TYPE_WRITE` (`write`), or `RGW_OP_TYPE_DELETE` (`delete`). All RGW users have an \"operation mask\", which does not function as a mask or filter as is typically implied by the word \"mask\", but as a set of allowed or permissible \"operation\" types the user is able to perform. The \"operation mask\" is applied regardless of the bucket or IAM policy. For example, in order for an RGW user to be able to read an object from a bucket, that user must have **both** the `read` \"op mask\" bit and an IAM/bucket policy that allows `s3:GetObject`. The default operations allowed are `read`, `write`, and `delete`. Setting the value to `[]` (an empty YAML sequence) causes all \"operations\" in the mask to be removed, meaning that the user will not be able to perform any operations. These operation masks are supported: `read`, `write`, `delete`",
             "type": "string",
             "enum": [
               "read",
@@ -333,7 +367,13 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.defaultStorageClass) || has(self.defaultPlacement)",
+          "message": "defaultStorageClass requires defaultPlacement"
+        }
+      ]
     },
     "status": {
       "description": "ObjectStoreUserStatus represents the status Ceph Object Store Gateway User",
