@@ -170,6 +170,50 @@
           },
           "additionalProperties": false
         },
+        "headerValueFilters": {
+          "description": "HeaderValueFilters filter individual values out of multi-valued request headers before sending\nthe request to this backend, so that one value an upstream provider does not accept does not\nfail the whole request. At most one filter per header name.\n\nOnly GCPAnthropic and AWSAnthropic backends honor this, and today only for the\n`anthropic-beta` header — a filter naming any other header is accepted but has no effect.\nSetting it on a backend with any other schema is rejected.",
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "description": "HTTPHeaderValueFilter filters individual values out of a multi-valued request header before the\nrequest is forwarded to this backend.\n\nThis drops (or restricts to) specific values from a comma-separated header while forwarding the\nrest untouched, so one unsupported value does not fail the whole request.\n\nOnly comma-delimited headers are supported. Values are matched exactly, after surrounding\nwhitespace is trimmed. To remove a header entirely, use HeaderMutation.Remove instead.",
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "mode": {
+                "description": "Mode selects the filtering semantics. Defaults to Denylist.",
+                "type": "string",
+                "default": "Denylist",
+                "enum": [
+                  "Denylist",
+                  "Allowlist"
+                ]
+              },
+              "name": {
+                "description": "Name is the name of the header whose values are filtered. Header names are\ncase-insensitive (see https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).",
+                "type": "string",
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9!#$%\u0026'*+\\-.^_\\x60|~]+$"
+              },
+              "values": {
+                "description": "Values is the list of header values to drop (Denylist) or keep (Allowlist).\nAn empty list leaves the header unchanged.",
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string"
+                },
+                "x-kubernetes-list-type": "set"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
         "schema": {
           "description": "APISchema specifies the API schema of the output format of requests from\nEnvoy that this AIServiceBackend can accept as incoming requests.\nBased on this schema, the ai-gateway will perform the necessary transformation for\nthe pair of AIGatewayRouteSpec.APISchema and AIServiceBackendSpec.APISchema.\n\nThis is required to be set.",
           "type": "object",
@@ -188,7 +232,9 @@
                 "GCPVertexAI",
                 "GCPAnthropic",
                 "Anthropic",
-                "AWSAnthropic"
+                "AWSAnthropic",
+                "AWSOpenAI",
+                "TypeSafe"
               ]
             },
             "prefix": {
@@ -203,7 +249,13 @@
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.headerValueFilters) || self.schema.name == 'GCPAnthropic' || self.schema.name == 'AWSAnthropic'",
+          "message": "headerValueFilters is only honored by GCPAnthropic and AWSAnthropic backends"
+        }
+      ]
     },
     "status": {
       "description": "Status defines the status details of the AIServiceBackend.",
