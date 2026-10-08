@@ -8,7 +8,7 @@ require (
 	golang.org/x/mod v0.41.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.22.0
-	k8s.io/apiextensions-apiserver v0.37.0
+	k8s.io/apiextensions-apiserver v0.37.1
 	k8s.io/apimachinery v0.37.1
 	sigs.k8s.io/controller-tools v0.22.0
 	sigs.k8s.io/kustomize/api v0.21.1
