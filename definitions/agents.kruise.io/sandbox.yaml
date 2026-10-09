@@ -12,308 +12,676 @@ spec:
     listKind: SandboxList
     plural: sandboxes
     shortNames:
-      - sbx
+    - sbx
     singular: sandbox
   scope: Namespaced
   versions:
-    - additionalPrinterColumns:
-        - jsonPath: .status.phase
-          name: Status
-          type: string
-        - jsonPath: .metadata.creationTimestamp
-          name: Age
-          type: date
-        - jsonPath: .metadata.labels.agents\.kruise\.io/sandbox-claimed
-          name: Claimed
-          type: string
-        - jsonPath: .spec.shutdownTime
-          name: shutdown_time
-          type: string
-        - jsonPath: .spec.pauseTime
-          name: pause_time
-          type: string
-        - jsonPath: .status.message
-          name: Message
-          type: string
-      name: v1alpha1
-      schema:
-        openAPIV3Schema:
-          description: Sandbox is the Schema for the sandboxes API
-          properties:
-            apiVersion:
-              description: |-
-                APIVersion defines the versioned schema of this representation of an object.
-                Servers should convert recognized schemas to the latest internal value, and
-                may reject unrecognized values.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-              type: string
-            kind:
-              description: |-
-                Kind is a string value representing the REST resource this object represents.
-                Servers may infer this from the endpoint the client submits requests to.
-                Cannot be updated.
-                In CamelCase.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-              type: string
-            metadata:
-              type: object
-            spec:
-              description: spec defines the desired state of Sandbox
-              properties:
-                lifecycle:
-                  description: Lifecycle defines lifecycle hooks for sandbox upgrade.
-                  properties:
-                    postUpgrade:
-                      description: |-
-                        PostUpgrade is the action executed after the upgrade.
-                        It is typically used to restore workspace data.
-                      properties:
-                        exec:
-                          description: |-
-                            Exec specifies the command to execute inside the sandbox via envd.
-                            The first element is the command, the rest are args.
-                            For shell scripts, use: ["/bin/bash", "-c", "your-script"]
-                          properties:
-                            command:
-                              description: |-
-                                Command is the command line to execute inside the container, the working directory for the
-                                command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
-                                not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
-                                a shell, you need to explicitly call out to that shell.
-                                Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
-                              items:
-                                type: string
-                              type: array
-                              x-kubernetes-list-type: atomic
-                          type: object
-                        timeoutSeconds:
-                          default: 60
-                          description: TimeoutSeconds is the timeout for the action
-                            execution in seconds.
-                          format: int32
-                          type: integer
-                      type: object
-                    preUpgrade:
-                      description: |-
-                        PreUpgrade is the action executed before the upgrade.
-                        It is typically used to backup workspace data.
-                      properties:
-                        exec:
-                          description: |-
-                            Exec specifies the command to execute inside the sandbox via envd.
-                            The first element is the command, the rest are args.
-                            For shell scripts, use: ["/bin/bash", "-c", "your-script"]
-                          properties:
-                            command:
-                              description: |-
-                                Command is the command line to execute inside the container, the working directory for the
-                                command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
-                                not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
-                                a shell, you need to explicitly call out to that shell.
-                                Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
-                              items:
-                                type: string
-                              type: array
-                              x-kubernetes-list-type: atomic
-                          type: object
-                        timeoutSeconds:
-                          default: 60
-                          description: TimeoutSeconds is the timeout for the action
-                            execution in seconds.
-                          format: int32
-                          type: integer
-                      type: object
-                  type: object
-                pauseTime:
-                  description: PauseTime - Absolute time when the sandbox will be paused
-                    automatically.
-                  format: date-time
-                  type: string
-                paused:
-                  description: Paused indicates whether pause the sandbox pod.
-                  type: boolean
-                persistentContents:
-                  description: 'PersistentContents indicates resume pod with persistent
-                  content, Enum: ip, memory, filesystem'
-                  items:
-                    type: string
-                  type: array
-                  x-kubernetes-list-type: atomic
-                runtimes:
-                  description: Runtimes - Runtime configuration for sandbox object
-                  items:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .metadata.labels.agents\.kruise\.io/sandbox-claimed
+      name: Claimed
+      type: string
+    - jsonPath: .spec.shutdownTime
+      name: shutdown_time
+      type: string
+    - jsonPath: .spec.pauseTime
+      name: pause_time
+      type: string
+    - jsonPath: .status.recycledCount
+      name: RecycledCount
+      type: integer
+    - jsonPath: .status.message
+      name: Message
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Sandbox is the Schema for the sandboxes API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of Sandbox
+            properties:
+              autoPausePolicy:
+                description: |-
+                  AutoPausePolicy defines when the sandbox controller pauses or resumes
+                  the sandbox. Probe-driven rules reference probes declared in
+                  Spec.Probes and read their results (mirrored from
+                  Pod.Status.Conditions to SandboxStatus.Conditions); the
+                  OnIngressTraffic resume rule is event-driven and does not require a
+                  probe.
+                properties:
+                  pause:
+                    description: Pause defines the pause policy for the sandbox.
                     properties:
-                      name:
-                        type: string
-                    required:
-                      - name
+                      whenProbedIdleState:
+                        description: |-
+                          WhenProbedIdleState pauses the sandbox when a probe's Condition message
+                          matches MessageRegex for at least ThresholdDuration.
+                        properties:
+                          messageRegex:
+                            description: |-
+                              MessageRegex is a regular expression matched against the probe's
+                              Condition message (stdout). When the message matches, the Agent is
+                              considered inactive. When it does not match, the Agent is considered
+                              active and the sandbox stays Running.
+                            maxLength: 512
+                            type: string
+                          probe:
+                            description: |-
+                              Probe is the name of the probe to evaluate for pause decisions.
+                              Must match a probe name in Spec.Probes.
+                            type: string
+                          thresholdDuration:
+                            description: |-
+                              ThresholdDuration is the minimum time the probe's Condition message
+                              must continuously match MessageRegex before the sandbox is paused.
+                              Measured from the Condition's lastTransitionTime.
+
+                              It is required: pausing as soon as a single probe report matches would
+                              drop the smoothing this rule exists for, so there is no meaningful
+                              default and an unset value is a misconfiguration rather than
+                              "pause immediately".
+                            type: string
+                        required:
+                        - messageRegex
+                        - probe
+                        - thresholdDuration
+                        type: object
                     type: object
-                  type: array
-                  x-kubernetes-list-type: atomic
-                shutdownTime:
-                  description: |-
-                    ShutdownTime - Absolute time when the sandbox is deleted.
-                    If a time in the past is provided, the sandbox will be deleted immediately.
-                  format: date-time
+                  resume:
+                    description: Resume defines the resume policy for the sandbox.
+                    properties:
+                      onIngressTraffic:
+                        description: |-
+                          OnIngressTraffic resumes the sandbox when the sandbox-gateway receives
+                          inbound traffic addressed to it while it is paused. Unlike the probed
+                          rules this one is event-driven: it needs no probe, it produces no
+                          Status.Schedules entry, and it is executed by the sandbox-gateway rather
+                          than by the sandbox controller.
+                        properties:
+                          pauseTimeout:
+                            description: |-
+                              PauseTimeout is the auto-pause timeout re-armed by a traffic wake: the
+                              gateway writes Spec.PauseTime = now + PauseTimeout atomically with
+                              Spec.Paused = false, so the woken sandbox has running time before its
+                              next auto-pause. It applies only to auto-pause sandboxes (those that
+                              already carry Spec.PauseTime); never-timeout and shutdown-only
+                              sandboxes keep their timeout mode unchanged.
+                              When absent or non-positive, a traffic wake does not re-arm auto-pause:
+                              the woken sandbox keeps running until it is paused or deleted again.
+                              A positive value is subject to the resume timeout floor
+                              (timeout.DefaultMinResumeTimeoutSeconds, currently 300s): values below
+                              the floor are raised to it so the fresh PauseTime cannot expire while
+                              the sandbox is still resuming.
+                            type: string
+                        type: object
+                      whenProbedScheduleTime:
+                        description: |-
+                          WhenProbedScheduleTime resumes the sandbox before a scheduled task
+                          by parsing the probe's Condition message as a timestamp.
+                        properties:
+                          leadTime:
+                            default: 5m
+                            description: |-
+                              LeadTime is the duration before the parsed timestamp at which the
+                              sandbox should be resumed. For example, if the probe reports the
+                              next scheduled task at time T and LeadTime is 5m, the sandbox is
+                              resumed at T - 5m.
+                            type: string
+                          probe:
+                            description: |-
+                              Probe is the name of the probe to evaluate for resume decisions.
+                              Must match a probe name in Spec.Probes.
+                            type: string
+                          timeFormat:
+                            default: unix
+                            description: |-
+                              TimeFormat indicates the format of the probe's Condition message for
+                              parsing as a timestamp, and defaults to "unix":
+
+                                unix     - seconds since epoch, e.g. "1787040000"
+                                datetime - RFC3339 with offset, e.g. "2026-08-29T08:00:00+08:00"
+
+                              NextResumeTime is set to the parsed timestamp minus LeadTime.
+                            enum:
+                            - unix
+                            - datetime
+                            type: string
+                        required:
+                        - probe
+                        type: object
+                    type: object
+                type: object
+              lifecycle:
+                description: Lifecycle defines lifecycle hooks for sandbox.
+                properties:
+                  postUpgrade:
+                    description: |-
+                      PostUpgrade is the action executed after the upgrade.
+                      It is typically used to restore workspace data.
+                    properties:
+                      exec:
+                        description: |-
+                          Exec specifies the command to execute inside the sandbox via envd.
+                          The first element is the command, the rest are args.
+                          For shell scripts, use: ["/bin/bash", "-c", "your-script"]
+                        properties:
+                          command:
+                            description: |-
+                              Command is the command line to execute inside the container, the working directory for the
+                              command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                              not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                              a shell, you need to explicitly call out to that shell.
+                              Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        type: object
+                      timeoutSeconds:
+                        default: 60
+                        description: TimeoutSeconds is the timeout for the action
+                          execution in seconds.
+                        format: int32
+                        type: integer
+                    type: object
+                  preUpgrade:
+                    description: |-
+                      PreUpgrade is the action executed before the upgrade.
+                      It is typically used to backup workspace data.
+                    properties:
+                      exec:
+                        description: |-
+                          Exec specifies the command to execute inside the sandbox via envd.
+                          The first element is the command, the rest are args.
+                          For shell scripts, use: ["/bin/bash", "-c", "your-script"]
+                        properties:
+                          command:
+                            description: |-
+                              Command is the command line to execute inside the container, the working directory for the
+                              command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                              not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                              a shell, you need to explicitly call out to that shell.
+                              Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        type: object
+                      timeoutSeconds:
+                        default: 60
+                        description: TimeoutSeconds is the timeout for the action
+                          execution in seconds.
+                        format: int32
+                        type: integer
+                    type: object
+                type: object
+              pauseStrategy:
+                description: PauseStrategy configures how a sandbox is paused when
+                  spec.paused is true.
+                properties:
+                  hibernateStrategy:
+                    description: |-
+                      HibernateStrategy configures the storage medium for hibernate state.
+                      Only effective when Type is Hibernate.
+                    properties:
+                      type:
+                        description: Type selects the storage medium for hibernate
+                          state.
+                        type: string
+                    type: object
+                  type:
+                    description: Type selects the pause mechanism.
+                    enum:
+                    - Stop
+                    - Hibernate
+                    type: string
+                type: object
+              pauseTime:
+                description: PauseTime - Absolute time when the sandbox will be paused
+                  automatically.
+                format: date-time
+                type: string
+              paused:
+                description: Paused indicates whether pause the sandbox pod.
+                type: boolean
+              persistentContents:
+                description: 'PersistentContents indicates resume pod with persistent
+                  content, Enum: ip, memory, filesystem'
+                items:
                   type: string
-                template:
+                type: array
+                x-kubernetes-list-type: atomic
+              probes:
+                description: |-
+                  Probes defines a list of named probes that run periodically while the sandbox
+                  is Running. Each probe writes its result to a Pod Status Condition with
+                  type "agents.kruise.io/<name>". Probes are generic — their semantics (e.g.,
+                  "activity detection" vs "cron task detection") are defined by
+                  AutoPausePolicy.Pause/Resume, not by the probe itself.
+
+                  Probe delivery depends on where the pod lands: virtual-kubelet nodes read
+                  the kruise.io/podprobe annotation written at pod creation, real nodes get a
+                  PodProbeMarker executed by kruise-daemon. Either way results arrive in
+                  Pod.Status.Conditions, which the controller mirrors to
+                  SandboxStatus.Conditions for observability.
+                items:
                   description: |-
-                    Template describes the pods that will be created.
-                    Template is mutual exclusive with TemplateRef
-                  x-kubernetes-preserve-unknown-fields: true
-                templateRef:
-                  description: TemplateRef references a SandboxTemplate, which will
-                    be used to create the sandbox.
+                    Probe defines a named probe that writes its result to a Pod Condition.
+                    Embeds corev1.Probe inline so that exec/periodSeconds/timeoutSeconds/etc.
+                    are directly accessible. Currently only exec probes are supported;
+                    other corev1.Probe fields (httpGet, tcpSocket, grpc) may be supported
+                    in the future as needed.
                   properties:
-                    apiVersion:
+                    containerName:
                       description: |-
-                        name of the SandboxTemplate apiVersion
-                        Default to v1
+                        ContainerName specifies which container to execute the probe in.
+                        If empty, defaults to the first container in the pod spec.
                       type: string
-                    kind:
+                    exec:
+                      description: Exec specifies a command to execute in the container.
+                      properties:
+                        command:
+                          description: |-
+                            Command is the command line to execute inside the container, the working directory for the
+                            command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                            not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                            a shell, you need to explicitly call out to that shell.
+                            Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      type: object
+                    failureThreshold:
                       description: |-
-                        name of the SandboxTemplate kind
-                        Default to PodTemplate
-                      type: string
+                        Minimum consecutive failures for the probe to be considered failed after having succeeded.
+                        Defaults to 3. Minimum value is 1.
+                      format: int32
+                      type: integer
+                    grpc:
+                      description: GRPC specifies a GRPC HealthCheckRequest.
+                      properties:
+                        port:
+                          description: Port number of the gRPC service. Number must
+                            be in the range 1 to 65535.
+                          format: int32
+                          type: integer
+                        service:
+                          default: ""
+                          description: |-
+                            Service is the name of the service to place in the gRPC HealthCheckRequest
+                            (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
+
+                            If this is not specified, the default behavior is defined by gRPC.
+                          type: string
+                      required:
+                      - port
+                      type: object
+                    httpGet:
+                      description: HTTPGet specifies an HTTP GET request to perform.
+                      properties:
+                        host:
+                          description: |-
+                            Host name to connect to, defaults to the pod IP. You probably want to set
+                            "Host" in httpHeaders instead.
+                          type: string
+                        httpHeaders:
+                          description: Custom headers to set in the request. HTTP
+                            allows repeated headers.
+                          items:
+                            description: HTTPHeader describes a custom header to be
+                              used in HTTP probes
+                            properties:
+                              name:
+                                description: |-
+                                  The header field name.
+                                  This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                                type: string
+                              value:
+                                description: The header field value
+                                type: string
+                            required:
+                            - name
+                            - value
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        path:
+                          description: Path to access on the HTTP server.
+                          type: string
+                        port:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: |-
+                            Name or number of the port to access on the container.
+                            Number must be in the range 1 to 65535.
+                            Name must be an IANA_SVC_NAME.
+                          x-kubernetes-int-or-string: true
+                        scheme:
+                          description: |-
+                            Scheme to use for connecting to the host.
+                            Defaults to HTTP.
+                          type: string
+                      required:
+                      - port
+                      type: object
+                    initialDelaySeconds:
+                      description: |-
+                        Number of seconds after the container has started before liveness probes are initiated.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                      format: int32
+                      type: integer
                     name:
-                      description: name of the SandboxTemplate
+                      description: |-
+                        Name is the unique identifier for this probe within the sandbox.
+                        Probe results are written to a Condition with type "agents.kruise.io/<Name>".
+                      maxLength: 299
+                      pattern: ^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$
+                      type: string
+                    periodSeconds:
+                      description: |-
+                        How often (in seconds) to perform the probe.
+                        Default to 10 seconds. Minimum value is 1.
+                      format: int32
+                      type: integer
+                    successThreshold:
+                      description: |-
+                        Minimum consecutive successes for the probe to be considered successful after having failed.
+                        Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.
+                      format: int32
+                      type: integer
+                    tcpSocket:
+                      description: TCPSocket specifies a connection to a TCP port.
+                      properties:
+                        host:
+                          description: 'Optional: Host name to connect to, defaults
+                            to the pod IP.'
+                          type: string
+                        port:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: |-
+                            Number or name of the port to access on the container.
+                            Number must be in the range 1 to 65535.
+                            Name must be an IANA_SVC_NAME.
+                          x-kubernetes-int-or-string: true
+                      required:
+                      - port
+                      type: object
+                    terminationGracePeriodSeconds:
+                      description: |-
+                        Optional duration in seconds the pod needs to terminate gracefully upon probe failure.
+                        The grace period is the duration in seconds after the processes running in the pod are sent
+                        a termination signal and the time when the processes are forcibly halted with a kill signal.
+                        Set this value longer than the expected cleanup time for your process.
+                        If this value is nil, the pod's terminationGracePeriodSeconds will be used. Otherwise, this
+                        value overrides the value provided by the pod spec.
+                        Value must be non-negative integer. The value zero indicates stop immediately via
+                        the kill signal (no opportunity to shut down).
+                        This is a beta field and requires enabling ProbeTerminationGracePeriod feature gate.
+                        Minimum value is 1. spec.terminationGracePeriodSeconds is used if unset.
+                      format: int64
+                      type: integer
+                    timeoutSeconds:
+                      description: |-
+                        Number of seconds after which the probe times out.
+                        Defaults to 1 second. Minimum value is 1.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                      format: int32
+                      type: integer
+                  required:
+                  - name
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              runtimes:
+                description: Runtimes - Runtime configuration for sandbox object
+                items:
+                  properties:
+                    name:
                       type: string
                   required:
-                    - name
+                  - name
                   type: object
-                upgradePolicy:
-                  description: UpgradePolicy defines the upgrade strategy for the sandbox.
+                type: array
+                x-kubernetes-list-type: atomic
+              shutdownTime:
+                description: |-
+                  ShutdownTime - Absolute time when the sandbox is deleted.
+                  If a time in the past is provided, the sandbox will be deleted immediately.
+                format: date-time
+                type: string
+              template:
+                description: |-
+                  Template describes the pods that will be created.
+                  Template is mutual exclusive with TemplateRef
+                x-kubernetes-preserve-unknown-fields: true
+              templateRef:
+                description: TemplateRef references a SandboxTemplate, which will
+                  be used to create the sandbox.
+                properties:
+                  apiVersion:
+                    description: |-
+                      name of the SandboxTemplate apiVersion
+                      Default to v1
+                    type: string
+                  kind:
+                    description: |-
+                      name of the SandboxTemplate kind
+                      Default to PodTemplate
+                    type: string
+                  name:
+                    description: name of the SandboxTemplate
+                    type: string
+                required:
+                - name
+                type: object
+              upgradePolicy:
+                description: UpgradePolicy defines the upgrade strategy for the sandbox.
+                properties:
+                  type:
+                    description: |-
+                      Type specifies the upgrade policy type.
+                      When empty (default), upgrading is disabled.
+                      Supported values: Recreate, CheckpointRestore.
+                    enum:
+                    - Recreate
+                    - CheckpointRestore
+                    type: string
+                type: object
+              volumeClaimTemplates:
+                description: VolumeClaimTemplates is a list of PVC templates to create
+                  for this Sandbox.
+                x-kubernetes-preserve-unknown-fields: true
+            type: object
+          status:
+            description: status defines the observed state of Sandbox
+            properties:
+              conditions:
+                description: |-
+                  conditions represent the current state of the Sandbox resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
-                    type:
+                    lastTransitionTime:
                       description: |-
-                        Type specifies the upgrade policy type.
-                        When empty (default), upgrading is disabled.
-                        Supported values: Recreate.
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
                       type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
                   type: object
-                volumeClaimTemplates:
-                  description: VolumeClaimTemplates is a list of PVC templates to create
-                    for this Sandbox.
-                  x-kubernetes-preserve-unknown-fields: true
-              type: object
-            status:
-              description: status defines the observed state of Sandbox
-              properties:
-                conditions:
-                  description: |-
-                    conditions represent the current state of the Sandbox resource.
-                    Each condition has a unique type and reflects the status of a specific aspect of the resource.
-                    The status of each condition is one of True, False, or Unknown.
-                  items:
-                    description: Condition contains details for one aspect of the current
-                      state of this API Resource.
-                    properties:
-                      lastTransitionTime:
-                        description: |-
-                          lastTransitionTime is the last time the condition transitioned from one status to another.
-                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                        format: date-time
-                        type: string
-                      message:
-                        description: |-
-                          message is a human readable message indicating details about the transition.
-                          This may be an empty string.
-                        maxLength: 32768
-                        type: string
-                      observedGeneration:
-                        description: |-
-                          observedGeneration represents the .metadata.generation that the condition was set based upon.
-                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                          with respect to the current state of the instance.
-                        format: int64
-                        minimum: 0
-                        type: integer
-                      reason:
-                        description: |-
-                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                          Producers of specific condition types may define expected values and meanings for this field,
-                          and whether the values are considered a guaranteed API.
-                          The value should be a CamelCase string.
-                          This field may not be empty.
-                        maxLength: 1024
-                        minLength: 1
-                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                        type: string
-                      status:
-                        description: status of the condition, one of True, False, Unknown.
-                        enum:
-                          - "True"
-                          - "False"
-                          - Unknown
-                        type: string
-                      type:
-                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        maxLength: 316
-                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                        type: string
-                    required:
-                      - lastTransitionTime
-                      - message
-                      - reason
-                      - status
-                      - type
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              message:
+                description: message
+                type: string
+              nodeName:
+                description: NodeName indicates in which node this sandbox is scheduled.
+                type: string
+              observedGeneration:
+                description: |-
+                  observedGeneration is the most recent generation observed for this Sandbox. It corresponds to the
+                  Sandbox's generation, which is updated on mutation by the API Server.
+                format: int64
+                type: integer
+              phase:
+                description: Sandbox Phase
+                type: string
+              podInfo:
+                description: Pod Info
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations contains pod important annotations
                     type: object
-                  type: array
-                  x-kubernetes-list-map-keys:
-                    - type
-                  x-kubernetes-list-type: map
-                message:
-                  description: message
-                  type: string
-                nodeName:
-                  description: NodeName indicates in which node this sandbox is scheduled.
-                  type: string
-                observedGeneration:
+                    x-kubernetes-map-type: granular
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels contains pod important labels
+                    type: object
+                    x-kubernetes-map-type: granular
+                  nodeName:
+                    description: NodeName indicates in which node this pod is scheduled.
+                    type: string
+                  podIP:
+                    description: PodIP address allocated to the pod.
+                    type: string
+                  podUID:
+                    description: PodUID is pod uid.
+                    type: string
+                type: object
+              recycledCount:
+                description: RecycledCount records the number of times this sandbox
+                  has been recycled.
+                format: int32
+                type: integer
+              sandboxIp:
+                description: SandboxIp is the ip address allocated to the sandbox.
+                type: string
+              schedules:
+                description: |-
+                  Schedules contains upcoming scheduled pause/resume events.
+                  Only populated when Spec.AutoPausePolicy.Pause/Resume is configured.
+                items:
                   description: |-
-                    observedGeneration is the most recent generation observed for this Sandbox. It corresponds to the
-                    Sandbox's generation, which is updated on mutation by the API Server.
-                  format: int64
-                  type: integer
-                phase:
-                  description: Sandbox Phase
-                  type: string
-                podInfo:
-                  description: Pod Info
+                    Schedule tracks the upcoming pause/resume timing for the auto-pause controller.
+                    Reason indicates which rule produced the current schedule, NextPauseTime is the
+                    next expected pause time, and NextResumeTime is the next expected resume time.
+                    Both times are cleared once the corresponding action is triggered.
                   properties:
-                    annotations:
-                      additionalProperties:
-                        type: string
-                      description: Annotations contains pod important annotations
-                      type: object
-                      x-kubernetes-map-type: granular
-                    labels:
-                      additionalProperties:
-                        type: string
-                      description: Labels contains pod important labels
-                      type: object
-                      x-kubernetes-map-type: granular
-                    nodeName:
-                      description: NodeName indicates in which node this pod is scheduled.
+                    nextPauseTime:
+                      description: |-
+                        NextPauseTime is when the sandbox is expected to be paused, computed from
+                        the pause policy once the probed idle threshold is about to be reached.
+                        It is cleared after a pause is triggered.
+                      format: date-time
                       type: string
-                    podIP:
-                      description: PodIP address allocated to the pod.
+                    nextResumeTime:
+                      description: |-
+                        NextResumeTime is when the sandbox is expected to be resumed, computed from
+                        the resume policy's probed schedule time. It is cleared after a resume is triggered.
+                      format: date-time
                       type: string
-                    podUID:
-                      description: PodUID is pod uid.
+                    reason:
+                      description: |-
+                        Reason indicates which auto-pause rule triggered this schedule entry.
+                        Examples: "probedIdle" (pause triggered by WhenProbedIdleState),
+                        "probedSchedule" (resume triggered by WhenProbedScheduleTime).
                       type: string
+                  required:
+                  - reason
                   type: object
-                sandboxIp:
-                  description: SandboxIp is the ip address allocated to the sandbox.
-                  type: string
-                updateRevision:
-                  description: UpdateRevision is the template-hash calculated from `spec.template`.
-                  type: string
-              type: object
-          required:
-            - spec
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: { }
+                type: array
+                x-kubernetes-list-map-keys:
+                - reason
+                x-kubernetes-list-type: map
+              updateRevision:
+                description: UpdateRevision is the template-hash calculated from `spec.template`.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
 
