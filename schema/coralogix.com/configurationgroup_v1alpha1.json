@@ -1,5 +1,5 @@
 {
-  "description": "ConfigurationGroup is the Schema for the configurationgroups API.\nThis resource is in Beta. It uses the Fleet Manager Preview configuration-group API.",
+  "description": "ConfigurationGroup is the Schema for the configurationgroups API.\nThis resource is in Preview and may change in breaking ways. It uses the Fleet Manager configuration-groups API.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -14,7 +14,7 @@
       "type": "object"
     },
     "spec": {
-      "description": "ConfigurationGroupSpec defines the desired state of a Fleet Manager configuration group.\nThis resource is in Beta and uses the Preview configuration-group API.",
+      "description": "ConfigurationGroupSpec defines the desired state of a Fleet Manager configuration group.\nIt mirrors the configuration-groups API create request. This resource is in Preview.",
       "type": "object",
       "required": [
         "family",
@@ -23,78 +23,162 @@
       "properties": {
         "description": {
           "description": "Human-readable description.",
-          "type": "string"
+          "type": "string",
+          "maxLength": 4096
         },
         "family": {
           "description": "Latest configuration family for this group.",
           "type": "object",
-          "required": [
-            "remoteConfigurations"
-          ],
           "properties": {
             "active": {
-              "description": "Whether this family is active.",
-              "type": "boolean",
-              "default": true
-            },
-            "collectorVersion": {
-              "description": "Collector semantic version this family targets, without a leading v prefix.\nThe replace API keeps the existing value when this field is omitted.",
-              "type": "string",
-              "maxLength": 256,
-              "minLength": 5,
-              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+              "description": "Whether this family is active. Defaults to false.",
+              "type": "boolean"
             },
             "description": {
               "description": "Human-readable description.",
-              "type": "string"
+              "type": "string",
+              "maxLength": 4096
             },
-            "metadata": {
-              "description": "Metadata stored with this configuration family.",
+            "preset": {
+              "description": "Configuration template settings; Coralogix generates the remote configurations from them.",
               "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "remoteConfigurations": {
-              "description": "Remote OpenTelemetry Collector configurations in this family.",
-              "type": "array",
-              "maxItems": 128,
-              "minItems": 1,
-              "items": {
-                "description": "RemoteConfigurationSpec is a remote OpenTelemetry Collector configuration.",
-                "type": "object",
-                "required": [
-                  "name",
-                  "rawConfiguration"
-                ],
-                "properties": {
-                  "agentSelector": {
-                    "description": "Flat agent attributes that match agents for this configuration.",
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
-                  "name": {
-                    "description": "Remote configuration name.",
+              "required": [
+                "chartName",
+                "chartVersion",
+                "observabilityFeatures"
+              ],
+              "properties": {
+                "chartName": {
+                  "description": "Configuration template type: CHART_NAME_OTEL_INTEGRATION for Kubernetes, CHART_NAME_OTEL_ECS_EC2 for ECS on EC2,\nor CHART_NAME_OTEL_LINUX_STANDALONE, CHART_NAME_OTEL_WINDOWS_STANDALONE, or CHART_NAME_OTEL_MACOS_STANDALONE for hosts.",
+                  "type": "string",
+                  "enum": [
+                    "CHART_NAME_OTEL_INTEGRATION",
+                    "CHART_NAME_OTEL_LINUX_STANDALONE",
+                    "CHART_NAME_OTEL_WINDOWS_STANDALONE",
+                    "CHART_NAME_OTEL_MACOS_STANDALONE",
+                    "CHART_NAME_OTEL_ECS_EC2"
+                  ]
+                },
+                "chartVersion": {
+                  "description": "Configuration template version. It determines the OTel Collector version, the generated collector configuration,\nand which integrationVersion values are supported. Unsupported versions are rejected.",
+                  "type": "string",
+                  "maxLength": 256,
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+                },
+                "integrationVersion": {
+                  "description": "Version of the observability features format. Omit it to use the default for the template type and version.",
+                  "type": "string",
+                  "maxLength": 256,
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+                },
+                "metadata": {
+                  "description": "Environment setup values for the configuration template, such as ClusterName, KubernetesRunningOn,\nApplicationName, or SubsystemName. Set the observability features in observabilityFeatures.",
+                  "type": "object",
+                  "maxProperties": 64,
+                  "additionalProperties": {
                     "type": "string"
                   },
-                  "rawConfiguration": {
-                    "description": "OpenTelemetry Collector configuration YAML. The supervisor-managed OpAMP extension must not be configured.",
-                    "type": "string",
-                    "maxLength": 1048576,
-                    "minLength": 1
-                  }
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.all(k, size(self[k]) \u003c= 4096)",
+                      "message": "metadata values must be at most 4096 characters"
+                    }
+                  ]
                 },
-                "additionalProperties": false
-              }
+                "observabilityFeatures": {
+                  "description": "Observability feature settings for the configuration template, as a JSON object string;\nthe available features depend on chartName and integrationVersion.",
+                  "type": "string",
+                  "maxLength": 1048576,
+                  "minLength": 2
+                }
+              },
+              "additionalProperties": false
+            },
+            "raw": {
+              "description": "Configuration family defined directly by its remote configurations, each with an\nOTel Collector configuration and an agent selector.",
+              "type": "object",
+              "required": [
+                "remoteConfigurations"
+              ],
+              "properties": {
+                "collectorVersion": {
+                  "description": "Collector semantic version this family targets, without a leading v prefix.\nEvery agentSelector must then set service.version to this value.",
+                  "type": "string",
+                  "maxLength": 256,
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+                },
+                "metadata": {
+                  "description": "Metadata stored with this configuration family.",
+                  "type": "object",
+                  "maxProperties": 64,
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.all(k, size(self[k]) \u003c= 4096)",
+                      "message": "metadata values must be at most 4096 characters"
+                    }
+                  ]
+                },
+                "remoteConfigurations": {
+                  "description": "Remote configurations in this family.",
+                  "type": "array",
+                  "maxItems": 128,
+                  "minItems": 1,
+                  "items": {
+                    "description": "RemoteConfigurationSpec is a remote OpenTelemetry Collector configuration.",
+                    "type": "object",
+                    "required": [
+                      "rawConfiguration"
+                    ],
+                    "properties": {
+                      "agentSelector": {
+                        "description": "Agent attributes that match agents for this configuration.",
+                        "type": "object",
+                        "properties": {
+                          "attributes": {
+                            "description": "Flat agent attributes to match. If collectorVersion is set, service.version must match it.",
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "name": {
+                        "description": "Remote configuration name.",
+                        "type": "string",
+                        "maxLength": 256
+                      },
+                      "rawConfiguration": {
+                        "description": "OpenTelemetry Collector configuration YAML. The supervisor-managed OpAMP extension must not be configured.",
+                        "type": "string",
+                        "maxLength": 1048576,
+                        "minLength": 1
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "has(self.preset) != has(self.raw)",
+              "message": "Exactly one of preset or raw is required"
+            }
+          ]
         },
         "name": {
-          "description": "Display name.",
-          "type": "string"
+          "description": "Display name. Group names are unique per team and cannot be cleared.",
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
         },
         "priorityOrder": {
           "description": "Selection precedence. Higher values win on ties and 0 is the default.",
