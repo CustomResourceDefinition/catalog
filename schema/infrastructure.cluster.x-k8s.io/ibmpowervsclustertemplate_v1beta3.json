@@ -317,6 +317,16 @@
                                     "weighted_round_robin"
                                   ]
                                 },
+                                "failsafePolicy": {
+                                  "description": "failsafePolicy defines the action to take when all members of the pool are unhealthy.\nFor route-mode network load balancers, use \"bypass\" to send traffic directly to member IPs.\nWhen omitted, the IBM Cloud default for the load balancer profile is used.",
+                                  "type": "string",
+                                  "enum": [
+                                    "bypass",
+                                    "drop",
+                                    "fail",
+                                    "forward"
+                                  ]
+                                },
                                 "healthMonitor": {
                                   "description": "healthMonitor defines the backend pool's health monitor.",
                                   "type": "object",
@@ -409,6 +419,22 @@
                             "minLength": 1,
                             "pattern": "^([a-z]|[a-z][-a-z0-9]*[a-z0-9])$"
                           },
+                          "profile": {
+                            "description": "profile defines the profile to use for this load balancer.\nSupported values are \"application\" and \"network-fixed\".\nWhen omitted, the IBM Cloud default (application) is used.",
+                            "type": "string",
+                            "enum": [
+                              "application",
+                              "network-fixed"
+                            ]
+                          },
+                          "routeMode": {
+                            "description": "routeMode enables routing mode on the load balancer, making it act as a Layer 3\nnext-hop router rather than a load balancer. Only valid when profile is \"network-fixed\".\nRequired when using the load balancer as a VNF next-hop for a VPC routing table route.",
+                            "type": "string",
+                            "enum": [
+                              "Enabled",
+                              "Disabled"
+                            ]
+                          },
                           "securityGroups": {
                             "description": "securityGroups defines the Security Groups to attach to the load balancer.",
                             "type": "array",
@@ -483,7 +509,13 @@
                             ]
                           }
                         },
-                        "additionalProperties": false
+                        "additionalProperties": false,
+                        "x-kubernetes-validations": [
+                          {
+                            "rule": "!has(self.routeMode) || self.routeMode != 'Enabled' || (has(self.profile) \u0026\u0026 self.profile == 'network-fixed')",
+                            "message": "routeMode can only be enabled when profile is network-fixed"
+                          }
+                        ]
                       },
                       "reference": {
                         "description": "reference contains the information to identify an existing Load Balancer.",
@@ -542,12 +574,14 @@
                   ],
                   "properties": {
                     "provision": {
-                      "description": "provision provides the configuration for the controller to CREATE a new Network and DHCP Server.",
+                      "description": "provision provides the configuration for the controller to CREATE a new Network.\nExactly one of dhcpServer or dhcpSubnet must be set when type is Provision.",
                       "type": "object",
-                      "minProperties": 1,
+                      "required": [
+                        "type"
+                      ],
                       "properties": {
                         "dhcpServer": {
-                          "description": "dhcpServer contains the configuration for the DHCP server that will be created.",
+                          "description": "dhcpServer contains the configuration for creating a new DHCP server (and its associated\nprivate network) via the PowerVS DHCP service API.\nRequired when type is DHCPServer; forbidden otherwise.",
                           "type": "object",
                           "minProperties": 1,
                           "properties": {
@@ -580,9 +614,59 @@
                             }
                           },
                           "additionalProperties": false
+                        },
+                        "dhcpSubnet": {
+                          "description": "dhcpSubnet contains the configuration for creating a plain PowerVS network with DHCP\nnatively enabled (NetworkCreate.EnableDHCP). This avoids creating a separate DHCP server\nresource and is the preferred approach for new clusters.\nRequired when type is DHCPSubnet; forbidden otherwise.",
+                          "type": "object",
+                          "minProperties": 1,
+                          "properties": {
+                            "cidr": {
+                              "description": "cidr is the network CIDR in notation (e.g. 192.168.0.0/24).",
+                              "type": "string",
+                              "maxLength": 49,
+                              "minLength": 1,
+                              "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}($|/[0-9]{1,2})$"
+                            },
+                            "dnsServers": {
+                              "description": "dnsServers is the list of DNS servers for the network.\nIf omitted, defaults to 127.0.0.1 for private (vlan) networks.",
+                              "type": "array",
+                              "maxItems": 2,
+                              "items": {
+                                "type": "string",
+                                "maxLength": 45
+                              },
+                              "x-kubernetes-list-type": "atomic"
+                            },
+                            "name": {
+                              "description": "name is the name of the PowerVS network to be created.\nIf omitted, the name will default to \u003cCLUSTER_NAME\u003e-dhcpsubnet.\nOnly alphanumeric characters, dashes, and underscores are allowed.",
+                              "type": "string",
+                              "maxLength": 128,
+                              "minLength": 1,
+                              "pattern": "^[a-zA-Z0-9-_][a-zA-Z0-9-_]*$"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "type": {
+                          "description": "type defines how the network is provisioned.\nDHCPServer creates a dedicated DHCP Server and its managed private network.\nDHCPSubnet creates a plain PowerVS network with DHCP natively enabled (no separate DHCP server resource).",
+                          "type": "string",
+                          "enum": [
+                            "DHCPServer",
+                            "DHCPSubnet"
+                          ]
                         }
                       },
-                      "additionalProperties": false
+                      "additionalProperties": false,
+                      "x-kubernetes-validations": [
+                        {
+                          "rule": "self.type == 'DHCPServer' ? has(self.dhcpServer) : !has(self.dhcpServer)",
+                          "message": "dhcpServer configuration is required when type is DHCPServer, and forbidden otherwise"
+                        },
+                        {
+                          "rule": "self.type == 'DHCPSubnet' ? has(self.dhcpSubnet) : !has(self.dhcpSubnet)",
+                          "message": "dhcpSubnet configuration is required when type is DHCPSubnet, and forbidden otherwise"
+                        }
+                      ]
                     },
                     "reference": {
                       "description": "reference tells the controller to look up an EXISTING PowerVS network.",
@@ -714,6 +798,32 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      "publicGateway": {
+                        "description": "publicGateway specifies the VPC Public Gateway to attach to this subnet.\nCan be identified by name or id.",
+                        "type": "object",
+                        "minProperties": 1,
+                        "properties": {
+                          "id": {
+                            "description": "id of the resource.",
+                            "type": "string",
+                            "maxLength": 64,
+                            "minLength": 1
+                          },
+                          "name": {
+                            "description": "name of the resource.",
+                            "type": "string",
+                            "maxLength": 128,
+                            "minLength": 1
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-validations": [
+                          {
+                            "rule": "(has(self.id) ? 1 : 0) + (has(self.name) ? 1 : 0) == 1",
+                            "message": "exactly one of id or name must be specified"
+                          }
+                        ]
                       },
                       "reference": {
                         "description": "reference contains the information to identify an existing VPC Subnet.",
@@ -1078,6 +1188,267 @@
                       "message": "provision configuration is required when type is Provision, and forbidden otherwise"
                     }
                   ]
+                },
+                "vpcPublicGateways": {
+                  "description": "vpcPublicGateways defines the VPC Public Gateways that should exist or be created for the cluster's VPC.\nA public gateway provides outbound internet access to resources in a subnet. One gateway is required\nper zone in which subnets need outbound access.",
+                  "type": "array",
+                  "maxItems": 10,
+                  "items": {
+                    "description": "VPCPublicGateway defines a VPC Public Gateway to create or reference for the cluster's VPC.\nA public gateway provides outbound internet access for resources in a subnet; one is needed per zone.",
+                    "type": "object",
+                    "required": [
+                      "type"
+                    ],
+                    "properties": {
+                      "provision": {
+                        "description": "provision contains the configuration for provisioning a new VPC Public Gateway.",
+                        "type": "object",
+                        "minProperties": 1,
+                        "properties": {
+                          "name": {
+                            "description": "name of the VPC Public Gateway to be created.",
+                            "type": "string",
+                            "maxLength": 63,
+                            "minLength": 1,
+                            "pattern": "^([a-z]|[a-z][-a-z0-9]*[a-z0-9])$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "reference": {
+                        "description": "reference contains the information to identify an existing VPC Public Gateway.",
+                        "type": "object",
+                        "minProperties": 1,
+                        "properties": {
+                          "id": {
+                            "description": "id of the resource.",
+                            "type": "string",
+                            "maxLength": 64,
+                            "minLength": 1
+                          },
+                          "name": {
+                            "description": "name of the resource.",
+                            "type": "string",
+                            "maxLength": 128,
+                            "minLength": 1
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-validations": [
+                          {
+                            "rule": "(has(self.id) ? 1 : 0) + (has(self.name) ? 1 : 0) == 1",
+                            "message": "exactly one of id or name must be specified"
+                          }
+                        ]
+                      },
+                      "type": {
+                        "description": "type defines whether to use an existing VPC Public Gateway or provision a new one.",
+                        "type": "string",
+                        "enum": [
+                          "Reference",
+                          "Provision"
+                        ]
+                      },
+                      "zone": {
+                        "description": "zone is the IBM Cloud VPC zone in which the public gateway resides or should be created.\nRequired when type is Provision.",
+                        "type": "string",
+                        "maxLength": 63,
+                        "minLength": 1
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "self.type == 'Reference' ? has(self.reference) : !has(self.reference)",
+                        "message": "reference configuration is required when type is Reference, and forbidden otherwise"
+                      },
+                      {
+                        "rule": "self.type == 'Provision' ? has(self.provision) : !has(self.provision)",
+                        "message": "provision configuration is required when type is Provision, and forbidden otherwise"
+                      }
+                    ]
+                  },
+                  "x-kubernetes-list-type": "atomic"
+                },
+                "vpcRoutingTables": {
+                  "description": "vpcRoutingTables defines the VPC Routing Tables that should exist or be created for the cluster's VPC.",
+                  "type": "array",
+                  "maxItems": 10,
+                  "items": {
+                    "description": "VPCRoutingTableSource defines a VPC Routing Table that should exist or be created for the cluster's VPC.",
+                    "type": "object",
+                    "required": [
+                      "type"
+                    ],
+                    "properties": {
+                      "provision": {
+                        "description": "provision contains the configuration for provisioning a new Routing Table.",
+                        "type": "object",
+                        "minProperties": 1,
+                        "properties": {
+                          "advertiseRoutesTo": {
+                            "description": "advertiseRoutesTo defines the ingress sources to which routes in this routing table will be advertised.",
+                            "type": "array",
+                            "maxItems": 2,
+                            "items": {
+                              "description": "AdvertiseRouteTarget defines the ingress sources to which routes in a routing table will be advertised.",
+                              "type": "string",
+                              "enum": [
+                                "transit_gateway",
+                                "direct_link"
+                              ]
+                            },
+                            "x-kubernetes-list-type": "set"
+                          },
+                          "name": {
+                            "description": "name of the Routing Table to be created.\nIf omitted, IBM Cloud will generate a name.",
+                            "type": "string",
+                            "maxLength": 63,
+                            "minLength": 1,
+                            "pattern": "^([a-z]|[a-z][-a-z0-9]*[a-z0-9])$"
+                          },
+                          "routeDirectLinkIngress": {
+                            "description": "routeDirectLinkIngress defines whether this routing table routes traffic from Direct Link.\nOnly one routing table per VPC may have this set to Enabled.",
+                            "type": "string",
+                            "enum": [
+                              "Enabled",
+                              "Disabled"
+                            ]
+                          },
+                          "routeTransitGatewayIngress": {
+                            "description": "routeTransitGatewayIngress defines whether this routing table routes traffic from Transit Gateway.\nOnly one routing table per VPC may have this set to Enabled.",
+                            "type": "string",
+                            "enum": [
+                              "Enabled",
+                              "Disabled"
+                            ]
+                          },
+                          "routeVPCZoneIngress": {
+                            "description": "routeVPCZoneIngress defines whether this routing table routes traffic from subnets in other zones.\nOnly one routing table per VPC may have this set to Enabled.",
+                            "type": "string",
+                            "enum": [
+                              "Enabled",
+                              "Disabled"
+                            ]
+                          },
+                          "routes": {
+                            "description": "routes defines the set of routes to create in the routing table.",
+                            "type": "array",
+                            "maxItems": 200,
+                            "items": {
+                              "description": "VPCRoutingTableRoute defines a route within a VPC Routing Table.\nIf action is deliver and nextHop is omitted, the controller will resolve it automatically\nfrom the first private IP of a provisioned load balancer in the cluster status.",
+                              "type": "object",
+                              "required": [
+                                "action",
+                                "destination",
+                                "zone"
+                              ],
+                              "properties": {
+                                "action": {
+                                  "description": "action defines the action to perform with a packet matching this route.",
+                                  "type": "string",
+                                  "enum": [
+                                    "delegate",
+                                    "delegate_vpc",
+                                    "deliver",
+                                    "drop"
+                                  ]
+                                },
+                                "advertise": {
+                                  "description": "advertise controls whether this route is advertised to the ingress sources\nconfigured on the routing table (e.g. Transit Gateway).\nWhen omitted, the IBM Cloud API defaults to Disabled.",
+                                  "type": "string",
+                                  "enum": [
+                                    "Enabled",
+                                    "Disabled"
+                                  ]
+                                },
+                                "destination": {
+                                  "description": "destination is the destination CIDR for the route.\nThe host identifier in the CIDR must be zero.",
+                                  "type": "string",
+                                  "maxLength": 128,
+                                  "minLength": 1
+                                },
+                                "name": {
+                                  "description": "name is an optional name for the route.\nIf unspecified, IBM Cloud will generate a name.",
+                                  "type": "string",
+                                  "maxLength": 63,
+                                  "minLength": 1,
+                                  "pattern": "^([a-z]|[a-z][-a-z0-9]*[a-z0-9])$"
+                                },
+                                "nextHop": {
+                                  "description": "nextHop is the next-hop IP address for routes with action deliver.\nMust be a unicast IP address within a subnet in the routing table's VPC.",
+                                  "type": "string",
+                                  "maxLength": 39,
+                                  "minLength": 1
+                                },
+                                "zone": {
+                                  "description": "zone is the name of the availability zone to apply the route to.",
+                                  "type": "string",
+                                  "maxLength": 63,
+                                  "minLength": 1
+                                }
+                              },
+                              "additionalProperties": false,
+                              "x-kubernetes-validations": [
+                                {
+                                  "rule": "self.action != 'deliver' ? !has(self.nextHop) : true",
+                                  "message": "nextHop must not be set unless action is deliver"
+                                }
+                              ]
+                            },
+                            "x-kubernetes-list-type": "atomic"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "reference": {
+                        "description": "reference contains the information to identify an existing Routing Table.\nThe controller will look up the routing table but will not manage its routes.",
+                        "type": "object",
+                        "minProperties": 1,
+                        "properties": {
+                          "id": {
+                            "description": "id of the resource.",
+                            "type": "string",
+                            "maxLength": 64,
+                            "minLength": 1
+                          },
+                          "name": {
+                            "description": "name of the resource.",
+                            "type": "string",
+                            "maxLength": 128,
+                            "minLength": 1
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-validations": [
+                          {
+                            "rule": "(has(self.id) ? 1 : 0) + (has(self.name) ? 1 : 0) == 1",
+                            "message": "exactly one of id or name must be specified"
+                          }
+                        ]
+                      },
+                      "type": {
+                        "description": "type defines whether to use an existing Routing Table or provision a new one.",
+                        "type": "string",
+                        "enum": [
+                          "Reference",
+                          "Provision"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "self.type == 'Reference' ? has(self.reference) : !has(self.reference)",
+                        "message": "reference configuration is required when type is Reference, and forbidden otherwise"
+                      },
+                      {
+                        "rule": "self.type == 'Provision' ? has(self.provision) : !has(self.provision)",
+                        "message": "provision configuration is required when type is Provision, and forbidden otherwise"
+                      }
+                    ]
+                  },
+                  "x-kubernetes-list-type": "atomic"
                 },
                 "vpcSecurityGroups": {
                   "description": "vpcSecurityGroups defines the VPC Security Groups that should exist or be created.",
