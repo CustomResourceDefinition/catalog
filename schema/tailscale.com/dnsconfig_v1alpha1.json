@@ -1,5 +1,5 @@
 {
-  "description": "DNSConfig can be deployed to cluster to make a subset of Tailscale MagicDNS\nnames resolvable by cluster workloads. Use this if: A) you need to refer to\ntailnet services, exposed to cluster via Tailscale Kubernetes operator egress\nproxies by the MagicDNS names of those tailnet services (usually because the\nservices run over HTTPS)\nB) you have exposed a cluster workload to the tailnet using Tailscale Ingress\nand you also want to refer to the workload from within the cluster over the\nIngress's MagicDNS name (usually because you have some callback component\nthat needs to use the same URL as that used by a non-cluster client on\ntailnet).\nWhen a DNSConfig is applied to a cluster, Tailscale Kubernetes operator will\ndeploy a nameserver for ts.net DNS names and automatically populate it with records\nfor any Tailscale egress or Ingress proxies deployed to that cluster.\nCurrently you must manually update your cluster DNS configuration to add the\nIP address of the deployed nameserver as a ts.net stub nameserver.\nInstructions for how to do it:\nhttps://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/#configuration-of-stub-domain-and-upstream-nameserver-using-coredns (for CoreDNS),\nhttps://cloud.google.com/kubernetes-engine/docs/how-to/kube-dns (for kube-dns).\nTailscale Kubernetes operator will write the address of a Service fronting\nthe nameserver to dsnconfig.status.nameserver.ip.\nDNSConfig is a singleton - you must not create more than one.\nNB: if you want cluster workloads to be able to refer to Tailscale Ingress\nusing its MagicDNS name, you must also annotate the Ingress resource with\ntailscale.com/experimental-forward-cluster-traffic-via-ingress annotation to\nensure that the proxy created for the Ingress listens on its Pod IP address.",
+  "description": "DNSConfig can be deployed to cluster to make a subset of Tailscale MagicDNS\nnames resolvable by cluster workloads. Use this if: A) you need to refer to\ntailnet services, exposed to cluster via Tailscale Kubernetes operator egress\nproxies by the MagicDNS names of those tailnet services (usually because the\nservices run over HTTPS)\nB) you have exposed a cluster workload to the tailnet using Tailscale Ingress\nand you also want to refer to the workload from within the cluster over the\nIngress's MagicDNS name (usually because you have some callback component\nthat needs to use the same URL as that used by a non-cluster client on\ntailnet).\nWhen a DNSConfig is applied to a cluster, Tailscale Kubernetes operator will\ndeploy a nameserver for ts.net DNS names and automatically populate it with records\nfor any Tailscale egress or Ingress proxies deployed to that cluster.\nCurrently you must manually update your cluster DNS configuration to add the\nIP address of the deployed nameserver as a ts.net stub nameserver.\nInstructions for how to do it:\nhttps://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/#configuration-of-stub-domain-and-upstream-nameserver-using-coredns (for CoreDNS),\nhttps://cloud.google.com/kubernetes-engine/docs/how-to/kube-dns (for kube-dns).\nTailscale Kubernetes operator will write the address of a Service fronting\nthe nameserver to dsnconfig.status.nameserver.ip.\nDNSConfig is a singleton - you must not create more than one.\nNB: if you want cluster workloads to be able to refer to Tailscale Ingress\nusing its MagicDNS name, you must also annotate the Ingress resource with\ntailscale.com/experimental-forward-cluster-traffic-via-ingress annotation to\nensure that the proxy created for the Ingress is available via its Pod IP\naddress. The annotation installs rules that DNAT traffic sent to the proxy's\nPod IP to its Tailscale IP, and allows the Serve listener on that Tailscale IP\nto accept packets arriving through the Pod interface. Traffic accepted via this\npath does not traverse the Tailscale tunnel and is not affected by tailnet\nACLs. Restrict access using Kubernetes network policy.",
   "type": "object",
   "required": [
     "spec"
@@ -835,6 +835,23 @@
                   },
                   "additionalProperties": false
                 },
+                "imagePullSecrets": {
+                  "description": "Nameserver Pod's image pull Secrets.\nhttps://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodSpec",
+                  "type": "array",
+                  "items": {
+                    "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                        "type": "string",
+                        "default": ""
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-map-type": "atomic"
+                  }
+                },
                 "nodeSelector": {
                   "description": "If specified, applies node selector rules to the pods deployed by the DNSConfig resource.",
                   "type": "object",
@@ -858,7 +875,7 @@
                         "type": "string"
                       },
                       "operator": {
-                        "description": "Operator represents a key's relationship to the value.\nValid operators are Exists and Equal. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.",
+                        "description": "Operator represents a key's relationship to the value.\nValid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.\nLt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).",
                         "type": "string"
                       },
                       "tolerationSeconds": {
