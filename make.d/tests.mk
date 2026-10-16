@@ -2,7 +2,7 @@ GREEN='\e[1;32m%-6s\e[m\n'
 TOOL_VERSION = $(shell grep '^golang ' .tool-versions | sed 's/golang //')
 MOD_VERSION = $(shell grep '^go ' go.mod | sed 's/go //')
 
-test: build test-go test-docker test-makefile test-editorcheck test-schemas unit-tests smoke-tests
+test: build test-go test-docker test-makefile test-editorcheck test-schemas test-kubeconform unit-tests smoke-tests
 
 test-go:
 	@echo 'Checking for mod file changes ...'
@@ -68,9 +68,21 @@ endif
 	docker compose down --remove-orphans
 	@printf $(GREEN) "OK"
 
+test-kubeconform:
+	@echo 'Checking known kubeconform samples ...'
+	docker compose up --quiet-pull --remove-orphans --wait -d schema
+	docker compose run --quiet-pull --rm -T kubeconform \
+		-schema-location 'http://schema:8080/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-summary < test/fixtures/kubeconform/kubeconform-positive.yaml;
+	docker compose run --quiet-pull --rm -T kubeconform \
+		-schema-location 'http://schema:8080/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+		-summary < test/fixtures/kubeconform/kubeconform-negative.yaml; test 1 -eq $$?
+	docker compose down --remove-orphans
+	@printf $(GREEN) "OK"
+
 test-editorcheck:
 	@echo 'Checking general formatting of all files ...'
-	docker run --rm -v $(CURDIR):/workspace:ro -w /workspace mstruebing/editorconfig-checker:4 \
+	docker run --quiet-pull --rm -v $(CURDIR):/workspace:ro -w /workspace mstruebing/editorconfig-checker:4 \
 		editorconfig-checker -exclude '^\.git/|.DS_Store|^build/|^definitions/|^schema/'
 	@printf $(GREEN) "OK"
 
