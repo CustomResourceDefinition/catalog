@@ -82,7 +82,7 @@ test-kubeconform:
 
 test-editorcheck:
 	@echo 'Checking general formatting of all files ...'
-	docker run --quiet-pull --rm -v $(CURDIR):/workspace:ro -w /workspace mstruebing/editorconfig-checker:4 \
+	docker run --rm -v $(CURDIR):/workspace:ro -w /workspace mstruebing/editorconfig-checker:4 \
 		editorconfig-checker -exclude '^\.git/|.DS_Store|^build/|^definitions/|^schema/'
 	@printf $(GREEN) "OK"
 
