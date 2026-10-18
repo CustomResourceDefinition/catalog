@@ -21,7 +21,7 @@ unit-tests:
 	@echo 'Running go unit tests ...'
 	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags $(GO_TAGS) -skip 'TestCheckLocal'
 
-test-coverage:
+test-coverage: unit-tests
 	go tool cover -html=build/coverage.out -o build/coverage.html
 
 test-analysis:
