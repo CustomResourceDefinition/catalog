@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"testing"
 
@@ -100,6 +101,46 @@ func TestSplittingConfiguration(t *testing.T) {
 		result := splitConfigurations(test.configs)
 		assert.Equal(t, test.resolvedAmount, len(result), "index %d failed", i)
 	}
+
+	skipped := splitConfigurations([]configuration.Configuration{{Name: "charts", Entries: []string{"one", "two"}, Skipped: true}})
+	assert.Len(t, skipped, 2)
+	assert.True(t, skipped[0].Skipped)
+	assert.True(t, skipped[1].Skipped)
+}
+
+func TestActiveConfigurations(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []configuration.Configuration
+		want  []configuration.Configuration
+	}{
+		{name: "nil", want: []configuration.Configuration{}},
+		{name: "empty", input: []configuration.Configuration{}, want: []configuration.Configuration{}},
+		{
+			name: "preserves active and omits skipped",
+			input: []configuration.Configuration{
+				{Name: "first"},
+				{Name: "skipped", Skipped: true},
+				{Name: "charts", Entries: []string{"one", "two"}},
+				{Name: "skipped-charts", Entries: []string{"three", "four"}, Skipped: true},
+				{Name: "last", Skipped: false},
+			},
+			want: []configuration.Configuration{
+				{Name: "first"},
+				{Name: "charts.one", Entries: []string{"one"}},
+				{Name: "charts.two", Entries: []string{"two"}},
+				{Name: "last", Skipped: false},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := slices.Clone(test.input)
+			assert.Equal(t, test.want, activeConfigurations(test.input))
+			assert.Equal(t, input, test.input)
+		})
+	}
 }
 
 func TestValidSourceKeys(t *testing.T) {
@@ -118,8 +159,8 @@ func TestValidSourceKeys(t *testing.T) {
 	assert.Len(t, keys, 2)
 
 	configs = []configuration.Configuration{
-		{Name: "single"},
-		{Name: "multi", Entries: []string{"x", "y", "z"}},
+		{Name: "single", Skipped: true},
+		{Name: "multi", Entries: []string{"x", "y", "z"}, Skipped: true},
 	}
 	keys = validSourceKeys(configs)
 	assert.True(t, keys["single"])

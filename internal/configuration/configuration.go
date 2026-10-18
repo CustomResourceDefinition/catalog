@@ -34,6 +34,7 @@ type Configuration struct {
 	Namespace       string                  `yaml:"namespace"`
 	Repository      string                  `yaml:"repository"`
 	SearchPaths     []string                `yaml:"searchPaths"`
+	Skipped         bool                    `yaml:"skipped"`
 	Values          []ConfigurationValues   `yaml:"valuesFiles"`
 	VersionPattern  string                  `yaml:"versionPattern"`
 }

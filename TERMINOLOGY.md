@@ -16,6 +16,9 @@ _Avoid_: Source
 A release or revision of an upstream from which CRDs are obtained.
 _Avoid_: CRD version
 
+**Skipped source**:
+A configured source intentionally omitted from collection and routine source audits, while its existing registry records, schemas, and definitions are retained.
+
 **CRD**:
 A Kubernetes CustomResourceDefinition that establishes a custom resource kind within an API group.
 _Avoid_: CRD definition

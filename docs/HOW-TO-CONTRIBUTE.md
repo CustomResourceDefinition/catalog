@@ -12,6 +12,20 @@ We prefer using the [Helm charts](#helm-charts) method to avoid issues like need
 > [!IMPORTANT]  
 > Please keep the `configuration.yaml` sorted by name.
 
+## Skipping a source
+
+Set `skipped: true` to omit an entire configuration entry from collection and routine source audits. This applies to all charts in a Helm entry. The source remains configured, so its registry records and existing schemas and definitions are retained. Remove the field or set it to `false` to resume collection. Add a description explaining why the source is skipped.
+
+```yaml
+- kind: git
+  name: archived-project
+  repository: https://github.com/example/archived-project
+  searchPaths:
+    - config/crd
+  skipped: true
+  description: End of life; upstream archived in 2026.
+```
+
 We encourage you to look through the [COMPARISON.md](COMPARISON.md), if you would like to help add relevant missing schemas.
 
 ## Helm charts

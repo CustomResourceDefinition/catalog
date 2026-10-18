@@ -13,6 +13,8 @@ Sources are added to the configuration file, see details in [how to contribute f
 
 Sources can have a description field which may describe that a source is already deprecated, archived or otherwise unavailable. There is no need to re-verified a source with such a description.
 
+Sources with `skipped: true` are intentionally excluded from being used for generating new content. Confirm they should still be skipped based on explanation in the description.
+
 You can look up a configuration entry with its (sops used in the example) with:
 
 ```sh
@@ -23,24 +25,36 @@ yq '.[] | select(.name == "sops")' configuration.yaml
 
 There is a registry file at `registry.yaml` which contains among other details the last updated field for each source.
 
-You can list the oldest 100 updates with:
+The output list corresponds to configuration names. The registry key is `{name}` when `entries` is omitted or empty, and `{name}.{entry}` for each entry whenever `entries` is nonempty (including a single entry).
+
+You can list the oldest 100 updates from active sources with:
 
 ```sh
-yq '.sources | to_entries | sort_by(.value.lastUpdated) | .[:100] | group_by(.value.kind) | .[] | {"kind": (.[0].value.kind), "sources": ([.[].key])}' registry.yaml
+if ! yq --version 2>/dev/null |
+  grep -Eq 'github\.com/mikefarah/yq/.*version v4\.'; then
+  printf '%s\n' 'Requires Mike Farah yq v4.' >&2
+  exit 1
+fi
+
+yq '
+  [load("configuration.yaml")[] | select(.skipped != true)
+    | .name as $name | (.entries // [""])[]
+    | [$name, .] | map(select(. != "")) | join(".")
+  ] as $active
+  | .sources
+  | to_entries
+  | map(select(.key as $key | $active | any_c(. == $key)))
+  | sort_by(.value.lastUpdated)
+  | .[:100]
+  | group_by(.value.kind)
+  | .[]
+  | {"kind": .[0].value.kind, "sources": map(.key)}
+' registry.yaml
 ```
 
-The output list is roughly the name field from configuration. The naming scheme is `{name}` for single-entry configs, `{name}.{entry}` for multi-entry configs.
-
-You must use the yq command to find sources to audit, if no target sources are given by the user.
+You must use the above command to find sources to audit, if no target sources are given by the user.
 
 # Instructions
-
-Avoid reading too much of the very large files in:
-
-- configuration.yaml
-- registry.yaml
-- schema/\*
-- definitions/\*
 
 For Git Sources:
 

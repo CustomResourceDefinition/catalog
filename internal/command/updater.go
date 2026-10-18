@@ -111,7 +111,7 @@ func (cmd Updater) Run() error {
 	}
 	defer totalStats.CloseLogFile()
 
-	for _, config := range splitConfigurations(configurations) {
+	for _, config := range activeConfigurations(configurations) {
 		start = time.Now()
 		runtime.GC()
 
@@ -228,6 +228,16 @@ func splitConfigurations(configurations []configuration.Configuration) []configu
 	}
 
 	return updated
+}
+
+func activeConfigurations(configurations []configuration.Configuration) []configuration.Configuration {
+	active := make([]configuration.Configuration, 0, len(configurations))
+	for _, config := range splitConfigurations(configurations) {
+		if !config.Skipped {
+			active = append(active, config)
+		}
+	}
+	return active
 }
 
 func validSourceKeys(configs []configuration.Configuration) map[string]bool {
