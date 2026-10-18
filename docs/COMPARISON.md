@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.61% | 4057 | 12599 | 91 |
+| 99.49% | 4081 | 12599 | 91 |
 
 ### Missing Schemas
 
@@ -23,6 +23,17 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
+
+| gravitee.io | |
+| --- | --- |
+| dictionary | v1alpha1 |
+| documentation | v1alpha1 |
+| portal | v1alpha1 |
+| portallisting | v1alpha1 |
+
+| internal.kro.run | |
+| --- | --- |
+| graphrevision | v1alpha1 |
 
 | networking.gke.io | |
 | --- | --- |
