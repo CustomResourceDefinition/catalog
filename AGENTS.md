@@ -16,7 +16,7 @@ This is the CRD Catalog - a tool that aggregates hundreds of popular Kubernetes 
 make test
 ```
 
-This runs on PRs to main via GitHub Actions (`.github/workflows/tests.yaml`). It includes:
+This runs on PRs to main via GitHub Actions (`.github/workflows/tests.yaml`). The `make test` includes:
 
 - Go unit tests with coverage
 - Schema validation
@@ -27,7 +27,7 @@ This runs on PRs to main via GitHub Actions (`.github/workflows/tests.yaml`). It
 **Run Go unit tests locally:**
 
 ```bash
-go test ./... -timeout 10s -shuffle on -p 1 -tags containers_image_openpgp -skip 'TestCheckLocal'
+make unit-tests
 ```
 
 **Run a single test:**
@@ -99,7 +99,7 @@ Follow the settings in `.editorconfig`.
 
 ## Project Structure
 
-```
+```txt
 /schema          # Generated OpenAPI schema files
 /definitions     # Generated definition files (for kopium)
 /configuration.yaml  # CRD sources configuration
@@ -111,6 +111,16 @@ Follow the settings in `.editorconfig`.
 /test/           # Test fixtures and scripts
 ```
 
+### Notes
+
+Avoid reading and globbing for:
+
+```txt
+/schema          # 10k+ files 500Mi+ data
+/definitions     # 10k+ files 500Mi+ data
+/registry.yaml   # 40k+ lines
+```
+
 ## Configuration
 
 The main configuration file is `configuration.yaml`. It defines CRD sources (Helm charts, URLs, etc.) that are fetched to generate the schema and definition files.
@@ -118,7 +128,7 @@ The main configuration file is `configuration.yaml`. It defines CRD sources (Hel
 The configuration file can be validated against the JSON schema at `internal/configuration/schema.json` using:
 
 ```bash
-go run . verify --schema internal/configuration/schema.json --file configuration.yaml
+make build test-schemas
 ```
 
 ## Important Notes

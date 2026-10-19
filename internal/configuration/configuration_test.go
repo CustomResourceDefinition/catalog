@@ -62,6 +62,37 @@ func TestUnmarshalCorrectConfigurations(t *testing.T) {
 	assert.Equal(t, 6, len(conf))
 }
 
+func TestUnmarshalSkippedConfigurations(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		skipped bool
+		wantErr bool
+	}{
+		{name: "omitted", value: ""},
+		{name: "false", value: "skipped: false"},
+		{name: "true", value: "skipped: true", skipped: true},
+		{name: "string", value: `skipped: "true"`, wantErr: true},
+		{name: "null", value: "skipped: null", wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := fmt.Sprintf("- kind: http\n  name: test\n  apiGroups: [example.com]\n  crds:\n    - version: 1.0.0\n      baseUri: https://example.com\n      paths: [crd.yaml]\n  %s\n", test.value)
+			configs, err := UnmarshalConfigurations(strings.NewReader(input))
+			if test.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, configs)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Len(t, configs, 1)
+			assert.Equal(t, test.skipped, configs[0].Skipped)
+		})
+	}
+}
+
 func TestUnmarshalInvalidConfigurations(t *testing.T) {
 	f, err := os.Open("testdata/invalid.yaml")
 	assert.Nil(t, err)

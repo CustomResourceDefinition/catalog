@@ -2,7 +2,7 @@ GREEN='\e[1;32m%-6s\e[m\n'
 TOOL_VERSION = $(shell grep '^golang ' .tool-versions | sed 's/golang //')
 MOD_VERSION = $(shell grep '^go ' go.mod | sed 's/go //')
 
-test: build test-go test-docker test-makefile test-editorcheck test-schemas test-kubeconform unit-tests smoke-tests
+test: build test-go test-docker test-makefile test-editorcheck test-schemas test-kubeconform unit-tests test-coverage test-analysis smoke-tests
 
 test-go:
 	@echo 'Checking for mod file changes ...'
@@ -20,7 +20,11 @@ endif
 unit-tests:
 	@echo 'Running go unit tests ...'
 	go test ./... -timeout 10s -shuffle on -p 1 -coverprofile=build/coverage.out -tags $(GO_TAGS) -skip 'TestCheckLocal'
+
+test-coverage: unit-tests
 	go tool cover -html=build/coverage.out -o build/coverage.html
+
+test-analysis:
 	@echo 'Running static analysis ...'
 	go vet ./...
 
