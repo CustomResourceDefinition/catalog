@@ -1731,6 +1731,15 @@
                   },
                   "additionalProperties": false
                 },
+                "l4": {
+                  "type": "object",
+                  "properties": {
+                    "sndrcv_buf_size": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
                 "use_ipv6": {
                   "type": "boolean"
                 }
@@ -2173,6 +2182,17 @@
           "description": "Container image used for `aisnode` container.",
           "type": "string",
           "minLength": 1
+        },
+        "nodeJoin": {
+          "description": "NodeJoin configures AIS node-join authentication, available in AIStore v5.0 and later.\nMore info: https://github.com/NVIDIA/aistore/blob/main/docs/auth_node_join.md",
+          "type": "object",
+          "properties": {
+            "secretName": {
+              "description": "SecretName names a Secret containing the node-join credential in a data key named\n\"node_join_secret\". The operator automatically updates \"node_join_secret_path\" in the\nAIStore config to use this value.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         },
         "ociSecretName": {
           "description": "Secret name containing OCI config and credentials",
@@ -3318,6 +3338,25 @@
                     "type": "string"
                   }
                 },
+                "dns": {
+                  "description": "DNS sets a public DNS name for each externally accessible target service. Supported on targets only.",
+                  "type": "object",
+                  "required": [
+                    "domain"
+                  ],
+                  "properties": {
+                    "domain": {
+                      "description": "Domain is the DNS domain under which each target is published as \u003cpod-name\u003e.\u003cdomain\u003e.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "externalDNSAnnotation": {
+                      "description": "ExternalDNSAnnotation adds the external-dns hostname annotation to each target's external Service.",
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
                 "loadBalancer": {
                   "description": "LoadBalancer tunes the LoadBalancer services. Omit it to accept the defaults.",
                   "type": "object",
@@ -3333,7 +3372,13 @@
                   "additionalProperties": false
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!(self.?dns.?externalDNSAnnotation.orValue(false) \u0026\u0026 'external-dns.kubernetes.io/hostname' in self.?annotations.orValue({}))",
+                  "message": "annotations cannot set external-dns.kubernetes.io/hostname when dns.externalDNSAnnotation is true"
+                }
+              ]
             },
             "hostPort": {
               "description": "HostPort - Port to bind directly to a specific port on the host",
@@ -3769,7 +3814,7 @@
           "additionalProperties": false
         },
         "publicNetDNSMode": {
-          "description": "PublicNetDNSMode Defines the public network DNS name to use with hostPort.\nDefaults to 'IP' to use the host IP.\nOther options include:\n 'Node' to use the K8s node DNS name\n 'Pod' to use the pod DNS name (resolves to host IP when used with host networking)",
+          "description": "PublicNetDNSMode Defines the public network DNS name to use with hostPort or hostNetwork.\nIt does not apply to targets with targetSpec.externalAccess.dns.\nDefaults to 'IP' to use the host IP.\nOther options include:\n 'Node' to use the K8s node DNS name\n 'Pod' to use the pod DNS name (resolves to host IP when used with host networking)",
           "type": "string",
           "default": "IP",
           "enum": [
@@ -4978,6 +5023,25 @@
                     "type": "string"
                   }
                 },
+                "dns": {
+                  "description": "DNS sets a public DNS name for each externally accessible target service. Supported on targets only.",
+                  "type": "object",
+                  "required": [
+                    "domain"
+                  ],
+                  "properties": {
+                    "domain": {
+                      "description": "Domain is the DNS domain under which each target is published as \u003cpod-name\u003e.\u003cdomain\u003e.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "externalDNSAnnotation": {
+                      "description": "ExternalDNSAnnotation adds the external-dns hostname annotation to each target's external Service.",
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
                 "loadBalancer": {
                   "description": "LoadBalancer tunes the LoadBalancer services. Omit it to accept the defaults.",
                   "type": "object",
@@ -4993,7 +5057,13 @@
                   "additionalProperties": false
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!(self.?dns.?externalDNSAnnotation.orValue(false) \u0026\u0026 'external-dns.kubernetes.io/hostname' in self.?annotations.orValue({}))",
+                  "message": "annotations cannot set external-dns.kubernetes.io/hostname when dns.externalDNSAnnotation is true"
+                }
+              ]
             },
             "hostNetwork": {
               "description": "hostNetwork - if set to true, the AIS Daemon pods for target are created in the host's network namespace (used for multihoming)",
@@ -5334,7 +5404,7 @@
               "additionalProperties": false
             },
             "scaleDownMode": {
-              "description": "ScaleDownMode controls how targets are scaled down.\n\"safe_decommission\" (default) rebalances data off the node and removes the target, keeping its on-disk data.\nRebalance should be enabled so data is migrated before a target is removed, and a warning is issued when it is\nnot. Recommended for local AIS buckets, whose data cannot be recovered if lost.\n\"decommission\" rebalances data off the node, then removes the target and deletes its on-disk data. When rebalance\nis disabled the data is deleted without being migrated.\n\"retain\" leaves data on the node by putting the target into maintenance mode. This is useful when you expect\nanother pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node\nwill become inaccessible.",
+              "description": "ScaleDownMode controls how targets are scaled down.\n\"safe_decommission\" (default) and \"decommission\" put each target into maintenance mode, which rebalances data off\nthe node, and remove the target only after the rebalance succeeds. \"safe_decommission\" keeps the on-disk data of\nthe target, and \"decommission\" deletes it. While the spec disables rebalance, both modes wait to remove targets.\nBoth modes also wait on a target with a bound data PVC that leaves the cluster before the operator decommissions it.\n\"retain\" leaves data on the node by putting the target into maintenance mode. This is useful when you expect\nanother pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node\nwill become inaccessible.",
               "type": "string",
               "default": "safe_decommission",
               "enum": [
@@ -5611,6 +5681,90 @@
               },
               "additionalProperties": false
             },
+            "public": {
+              "description": "Public overrides the certificate AIS serves on the public network. Every client\nreaching a daemon on its public port is served this certificate.",
+              "type": "object",
+              "required": [
+                "serverName"
+              ],
+              "properties": {
+                "certificate": {
+                  "description": "Certificate configures cert-manager certificate generation.",
+                  "type": "object",
+                  "required": [
+                    "issuerRef"
+                  ],
+                  "properties": {
+                    "additionalDNSNames": {
+                      "description": "AdditionalDNSNames are extra DNS names to include in the certificate",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "duration": {
+                      "description": "Duration is the lifetime of the certificate.\nWhen unset, cert-manager's own default applies in both secret and csi modes.",
+                      "type": "string"
+                    },
+                    "issuerRef": {
+                      "description": "IssuerRef references a cert-manager issuer",
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "description": "Kind is Issuer or ClusterIssuer (default: ClusterIssuer)",
+                          "type": "string",
+                          "default": "ClusterIssuer",
+                          "enum": [
+                            "Issuer",
+                            "ClusterIssuer"
+                          ]
+                        },
+                        "name": {
+                          "description": "Name of the issuer",
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "mode": {
+                      "description": "Mode specifies how certificates are delivered: \"secret\" (default) or \"csi\"",
+                      "type": "string",
+                      "default": "secret",
+                      "enum": [
+                        "secret",
+                        "csi"
+                      ]
+                    },
+                    "renewBefore": {
+                      "description": "RenewBefore is when to start renewing.\nWhen unset, cert-manager's own default applies in both secret and csi modes.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "secretName": {
+                  "description": "SecretName references an existing TLS secret",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "serverName": {
+                  "description": "ServerName is the DNS name clients use to reach AIS on the public network.\nIt is the name the operator verifies the public certificate against when calling the AIS API.\nWith the 'certificate' option, the operator includes it in the certificate SANs.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "[has(self.secretName), has(self.certificate)].filter(x, x).size() == 1",
+                  "message": "specify exactly one: secretName or certificate"
+                }
+              ]
+            },
             "secretName": {
               "description": "SecretName references an existing TLS secret",
               "type": "string"
@@ -5621,6 +5775,10 @@
             {
               "rule": "[has(self.secretName), has(self.certificate)].filter(x, x).size() \u003c= 1",
               "message": "specify only one: secretName or certificate"
+            },
+            {
+              "rule": "!has(self.public) || has(self.secretName) || has(self.certificate)",
+              "message": "public requires secretName or certificate"
             }
           ]
         },

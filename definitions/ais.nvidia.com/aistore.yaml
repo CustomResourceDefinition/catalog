@@ -1686,6 +1686,11 @@ spec:
                           write_buffer_size:
                             type: integer
                         type: object
+                      l4:
+                        properties:
+                          sndrcv_buf_size:
+                            type: integer
+                        type: object
                       use_ipv6:
                         type: boolean
                     type: object
@@ -2011,6 +2016,18 @@ spec:
                 description: Container image used for `aisnode` container.
                 minLength: 1
                 type: string
+              nodeJoin:
+                description: |-
+                  NodeJoin configures AIS node-join authentication, available in AIStore v5.0 and later.
+                  More info: https://github.com/NVIDIA/aistore/blob/main/docs/auth_node_join.md
+                properties:
+                  secretName:
+                    description: |-
+                      SecretName names a Secret containing the node-join credential in a data key named
+                      "node_join_secret". The operator automatically updates "node_join_secret_path" in the
+                      AIStore config to use this value.
+                    type: string
+                type: object
               ociSecretName:
                 description: Secret name containing OCI config and credentials
                 type: string
@@ -3338,6 +3355,22 @@ spec:
                           Annotations are merged onto the created service(s)
                           (for example cloud provider or external-dns annotations).
                         type: object
+                      dns:
+                        description: DNS sets a public DNS name for each externally
+                          accessible target service. Supported on targets only.
+                        properties:
+                          domain:
+                            description: Domain is the DNS domain under which each
+                              target is published as <pod-name>.<domain>.
+                            minLength: 1
+                            type: string
+                          externalDNSAnnotation:
+                            description: ExternalDNSAnnotation adds the external-dns
+                              hostname annotation to each target's external Service.
+                            type: boolean
+                        required:
+                        - domain
+                        type: object
                       loadBalancer:
                         description: LoadBalancer tunes the LoadBalancer services.
                           Omit it to accept the defaults.
@@ -3354,6 +3387,11 @@ spec:
                             type: integer
                         type: object
                     type: object
+                    x-kubernetes-validations:
+                    - message: annotations cannot set external-dns.kubernetes.io/hostname
+                        when dns.externalDNSAnnotation is true
+                      rule: '!(self.?dns.?externalDNSAnnotation.orValue(false) &&
+                        ''external-dns.kubernetes.io/hostname'' in self.?annotations.orValue({}))'
                   hostPort:
                     description: HostPort - Port to bind directly to a specific port
                       on the host
@@ -3840,7 +3878,8 @@ spec:
               publicNetDNSMode:
                 default: IP
                 description: |-
-                  PublicNetDNSMode Defines the public network DNS name to use with hostPort.
+                  PublicNetDNSMode Defines the public network DNS name to use with hostPort or hostNetwork.
+                  It does not apply to targets with targetSpec.externalAccess.dns.
                   Defaults to 'IP' to use the host IP.
                   Other options include:
                    'Node' to use the K8s node DNS name
@@ -5220,6 +5259,22 @@ spec:
                           Annotations are merged onto the created service(s)
                           (for example cloud provider or external-dns annotations).
                         type: object
+                      dns:
+                        description: DNS sets a public DNS name for each externally
+                          accessible target service. Supported on targets only.
+                        properties:
+                          domain:
+                            description: Domain is the DNS domain under which each
+                              target is published as <pod-name>.<domain>.
+                            minLength: 1
+                            type: string
+                          externalDNSAnnotation:
+                            description: ExternalDNSAnnotation adds the external-dns
+                              hostname annotation to each target's external Service.
+                            type: boolean
+                        required:
+                        - domain
+                        type: object
                       loadBalancer:
                         description: LoadBalancer tunes the LoadBalancer services.
                           Omit it to accept the defaults.
@@ -5236,6 +5291,11 @@ spec:
                             type: integer
                         type: object
                     type: object
+                    x-kubernetes-validations:
+                    - message: annotations cannot set external-dns.kubernetes.io/hostname
+                        when dns.externalDNSAnnotation is true
+                      rule: '!(self.?dns.?externalDNSAnnotation.orValue(false) &&
+                        ''external-dns.kubernetes.io/hostname'' in self.?annotations.orValue({}))'
                   hostNetwork:
                     description: hostNetwork - if set to true, the AIS Daemon pods
                       for target are created in the host's network namespace (used
@@ -5538,11 +5598,10 @@ spec:
                     default: safe_decommission
                     description: |-
                       ScaleDownMode controls how targets are scaled down.
-                      "safe_decommission" (default) rebalances data off the node and removes the target, keeping its on-disk data.
-                      Rebalance should be enabled so data is migrated before a target is removed, and a warning is issued when it is
-                      not. Recommended for local AIS buckets, whose data cannot be recovered if lost.
-                      "decommission" rebalances data off the node, then removes the target and deletes its on-disk data. When rebalance
-                      is disabled the data is deleted without being migrated.
+                      "safe_decommission" (default) and "decommission" put each target into maintenance mode, which rebalances data off
+                      the node, and remove the target only after the rebalance succeeds. "safe_decommission" keeps the on-disk data of
+                      the target, and "decommission" deletes it. While the spec disables rebalance, both modes wait to remove targets.
+                      Both modes also wait on a target with a bound data PVC that leaves the cluster before the operator decommissions it.
                       "retain" leaves data on the node by putting the target into maintenance mode. This is useful when you expect
                       another pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node
                       will become inaccessible.
@@ -5891,6 +5950,78 @@ spec:
                     required:
                     - issuerRef
                     type: object
+                  public:
+                    description: |-
+                      Public overrides the certificate AIS serves on the public network. Every client
+                      reaching a daemon on its public port is served this certificate.
+                    properties:
+                      certificate:
+                        description: Certificate configures cert-manager certificate
+                          generation.
+                        properties:
+                          additionalDNSNames:
+                            description: AdditionalDNSNames are extra DNS names to
+                              include in the certificate
+                            items:
+                              type: string
+                            type: array
+                          duration:
+                            description: |-
+                              Duration is the lifetime of the certificate.
+                              When unset, cert-manager's own default applies in both secret and csi modes.
+                            type: string
+                          issuerRef:
+                            description: IssuerRef references a cert-manager issuer
+                            properties:
+                              kind:
+                                default: ClusterIssuer
+                                description: 'Kind is Issuer or ClusterIssuer (default:
+                                  ClusterIssuer)'
+                                enum:
+                                - Issuer
+                                - ClusterIssuer
+                                type: string
+                              name:
+                                description: Name of the issuer
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          mode:
+                            default: secret
+                            description: 'Mode specifies how certificates are delivered:
+                              "secret" (default) or "csi"'
+                            enum:
+                            - secret
+                            - csi
+                            type: string
+                          renewBefore:
+                            description: |-
+                              RenewBefore is when to start renewing.
+                              When unset, cert-manager's own default applies in both secret and csi modes.
+                            type: string
+                        required:
+                        - issuerRef
+                        type: object
+                      secretName:
+                        description: SecretName references an existing TLS secret
+                        minLength: 1
+                        type: string
+                      serverName:
+                        description: |-
+                          ServerName is the DNS name clients use to reach AIS on the public network.
+                          It is the name the operator verifies the public certificate against when calling the AIS API.
+                          With the 'certificate' option, the operator includes it in the certificate SANs.
+                        minLength: 1
+                        type: string
+                    required:
+                    - serverName
+                    type: object
+                    x-kubernetes-validations:
+                    - message: 'specify exactly one: secretName or certificate'
+                      rule: '[has(self.secretName), has(self.certificate)].filter(x,
+                        x).size() == 1'
                   secretName:
                     description: SecretName references an existing TLS secret
                     type: string
@@ -5899,6 +6030,8 @@ spec:
                 - message: 'specify only one: secretName or certificate'
                   rule: '[has(self.secretName), has(self.certificate)].filter(x, x).size()
                     <= 1'
+                - message: public requires secretName or certificate
+                  rule: '!has(self.public) || has(self.secretName) || has(self.certificate)'
               tracingTokenSecretName:
                 description: Secret name containing OTEL trace-exporter token.
                 type: string
