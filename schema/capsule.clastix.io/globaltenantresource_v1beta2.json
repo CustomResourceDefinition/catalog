@@ -51,7 +51,7 @@
           }
         },
         "pruningOnDelete": {
-          "description": "When the replicated resource manifest is deleted, all the objects replicated so far will be automatically deleted.\nDisable this to keep replicated resources although the deletion of the replication manifest.",
+          "description": "When the replicated resource manifest is deleted, all the objects replicated so far will be automatically deleted.\nDisable this to keep replicated resources although the deletion of the replication manifest.\n\nDeprecated: use resources[].policy.deletion instead. Retained for blocks without a policy.",
           "type": "boolean",
           "default": true
         },
@@ -330,6 +330,47 @@
                   "additionalProperties": false
                 }
               },
+              "policy": {
+                "description": "Policy controls creation, admission protection, SSA conflict ownership,\nand deletion for every raw item, namespaced item, and generator in this block.\nAn explicit policy replaces the deprecated spec.settings for this block.\nWhen omitted, admission converts legacy settings and pruningOnDelete into a policy.",
+                "type": "object",
+                "properties": {
+                  "condition": {
+                    "description": "Condition is an optional CEL boolean expression checked before each target\nis applied. object is the existing destination object, or null when absent;\nnow is the evaluation timestamp. False skips rendered content without\npruning or releasing an already managed object. Policy and protection are\nstill reconciled for managed objects. Evaluation errors prevent writes.\nRendering still occurs before evaluation. Omitting Condition preserves the\nexisting apply behavior. Conditions do not affect deletion or orphaning.",
+                    "type": "string",
+                    "maxLength": 4096,
+                    "minLength": 1
+                  },
+                  "creation": {
+                    "description": "Creation controls how an existing target is handled. Owner requires the\nresource to have been created by the applying controller and otherwise\nreturns an error. Merge adopts an existing resource when possible and\ncreates the resource when it does not exist.",
+                    "type": "string",
+                    "default": "Owner",
+                    "enum": [
+                      "Owner",
+                      "Merge"
+                    ]
+                  },
+                  "deletion": {
+                    "description": "Deletion controls what happens when the parent stops managing the target.\nRemove deletes resources created for the parent and relinquishes adopted\nresources. Orphan keeps the resource and removes Capsule's lifecycle\nmetadata. Removal is the default.",
+                    "type": "string",
+                    "default": "Remove",
+                    "enum": [
+                      "Remove",
+                      "Orphan"
+                    ]
+                  },
+                  "force": {
+                    "description": "Force allows server-side apply to acquire conflicting field ownership.",
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "protect": {
+                    "description": "Protect prevents users from changing or deleting the target through\nadmission while it is managed. Protection is enabled by default.",
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "additionalProperties": false
+              },
               "rawItems": {
                 "description": "List of raw resources that must be replicated.",
                 "type": "array",
@@ -381,17 +422,17 @@
           "additionalProperties": false
         },
         "settings": {
-          "description": "Provide additional settings",
+          "description": "Deprecated: configure resources[].policy instead. Admission converts Settings\ninto policies for blocks without one. Retained as a compatibility fallback\nfor stored resources that have not passed through admission again.",
           "type": "object",
           "default": {},
           "properties": {
             "adopt": {
-              "description": "Enabling this allows TenanResources to interact with objects which were not created by a TenantResource. In this case on prune no deletion of the entire object is made.",
+              "description": "Enabling this allows TenanResources to interact with objects which were not created by a TenantResource. In this case on prune no deletion of the entire object is made.\n\nDeprecated: use resources[].policy.creation: Merge instead.",
               "type": "boolean",
               "default": false
             },
             "force": {
-              "description": "Force indicates that in case of conflicts with server-side apply, the client should acquire ownership of the conflicting field.\nYou may create collisions with this.",
+              "description": "Force indicates that in case of conflicts with server-side apply, the client should acquire ownership of the conflicting field.\nYou may create collisions with this.\n\nDeprecated: use resources[].policy.force instead.",
               "type": "boolean",
               "default": false
             }
@@ -517,7 +558,7 @@
           "format": "int64"
         },
         "processedItems": {
-          "description": "List of the replicated resources for the given TenantResource.",
+          "description": "List of resources managed by the API object.",
           "type": "array",
           "items": {
             "description": "Advanced Status Item for pin pointing items in tenants/namespaces.",
@@ -562,6 +603,41 @@
                     "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
                     "type": "string",
                     "maxLength": 32768
+                  },
+                  "policy": {
+                    "description": "Policy is a lifecycle snapshot for protection and cleanup. Conditions are\nevaluated from the source block and omitted here. Failed updates retain the\nprevious snapshot; a first successful content write records its policy even\nif metadata reconciliation fails, so cleanup respects explicit retention.\nAn absent policy on an already applied item preserves legacy behavior.",
+                    "type": "object",
+                    "properties": {
+                      "creation": {
+                        "description": "Creation controls how an existing target is handled. Owner requires the\nresource to have been created by the applying controller and otherwise\nreturns an error. Merge adopts an existing resource when possible and\ncreates the resource when it does not exist.",
+                        "type": "string",
+                        "default": "Owner",
+                        "enum": [
+                          "Owner",
+                          "Merge"
+                        ]
+                      },
+                      "deletion": {
+                        "description": "Deletion controls what happens when the parent stops managing the target.\nRemove deletes resources created for the parent and relinquishes adopted\nresources. Orphan keeps the resource and removes Capsule's lifecycle\nmetadata. Removal is the default.",
+                        "type": "string",
+                        "default": "Remove",
+                        "enum": [
+                          "Remove",
+                          "Orphan"
+                        ]
+                      },
+                      "force": {
+                        "description": "Force allows server-side apply to acquire conflicting field ownership.",
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "protect": {
+                        "description": "Protect prevents users from changing or deleting the target through\nadmission while it is managed. Protection is enabled by default.",
+                        "type": "boolean",
+                        "default": true
+                      }
+                    },
+                    "additionalProperties": false
                   },
                   "status": {
                     "description": "status of the condition, one of True, False, Unknown.",
@@ -622,7 +698,7 @@
           "additionalProperties": false
         },
         "size": {
-          "description": "How many items are being replicated by the TenantResource.",
+          "description": "Number of managed resources.",
           "type": "integer"
         }
       },
