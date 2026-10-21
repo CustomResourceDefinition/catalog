@@ -7,3 +7,6 @@ check: build/bin/catalog
 		--output build/ephemeral/schema \
 		--definitions build/ephemeral/schema \
 		--performance-log build/ephemeral/performance.log
+
+check-sort:
+	go test ./... -run '^TestConfigurationIsSortedAndValid$$' -timeout 10s -v
