@@ -9,13 +9,32 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.61% | 4081 | 12774 | 92 |
+| 99.22% | 4102 | 12774 | 92 |
 
 ### Missing Schemas
 
 | compute.coreweave.com | |
 | --- | --- |
 | nodepool | v1alpha1 |
+
+| configuration.konghq.com | |
+| --- | --- |
+| kongcacertificate | v1alpha1 |
+| kongcertificate | v1alpha1 |
+| kongcredentialacl | v1alpha1 |
+| kongcredentialapikey | v1alpha1 |
+| kongcredentialbasicauth | v1alpha1 |
+| kongcredentialhmac | v1alpha1 |
+| kongcredentialjwt | v1alpha1 |
+| kongdataplaneclientcertificate | v1alpha1 |
+| kongkey | v1alpha1 |
+| kongkeyset | v1alpha1 |
+| kongpluginbinding | v1alpha1 |
+| kongroute | v1alpha1 |
+| kongservice | v1alpha1 |
+| kongsni | v1alpha1 |
+| kongtarget | v1alpha1 |
+| kongupstream | v1alpha1 |
 
 | eks.amazonaws.com | |
 | --- | --- |
