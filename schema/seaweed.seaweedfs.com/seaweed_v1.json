@@ -1017,6 +1017,12 @@
                 "host": {
                   "type": "string"
                 },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
                 "path": {
                   "type": "string",
                   "default": "/"
@@ -4581,6 +4587,12 @@
                 "host": {
                   "type": "string"
                 },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
                 "path": {
                   "type": "string",
                   "default": "/"
@@ -4662,6 +4674,12 @@
                 },
                 "host": {
                   "type": "string"
+                },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
                 },
                 "path": {
                   "type": "string",
@@ -5139,6 +5157,12 @@
                 },
                 "host": {
                   "type": "string"
+                },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
                 },
                 "path": {
                   "type": "string",
@@ -7644,6 +7668,12 @@
                 },
                 "host": {
                   "type": "string"
+                },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
                 },
                 "path": {
                   "type": "string",
@@ -10473,6 +10503,14 @@
             "hostNetwork": {
               "type": "boolean"
             },
+            "httpsOnly": {
+              "type": "boolean"
+            },
+            "httpsPort": {
+              "type": "integer",
+              "maximum": 65535,
+              "minimum": 1
+            },
             "iam": {
               "type": "boolean",
               "default": true
@@ -10511,6 +10549,12 @@
                 },
                 "host": {
                   "type": "string"
+                },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
                 },
                 "path": {
                   "type": "string",
@@ -10806,6 +10850,17 @@
             },
             "terminationGracePeriodSeconds": {
               "type": "integer"
+            },
+            "tlsSecret": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "default": ""
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-map-type": "atomic"
             },
             "tolerations": {
               "type": "array",
@@ -12176,7 +12231,29 @@
               }
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "has(self.httpsPort) == (has(self.tlsSecret) \u0026\u0026 has(self.tlsSecret.name) \u0026\u0026 size(self.tlsSecret.name) \u003e 0)",
+              "message": "httpsPort and tlsSecret.name must be set together"
+            },
+            {
+              "rule": "!has(self.httpsPort) || self.httpsPort != (has(self.port) ? self.port : 8333)",
+              "message": "httpsPort must differ from port"
+            },
+            {
+              "rule": "!has(self.httpsPort) || !(self.httpsPort in [(has(self.port) ? self.port : 8333) + 10000, 8181, 9101] || (has(self.metricsPort) \u0026\u0026 self.httpsPort == self.metricsPort))",
+              "message": "httpsPort must not collide with the gRPC port (port+10000), the Iceberg (8181) or Lance (9101) ports, or metricsPort"
+            },
+            {
+              "rule": "!(has(self.httpsOnly) \u0026\u0026 self.httpsOnly) || has(self.httpsPort)",
+              "message": "httpsOnly requires httpsPort and tlsSecret"
+            },
+            {
+              "rule": "!(has(self.httpsOnly) \u0026\u0026 self.httpsOnly \u0026\u0026 has(self.ingress) \u0026\u0026 has(self.ingress.enabled) \u0026\u0026 self.ingress.enabled)",
+              "message": "httpsOnly is not supported with ingress, which routes to the HTTP port"
+            }
+          ]
         },
         "schedulerName": {
           "type": "string"
@@ -13236,6 +13313,12 @@
                 },
                 "host": {
                   "type": "string"
+                },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
                 },
                 "path": {
                   "type": "string",
@@ -16037,6 +16120,12 @@
                 },
                 "host": {
                   "type": "string"
+                },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
                 },
                 "path": {
                   "type": "string",
@@ -23112,7 +23201,13 @@
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!(has(self.hostSuffix) \u0026\u0026 size(self.hostSuffix) \u003e 0 \u0026\u0026 has(self.s3) \u0026\u0026 has(self.s3.httpsOnly) \u0026\u0026 self.s3.httpsOnly)",
+          "message": "spec.s3.httpsOnly is not supported with spec.hostSuffix, which publishes S3 over HTTP"
+        }
+      ]
     },
     "status": {
       "type": "object",
@@ -23120,6 +23215,9 @@
         "admin": {
           "type": "object",
           "properties": {
+            "endpoint": {
+              "type": "string"
+            },
             "readyReplicas": {
               "type": "integer",
               "minimum": 0
@@ -23127,6 +23225,9 @@
             "replicas": {
               "type": "integer",
               "minimum": 0
+            },
+            "service": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -23210,6 +23311,9 @@
         "filer": {
           "type": "object",
           "properties": {
+            "endpoint": {
+              "type": "string"
+            },
             "readyReplicas": {
               "type": "integer",
               "minimum": 0
@@ -23217,6 +23321,9 @@
             "replicas": {
               "type": "integer",
               "minimum": 0
+            },
+            "service": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -23224,6 +23331,9 @@
         "master": {
           "type": "object",
           "properties": {
+            "endpoint": {
+              "type": "string"
+            },
             "readyReplicas": {
               "type": "integer",
               "minimum": 0
@@ -23231,6 +23341,9 @@
             "replicas": {
               "type": "integer",
               "minimum": 0
+            },
+            "service": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -23241,6 +23354,9 @@
         "s3": {
           "type": "object",
           "properties": {
+            "endpoint": {
+              "type": "string"
+            },
             "readyReplicas": {
               "type": "integer",
               "minimum": 0
@@ -23248,6 +23364,9 @@
             "replicas": {
               "type": "integer",
               "minimum": 0
+            },
+            "service": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -23255,6 +23374,9 @@
         "sftp": {
           "type": "object",
           "properties": {
+            "endpoint": {
+              "type": "string"
+            },
             "readyReplicas": {
               "type": "integer",
               "minimum": 0
@@ -23262,6 +23384,9 @@
             "replicas": {
               "type": "integer",
               "minimum": 0
+            },
+            "service": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -23269,6 +23394,9 @@
         "volume": {
           "type": "object",
           "properties": {
+            "endpoint": {
+              "type": "string"
+            },
             "readyReplicas": {
               "type": "integer",
               "minimum": 0
@@ -23276,6 +23404,9 @@
             "replicas": {
               "type": "integer",
               "minimum": 0
+            },
+            "service": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -23283,6 +23414,9 @@
         "worker": {
           "type": "object",
           "properties": {
+            "endpoint": {
+              "type": "string"
+            },
             "readyReplicas": {
               "type": "integer",
               "minimum": 0
@@ -23290,6 +23424,9 @@
             "replicas": {
               "type": "integer",
               "minimum": 0
+            },
+            "service": {
+              "type": "string"
             }
           },
           "additionalProperties": false
