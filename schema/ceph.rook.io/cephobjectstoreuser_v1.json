@@ -362,6 +362,81 @@
           "additionalProperties": false,
           "nullable": true
         },
+        "secretTemplate": {
+          "description": "SecretTemplate defines labels and annotations to add to the Secret that\nholds this user's credentials, for example to opt the Secret in to a\ntool that copies Secrets into other namespaces. Anyone who can edit this\nCephObjectStoreUser can use it to hand the credentials to such a tool.\nThe labels app, user, rook_cluster and rook_object_store, which Rook\nsets on this Secret, are reserved.",
+          "type": "object",
+          "minProperties": 1,
+          "properties": {
+            "annotations": {
+              "description": "Annotations to add to the Secret, at most 256 KiB in total. The key\ncephx-keyring, and keys with a rook.io or *.rook.io prefix, are reserved.",
+              "type": "object",
+              "maxProperties": 32,
+              "minProperties": 1,
+              "additionalProperties": {
+                "description": "AnnotationValue is a Kubernetes annotation value of at most 256 KiB. Its\nlength is also capped at 262144 characters, the most a 256 KiB value can\nhold, because the API server needs that bound to accept the CEL rules that\ncheck a template's annotations.",
+                "type": "string",
+                "maxLength": 262144,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "size(bytes(self)) \u003c= 262144",
+                    "message": "annotation values must be at most 256 KiB"
+                  }
+                ]
+              },
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(k, !format.qualifiedName().validate(k.lowerAscii()).hasValue())",
+                  "message": "annotation keys must be valid Kubernetes annotation keys"
+                },
+                {
+                  "rule": "self.all(k, k != 'cephx-keyring')",
+                  "message": "annotation key cephx-keyring is reserved by Rook"
+                },
+                {
+                  "rule": "self.all(k, !k.matches('^([^/]*[.])?rook[.]io/'))",
+                  "message": "annotation keys with a rook.io prefix are reserved by Rook"
+                },
+                {
+                  "rule": "self.map(k, size(bytes(k)) + size(bytes(self[k]))).sum() \u003c= 262144",
+                  "message": "annotations must total at most 256 KiB"
+                }
+              ]
+            },
+            "labels": {
+              "description": "Labels to add to the Secret. The key do_not_reconcile, and keys with a\nrook.io or *.rook.io prefix, are reserved.",
+              "type": "object",
+              "maxProperties": 32,
+              "minProperties": 1,
+              "additionalProperties": {
+                "description": "LabelValue is a Kubernetes label value: at most 63 characters, empty or\nalphanumeric at both ends, with '-', '_' and '.' allowed in between.",
+                "type": "string",
+                "maxLength": 63,
+                "pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"
+              },
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(k, !format.qualifiedName().validate(k).hasValue())",
+                  "message": "label keys must be valid Kubernetes label keys"
+                },
+                {
+                  "rule": "self.all(k, k != 'do_not_reconcile')",
+                  "message": "label key do_not_reconcile is reserved by Rook"
+                },
+                {
+                  "rule": "self.all(k, !k.matches('^([^/]*[.])?rook[.]io/'))",
+                  "message": "label keys with a rook.io prefix are reserved by Rook"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!has(self.labels) || self.labels.all(k, !(k in ['app', 'user', 'rook_cluster', 'rook_object_store']))",
+              "message": "label keys app, user, rook_cluster and rook_object_store are reserved by Rook"
+            }
+          ]
+        },
         "store": {
           "description": "The store the user will be created in",
           "type": "string"

@@ -23,6 +23,35 @@
         "vip"
       ],
       "properties": {
+        "createmonitor": {
+          "description": "CreateMonitor controls whether the operator creates the monitor used by the pools. Defaults to true.\nSet to false to use an existing monitor in the Load Balancer, named in monitor.name.\nA monitor the operator created earlier is deleted when this is set to false. (F5 BigIP and Citrix ADC only)",
+          "type": "boolean",
+          "default": true
+        },
+        "createvip": {
+          "description": "CreateVIP controls whether the operator creates a virtual server for each port. Defaults to true.\nSet to false to manage only the pools and their members and create the virtual servers outside the operator.\nVirtual servers the operator created earlier are deleted when this is set to false.",
+          "type": "boolean",
+          "default": true
+        },
+        "drain": {
+          "description": "Drain configures graceful connection draining for pool members.\nWhen enabled, pool members are disabled before deletion to allow existing connections to complete.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Enabled determines if graceful draining is enabled.\nWhen enabled, pool members are disabled before deletion to allow existing connections to complete.",
+              "type": "boolean",
+              "default": false
+            },
+            "timeoutSeconds": {
+              "description": "TimeoutSeconds is the duration in seconds to wait for connections to drain before deleting the pool member.\nThis allows time for active connections to complete gracefully. To remove members immediately, keep draining disabled.",
+              "type": "integer",
+              "default": 30,
+              "maximum": 3600,
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        },
         "monitor": {
           "description": "Monitor is the path and port to monitor the LoadBalancer members",
           "type": "object",
@@ -42,7 +71,7 @@
               ]
             },
             "name": {
-              "description": "Name is the monitor name, it is set by the controller",
+              "description": "Name is the monitor name, it is set by the controller. When createmonitor is false, it is the name of an\nexisting monitor in the Load Balancer that the pools use, eg. `my-monitor` or `/Common/my-monitor`.",
               "type": "string"
             },
             "path": {
@@ -167,11 +196,65 @@
       "description": "ExternalLoadBalancerStatus defines the observed state of ExternalLoadBalancer",
       "type": "object",
       "required": [
-        "monitor",
         "ports",
         "vips"
       ],
       "properties": {
+        "drainingMembers": {
+          "description": "DrainingMembers tracks pool members that are currently in the draining state.\nThese members have been disabled and are waiting for their drain timeout to expire.",
+          "type": "array",
+          "items": {
+            "description": "DrainingMember represents a pool member that is currently in the draining state.\nThis tracks members that have been disabled and are waiting for connections to complete.",
+            "type": "object",
+            "required": [
+              "node",
+              "poolName",
+              "port",
+              "startTime"
+            ],
+            "properties": {
+              "node": {
+                "description": "Node is the node information for this member",
+                "type": "object",
+                "required": [
+                  "host"
+                ],
+                "properties": {
+                  "host": {
+                    "description": "Host is the host IP set dynamically by the controller",
+                    "type": "string"
+                  },
+                  "label": {
+                    "description": "Label is the node labels this node has",
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "name": {
+                    "description": "Name is the host name set dynamically by the controller",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "poolName": {
+                "description": "PoolName is the name of the pool this member belongs to",
+                "type": "string"
+              },
+              "port": {
+                "description": "Port is the port for this pool member",
+                "type": "integer"
+              },
+              "startTime": {
+                "description": "StartTime is when the drain process started",
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "labels": {
           "type": "object",
           "additionalProperties": {
@@ -179,7 +262,7 @@
           }
         },
         "monitor": {
-          "description": "Monitor defines a monitor object in the LoadBalancer.",
+          "description": "Monitor is the monitor the operator created, unset when the pools use an existing monitor",
           "type": "object",
           "required": [
             "monitortype",
@@ -197,7 +280,7 @@
               ]
             },
             "name": {
-              "description": "Name is the monitor name, it is set by the controller",
+              "description": "Name is the monitor name, it is set by the controller. When createmonitor is false, it is the name of an\nexisting monitor in the Load Balancer that the pools use, eg. `my-monitor` or `/Common/my-monitor`.",
               "type": "string"
             },
             "path": {

@@ -1,0 +1,1197 @@
+{
+  "description": "McpProxy is a Gravitee MCP proxy as a Kubernetes resource: either a single upstream MCP\nserver...",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "McpProxySpec defines the desired state of an McpProxy.",
+      "type": "object",
+      "required": [
+        "contextPath",
+        "entityId",
+        "mode",
+        "name",
+        "plans"
+      ],
+      "properties": {
+        "contextPath": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "contextRef": {
+          "description": "Reference to a ManagementContext that determines which APIM instance this proxy is created in.",
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "namespace": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "description": {
+          "type": "string"
+        },
+        "entityId": {
+          "description": "Stable identity of the proxy, the name authorization policies reference: lowercase,\ndot-separated...",
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^mcp-proxy\\.[a-z0-9_-]+(\\.[a-z0-9_-]+)*$"
+        },
+        "flowExecution": {
+          "type": "object",
+          "required": [
+            "matchRequired"
+          ],
+          "properties": {
+            "matchRequired": {
+              "description": "Is match required or not ?",
+              "type": "boolean"
+            },
+            "mode": {
+              "description": "The flow mode to use",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "flows": {
+          "description": "Proxy-level flows. The manifest owns them: omitted means none.",
+          "type": "array",
+          "items": {
+            "description": "Flow is a set of policies applied to the requests and responses its selectors match.",
+            "type": "object",
+            "required": [
+              "enabled",
+              "name"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              },
+              "name": {
+                "type": "string"
+              },
+              "request": {
+                "type": "array",
+                "items": {
+                  "description": "FlowStep is one policy execution in a flow phase.",
+                  "type": "object",
+                  "required": [
+                    "enabled",
+                    "name",
+                    "policy"
+                  ],
+                  "properties": {
+                    "condition": {
+                      "type": "string"
+                    },
+                    "configuration": {
+                      "description": "Policy configuration, free-form per plugin.",
+                      "type": "object",
+                      "x-kubernetes-preserve-unknown-fields": true
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "policy": {
+                      "description": "Policy plugin id, e.g. rate-limit.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "response": {
+                "type": "array",
+                "items": {
+                  "description": "FlowStep is one policy execution in a flow phase.",
+                  "type": "object",
+                  "required": [
+                    "enabled",
+                    "name",
+                    "policy"
+                  ],
+                  "properties": {
+                    "condition": {
+                      "type": "string"
+                    },
+                    "configuration": {
+                      "description": "Policy configuration, free-form per plugin.",
+                      "type": "object",
+                      "x-kubernetes-preserve-unknown-fields": true
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "policy": {
+                      "description": "Policy plugin id, e.g. rate-limit.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "selectors": {
+                "type": "array",
+                "items": {
+                  "description": "FlowSelector is discriminated by type with exactly one nested block named after it.",
+                  "type": "object",
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "condition": {
+                      "description": "Required when type is CONDITION.",
+                      "type": "object",
+                      "required": [
+                        "condition"
+                      ],
+                      "properties": {
+                        "condition": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "mcp": {
+                      "description": "Required when type is MCP.",
+                      "type": "object",
+                      "required": [
+                        "methods"
+                      ],
+                      "properties": {
+                        "methods": {
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "type": {
+                      "description": "FlowSelectorType discriminates a flow selector.",
+                      "type": "string",
+                      "enum": [
+                        "MCP",
+                        "CONDITION"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.type != 'MCP' || has(self.mcp)",
+                      "message": "mcp must be set when type is MCP"
+                    },
+                    {
+                      "rule": "self.type == 'MCP' || !has(self.mcp)",
+                      "message": "mcp must not be set when type is not MCP"
+                    },
+                    {
+                      "rule": "self.type != 'CONDITION' || has(self.condition)",
+                      "message": "condition must be set when type is CONDITION"
+                    },
+                    {
+                      "rule": "self.type == 'CONDITION' || !has(self.condition)",
+                      "message": "condition must not be set when type is not CONDITION"
+                    }
+                  ]
+                }
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "identityProviders": {
+          "type": "array",
+          "items": {
+            "description": "IdentityProvider is an authorization server an OAUTH2 plan names, discriminated by type with\nat...",
+            "type": "object",
+            "required": [
+              "name",
+              "type"
+            ],
+            "properties": {
+              "auth0": {
+                "description": "Required when type is OAUTH2_AUTH0.",
+                "type": "object",
+                "required": [
+                  "audience",
+                  "domain"
+                ],
+                "properties": {
+                  "audience": {
+                    "type": "string"
+                  },
+                  "domain": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "name": {
+                "description": "Name an OAUTH2 plan references in security.oauth2.provider.",
+                "type": "string"
+              },
+              "oauth2Generic": {
+                "description": "Required when type is OAUTH2_GENERIC.",
+                "type": "object",
+                "required": [
+                  "introspectionEndpoint",
+                  "introspectionEndpointMethod",
+                  "issuerUrl"
+                ],
+                "properties": {
+                  "clientId": {
+                    "type": "string"
+                  },
+                  "clientSecret": {
+                    "description": "A literal, a secret:// URI resolved by the gateway, or a templated Secret value.",
+                    "type": "string"
+                  },
+                  "introspectionEndpoint": {
+                    "type": "string"
+                  },
+                  "introspectionEndpointMethod": {
+                    "description": "IntrospectionMethod is the HTTP method of a token introspection call.",
+                    "type": "string",
+                    "enum": [
+                      "GET",
+                      "POST"
+                    ]
+                  },
+                  "issuerUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "userInfoEndpoint": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "type": {
+                "description": "IdentityProviderType discriminates the authorization server an OAUTH2 plan relies on.",
+                "type": "string",
+                "enum": [
+                  "GRAVITEE_AM",
+                  "OAUTH2_GENERIC",
+                  "OAUTH2_AUTH0"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "self.type != 'OAUTH2_GENERIC' || has(self.oauth2Generic)",
+                "message": "oauth2Generic must be set when type is OAUTH2_GENERIC"
+              },
+              {
+                "rule": "self.type == 'OAUTH2_GENERIC' || !has(self.oauth2Generic)",
+                "message": "oauth2Generic must not be set when type is not OAUTH2_GENERIC"
+              },
+              {
+                "rule": "self.type != 'OAUTH2_AUTH0' || has(self.auth0)",
+                "message": "auth0 must be set when type is OAUTH2_AUTH0"
+              },
+              {
+                "rule": "self.type == 'OAUTH2_AUTH0' || !has(self.auth0)",
+                "message": "auth0 must not be set when type is not OAUTH2_AUTH0"
+              }
+            ]
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "mode": {
+          "description": "PROXY requires the proxy block, STUDIO the studio block. Immutable.",
+          "type": "string",
+          "enum": [
+            "PROXY",
+            "STUDIO"
+          ]
+        },
+        "name": {
+          "description": "Display name.",
+          "type": "string"
+        },
+        "plans": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "description": "Plan is a consumer plan of the proxy.",
+            "type": "object",
+            "required": [
+              "name",
+              "security"
+            ],
+            "properties": {
+              "flows": {
+                "type": "array",
+                "items": {
+                  "description": "Flow is a set of policies applied to the requests and responses its selectors match.",
+                  "type": "object",
+                  "required": [
+                    "enabled",
+                    "name"
+                  ],
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "request": {
+                      "type": "array",
+                      "items": {
+                        "description": "FlowStep is one policy execution in a flow phase.",
+                        "type": "object",
+                        "required": [
+                          "enabled",
+                          "name",
+                          "policy"
+                        ],
+                        "properties": {
+                          "condition": {
+                            "type": "string"
+                          },
+                          "configuration": {
+                            "description": "Policy configuration, free-form per plugin.",
+                            "type": "object",
+                            "x-kubernetes-preserve-unknown-fields": true
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "policy": {
+                            "description": "Policy plugin id, e.g. rate-limit.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "response": {
+                      "type": "array",
+                      "items": {
+                        "description": "FlowStep is one policy execution in a flow phase.",
+                        "type": "object",
+                        "required": [
+                          "enabled",
+                          "name",
+                          "policy"
+                        ],
+                        "properties": {
+                          "condition": {
+                            "type": "string"
+                          },
+                          "configuration": {
+                            "description": "Policy configuration, free-form per plugin.",
+                            "type": "object",
+                            "x-kubernetes-preserve-unknown-fields": true
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "policy": {
+                            "description": "Policy plugin id, e.g. rate-limit.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "selectors": {
+                      "type": "array",
+                      "items": {
+                        "description": "FlowSelector is discriminated by type with exactly one nested block named after it.",
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "condition": {
+                            "description": "Required when type is CONDITION.",
+                            "type": "object",
+                            "required": [
+                              "condition"
+                            ],
+                            "properties": {
+                              "condition": {
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "mcp": {
+                            "description": "Required when type is MCP.",
+                            "type": "object",
+                            "required": [
+                              "methods"
+                            ],
+                            "properties": {
+                              "methods": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "type": {
+                            "description": "FlowSelectorType discriminates a flow selector.",
+                            "type": "string",
+                            "enum": [
+                              "MCP",
+                              "CONDITION"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-validations": [
+                          {
+                            "rule": "self.type != 'MCP' || has(self.mcp)",
+                            "message": "mcp must be set when type is MCP"
+                          },
+                          {
+                            "rule": "self.type == 'MCP' || !has(self.mcp)",
+                            "message": "mcp must not be set when type is not MCP"
+                          },
+                          {
+                            "rule": "self.type != 'CONDITION' || has(self.condition)",
+                            "message": "condition must be set when type is CONDITION"
+                          },
+                          {
+                            "rule": "self.type == 'CONDITION' || !has(self.condition)",
+                            "message": "condition must not be set when type is not CONDITION"
+                          }
+                        ]
+                      }
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "name": {
+                "type": "string"
+              },
+              "security": {
+                "description": "PlanSecurity is the consumer authentication of a plan, discriminated by type with at most\none...",
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "apiKey": {
+                    "description": "Required when type is API_KEY.",
+                    "type": "object",
+                    "required": [
+                      "source"
+                    ],
+                    "properties": {
+                      "apiKeyHeader": {
+                        "description": "Custom header carrying the key. Omitted means the gateway default.",
+                        "type": "string"
+                      },
+                      "propagateApiKey": {
+                        "description": "Forward the key to the upstream server.",
+                        "type": "boolean"
+                      },
+                      "source": {
+                        "description": "APIKeySource is where the gateway reads a consumer's API key.",
+                        "type": "string",
+                        "enum": [
+                          "HEADER",
+                          "BEARER",
+                          "QUERY_PARAMETER"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "oauth2": {
+                    "description": "Required when type is OAUTH2.",
+                    "type": "object",
+                    "required": [
+                      "provider"
+                    ],
+                    "properties": {
+                      "provider": {
+                        "description": "Name of the identityProviders entry that validates tokens.",
+                        "type": "string"
+                      },
+                      "scopes": {
+                        "description": "Scopes required on the token. Only a GRAVITEE_AM provider accepts them.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "type": {
+                    "description": "PlanSecurityType discriminates how consumers authenticate against a plan.",
+                    "type": "string",
+                    "enum": [
+                      "KEY_LESS",
+                      "API_KEY",
+                      "OAUTH2"
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "self.type != 'API_KEY' || has(self.apiKey)",
+                    "message": "apiKey must be set when type is API_KEY"
+                  },
+                  {
+                    "rule": "self.type == 'API_KEY' || !has(self.apiKey)",
+                    "message": "apiKey must not be set when type is not API_KEY"
+                  },
+                  {
+                    "rule": "self.type != 'OAUTH2' || has(self.oauth2)",
+                    "message": "oauth2 must be set when type is OAUTH2"
+                  },
+                  {
+                    "rule": "self.type == 'OAUTH2' || !has(self.oauth2)",
+                    "message": "oauth2 must not be set when type is not OAUTH2"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "proxy": {
+          "description": "Required when mode is PROXY.",
+          "type": "object",
+          "required": [
+            "serverUrl"
+          ],
+          "properties": {
+            "serverUrl": {
+              "description": "Raw URL of the upstream MCP server.",
+              "type": "string",
+              "format": "uri"
+            },
+            "upstreamAuth": {
+              "description": "Credential the gateway presents to the upstream.",
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "apiKey": {
+                  "description": "Required when type is API_KEY.",
+                  "type": "object",
+                  "required": [
+                    "apiKey",
+                    "apiKeyHeader"
+                  ],
+                  "properties": {
+                    "apiKey": {
+                      "description": "The key: a literal, a secret:// URI resolved by the gateway, or a templated Secret value\n([[ secret...",
+                      "type": "string"
+                    },
+                    "apiKeyHeader": {
+                      "description": "Name of the header carrying the key.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "basic": {
+                  "description": "Required when type is BASIC.",
+                  "type": "object",
+                  "required": [
+                    "password",
+                    "username"
+                  ],
+                  "properties": {
+                    "password": {
+                      "description": "A literal, a secret:// URI resolved by the gateway, or a templated Secret value.",
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "bearer": {
+                  "description": "Required when type is BEARER.",
+                  "type": "object",
+                  "required": [
+                    "token"
+                  ],
+                  "properties": {
+                    "token": {
+                      "description": "The token: a literal, a secret:// URI resolved by the gateway, or a templated Secret value.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "oauth2": {
+                  "description": "Required when type is OAUTH2.",
+                  "type": "object",
+                  "required": [
+                    "authorizeUrl",
+                    "clientId",
+                    "clientSecret",
+                    "tokenUrl"
+                  ],
+                  "properties": {
+                    "authorizeUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "clientId": {
+                      "type": "string"
+                    },
+                    "clientSecret": {
+                      "description": "A literal, a secret:// URI resolved by the gateway, or a templated Secret value.",
+                      "type": "string"
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tokenUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "type": {
+                  "description": "UpstreamAuthType discriminates how the gateway authenticates against an upstream MCP server.",
+                  "type": "string",
+                  "enum": [
+                    "NONE",
+                    "API_KEY",
+                    "BEARER",
+                    "BASIC",
+                    "OAUTH2"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.type != 'API_KEY' || has(self.apiKey)",
+                  "message": "apiKey must be set when type is API_KEY"
+                },
+                {
+                  "rule": "self.type == 'API_KEY' || !has(self.apiKey)",
+                  "message": "apiKey must not be set when type is not API_KEY"
+                },
+                {
+                  "rule": "self.type != 'BEARER' || has(self.bearer)",
+                  "message": "bearer must be set when type is BEARER"
+                },
+                {
+                  "rule": "self.type == 'BEARER' || !has(self.bearer)",
+                  "message": "bearer must not be set when type is not BEARER"
+                },
+                {
+                  "rule": "self.type != 'BASIC' || has(self.basic)",
+                  "message": "basic must be set when type is BASIC"
+                },
+                {
+                  "rule": "self.type == 'BASIC' || !has(self.basic)",
+                  "message": "basic must not be set when type is not BASIC"
+                },
+                {
+                  "rule": "self.type != 'OAUTH2' || has(self.oauth2)",
+                  "message": "oauth2 must be set when type is OAUTH2"
+                },
+                {
+                  "rule": "self.type == 'OAUTH2' || !has(self.oauth2)",
+                  "message": "oauth2 must not be set when type is not OAUTH2"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "state": {
+          "description": "STARTED starts the proxy and redeploys it when it changed; STOPPED stops it and keeps later\nchanges...",
+          "type": "string",
+          "default": "STARTED",
+          "enum": [
+            "STARTED",
+            "STOPPED"
+          ]
+        },
+        "studio": {
+          "description": "Required when mode is STUDIO.",
+          "type": "object",
+          "required": [
+            "tools"
+          ],
+          "properties": {
+            "enableFGA": {
+              "description": "Insert the tool-level authorization policy on tools/call.",
+              "type": "boolean"
+            },
+            "tools": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "description": "StudioTool selects one tool a catalog server exposes.",
+                "type": "object",
+                "required": [
+                  "serverRef",
+                  "tool"
+                ],
+                "properties": {
+                  "alias": {
+                    "description": "Name the Studio exposes the tool under.",
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_=-]+$"
+                  },
+                  "serverRef": {
+                    "description": "The CatalogMcpServer exposing the tool. The namespace defaults to the proxy's.",
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "tool": {
+                    "description": "Name of the tool as the server advertises it (see the server's status.tools).",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "upstreamAuth": {
+              "description": "One entry per server a selected tool comes from.",
+              "type": "array",
+              "items": {
+                "description": "StudioUpstreamAuth is the credential the gateway presents to one catalog server.",
+                "type": "object",
+                "required": [
+                  "auth",
+                  "serverRef"
+                ],
+                "properties": {
+                  "auth": {
+                    "description": "Use type NONE when the server needs no credential.",
+                    "type": "object",
+                    "required": [
+                      "type"
+                    ],
+                    "properties": {
+                      "apiKey": {
+                        "description": "Required when type is API_KEY.",
+                        "type": "object",
+                        "required": [
+                          "apiKey",
+                          "apiKeyHeader"
+                        ],
+                        "properties": {
+                          "apiKey": {
+                            "description": "The key: a literal, a secret:// URI resolved by the gateway, or a templated Secret value\n([[ secret...",
+                            "type": "string"
+                          },
+                          "apiKeyHeader": {
+                            "description": "Name of the header carrying the key.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "basic": {
+                        "description": "Required when type is BASIC.",
+                        "type": "object",
+                        "required": [
+                          "password",
+                          "username"
+                        ],
+                        "properties": {
+                          "password": {
+                            "description": "A literal, a secret:// URI resolved by the gateway, or a templated Secret value.",
+                            "type": "string"
+                          },
+                          "username": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "bearer": {
+                        "description": "Required when type is BEARER.",
+                        "type": "object",
+                        "required": [
+                          "token"
+                        ],
+                        "properties": {
+                          "token": {
+                            "description": "The token: a literal, a secret:// URI resolved by the gateway, or a templated Secret value.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "oauth2": {
+                        "description": "Required when type is OAUTH2.",
+                        "type": "object",
+                        "required": [
+                          "authorizeUrl",
+                          "clientId",
+                          "clientSecret",
+                          "tokenUrl"
+                        ],
+                        "properties": {
+                          "authorizeUrl": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "clientId": {
+                            "type": "string"
+                          },
+                          "clientSecret": {
+                            "description": "A literal, a secret:// URI resolved by the gateway, or a templated Secret value.",
+                            "type": "string"
+                          },
+                          "scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "tokenUrl": {
+                            "type": "string",
+                            "format": "uri"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "type": {
+                        "description": "UpstreamAuthType discriminates how the gateway authenticates against an upstream MCP server.",
+                        "type": "string",
+                        "enum": [
+                          "NONE",
+                          "API_KEY",
+                          "BEARER",
+                          "BASIC",
+                          "OAUTH2"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "self.type != 'API_KEY' || has(self.apiKey)",
+                        "message": "apiKey must be set when type is API_KEY"
+                      },
+                      {
+                        "rule": "self.type == 'API_KEY' || !has(self.apiKey)",
+                        "message": "apiKey must not be set when type is not API_KEY"
+                      },
+                      {
+                        "rule": "self.type != 'BEARER' || has(self.bearer)",
+                        "message": "bearer must be set when type is BEARER"
+                      },
+                      {
+                        "rule": "self.type == 'BEARER' || !has(self.bearer)",
+                        "message": "bearer must not be set when type is not BEARER"
+                      },
+                      {
+                        "rule": "self.type != 'BASIC' || has(self.basic)",
+                        "message": "basic must be set when type is BASIC"
+                      },
+                      {
+                        "rule": "self.type == 'BASIC' || !has(self.basic)",
+                        "message": "basic must not be set when type is not BASIC"
+                      },
+                      {
+                        "rule": "self.type != 'OAUTH2' || has(self.oauth2)",
+                        "message": "oauth2 must be set when type is OAUTH2"
+                      },
+                      {
+                        "rule": "self.type == 'OAUTH2' || !has(self.oauth2)",
+                        "message": "oauth2 must not be set when type is not OAUTH2"
+                      }
+                    ]
+                  },
+                  "serverRef": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "self.mode != 'PROXY' || has(self.proxy)",
+          "message": "proxy must be set when mode is PROXY"
+        },
+        {
+          "rule": "self.mode == 'PROXY' || !has(self.proxy)",
+          "message": "proxy must not be set when mode is not PROXY"
+        },
+        {
+          "rule": "self.mode != 'STUDIO' || has(self.studio)",
+          "message": "studio must be set when mode is STUDIO"
+        },
+        {
+          "rule": "self.mode == 'STUDIO' || !has(self.studio)",
+          "message": "studio must not be set when mode is not STUDIO"
+        },
+        {
+          "rule": "self.mode == oldSelf.mode",
+          "message": "mode is immutable"
+        },
+        {
+          "rule": "self.entityId == oldSelf.entityId",
+          "message": "entityId is immutable"
+        }
+      ]
+    },
+    "status": {
+      "description": "McpProxyStatus defines the observed state of a McpProxy.",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions describe the current conditions of the McpProxy.",
+          "type": "array",
+          "default": [],
+          "maxItems": 8,
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "environmentId": {
+          "description": "The environment ID defined in the management context",
+          "type": "string"
+        },
+        "errors": {
+          "description": "When the proxy has been created regardless of errors, this field is\nused to persist the error...",
+          "type": "object",
+          "properties": {
+            "severe": {
+              "description": "severe errors do not pass admission and will block reconcile\nhence, this field should always be...",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "warning": {
+              "description": "warning errors do not block object reconciliation,\nmost of the time because the value is ignored or...",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "hrid": {
+          "description": "The human-readable ID the platform addresses this proxy by, derived from the\nresource namespace and...",
+          "type": "string"
+        },
+        "id": {
+          "description": "The ID of the MCP proxy in the Gravitee API Management instance, also the id of the API\nbehind it",
+          "type": "string"
+        },
+        "organizationId": {
+          "description": "The organization ID defined in the management context",
+          "type": "string"
+        },
+        "state": {
+          "description": "The lifecycle state the platform observes.",
+          "type": "string"
+        },
+        "tools": {
+          "description": "The tools a Studio exposes, with their catalog identities.",
+          "type": "array",
+          "items": {
+            "description": "StudioToolStatus is a tool a Studio exposes, with the catalog identity a policy names.",
+            "type": "object",
+            "properties": {
+              "alias": {
+                "type": "string"
+              },
+              "entityId": {
+                "type": "string"
+              },
+              "server": {
+                "description": "HRID of the catalog server the tool comes from.",
+                "type": "string"
+              },
+              "tool": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
