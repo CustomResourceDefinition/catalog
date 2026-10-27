@@ -198,11 +198,13 @@
                     "enum": [
                       "AnthropicTokenCount",
                       "Completions",
+                      "Decisions",
                       "Embeddings",
                       "Messages",
                       "Realtime",
                       "Rerank",
-                      "Responses"
+                      "Responses",
+                      "SystemOne"
                     ]
                   }
                 },
@@ -3405,6 +3407,34 @@
                         "description": "Custom response message to return to the client. If not specified, defaults to\n`The request was rejected due to inappropriate content`.",
                         "type": "object",
                         "properties": {
+                          "headers": {
+                            "description": "Headers to include in the rejection response.",
+                            "type": "array",
+                            "items": {
+                              "description": "HTTPHeader represents an HTTP Header name and value as defined by RFC 7230.",
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "value"
+                              ],
+                              "properties": {
+                                "name": {
+                                  "description": "Name of the HTTP header, case-insensitive",
+                                  "type": "string",
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "pattern": "^[A-Za-z0-9!#$%\u0026'*+\\-.^_\\x60|~]+$"
+                                },
+                                "value": {
+                                  "description": "Value for the HTTP header",
+                                  "type": "string",
+                                  "maxLength": 4096,
+                                  "minLength": 1
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
                           "message": {
                             "description": "Custom response message to return to the client. If not specified, defaults to\n`The request was rejected due to inappropriate content`.",
                             "type": "string"
@@ -3420,12 +3450,12 @@
                         "additionalProperties": false
                       },
                       "scope": {
-                        "description": "Which parts of the request this guard inspects. When unset, defaults to\n`SystemPrompt` and `Messages`. Tool call inputs and outputs are not\ninspected unless `ToolInput`/`ToolOutput` are listed explicitly.\nIn APIs that send tool arguments as opaque JSON, such as Completions, the\narguments are masked as a single string, meaning a prompt guard has the\npotential to rewrite the arguments into invalid JSON.",
+                        "description": "Which parts of the request this guard inspects. When unset, defaults to\n`SystemPrompt`, `Messages`, and `ToolOutput`. Tool call inputs are not\ninspected unless `ToolInput` is listed explicitly. Webhook guards do not\nsupport scope and always inspect `SystemPrompt` and `Messages`.\nIn APIs that send tool arguments as opaque JSON, such as Completions, the\narguments are masked as a single string, meaning a prompt guard has the\npotential to rewrite the arguments into invalid JSON.",
                         "type": "array",
                         "maxItems": 4,
                         "minItems": 1,
                         "items": {
-                          "description": "Which category of request content a prompt guard inspects.",
+                          "description": "Which category of request or response content a prompt guard inspects.\nEncrypted payloads are excluded. Signed response payloads are scanned but\na mask that would change them rejects the response instead.",
                           "type": "string",
                           "enum": [
                             "Messages",
@@ -3565,8 +3595,8 @@
                     "additionalProperties": false,
                     "x-kubernetes-validations": [
                       {
-                        "rule": "!has(self.scope) || has(self.regex) || has(self.bedrockGuardrails) || (self.scope.size() == 2 \u0026\u0026 'SystemPrompt' in self.scope \u0026\u0026 'Messages' in self.scope)",
-                        "message": "scope: only regex and bedrockGuardrails guards support a non-default scope; other guard kinds always inspect the default (SystemPrompt + Messages)"
+                        "rule": "!has(self.scope) || !has(self.webhook) || (self.scope.size() == 2 \u0026\u0026 'SystemPrompt' in self.scope \u0026\u0026 'Messages' in self.scope)",
+                        "message": "scope: webhook guards do not support scope; they always inspect SystemPrompt + Messages"
                       },
                       {
                         "rule": "(has(self.regex)?1:0)+(has(self.webhook)?1:0)+(has(self.openAIModeration)?1:0)+(has(self.bedrockGuardrails)?1:0)+(has(self.googleModelArmor)?1:0) == 1",
@@ -4731,6 +4761,34 @@
                         "description": "Custom response message to return to the client. If not specified, defaults to\n`The response was rejected due to inappropriate content`.",
                         "type": "object",
                         "properties": {
+                          "headers": {
+                            "description": "Headers to include in the rejection response.",
+                            "type": "array",
+                            "items": {
+                              "description": "HTTPHeader represents an HTTP Header name and value as defined by RFC 7230.",
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "value"
+                              ],
+                              "properties": {
+                                "name": {
+                                  "description": "Name of the HTTP header, case-insensitive",
+                                  "type": "string",
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "pattern": "^[A-Za-z0-9!#$%\u0026'*+\\-.^_\\x60|~]+$"
+                                },
+                                "value": {
+                                  "description": "Value for the HTTP header",
+                                  "type": "string",
+                                  "maxLength": 4096,
+                                  "minLength": 1
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
                           "message": {
                             "description": "Custom response message to return to the client. If not specified, defaults to\n`The request was rejected due to inappropriate content`.",
                             "type": "string"
@@ -4744,6 +4802,23 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      "scope": {
+                        "description": "Which parts of the response this guard inspects. When unset, defaults to\n`Messages`. Tool calls generated by the model are not inspected unless\n`ToolInput` is listed explicitly; `ToolOutput` covers results of\nserverside tools.\nIn APIs that send tool arguments as opaque JSON, such as Completions, the\narguments are masked as a single string, meaning a prompt guard has the\npotential to rewrite the arguments into invalid JSON.",
+                        "type": "array",
+                        "maxItems": 4,
+                        "minItems": 1,
+                        "items": {
+                          "description": "Which category of request or response content a prompt guard inspects.\nEncrypted payloads are excluded. Signed response payloads are scanned but\na mask that would change them rejects the response instead.",
+                          "type": "string",
+                          "enum": [
+                            "Messages",
+                            "SystemPrompt",
+                            "ToolInput",
+                            "ToolOutput"
+                          ]
+                        },
+                        "x-kubernetes-list-type": "set"
                       },
                       "webhook": {
                         "description": "Webhook that receives responses for prompt guarding.",
@@ -4874,6 +4949,10 @@
                     "additionalProperties": false,
                     "x-kubernetes-validations": [
                       {
+                        "rule": "!has(self.scope) || !has(self.webhook) || (self.scope.size() == 1 \u0026\u0026 'Messages' in self.scope)",
+                        "message": "scope: webhook guards do not support a non-default scope; they always inspect the default (Messages)"
+                      },
+                      {
                         "rule": "(has(self.regex)?1:0)+(has(self.webhook)?1:0)+(has(self.bedrockGuardrails)?1:0)+(has(self.googleModelArmor)?1:0) == 1",
                         "message": "exactly one of the fields in [regex webhook bedrockGuardrails googleModelArmor] must be set"
                       }
@@ -4890,6 +4969,10 @@
               },
               "additionalProperties": false,
               "x-kubernetes-validations": [
+                {
+                  "rule": "!has(self.streaming) || self.streaming != 'Enabled' || !has(self.response) || self.response.all(g, !has(g.scope) || g.scope.all(s, s == 'Messages'))",
+                  "message": "streaming response guards only support the Messages scope"
+                },
                 {
                   "rule": "[has(self.request),has(self.response)].filter(x,x==true).size() \u003e= 1",
                   "message": "at least one of the fields in [request response] must be set"
@@ -5189,6 +5272,7 @@
             "Bedrock",
             "Cerebras",
             "Cohere",
+            "Copilot",
             "Custom",
             "Deepinfra",
             "Deepseek",
@@ -5201,7 +5285,9 @@
             "Ollama",
             "OpenAI",
             "Openrouter",
+            "Perplexity",
             "TogetherAI",
+            "Typesafe",
             "VertexAI",
             "XAI"
           ]
@@ -5232,6 +5318,179 @@
           "description": "Request-time routing among concrete AgentgatewayModel resources.",
           "type": "object",
           "properties": {
+            "callout": {
+              "description": "Model selection by calling an external HTTP service.",
+              "type": "object",
+              "required": [
+                "transformation"
+              ],
+              "properties": {
+                "backendRef": {
+                  "description": "`backendRef` selects a backend for this policy.\nMutually exclusive with `url`.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "group": {
+                      "description": "Group of the referent, for example `gateway.networking.k8s.io`. Empty selects the core API group",
+                      "type": "string",
+                      "default": "",
+                      "maxLength": 253,
+                      "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                    },
+                    "kind": {
+                      "description": "Kubernetes resource kind of the referent, for example `Service`. Defaults to `Service`",
+                      "type": "string",
+                      "default": "Service",
+                      "maxLength": 63,
+                      "minLength": 1,
+                      "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
+                    },
+                    "name": {
+                      "description": "Name is the name of the referent.",
+                      "type": "string",
+                      "maxLength": 253,
+                      "minLength": 1
+                    },
+                    "namespace": {
+                      "description": "Namespace of the referent. Defaults to the local namespace. A cross-namespace reference requires a ReferenceGrant in the referent namespace",
+                      "type": "string",
+                      "maxLength": 63,
+                      "minLength": 1,
+                      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                    },
+                    "port": {
+                      "description": "Destination port number. Required when the referent is a Kubernetes `Service`",
+                      "type": "integer",
+                      "format": "int32",
+                      "maximum": 65535,
+                      "minimum": 1
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "(size(self.group) == 0 \u0026\u0026 self.kind == 'Service') ? has(self.port) : true",
+                      "message": "Must have port for Service reference"
+                    }
+                  ]
+                },
+                "body": {
+                  "description": "CEL expression that computes the callout request body. Strings and bytes\nare used directly; other values are JSON-encoded. If unset, the original\nrequest body is forwarded.",
+                  "type": "string",
+                  "maxLength": 16384,
+                  "minLength": 1
+                },
+                "cache": {
+                  "description": "Reuse callout responses using CEL expressions as the cache key. On a cache\nhit, `transformation` is evaluated against the cached response. Keying on\na session identifier makes routing sticky for that session.",
+                  "type": "object",
+                  "required": [
+                    "key",
+                    "ttl"
+                  ],
+                  "properties": {
+                    "key": {
+                      "description": "Ordered list of CEL expressions evaluated against the request to\nconstruct the cache key.",
+                      "type": "array",
+                      "maxItems": 16,
+                      "minItems": 1,
+                      "items": {
+                        "description": "A Common Expression Language (CEL) expression.",
+                        "type": "string",
+                        "maxLength": 16384,
+                        "minLength": 1
+                      }
+                    },
+                    "maxEntries": {
+                      "description": "Maximum number of callout responses to keep in the cache. If unset, this\ndefaults to 10000.",
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 1
+                    },
+                    "ttl": {
+                      "description": "Duration string, such as `5m`, or a CEL expression that returns the\nduration that a cached callout response may be reused, or a timestamp\nwhen it expires. The expression is evaluated with `callout` available,\nbefore `transformation` is applied.",
+                      "type": "string",
+                      "maxLength": 16384,
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "fallback": {
+                  "description": "Model used when the callout fails, returns a non-2xx or non-JSON\nresponse, or selects an unknown model. `transformation` is not applied to\nthe fallback. If unset, the request is rejected.",
+                  "type": "object",
+                  "required": [
+                    "modelRef"
+                  ],
+                  "properties": {
+                    "model": {
+                      "description": "Concrete model name selected through the referenced model. It is required\nwhen modelRef points to a wildcard match.model. When omitted, the referenced\nmodel's exact effective match.model is used.",
+                      "type": "string",
+                      "maxLength": 1024,
+                      "minLength": 1
+                    },
+                    "modelRef": {
+                      "description": "Same-namespace AgentgatewayModel resource selected by this target.",
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "description": "Name of the referent",
+                          "type": "string",
+                          "default": ""
+                        }
+                      },
+                      "additionalProperties": false,
+                      "x-kubernetes-map-type": "atomic"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "headers": {
+                  "description": "Headers to set on the callout request, computed from CEL expressions.\nKeys may be header names or the `:path`, `:method`, and `:authority`\npseudo-headers.",
+                  "type": "object",
+                  "maxProperties": 64,
+                  "additionalProperties": {
+                    "description": "A Common Expression Language (CEL) expression.",
+                    "type": "string",
+                    "maxLength": 16384,
+                    "minLength": 1
+                  }
+                },
+                "transformation": {
+                  "description": "CEL expressions that compute request payload fields from the callout\nresponse, overriding existing values. `callout.headers` holds the response\nheaders and `callout.body` the decoded JSON response body. `model` is\nrequired and selects the concrete model name, which is matched against the\neffective match.model of models attached to the same listener.",
+                  "type": "object",
+                  "maxProperties": 64,
+                  "minProperties": 1,
+                  "additionalProperties": {
+                    "description": "A Common Expression Language (CEL) expression.",
+                    "type": "string",
+                    "maxLength": 16384,
+                    "minLength": 1
+                  },
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "has(self.model)",
+                      "message": "transformation must set model"
+                    }
+                  ]
+                },
+                "url": {
+                  "description": "`url` directly specifies the HTTP(S) endpoint for this policy.\nWhen the scheme is `https`, backend TLS is enabled automatically.\nMutually exclusive with `backendRef`.\nURLs are opaque; referencing a Kubernetes service hostname like `hello.ns.svc.cluster.local`\nwill not apply Service policies or load balancing.",
+                  "type": "string",
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "pattern": "^https?://[^/?#@]+(/[^?#]*)?$"
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "(has(self.backendRef)?1:0)+(has(self.url)?1:0) == 1",
+                  "message": "exactly one of the fields in [backendRef url] must be set"
+                }
+              ]
+            },
             "conditional": {
               "description": "Ordered condition-based model selection.",
               "type": "object",
@@ -5395,8 +5654,8 @@
           "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "(has(self.weighted)?1:0)+(has(self.failover)?1:0)+(has(self.conditional)?1:0) == 1",
-              "message": "exactly one of the fields in [weighted failover conditional] must be set"
+              "rule": "(has(self.weighted)?1:0)+(has(self.failover)?1:0)+(has(self.conditional)?1:0)+(has(self.callout)?1:0) == 1",
+              "message": "exactly one of the fields in [weighted failover conditional callout] must be set"
             }
           ]
         },
