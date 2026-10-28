@@ -778,6 +778,13 @@
                     "name"
                   ],
                   "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "Kafka",
+                        "LogicalKafkaCluster"
+                      ]
+                    },
                     "name": {
                       "type": "string"
                     },
@@ -1460,6 +1467,9 @@
                   },
                   "additionalProperties": false
                 },
+                "tlsClientAliasName": {
+                  "type": "string"
+                },
                 "url": {
                   "type": "string",
                   "minLength": 1,
@@ -2055,6 +2065,9 @@
                   "type": "string",
                   "minLength": 1
                 },
+                "publishNotReadyAddresses": {
+                  "type": "boolean"
+                },
                 "servicePorts": {
                   "type": "array",
                   "items": {
@@ -2174,6 +2187,9 @@
                   "type": "integer",
                   "format": "int32",
                   "minimum": 0
+                },
+                "publishNotReadyAddresses": {
+                  "type": "boolean"
                 },
                 "servicePorts": {
                   "type": "array",
@@ -2380,6 +2396,15 @@
             "type": "string"
           },
           "x-kubernetes-map-type": "granular"
+        },
+        "internalService": {
+          "type": "object",
+          "properties": {
+            "publishNotReadyAddresses": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
         },
         "internalTopicReplicatorFactor": {
           "type": "integer",
@@ -3050,6 +3075,13 @@
                   "name"
                 ],
                 "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "Kafka",
+                      "LogicalKafkaCluster"
+                    ]
+                  },
                   "name": {
                     "type": "string"
                   },
@@ -5798,9 +5830,6 @@
           "properties": {
             "alertmanager": {
               "type": "object",
-              "required": [
-                "image"
-              ],
               "properties": {
                 "authentication": {
                   "type": "object",
@@ -6139,6 +6168,10 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
                 },
                 "image": {
                   "type": "string"
@@ -6204,10 +6237,6 @@
             },
             "prometheus": {
               "type": "object",
-              "required": [
-                "image",
-                "pvc"
-              ],
               "properties": {
                 "authentication": {
                   "type": "object",
@@ -6546,6 +6575,10 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
                 },
                 "externalAccess": {
                   "type": "object",
@@ -6613,6 +6646,9 @@
                         "prefix": {
                           "type": "string",
                           "minLength": 1
+                        },
+                        "publishNotReadyAddresses": {
+                          "type": "boolean"
                         },
                         "servicePorts": {
                           "type": "array",
@@ -6733,6 +6769,9 @@
                           "type": "integer",
                           "format": "int32",
                           "minimum": 0
+                        },
+                        "publishNotReadyAddresses": {
+                          "type": "boolean"
                         },
                         "servicePorts": {
                           "type": "array",
@@ -7047,7 +7086,29 @@
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.services) || (has(self.dependencies) \u0026\u0026 has(self.dependencies.prometheusClient) \u0026\u0026 has(self.dependencies.prometheusClient.url) \u0026\u0026 self.dependencies.prometheusClient.url.size() \u003e 0)",
+          "message": "spec.dependencies.prometheusClient.url is required"
+        },
+        {
+          "rule": "!has(self.services) || (has(self.services.prometheus) \u0026\u0026 (!has(self.services.prometheus.enabled) || self.services.prometheus.enabled)) || !(has(self.services.alertmanager) \u0026\u0026 (!has(self.services.alertmanager.enabled) || self.services.alertmanager.enabled))",
+          "message": "the bundled Alertmanager cannot run against an external Prometheus; set services.alertmanager.enabled: false"
+        },
+        {
+          "rule": "!has(self.services) || !(has(self.services.prometheus) \u0026\u0026 (!has(self.services.prometheus.enabled) || self.services.prometheus.enabled)) || (has(self.services.alertmanager) \u0026\u0026 (!has(self.services.alertmanager.enabled) || self.services.alertmanager.enabled))",
+          "message": "the bundled Alertmanager must be enabled together with the bundled Prometheus; set services.alertmanager.enabled: true"
+        },
+        {
+          "rule": "!has(self.services) || !has(self.services.prometheus) || (has(self.services.prometheus.enabled) \u0026\u0026 !self.services.prometheus.enabled) || (has(self.services.prometheus.image) \u0026\u0026 self.services.prometheus.image.size() \u003e 0)",
+          "message": "the bundled Prometheus is enabled but services.prometheus.image is not set"
+        },
+        {
+          "rule": "!has(self.services) || !has(self.services.alertmanager) || (has(self.services.alertmanager.enabled) \u0026\u0026 !self.services.alertmanager.enabled) || (has(self.services.alertmanager.image) \u0026\u0026 self.services.alertmanager.image.size() \u003e 0)",
+          "message": "the bundled Alertmanager is enabled but services.alertmanager.image is not set"
+        }
+      ]
     },
     "status": {
       "type": "object",
@@ -7126,6 +7187,18 @@
               "type": "string"
             },
             "tls": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "multiTenant": {
+          "type": "object",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
               "type": "boolean"
             }
           },

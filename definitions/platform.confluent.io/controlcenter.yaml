@@ -4,8 +4,8 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
-    platform.confluent.io/app-version: 3.3.1
-    platform.confluent.io/chart-version: v0.1718.99
+    platform.confluent.io/app-version: 3.4.0
+    platform.confluent.io/chart-version: v0.2038.1
   name: controlcenters.platform.confluent.io
 spec:
   group: platform.confluent.io
@@ -40,6 +40,10 @@ spec:
           name: Kafka
           priority: 1
           type: string
+        - jsonPath: .status.multiTenant.enabled
+          name: MultiTenant
+          priority: 1
+          type: boolean
       name: v1beta1
       schema:
         openAPIV3Schema:
@@ -561,6 +565,11 @@ spec:
                           type: string
                         discovery:
                           properties:
+                            kind:
+                              enum:
+                                - Kafka
+                                - LogicalKafkaCluster
+                              type: string
                             name:
                               type: string
                             namespace:
@@ -1025,6 +1034,8 @@ spec:
                           required:
                             - enabled
                           type: object
+                        tlsClientAliasName:
+                          type: string
                         url:
                           minLength: 1
                           pattern: ^https?://.*
@@ -1428,6 +1439,8 @@ spec:
                         prefix:
                           minLength: 1
                           type: string
+                        publishNotReadyAddresses:
+                          type: boolean
                         servicePorts:
                           items:
                             properties:
@@ -1504,6 +1517,8 @@ spec:
                           format: int32
                           minimum: 0
                           type: integer
+                        publishNotReadyAddresses:
+                          type: boolean
                         servicePorts:
                           items:
                             properties:
@@ -1643,6 +1658,11 @@ spec:
                     type: string
                   type: object
                   x-kubernetes-map-type: granular
+                internalService:
+                  properties:
+                    publishNotReadyAddresses:
+                      type: boolean
+                  type: object
                 internalTopicReplicatorFactor:
                   format: int32
                   type: integer
@@ -2089,6 +2109,11 @@ spec:
                         type: string
                       discovery:
                         properties:
+                          kind:
+                            enum:
+                              - Kafka
+                              - LogicalKafkaCluster
+                            type: string
                           name:
                             type: string
                           namespace:
@@ -4055,6 +4080,9 @@ spec:
                                   type: object
                               type: object
                           type: object
+                        enabled:
+                          default: true
+                          type: boolean
                         image:
                           type: string
                         tls:
@@ -4094,8 +4122,6 @@ spec:
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                               type: string
                           type: object
-                      required:
-                        - image
                       type: object
                     prometheus:
                       properties:
@@ -4307,6 +4333,9 @@ spec:
                                   type: object
                               type: object
                           type: object
+                        enabled:
+                          default: true
+                          type: boolean
                         externalAccess:
                           properties:
                             loadBalancer:
@@ -4349,6 +4378,8 @@ spec:
                                 prefix:
                                   minLength: 1
                                   type: string
+                                publishNotReadyAddresses:
+                                  type: boolean
                                 servicePorts:
                                   items:
                                     properties:
@@ -4425,6 +4456,8 @@ spec:
                                   format: int32
                                   minimum: 0
                                   type: integer
+                                publishNotReadyAddresses:
+                                  type: boolean
                                 servicePorts:
                                   items:
                                     properties:
@@ -4573,9 +4606,6 @@ spec:
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                               type: string
                           type: object
-                      required:
-                        - image
-                        - pvc
                       type: object
                   required:
                     - alertmanager
@@ -4636,6 +4666,17 @@ spec:
                 - dataVolumeCapacity
                 - image
               type: object
+              x-kubernetes-validations:
+                - message: spec.dependencies.prometheusClient.url is required
+                  rule: '!has(self.services) || (has(self.dependencies) && has(self.dependencies.prometheusClient) && has(self.dependencies.prometheusClient.url) && self.dependencies.prometheusClient.url.size() > 0)'
+                - message: 'the bundled Alertmanager cannot run against an external Prometheus; set services.alertmanager.enabled: false'
+                  rule: '!has(self.services) || (has(self.services.prometheus) && (!has(self.services.prometheus.enabled) || self.services.prometheus.enabled)) || !(has(self.services.alertmanager) && (!has(self.services.alertmanager.enabled) || self.services.alertmanager.enabled))'
+                - message: 'the bundled Alertmanager must be enabled together with the bundled Prometheus; set services.alertmanager.enabled: true'
+                  rule: '!has(self.services) || !(has(self.services.prometheus) && (!has(self.services.prometheus.enabled) || self.services.prometheus.enabled)) || (has(self.services.alertmanager) && (!has(self.services.alertmanager.enabled) || self.services.alertmanager.enabled))'
+                - message: the bundled Prometheus is enabled but services.prometheus.image is not set
+                  rule: '!has(self.services) || !has(self.services.prometheus) || (has(self.services.prometheus.enabled) && !self.services.prometheus.enabled) || (has(self.services.prometheus.image) && self.services.prometheus.image.size() > 0)'
+                - message: the bundled Alertmanager is enabled but services.alertmanager.image is not set
+                  rule: '!has(self.services) || !has(self.services.alertmanager) || (has(self.services.alertmanager.enabled) && !self.services.alertmanager.enabled) || (has(self.services.alertmanager.image) && self.services.alertmanager.image.size() > 0)'
             status:
               properties:
                 arbitraryData:
@@ -4689,6 +4730,13 @@ spec:
                       type: string
                     tls:
                       type: boolean
+                  type: object
+                multiTenant:
+                  properties:
+                    enabled:
+                      type: boolean
+                  required:
+                    - enabled
                   type: object
                 observedGeneration:
                   format: int64
