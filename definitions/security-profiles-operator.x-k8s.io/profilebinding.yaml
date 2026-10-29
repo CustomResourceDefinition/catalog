@@ -2,16 +2,20 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.22.0
+    controller-gen.kubebuilder.io/version: v0.23.0
   labels:
     app: security-profiles-operator
   name: profilebindings.security-profiles-operator.x-k8s.io
 spec:
   group: security-profiles-operator.x-k8s.io
   names:
+    categories:
+    - spo
     kind: ProfileBinding
     listKind: ProfileBindingList
     plural: profilebindings
+    shortNames:
+    - pb
     singular: profilebinding
   scope: Namespaced
   versions:
@@ -24,6 +28,9 @@ spec:
       type: string
     - jsonPath: .spec.image
       name: Image
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -113,9 +120,9 @@ spec:
                     DoesNotExist, In and NotIn require values, Exists and DoesNotExist
                     must not have values
                   rule: '!has(self.matchExpressions) || self.matchExpressions.all(e,
-                    e.operator in [''In'', ''NotIn''] ? (has(e.values) && size(e.values)
-                    > 0) : (e.operator in [''Exists'', ''DoesNotExist''] && (!has(e.values)
-                    || size(e.values) == 0)))'
+                    has(e.values) && size(e.values) > 0 ? (e.operator == ''In'' ||
+                    e.operator == ''NotIn'') : (e.operator == ''Exists'' || e.operator
+                    == ''DoesNotExist''))'
               profileRef:
                 description: |-
                   profileRef references the cluster-scoped SeccompProfile, SelinuxProfile
@@ -146,8 +153,9 @@ spec:
             description: status contains the observed state of the ProfileBinding.
             properties:
               activeWorkloads:
-                description: activeWorkloads lists the workloads currently using this
-                  binding.
+                description: |-
+                  activeWorkloads lists the workloads currently using this binding. It
+                  holds at most 1000 workloads.
                 items:
                   type: string
                 type: array

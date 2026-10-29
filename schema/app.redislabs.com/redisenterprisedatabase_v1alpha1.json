@@ -300,6 +300,48 @@
           },
           "additionalProperties": false
         },
+        "authorizedSubjects": {
+          "description": "Client certificate subjects authorized to connect when clientCertSubjectValidationType is\n'SanCn' or 'FullSubject', which require at least one entry. Maps to the database's\n'authorized_subjects' setting. Subject attributes are case-sensitive.\nIf neither field was ever set, the operator leaves the database setting unchanged; otherwise\nan omitted value means an empty list (see status.managedFields).",
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "description": "An X.509 certificate subject (distinguished name) authorized to authenticate using a client certificate.",
+            "type": "object",
+            "required": [
+              "CN"
+            ],
+            "properties": {
+              "C": {
+                "description": "Country (C) component of the certificate subject.",
+                "type": "string"
+              },
+              "CN": {
+                "description": "Common Name (CN) component of the certificate subject. Required.",
+                "type": "string"
+              },
+              "L": {
+                "description": "Locality (L) component of the certificate subject.",
+                "type": "string"
+              },
+              "O": {
+                "description": "Organization (O) component of the certificate subject.",
+                "type": "string"
+              },
+              "OU": {
+                "description": "Organizational Unit (OU) components of the certificate subject.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ST": {
+                "description": "State or province (ST) component of the certificate subject.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "backup": {
           "description": "Target for automatic database backups.",
           "type": "object",
@@ -468,6 +510,15 @@
             "type": "string"
           }
         },
+        "clientCertSubjectValidationType": {
+          "description": "Additional validation of client certificate subjects during mutual TLS authentication.\nMaps to the database's 'client_cert_subject_validation_type' setting.\n'Disabled' performs no subject validation; 'SanCn' requires the certificate's Subject\nAlternative Name (SAN) DNS entries or Common Name (CN) to match an authorizedSubjects entry;\n'FullSubject' requires the full certificate subject to match an entry.\nApplies only to client certificates validated through a CA certificate listed in\nclientAuthenticationCertificates; listed leaf certificates skip this validation.\nRequired when authorizedSubjects is set. If neither field was ever set, the operator leaves\nthe database setting unchanged; otherwise an omitted value means 'Disabled'\n(see status.managedFields).",
+          "type": "string",
+          "enum": [
+            "Disabled",
+            "SanCn",
+            "FullSubject"
+          ]
+        },
         "connectionSettings": {
           "description": "Connection-related settings such as proxy connections and scheduling policy.",
           "type": "object",
@@ -523,6 +574,10 @@
         },
         "defaultUser": {
           "description": "Allows connections with the default user. When disabled, the DatabaseSecret is not created or updated.",
+          "type": "boolean"
+        },
+        "disconnectClientsOnPasswordRemoval": {
+          "description": "Controls whether the proxy disconnects clients of this database whose password was removed. Effective only when the cluster-level setting is \"Auto\" (see the RedisEnterpriseCluster field of the same name). The operator takes ownership of this BDB setting once the field is set (recorded in status.managedFields); removing the field afterwards resets the BDB to the false default. Requires Redis Enterprise 8.0 or newer.",
           "type": "boolean"
         },
         "evictionPolicy": {
@@ -620,6 +675,10 @@
           "description": "Redis OSS version. Version can be specified via \u003cmajor.minor\u003e prefix, or via channels - for existing databases - Upgrade Redis OSS version. For new databases - the version which the database will be created with. If set to 'major' - will always upgrade to the most recent major Redis version. If set to 'latest' - will always upgrade to the most recent Redis version. Depends on 'redisUpgradePolicy' - if you want to set the value to 'latest' for some databases, you must set redisUpgradePolicy on the cluster before. Possible values are 'major' or 'latest' When using upgrade - make sure to backup the database before. This value is used only for database type 'redis'",
           "type": "string"
         },
+        "replicaReadOnly": {
+          "description": "Boolean (default: false); If true, enables an Active-Passive setup where Replica Of databases only allow read operations. Only configurable during database creation and cannot be changed later.",
+          "type": "boolean"
+        },
         "replicaSources": {
           "description": "What databases to replicate from",
           "type": "array",
@@ -715,6 +774,57 @@
         "shardCount": {
           "description": "Number of database server-side shards.",
           "type": "integer"
+        },
+        "sharding": {
+          "description": "Sharding-related configuration. The number of shards and their placement are controlled by the existing top-level shardCount and shardsPlacement. Not supported for Active-Active databases.",
+          "type": "object",
+          "properties": {
+            "asmScaling": {
+              "description": "Enables smooth scaling via Atomic Slot Migration: shardCount then accepts any value, in any direction, including decreasing the count. Requires autoShardsBalancing. Not supported for Active-Active or Redis-on-Flash databases.",
+              "type": "boolean"
+            },
+            "autoShardsBalancing": {
+              "description": "Enables RS shard balancing for this database, including background auto-rebalancing: RS may move data between shards on its own whenever their imbalance exceeds the configured thresholds, see autoShardsBalancingSettings. Requires hashingPolicy OssSharding and a database Redis version of 8.4 or above. Note: enabling this also turns on the database's internal cluster mode (redis_cluster_enabled), which RS requires for balancing. Cluster mode stays on when balancing is disabled again - RS won't allow disabling it once the database has shards with split slot ranges.",
+              "type": "boolean"
+            },
+            "autoShardsBalancingSettings": {
+              "description": "Optional tuning of autoShardsBalancing. Every field has a default, which is used both when the settings are absent and when an individual field is unset. The settings are ignored while autoShardsBalancing is off.",
+              "type": "object",
+              "properties": {
+                "gracePeriodSeconds": {
+                  "description": "The imbalance must persist for this long before a rebalance starts. Defaults to 120 when unset.",
+                  "type": "integer"
+                },
+                "shardImbalanceThreshold": {
+                  "description": "Rebalance only when a shard deviates from its ideal size by at least this much. The effective trigger is the larger of this and shardImbalanceThresholdPercentage. Defaults to 300Mi when unset. Values below the Redis Enterprise minimum (50Mi) are rejected by the cluster.",
+                  "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "x-kubernetes-int-or-string": true
+                },
+                "shardImbalanceThresholdPercentage": {
+                  "description": "Rebalance only when a shard deviates from its ideal size by at least this percent. The effective trigger is the larger of this and shardImbalanceThreshold. Defaults to 20 when unset.",
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "hashingPolicy": {
+              "description": "Hashing policy for a sharded database. Defaults to ShardKeyRegex (regex-based hashing) when absent. Note: once the database has shards with split slot ranges, RS won't allow reverting from OssSharding back to ShardKeyRegex.",
+              "type": "string",
+              "enum": [
+                "ShardKeyRegex",
+                "OssSharding"
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "shardingEnabled": {
           "description": "Toggles database sharding for REAADBs (Active Active databases) and enabled by default. This field is blocked for REDB (non-Active Active databases) and sharding is toggled via the shardCount field - when shardCount is 1 this is disabled otherwise enabled.",
@@ -831,6 +941,60 @@
           "description": "BigStore version for Redis on Flash databases (1 for Auto Tiering, 2 for Redis Flex). Read-only field populated from RS.",
           "type": "integer"
         },
+        "conditions": {
+          "description": "Conditions hold the latest observations of the database's state, e.g. the ScalingInProgress condition while a shardCount change is applied.",
+          "type": "array",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
         "createdTime": {
           "description": "Time when the database was created",
           "type": "string"
@@ -887,6 +1051,11 @@
           "description": "The generation (built in update counter of K8s) of the REDB resource that was fully acted upon, meaning that all changes were handled and sent as an API call to the Redis Enterprise Cluster (REC). This field value should equal the current generation when the resource changes were handled. Note: the lastActionStatus field tracks actions handled asynchronously by the Redis Enterprise Cluster.",
           "type": "integer",
           "format": "int64"
+        },
+        "observedShardCount": {
+          "description": "The database's current shard count, as reported by the Redis Enterprise cluster.",
+          "type": "integer",
+          "format": "int32"
         },
         "redisEnterpriseCluster": {
           "description": "The Redis Enterprise Cluster Object this Resource is associated with",
@@ -980,6 +1149,13 @@
         },
         "shardStatuses": {
           "description": "Aggregated statuses of shards",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "shardSyncStatuses": {
+          "description": "Aggregated sync statuses of shards ('in_progress' / 'idle' / 'link_down')",
           "type": "object",
           "additionalProperties": {
             "type": "integer"

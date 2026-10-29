@@ -1,5 +1,5 @@
 {
-  "description": "ProfileRecording is the Schema for the profilerecordings API.\n\nThe name is used as a label value on the recorded profiles, so it is\nlimited to 63 characters. Existing objects are exempt, so that they can\nstill be updated and deleted.",
+  "description": "ProfileRecording is the Schema for the profilerecordings API.\n\nThe name is used as a label value on the recorded profiles, so it is\nlimited to 63 characters. The recorded profiles of a SelinuxProfile\nrecording are named after it, so its name has to be a valid SelinuxProfile\nname, which starts with a letter and contains no dots. Names which break\nthese rules never recorded a profile. Existing objects are exempt, so that\nthey can still be updated and deleted.",
   "type": "object",
   "required": [
     "spec"
@@ -105,7 +105,7 @@
           "x-kubernetes-map-type": "atomic",
           "x-kubernetes-validations": [
             {
-              "rule": "!has(self.matchExpressions) || self.matchExpressions.all(e, e.operator in ['In', 'NotIn'] ? (has(e.values) \u0026\u0026 size(e.values) \u003e 0) : (e.operator in ['Exists', 'DoesNotExist'] \u0026\u0026 (!has(e.values) || size(e.values) == 0)))",
+              "rule": "!has(self.matchExpressions) || self.matchExpressions.all(e, has(e.values) \u0026\u0026 size(e.values) \u003e 0 ? (e.operator == 'In' || e.operator == 'NotIn') : (e.operator == 'Exists' || e.operator == 'DoesNotExist'))",
               "message": "matchExpressions operator must be In, NotIn, Exists or DoesNotExist, In and NotIn require values, Exists and DoesNotExist must not have values"
             }
           ]
@@ -136,7 +136,7 @@
       "type": "object",
       "properties": {
         "activeWorkloads": {
-          "description": "activeWorkloads lists the workloads currently using this recording.",
+          "description": "activeWorkloads lists the workloads currently using this recording. It\nholds at most 1000 workloads.",
           "type": "array",
           "items": {
             "type": "string"
@@ -211,6 +211,11 @@
     {
       "rule": "oldSelf.hasValue() || size(self.metadata.name) \u003c= 63",
       "message": "name must be no more than 63 characters",
+      "optionalOldSelf": true
+    },
+    {
+      "rule": "(oldSelf.hasValue() \u0026\u0026 oldSelf.value().spec.kind == 'SelinuxProfile') || self.spec.kind != 'SelinuxProfile' || self.metadata.name.matches('^[a-z][-a-z0-9]*$')",
+      "message": "the name of a SelinuxProfile recording must start with a letter and may only contain lowercase alphanumeric characters and '-'",
       "optionalOldSelf": true
     }
   ]

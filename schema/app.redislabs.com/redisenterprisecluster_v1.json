@@ -75,6 +75,82 @@
             "type": "string"
           }
         },
+        "apiBasicAuth": {
+          "description": "Configures basic (username/password) authentication for the Redis Enterprise REST API.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Whether the Redis Enterprise cluster accepts basic (username/password) authentication\non its REST API. Maps to the cluster's 'control_plane_basic_authentication' setting\nand requires Redis Enterprise 8.2.0 or newer. When set to false, the cluster rejects\npasswords on all REST API requests; only certificate-based (mTLS) and JWT\nauthentication are accepted, and the operator itself must be configured to use\ncertificate authentication (operatorClientAuth.method: Certificate). The operator\napplies this setting only after verifying that certificate authentication is fully in\neffect, to avoid losing access to the cluster. When unset, the operator does not\nmanage this cluster setting.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "apiCertificateBasedAuth": {
+          "description": "Configures Certificate-Based Authentication (CBA), i.e. mutual TLS client\ncertificate authentication, for the Redis Enterprise control-plane REST API.\nThis setting is additive on the server side: enabling it makes client certificates\nan accepted authentication method for connecting to the control plane, in addition\nto basic/digest authentication, unless basic authentication is explicitly turned\noff via apiBasicAuth.",
+          "type": "object",
+          "properties": {
+            "authorizedSubjects": {
+              "description": "The list of certificate subjects authorized to authenticate to the control-plane\nREST API using client certificates. Maps to the cluster's 'mtls_authorized_subjects'\nsetting. The subject declared in operatorClientAuth.certificateSubjectLine is\nadded automatically and need not be listed here.",
+              "type": "array",
+              "items": {
+                "description": "CertificateSubject identifies an X.509 certificate subject (distinguished name) that is\nauthorized to authenticate to the control plane using a client certificate. Field names\nfollow standard X.509 distinguished name (DN) component abbreviations.",
+                "type": "object",
+                "required": [
+                  "CN"
+                ],
+                "properties": {
+                  "C": {
+                    "description": "Country (C) component of the certificate subject.",
+                    "type": "string"
+                  },
+                  "CN": {
+                    "description": "Common Name (CN) component of the certificate subject. Required.",
+                    "type": "string"
+                  },
+                  "L": {
+                    "description": "Locality (L) component of the certificate subject.",
+                    "type": "string"
+                  },
+                  "O": {
+                    "description": "Organization (O) component of the certificate subject.",
+                    "type": "string"
+                  },
+                  "OU": {
+                    "description": "Organizational Unit (OU) components of the certificate subject.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "ST": {
+                    "description": "State or province (ST) component of the certificate subject.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "clientCertSubjectValidationType": {
+              "description": "Determines how the Redis Enterprise cluster validates the subject of client\ncertificates presented for authentication. Maps to the cluster's\n'mtls_client_cert_subject_validation_type' setting.\n'Disabled' performs no subject validation; 'SanCn' validates the Subject Alternative\nName / Common Name; 'FullSubject' validates the full certificate subject.",
+              "type": "string",
+              "enum": [
+                "Disabled",
+                "SanCn",
+                "FullSubject"
+              ]
+            },
+            "enabled": {
+              "description": "Whether the control-plane REST API accepts client certificate authentication.\nMaps to the Redis Enterprise cluster's 'mtls_certificate_authentication' setting.\nEvaluated as false when omitted while the operator manages CBA (see\nstatus.managedAPIs); if CBA was never configured through this block, the\ncluster setting is left unchanged.\nPossible values: true/false",
+              "type": "boolean"
+            },
+            "trustedCASecretName": {
+              "description": "Name or path of the secret containing the trusted CA used to validate client\ncertificates presented to the control-plane REST API. The CA certificate is pushed\nto the Redis Enterprise cluster as 'mtls_trusted_ca'.\nThe secret must contain the CA certificate in PEM format under a key named\n'certificate', 'cert', or 'tls.crt'.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
         "auditing": {
           "description": "Cluster-level configuration for auditing database connection and authentication events. Includes both the audit listener connection parameters and the default policy for new databases.",
           "type": "object",
@@ -235,11 +311,11 @@
               "type": "string"
             },
             "cpInternodeEncryptionCertificateSecretName": {
-              "description": "Secret name to use for cluster's Control Plane Internode Encryption (CPINE) certificate. The secret must have the following keys - A key named 'certificate'/'cert'/'tls.crt' with the value of the certificate in PEM format. A key named 'key'/'tls.key' with the value of the private key. Optionally, a key named 'ca.crt', containing the public certificate of the root CA. If present, the root CA certificate is appended to the certificate provided in the 'tls.crt' (or equivalent) key, to form a full certificate chain. Otherwise, the certificate in 'tls.crt' must include a full certificate chain inline. This key is typically populated by the cert-manager when it has access to the root certificate. Otherwise, it could be added manually. If left blank, a cluster-provided certificate will be used.",
+              "description": "Secret name to use for cluster's Control Plane Internode Encryption (CPINE) certificate. The secret must have the following keys - A key named 'certificate'/'cert'/'tls.crt' with the value of the certificate in PEM format. A key named 'key'/'tls.key' with the value of the private key. Optionally, a key named 'ca.crt', containing the public certificate of the root CA. If present, the root CA certificate is appended to the certificate provided in the 'tls.crt' (or equivalent) key, to form a full certificate chain. Otherwise, the certificate in 'tls.crt' must include a full certificate chain inline. This key is typically populated by the cert-manager when it has access to the root certificate. Otherwise, it could be added manually. If left blank and dpInternodeEncryptionCertificateSecretName is set, the DPINE certificate is used for CPINE as well. If both are left blank, cluster-provided certificates are used.",
               "type": "string"
             },
             "dpInternodeEncryptionCertificateSecretName": {
-              "description": "Secret name to use for cluster's Data Plane Internode Encryption (DPINE) certificate. The secret must have the following keys - A key named 'certificate'/'cert'/'tls.crt' with the value of the certificate in PEM format. A key named 'key'/'tls.key' with the value of the private key. Optionally, a key named 'ca.crt', containing the public certificate of the root CA. If present, the root CA certificate is appended to the certificate provided in the 'tls.crt' (or equivalent) key, to form a full certificate chain. Otherwise, the certificate in 'tls.crt' must include a full certificate chain inline. This key is typically populated by the cert-manager when it has access to the root certificate. Otherwise, it could be added manually. If left blank, a cluster-provided certificate will be used.",
+              "description": "Secret name to use for cluster's Data Plane Internode Encryption (DPINE) certificate. The secret must have the following keys - A key named 'certificate'/'cert'/'tls.crt' with the value of the certificate in PEM format. A key named 'key'/'tls.key' with the value of the private key. Optionally, a key named 'ca.crt', containing the public certificate of the root CA. If present, the root CA certificate is appended to the certificate provided in the 'tls.crt' (or equivalent) key, to form a full certificate chain. Otherwise, the certificate in 'tls.crt' must include a full certificate chain inline. This key is typically populated by the cert-manager when it has access to the root certificate. Otherwise, it could be added manually. If left blank and cpInternodeEncryptionCertificateSecretName is set, the CPINE certificate is used for DPINE as well. If both are left blank, cluster-provided certificates are used.",
               "type": "string"
             },
             "ldapClientCertificateSecretName": {
@@ -265,6 +341,35 @@
             "syncerCertificateSecretName": {
               "description": "Secret name to use for cluster's Syncer certificate. The secret must have the following keys - A key named 'certificate'/'cert'/'tls.crt' with the value of the certificate in PEM format. A key named 'key'/'tls.key' with the value of the private key. Optionally, a key named 'ca.crt', containing the public certificate of the root CA. If present, the root CA certificate is appended to the certificate provided in the 'tls.crt' (or equivalent) key, to form a full certificate chain. Otherwise, the certificate in 'tls.crt' must include a full certificate chain inline. This key is typically populated by the cert-manager when it has access to the root certificate. Otherwise, it could be added manually. If left blank, a cluster-provided certificate will be used. Note - For Active-Active databases (REAADB), certificate updates are automatically reconciled. When you update this secret, the operator detects the change and automatically executes a CRDB force update (equivalent to 'crdb-cli crdb update --force'), which synchronizes the certificate changes to all participating clusters, eliminating the need for manual intervention.",
               "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "clientMaintenanceNotifications": {
+          "description": "Controls proactive client maintenance notification settings.",
+          "type": "object",
+          "properties": {
+            "ossMode": {
+              "description": "Client maintenance notifications settings for clients connected to databases with OSS cluster API enabled.",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "description": "Whether client maintenance notifications are enabled for OSS clusters. Defaults to False.",
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "proxyMode": {
+              "description": "Client maintenance notifications settings for clients connected to databases running in enterprise (proxy) mode.",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "description": "Whether client maintenance notifications are enabled for DBs with no OSS cluster API enabled (a.k.a. Proxy/Enterprise mode). Defaults to False.",
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -311,6 +416,15 @@
         "dataInternodeEncryption": {
           "description": "Internode encryption (INE) cluster wide policy. An optional boolean setting. Specifies if INE should be on/off for new created REDBs. May be overridden for specific REDB via similar setting, please view the similar setting for REDB for more info.",
           "type": "boolean"
+        },
+        "disconnectClientsOnPasswordRemoval": {
+          "description": "Controls whether the proxy disconnects clients whose password was removed. Tri-state; the operator only writes this value when status.managedAPIs.disconnectClientsOnPasswordRemoval is true (it flips true the first time this field is set). On new clusters the operator manages this field from creation and enforces the Auto default until the spec is set.",
+          "type": "string",
+          "enum": [
+            "Enabled",
+            "Disabled",
+            "Auto"
+          ]
         },
         "dmcExternalCBAAuthentication": {
           "description": "Whether Certificate-Based Authentication (CBA) for client connections to databases is delegated to an external gRPC authentication service, instead of being handled locally inside DMC (the data-path management proxy). If omitted, this field is evaluated as false. Possible values: true/false",
@@ -433,6 +547,336 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "gateway": {
+          "description": "Configures exposure of cluster service endpoints and Active-Active databases via\nthe Kubernetes Gateway API.",
+          "type": "object",
+          "properties": {
+            "activeActiveDatabases": {
+              "description": "Exposes Active-Active databases via Gateway. REC-scoped only; per-database\noverrides are not supported for Active-Active databases.",
+              "type": "object",
+              "properties": {
+                "autoEnable": {
+                  "description": "Controls which Active-Active databases are Gateway-enabled by default:\nNone (default), All, or Selector (only those matching selector).",
+                  "type": "string",
+                  "enum": [
+                    "None",
+                    "All",
+                    "Selector"
+                  ]
+                },
+                "fqdnSuffix": {
+                  "description": "FQDN suffix for Active-Active endpoints; the per-database FQDN defaults to\n\u003cdb-name\u003e.\u003cfqdnSuffix\u003e.",
+                  "type": "string"
+                },
+                "gatewayRef": {
+                  "description": "Overrides default.gatewayRef for this endpoint.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name of the Gateway.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace of the Gateway. Defaults to the resource's namespace if omitted.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "listenerName": {
+                  "description": "Gateway listener name; maps to the Route's parentRef.sectionName. If omitted,\nthe Gateway implementation selects a compatible listener.",
+                  "type": "string"
+                },
+                "listenerPort": {
+                  "description": "Gateway listener port; maps to the Route's parentRef.port.",
+                  "type": "integer",
+                  "maximum": 65535,
+                  "minimum": 1
+                },
+                "routeAnnotations": {
+                  "description": "Annotations for this endpoint's TLSRoute (e.g. for external-dns), merged over\ngateway.default.routeAnnotations (these win on key conflicts).",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "routeLabels": {
+                  "description": "Labels for this endpoint's TLSRoute, merged over gateway.default.routeLabels\n(these win on key conflicts). Operator-managed labels always take precedence.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "selector": {
+                  "description": "Label selector over Active-Active databases. Used only when autoEnable=Selector.",
+                  "type": "object",
+                  "properties": {
+                    "matchExpressions": {
+                      "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                      "type": "array",
+                      "items": {
+                        "description": "A label selector requirement is a selector that contains values, a key, and an operator that\nrelates the key and values.",
+                        "type": "object",
+                        "required": [
+                          "key",
+                          "operator"
+                        ],
+                        "properties": {
+                          "key": {
+                            "description": "key is the label key that the selector applies to.",
+                            "type": "string"
+                          },
+                          "operator": {
+                            "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist.",
+                            "type": "string"
+                          },
+                          "values": {
+                            "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch.",
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "x-kubernetes-list-type": "atomic"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "x-kubernetes-list-type": "atomic"
+                    },
+                    "matchLabels": {
+                      "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels\nmap is equivalent to an element of matchExpressions, whose key field is \"key\", the\noperator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-map-type": "atomic"
+                }
+              },
+              "additionalProperties": false
+            },
+            "api": {
+              "description": "Exposes the RS API endpoint via Gateway.",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "description": "Whether this endpoint is exposed via Gateway. Defaults to false.",
+                  "type": "boolean"
+                },
+                "fqdn": {
+                  "description": "Explicit FQDN for this endpoint. Defaults to \u003cprefix\u003e.\u003cdefault.fqdnSuffix\u003e.",
+                  "type": "string"
+                },
+                "gatewayRef": {
+                  "description": "Overrides default.gatewayRef for this endpoint.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name of the Gateway.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace of the Gateway. Defaults to the resource's namespace if omitted.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "listenerName": {
+                  "description": "Gateway listener name; maps to the Route's parentRef.sectionName. If omitted,\nthe Gateway implementation selects a compatible listener.",
+                  "type": "string"
+                },
+                "listenerPort": {
+                  "description": "Gateway listener port; maps to the Route's parentRef.port.",
+                  "type": "integer",
+                  "maximum": 65535,
+                  "minimum": 1
+                },
+                "routeAnnotations": {
+                  "description": "Annotations for this endpoint's TLSRoute (e.g. for external-dns), merged over\ngateway.default.routeAnnotations (these win on key conflicts).",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "routeLabels": {
+                  "description": "Labels for this endpoint's TLSRoute, merged over gateway.default.routeLabels\n(these win on key conflicts). Operator-managed labels always take precedence.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "default": {
+              "description": "Shared fallbacks (gatewayRef, fqdnSuffix) used by endpoints that do not set\ntheir own.",
+              "type": "object",
+              "properties": {
+                "fqdnSuffix": {
+                  "description": "Base FQDN suffix used to derive endpoint hostnames when an explicit FQDN is not\nset. Defaults: api.\u003cfqdnSuffix\u003e, ui.\u003cfqdnSuffix\u003e, metrics.\u003cfqdnSuffix\u003e,\n\u003cdb-name\u003e.db.\u003cfqdnSuffix\u003e (database), \u003cdb-name\u003e.crdb.\u003cfqdnSuffix\u003e (Active-Active).",
+                  "type": "string"
+                },
+                "gatewayRef": {
+                  "description": "Default Gateway referenced by endpoints that do not specify their own gatewayRef.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name of the Gateway.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace of the Gateway. Defaults to the resource's namespace if omitted.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "routeAnnotations": {
+                  "description": "Default annotations applied to the TLSRoutes the operator creates (e.g. for\nexternal-dns). A per-endpoint routeAnnotations entry overrides the matching\ndefault key.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "routeLabels": {
+                  "description": "Default labels applied to the TLSRoutes the operator creates. A per-endpoint\nrouteLabels entry overrides the matching default key; operator-managed labels\nalways take precedence.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "metrics": {
+              "description": "Exposes the metrics exporter endpoint via Gateway.",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "description": "Whether this endpoint is exposed via Gateway. Defaults to false.",
+                  "type": "boolean"
+                },
+                "fqdn": {
+                  "description": "Explicit FQDN for this endpoint. Defaults to \u003cprefix\u003e.\u003cdefault.fqdnSuffix\u003e.",
+                  "type": "string"
+                },
+                "gatewayRef": {
+                  "description": "Overrides default.gatewayRef for this endpoint.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name of the Gateway.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace of the Gateway. Defaults to the resource's namespace if omitted.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "listenerName": {
+                  "description": "Gateway listener name; maps to the Route's parentRef.sectionName. If omitted,\nthe Gateway implementation selects a compatible listener.",
+                  "type": "string"
+                },
+                "listenerPort": {
+                  "description": "Gateway listener port; maps to the Route's parentRef.port.",
+                  "type": "integer",
+                  "maximum": 65535,
+                  "minimum": 1
+                },
+                "routeAnnotations": {
+                  "description": "Annotations for this endpoint's TLSRoute (e.g. for external-dns), merged over\ngateway.default.routeAnnotations (these win on key conflicts).",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "routeLabels": {
+                  "description": "Labels for this endpoint's TLSRoute, merged over gateway.default.routeLabels\n(these win on key conflicts). Operator-managed labels always take precedence.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "ui": {
+              "description": "Exposes the CM UI endpoint via Gateway.",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "description": "Whether this endpoint is exposed via Gateway. Defaults to false.",
+                  "type": "boolean"
+                },
+                "fqdn": {
+                  "description": "Explicit FQDN for this endpoint. Defaults to \u003cprefix\u003e.\u003cdefault.fqdnSuffix\u003e.",
+                  "type": "string"
+                },
+                "gatewayRef": {
+                  "description": "Overrides default.gatewayRef for this endpoint.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name of the Gateway.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace of the Gateway. Defaults to the resource's namespace if omitted.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "listenerName": {
+                  "description": "Gateway listener name; maps to the Route's parentRef.sectionName. If omitted,\nthe Gateway implementation selects a compatible listener.",
+                  "type": "string"
+                },
+                "listenerPort": {
+                  "description": "Gateway listener port; maps to the Route's parentRef.port.",
+                  "type": "integer",
+                  "maximum": 65535,
+                  "minimum": 1
+                },
+                "routeAnnotations": {
+                  "description": "Annotations for this endpoint's TLSRoute (e.g. for external-dns), merged over\ngateway.default.routeAnnotations (these win on key conflicts).",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "routeLabels": {
+                  "description": "Labels for this endpoint's TLSRoute, merged over gateway.default.routeLabels\n(these win on key conflicts). Operator-managed labels always take precedence.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         },
         "hostAliases": {
           "description": "Adds hostAliases entries to the Redis Enterprise pods",
@@ -742,6 +1186,29 @@
             "responseTimeout": {
               "description": "Determines the time interval (in seconds) for which the request waits for a response from the OCSP responder. Minimum value is 1. Maximum value is 60.",
               "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "operatorClientAuth": {
+          "description": "Selects which credential the operator presents to the control-plane REST API.\nThis is a client-side concern: it does not, by itself, configure the cluster to\naccept certificates (see apiCertificateBasedAuth).",
+          "type": "object",
+          "properties": {
+            "certificateSubjectLine": {
+              "description": "CertificateSubjectLine is the subject line of the client certificate the operator\npresents; never derived from the certificate itself. Required when Method is\n'Certificate'; CN/O/OU/L/ST/C attributes only, CN mandatory. Must exactly match the\ncertificate's RFC2253 subject string, no spaces after commas (e.g. 'CN=operator,O=redis'):\nthe cluster matches certificate-auth users by the literal string.\nThe operator adds this subject to the cluster's 'mtls_authorized_subjects'.",
+              "type": "string"
+            },
+            "clientCertificateSecretName": {
+              "description": "Name or path of the secret containing the client certificate/key the operator\npresents to the control-plane REST API. Required when Method is 'certificate'.\nThe secret must be in the same format as other operator-managed certificate\nsecrets (cert-manager TLS secret, or legacy opaque secret with 'tls.crt'/'cert'\nand 'tls.key'/'key'). When ClusterCredentialSecretType is 'vault', this is a\nVault KV path (same naming rules as ClusterCredentialSecretName); the services\nrigger, bootstrapper, node hook scripts and call-home client receive the cert via\nVault Agent inject.",
+              "type": "string"
+            },
+            "method": {
+              "description": "Method selects how the operator authenticates to the control-plane REST API.\nIf omitted, this field is evaluated as 'Basic'.",
+              "type": "string",
+              "enum": [
+                "Basic",
+                "Certificate"
+              ]
             }
           },
           "additionalProperties": false
@@ -13781,6 +14248,10 @@
     "status": {
       "type": "object",
       "properties": {
+        "apiCertificateBasedAuthActive": {
+          "description": "Whether control-plane certificate authentication (mtls_certificate_authentication)\nwas last observed enabled on the cluster. The operator and services rigger present\nclient certificates only while this is true.",
+          "type": "boolean"
+        },
         "bundledDatabaseVersions": {
           "description": "Versions of open source databases bundled by Redis Enterprise Software - please note that in order to use a specific version it should be supported by the ‘upgradePolicy’ - ‘major’ or ‘latest’ according to the desired version (major/minor)",
           "type": "array",
@@ -13843,9 +14314,228 @@
           "description": "The name of the secret containing cluster credentials currently in use by the cluster. This field tracks the current credential secret name and is updated when the secret name changes.",
           "type": "string"
         },
+        "gateway": {
+          "description": "Status of cluster service endpoints exposed through the Kubernetes Gateway API.",
+          "type": "object",
+          "properties": {
+            "api": {
+              "type": "object",
+              "properties": {
+                "conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "lastTransitionTime",
+                      "message",
+                      "reason",
+                      "status",
+                      "type"
+                    ],
+                    "properties": {
+                      "lastTransitionTime": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "message": {
+                        "type": "string",
+                        "maxLength": 32768
+                      },
+                      "observedGeneration": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 1024,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "True",
+                          "False",
+                          "Unknown"
+                        ]
+                      },
+                      "type": {
+                        "type": "string",
+                        "maxLength": 316,
+                        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "fqdn": {
+                  "type": "string"
+                },
+                "routeName": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "metrics": {
+              "type": "object",
+              "properties": {
+                "conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "lastTransitionTime",
+                      "message",
+                      "reason",
+                      "status",
+                      "type"
+                    ],
+                    "properties": {
+                      "lastTransitionTime": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "message": {
+                        "type": "string",
+                        "maxLength": 32768
+                      },
+                      "observedGeneration": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 1024,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "True",
+                          "False",
+                          "Unknown"
+                        ]
+                      },
+                      "type": {
+                        "type": "string",
+                        "maxLength": 316,
+                        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "fqdn": {
+                  "type": "string"
+                },
+                "routeName": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "ui": {
+              "type": "object",
+              "properties": {
+                "conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "lastTransitionTime",
+                      "message",
+                      "reason",
+                      "status",
+                      "type"
+                    ],
+                    "properties": {
+                      "lastTransitionTime": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "message": {
+                        "type": "string",
+                        "maxLength": 32768
+                      },
+                      "observedGeneration": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 1024,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "True",
+                          "False",
+                          "Unknown"
+                        ]
+                      },
+                      "type": {
+                        "type": "string",
+                        "maxLength": 316,
+                        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "fqdn": {
+                  "type": "string"
+                },
+                "routeName": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "ingressOrRouteMethodStatus": {
           "description": "The ingressOrRouteSpec/ActiveActive spec method that exist",
           "type": "string"
+        },
+        "initContainerFailures": {
+          "description": "Failures of operator-managed init containers (such as the read-only root filesystem setup), one entry per failing pod and container; empty when all such init containers are healthy.",
+          "type": "array",
+          "items": {
+            "description": "InitContainerFailure describes a failed operator-managed init container detected in one of the cluster's pods.",
+            "type": "object",
+            "properties": {
+              "containerName": {
+                "description": "Name of the init container that failed.",
+                "type": "string"
+              },
+              "exitCode": {
+                "description": "Exit code of the failed init container, when known.",
+                "type": "integer",
+                "format": "int32"
+              },
+              "message": {
+                "description": "Human-readable description of the failure, including the command to inspect the init container logs for the underlying cause.",
+                "type": "string"
+              },
+              "podName": {
+                "description": "Name of the pod whose init container failed.",
+                "type": "string"
+              },
+              "reason": {
+                "description": "Reason reported by Kubernetes for the failure (for example, \"Error\" or \"CrashLoopBackOff\").",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
         },
         "licenseStatus": {
           "type": "object",
@@ -13899,6 +14589,22 @@
           "description": "Indicates cluster APIs that are being managed by the operator. This only applies to cluster APIs which are optionally-managed by the operator, such as cluster LDAP configuration. Most other APIs are automatically managed by the operator, and are not listed here.",
           "type": "object",
           "properties": {
+            "apiCertificateBasedAuth": {
+              "description": "Indicate whether control-plane certificate-based authentication (CBA) is managed by the operator. Enabled once spec.apiCertificateBasedAuth is set for the first time. Once enabled, the operator keeps reconciling the cluster's mtls_certificate_authentication setting even if the spec block is removed; in that case the operator disables it.",
+              "type": "boolean"
+            },
+            "clientMaintenanceNotificationsOssMode": {
+              "description": "Indicate whether OSS cluster client maintenance notifications are managed by the operator. Enabled once spec.clientMaintenanceNotifications.ossMode.enabled is set for the first time, and stays enabled if the field is later removed; in that case the operator disables the setting.",
+              "type": "boolean"
+            },
+            "clientMaintenanceNotificationsProxyMode": {
+              "description": "Indicate whether proxy-mode client maintenance notifications are managed by the operator. Enabled once spec.clientMaintenanceNotifications.proxyMode.enabled is set for the first time, and stays enabled if the field is later removed; in that case the operator disables the setting.",
+              "type": "boolean"
+            },
+            "disconnectClientsOnPasswordRemoval": {
+              "description": "Indicate whether disconnect-clients-on-password-removal is managed by the operator. Enabled automatically for new clusters. Once enabled, the operator keeps reconciling the cluster value even if the user removes spec.disconnectClientsOnPasswordRemoval; in that case the operator writes the auto default.",
+              "type": "boolean"
+            },
             "ldap": {
               "description": "Indicate whether cluster LDAP configuration is managed by the operator. When this is enabled, the operator will reconcile the cluster LDAP configuration according to the '.spec.ldap' field in the RedisEnterpriseCluster resource.",
               "type": "boolean"
@@ -13953,6 +14659,25 @@
             },
             "thisUpdate": {
               "description": "The most recent time at which the status being indicated is known by the responder to have been correct.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "operatorClientCertStatus": {
+          "description": "Status of the operator's control-plane client certificate when spec.operatorClientAuth.method is Certificate. Cleared when certificate authentication is not in use.",
+          "type": "object",
+          "properties": {
+            "expirationDate": {
+              "description": "When the leaf client certificate expires (RFC3339).",
+              "type": "string"
+            },
+            "secretName": {
+              "description": "Name of the secret referenced by spec.operatorClientAuth.clientCertificateSecretName.",
+              "type": "string"
+            },
+            "state": {
+              "description": "State of the client certificate: Valid, ExpiringSoon, or Expired.",
               "type": "string"
             }
           },

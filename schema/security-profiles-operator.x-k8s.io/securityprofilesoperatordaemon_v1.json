@@ -1,5 +1,5 @@
 {
-  "description": "SecurityProfilesOperatorDaemon is the Schema to configure the spod deployment.",
+  "description": "SecurityProfilesOperatorDaemon is the Schema to configure the spod deployment.\n\nThere is a single SecurityProfilesOperatorDaemon, named spod, in the\noperator namespace. The daemons, the webhooks and the node statuses only\nread the one named spod, and further ones would render operands which\nclash with its operands, so no other name ever worked. Existing objects\nare exempt, so that they can still be updated and deleted.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -16,6 +16,7 @@
     "spec": {
       "description": "spec defines the desired state of the SecurityProfilesOperatorDaemon.",
       "type": "object",
+      "default": {},
       "properties": {
         "daemonResourceRequirements": {
           "description": "daemonResourceRequirements if defined, overwrites the default resource\nrequirements of SPOD daemon.",
@@ -82,6 +83,32 @@
           },
           "additionalProperties": false
         },
+        "daemonUpdateStrategy": {
+          "description": "daemonUpdateStrategy configures the rolling update of the SPOD\ndaemonset. If unset, all daemon pods get replaced at once.",
+          "type": "object",
+          "minProperties": 1,
+          "properties": {
+            "maxUnavailable": {
+              "description": "maxUnavailable is the maximum number of daemon pods, or the percentage\nof the scheduled daemon pods, which can be unavailable during an\nupdate, like in the rolling update of a daemonset. It has to be at\nleast 1 or 1%, because a daemonset rejects 0. Defaults to 100%, which\nreplaces all daemon pods at once. A lower value keeps the daemons of the\nother nodes running during an update, which also limits the impact of a\ndaemon pod which cannot start, at the cost of a slower rollout.",
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "x-kubernetes-int-or-string": true,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "type(self) == int ? self \u003e= 1 : self.matches('^([1-9][0-9]?|100)%$')",
+                  "message": "maxUnavailable must be an integer of at least 1 or a percentage between 1% and 100%"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
         "enableAppArmor": {
           "description": "enableAppArmor tells the operator whether or not to enable AppArmor\nsupport for this SPOD instance.",
           "type": "boolean",
@@ -113,7 +140,7 @@
               "default": false
             },
             "enableExecMetadata": {
-              "description": "enableExecMetadata tells the operator whether the exec metadata\nwebhook gets deployed together with the JSON enricher. The webhook\nrewrites every \"kubectl exec\" into the recorded namespaces to run\nthrough the env binary of the container image, so that the enricher\ncan attribute the syscalls to the exec request. Disable it for\nclusters with images which do not ship an env binary. It has no\neffect while the JSON enricher is disabled.",
+              "description": "enableExecMetadata tells the operator whether the exec metadata\nwebhooks get deployed together with the JSON enricher. The exec\nmetadata webhook rewrites every \"kubectl exec\" outside of the system\nand operator namespaces to run through the env binary of the\ncontainer image, so that the enricher can attribute the syscalls to\nthe exec request. The node debugging pod webhook injects the request\nUID into the pods of \"kubectl debug node\". Disable them for clusters\nwith images which do not ship an env binary.\nIt has no effect while the JSON enricher is disabled.",
               "type": "boolean",
               "default": true
             },
@@ -150,7 +177,7 @@
                   "minimum": 0
                 },
                 "auditLogMaxBackups": {
-                  "description": "auditLogMaxBackups specifies the maximum number of old audit log\nfiles to retain. The default is to retain all old log files (though\nMaxAge may still cause them to get deleted).",
+                  "description": "auditLogMaxBackups specifies the maximum number of old audit log\nfiles to retain. If it is unset or 0, 10 old log files are retained,\nunless auditLogMaxAge is set, which then alone decides about removing\nthem.",
                   "type": "integer",
                   "format": "int32",
                   "minimum": 0
@@ -187,12 +214,12 @@
           "additionalProperties": false
         },
         "hostProcVolumePath": {
-          "description": "hostProcVolumePath is the path for specifying a custom host /proc\nvolume, which is required for the log-enricher as well as bpf-recorder\nto retrieve the container ID for a process ID. This can be helpful for\nnested environments, for example when using \"kind\".",
+          "description": "hostProcVolumePath is the path for specifying a custom host /proc\nvolume, which is required for the log-enricher as well as bpf-recorder\nto retrieve the container ID for a process ID. This can be helpful for\nnested environments, for example when using \"kind\". It must not\ncontain \"..\" elements, which host path volumes do not allow.",
           "type": "string",
-          "pattern": "^/proc(/.*)?$"
+          "pattern": "^/proc(/([^/.\\n][^/\\n]*|[.]([^/.\\n][^/\\n]*)?|[.][.][^/\\n]+)?)*$"
         },
         "imagePullSecrets": {
-          "description": "imagePullSecrets if defined, list of references to secrets in the\nsecurity-profiles-operator's namespace to use for pulling the images\nfrom SPOD pod from a private registry.",
+          "description": "imagePullSecrets if defined, list of references to secrets in the\nsecurity-profiles-operator's namespace to use for pulling the images\nof the SPOD pods and of the pods of the webhook managed by the\noperator from a private registry.",
           "type": "array",
           "items": {
             "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
@@ -1007,12 +1034,12 @@
               "additionalProperties": false
             },
             "priorityClassName": {
-              "description": "priorityClassName if defined, indicates the SPOD pod priority class.",
+              "description": "priorityClassName if defined, indicates the SPOD pod priority class.\nThe pods of the managed webhook use system-cluster-critical, unless a\npriority class other than the default is set here, which then applies\nto them as well.",
               "type": "string",
               "default": "system-node-critical"
             },
             "tolerations": {
-              "description": "tolerations if specified, the SPOD's tolerations.",
+              "description": "tolerations if specified, the SPOD's tolerations. When not set, the\nSPOD tolerates the NoSchedule taints of control plane nodes and the\nNoExecute taint of nodes which are not ready. An empty list tolerates\nno taint.",
               "type": "array",
               "items": {
                 "description": "The pod this Toleration is attached to tolerates any taint that matches\nthe triple \u003ckey,value,effect\u003e using the matching operator \u003coperator\u003e.",
@@ -1053,7 +1080,7 @@
           "default": {},
           "properties": {
             "allowedIdentityRegexp": {
-              "description": "allowedIdentityRegexp regexp for allowed identity when verifying the signature of OCI\nimage used to distribute the base profile in the cluster.\nThe default \".*\" matches any identity, which means a signature from any\nsigner is accepted. That only proves the artifact was signed by somebody,\nnot by somebody trusted, so set this to the identities you trust.",
+              "description": "allowedIdentityRegexp regexp for allowed identity when verifying the signature of OCI\nimage used to distribute the base profile in the cluster.\nThe default \".*\" matches any identity, which means a signature from any\nsigner is accepted. That only proves the artifact was signed by somebody,\nnot by somebody trusted. Once this or allowedOidcIssuerRegexp differs\nfrom \".*\", both apply to the official base profiles too, which then\nfail to verify unless they match the official signers. Pin the signer\nof the other base profiles with signatureVerification instead.",
               "type": "string",
               "default": ".*"
             },
@@ -1067,6 +1094,7 @@
               "type": "array",
               "maxItems": 4,
               "items": {
+                "description": "Action is the action of a seccomp profile for a syscall.",
                 "type": "string",
                 "enum": [
                   "SCMP_ACT_KILL",
@@ -1089,7 +1117,7 @@
               ]
             },
             "allowedSyscalls": {
-              "description": "allowedSyscalls if specified, a list of system calls which are\nallowed in seccomp profiles.",
+              "description": "allowedSyscalls if specified, a list of system calls which are\nallowed in seccomp profiles. The syscalls of the checked actions, see\nallowedSeccompActions, have to be in the list, including the ones of\nthe base profiles. A profile whose defaultAction is one of the checked\nactions is not allowed either, because it allows every syscall, which\nby default applies to SCMP_ACT_ALLOW, SCMP_ACT_LOG, SCMP_ACT_TRACE and\nSCMP_ACT_NOTIFY. The operator deletes the SeccompProfiles which are not\nallowed from the cluster as soon as the list is set or changed, and the\nnodes do not install them.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -1102,7 +1130,7 @@
               "default": false
             },
             "signatureVerification": {
-              "description": "signatureVerification configures how the signatures of OCI base\nprofiles get verified, beyond the identity and issuer regexps. It\napplies to base profiles outside of the official repositories of this\nproject only (registry.k8s.io/security-profiles-operator/ and its\nstaging repository). Official base profiles are always verified against\nthe official keyless signers and the public Sigstore trusted root, so\nthat a key or identity for private base profiles does not break them.\nIt has no effect while disableOciArtifactSignatureVerification is true.",
+              "description": "signatureVerification configures how the signatures of OCI base\nprofiles get verified, beyond the identity and issuer regexps. Official\nbase profiles of this project (registry.k8s.io/security-profiles-operator/\nand its staging repository) are verified against the official keyless\nsigners while allowedIdentityRegexp and allowedOidcIssuerRegexp keep\ntheir default, so that a key or identity for private base profiles\ndoes not break them: publicKeySecretRef, allowedIdentity and\nallowedOidcIssuer apply to the other base profiles only.\ntrustedRootConfigMapRef and offline apply to the official base profiles\nas well, so that air-gapped clusters can verify them. An official base\nprofile which does not verify against that trusted root, or whose\ntrusted root cannot be read, is verified online against the public\nSigstore trusted root instead.\nIt has no effect while disableOciArtifactSignatureVerification is true.",
               "type": "object",
               "minProperties": 1,
               "properties": {
@@ -1119,7 +1147,7 @@
                   "minLength": 1
                 },
                 "offline": {
-                  "description": "offline skips every network access during the verification: the\ntransparency log entry bundled with the signature is verified against\nthe trusted root of trustedRootConfigMapRef, which is required then.\nWithout offline, the daemon fetches the public Sigstore trusted root\nthrough TUF unless trustedRootConfigMapRef is set. Defaults to false.",
+                  "description": "offline skips every network access during the verification: the\ntransparency log entry bundled with the signature is verified against\nthe trusted root of trustedRootConfigMapRef, which is required then.\nWithout offline, the daemon fetches the public Sigstore trusted root\nthrough TUF unless trustedRootConfigMapRef is set. An official base\nprofile which does not verify offline is verified online against the\npublic Sigstore trusted root. Defaults to false.",
                   "type": "boolean"
                 },
                 "publicKeySecretRef": {
@@ -1147,7 +1175,7 @@
                   "x-kubernetes-map-type": "atomic"
                 },
                 "trustedRootConfigMapRef": {
-                  "description": "trustedRootConfigMapRef selects the key of a ConfigMap in the operator\nnamespace which holds a Sigstore trusted root in JSON format. It\nreplaces the public Sigstore trusted root, for example for a private\nSigstore deployment or an air-gapped cluster. It is required if\noffline is true. The ConfigMap and the key have to exist, optional is\nnot supported.",
+                  "description": "trustedRootConfigMapRef selects the key of a ConfigMap in the operator\nnamespace which holds a Sigstore trusted root in JSON format. It\nreplaces the public Sigstore trusted root, for example for a private\nSigstore deployment or an air-gapped cluster. It is required if\noffline is true. The ConfigMap and the key have to exist, optional is\nnot supported. Official base profiles fall back to the public Sigstore\ntrusted root if they do not verify against it.",
                   "type": "object",
                   "required": [
                     "key"
@@ -1207,62 +1235,74 @@
               "type": "object",
               "default": {},
               "properties": {
+                "allowPermissiveProfiles": {
+                  "description": "allowPermissiveProfiles allows SelinuxProfiles in the Permissive mode,\nand SelinuxProfiles which inherit such a profile. It defaults to true.\nA permissive domain gets every access it asks for and only logs the\ndenials, so it bypasses the denied types, classes and permissions. Set\nit to false to reject these profiles: they fail validation and report\nan error, so they are neither installed nor updated. A policy which a\nnode loaded already stays loaded until the profile is deleted.\nRawSelinuxProfiles are not affected.",
+                  "type": "boolean",
+                  "default": true
+                },
                 "allowedClasses": {
-                  "description": "allowedClasses if specified, a list of SELinux object classes which are\nremoved from the built-in denylist. Use this with care, as it relaxes a\nsafe default for every translated policy.",
+                  "description": "allowedClasses if specified, a list of SELinux object classes which are\nremoved from the built-in denylist. Use this with care, as it relaxes a\nsafe default for every translated policy.\nEach entry gets compared to the object classes of SELinux profiles, so\nit may only contain alphanumeric characters, '.', '-' and '_'.",
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[-a-zA-Z0-9._]+$"
                   },
                   "x-kubernetes-list-type": "set"
                 },
                 "allowedPermissions": {
-                  "description": "allowedPermissions if specified, a list of SELinux permissions which are\nremoved from the built-in denylist. Use this with care, as it relaxes a\nsafe default for every translated policy.",
+                  "description": "allowedPermissions if specified, a list of SELinux permissions which are\nremoved from the built-in denylist. Use this with care, as it relaxes a\nsafe default for every translated policy.\nEach entry gets compared to the permissions of SELinux profiles, so it\nmay only contain alphanumeric characters, '.', '-' and '_'.",
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[-a-zA-Z0-9._]+$"
                   },
                   "x-kubernetes-list-type": "set"
                 },
                 "allowedSystemProfiles": {
-                  "description": "allowedSystemProfiles lists the profiles coming from the system itself\nthat are allowed to be inherited by workloads. Use this with care,\nas this might provide a lot of permissions depending on the policy.",
+                  "description": "allowedSystemProfiles lists the profiles coming from the system itself\nthat are allowed to be inherited by workloads. Use this with care,\nas this might provide a lot of permissions depending on the policy.\nEach entry may only contain alphanumeric characters, '.', '-' and '_',\nlike the names of the inherited system profiles it gets compared to.",
                   "type": "array",
                   "default": [
                     "container"
                   ],
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[-a-zA-Z0-9._]+$"
                   },
                   "x-kubernetes-list-type": "set"
                 },
                 "allowedTypes": {
-                  "description": "allowedTypes if specified, a list of SELinux types which are removed\nfrom the built-in denylist. Use this with care, as it relaxes a safe\ndefault for every translated policy.",
+                  "description": "allowedTypes if specified, a list of SELinux types which are removed\nfrom the built-in denylist. Use this with care, as it relaxes a safe\ndefault for every translated policy.\nEach entry gets compared to the types of SELinux profiles, so it may\nonly contain alphanumeric characters, '.', '-' and '_', or be '@self'.",
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^([-a-zA-Z0-9._]+|@self)$"
                   },
                   "x-kubernetes-list-type": "set"
                 },
                 "deniedClasses": {
-                  "description": "deniedClasses if specified, a list of SELinux object classes which are\ndenied in SELinux profiles.",
+                  "description": "deniedClasses if specified, a list of SELinux object classes which are\ndenied in SELinux profiles.\nEach entry gets compared to the object classes of SELinux profiles, so\nit may only contain alphanumeric characters, '.', '-' and '_'.",
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[-a-zA-Z0-9._]+$"
                   },
                   "x-kubernetes-list-type": "set"
                 },
                 "deniedPermissions": {
-                  "description": "deniedPermissions if specified, a list of SELinux permissions which are\ndenied in SELinux profiles.",
+                  "description": "deniedPermissions if specified, a list of SELinux permissions which are\ndenied in SELinux profiles.\nEach entry gets compared to the permissions of SELinux profiles, so it\nmay only contain alphanumeric characters, '.', '-' and '_'.",
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[-a-zA-Z0-9._]+$"
                   },
                   "x-kubernetes-list-type": "set"
                 },
                 "deniedTypes": {
-                  "description": "deniedTypes if specified, a list of SELinux types which are\ndenied in SELinux profiles.",
+                  "description": "deniedTypes if specified, a list of SELinux types which are\ndenied in SELinux profiles.\nEach entry gets compared to the types of SELinux profiles, so it may\nonly contain alphanumeric characters, '.', '-' and '_', or be '@self'.\nThe comparison is by name only, so an allow rule on a type attribute\ngrants access to the denied types it contains, unless the attribute is\ndenied as well, for example device_node next to memory_device_t.",
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^([-a-zA-Z0-9._]+|@self)$"
                   },
                   "x-kubernetes-list-type": "set"
                 }
@@ -1270,7 +1310,7 @@
               "additionalProperties": false
             },
             "typeTag": {
-              "description": "typeTag is the SELinux type tag applied to the security context of SPOD.",
+              "description": "typeTag is the SELinux type tag applied to the security context of SPOD.\nIt is ignored while enableAppArmor is true, and the daemon pod keeps\nits default SELinux types then. The operator reports a value other\nthan spc_t which gets ignored with a warning event on the SPOD.",
               "type": "string",
               "default": "spc_t"
             }
@@ -1290,8 +1330,9 @@
           "default": {},
           "properties": {
             "options": {
-              "description": "options set custom namespace selectors and failure mode for SPO's webhooks.",
+              "description": "options set custom namespace selectors, object selectors and failure\nmode for SPO's webhooks. There can be at most one entry for each of the\nfour webhooks. The options of binding.spo.io configure the validating\nbinding-image.spo.io webhook as well, which keeps the images of the\nbound pods from changing.",
               "type": "array",
+              "maxItems": 4,
               "items": {
                 "description": "WebhookOptions defines per-webhook configuration options.",
                 "type": "object",
@@ -1318,7 +1359,7 @@
                     ]
                   },
                   "namespaceSelector": {
-                    "description": "namespaceSelector sets the webhook's namespace selector.",
+                    "description": "namespaceSelector sets the webhook's namespace selector. It has to be a\nvalid label selector, which the webhook configuration requires.",
                     "type": "object",
                     "properties": {
                       "matchExpressions": {
@@ -1362,10 +1403,16 @@
                       }
                     },
                     "additionalProperties": false,
-                    "x-kubernetes-map-type": "atomic"
+                    "x-kubernetes-map-type": "atomic",
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "!has(self.matchExpressions) || self.matchExpressions.all(e, has(e.values) \u0026\u0026 size(e.values) \u003e 0 ? (e.operator == 'In' || e.operator == 'NotIn') : (e.operator == 'Exists' || e.operator == 'DoesNotExist'))",
+                        "message": "matchExpressions operator must be In, NotIn, Exists or DoesNotExist, In and NotIn require values, Exists and DoesNotExist must not have values"
+                      }
+                    ]
                   },
                   "objectSelector": {
-                    "description": "objectSelector sets the webhook's object selector.",
+                    "description": "objectSelector sets the webhook's object selector. It has to be a\nvalid label selector, which the webhook configuration requires.",
                     "type": "object",
                     "properties": {
                       "matchExpressions": {
@@ -1409,7 +1456,13 @@
                       }
                     },
                     "additionalProperties": false,
-                    "x-kubernetes-map-type": "atomic"
+                    "x-kubernetes-map-type": "atomic",
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "!has(self.matchExpressions) || self.matchExpressions.all(e, has(e.values) \u0026\u0026 size(e.values) \u003e 0 ? (e.operator == 'In' || e.operator == 'NotIn') : (e.operator == 'Exists' || e.operator == 'DoesNotExist'))",
+                        "message": "matchExpressions operator must be In, NotIn, Exists or DoesNotExist, In and NotIn require values, Exists and DoesNotExist must not have values"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -1425,7 +1478,7 @@
               "default": false
             },
             "tolerations": {
-              "description": "tolerations if specified, the webhook's tolerations. When not set,\nthe webhook inherits the daemon's tolerations from the scheduling config.",
+              "description": "tolerations if specified, the webhook's tolerations. When not set,\nthe webhook inherits the daemon's tolerations from the scheduling config.\nUnlike for the daemon, an empty list counts as not set, and the webhook\nkeeps its default tolerations if neither list has an entry.",
               "type": "array",
               "items": {
                 "description": "The pod this Toleration is attached to tolerates any taint that matches\nthe triple \u003ckey,value,effect\u003e using the matching operator \u003coperator\u003e.",
@@ -1534,7 +1587,7 @@
           "minimum": 0
         },
         "state": {
-          "description": "state represents the state that the policy is in. Can be:\nPending, Creating, Updating, Running or Error",
+          "description": "state represents the state of the SPOD instance. Can be:\nPending, Creating, Updating, Running or Error",
           "type": "string",
           "enum": [
             "Pending",
@@ -1547,5 +1600,12 @@
       },
       "additionalProperties": false
     }
-  }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "oldSelf.hasValue() || self.metadata.name == 'spod'",
+      "message": "the SecurityProfilesOperatorDaemon must be named spod",
+      "optionalOldSelf": true
+    }
+  ]
 }
