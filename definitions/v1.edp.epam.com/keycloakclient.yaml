@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.18.0
+    controller-gen.kubebuilder.io/version: v0.23.0
   name: keycloakclients.v1.edp.epam.com
 spec:
   group: v1.edp.epam.com
@@ -125,6 +125,7 @@ spec:
                             type: string
                           nullable: true
                           type: array
+                          x-kubernetes-list-type: set
                         resources:
                           description: |-
                             Resources is a list of resources names.
@@ -136,6 +137,7 @@ spec:
                             type: string
                           nullable: true
                           type: array
+                          x-kubernetes-list-type: set
                         scopes:
                           description: |-
                             Scopes is a list of authorization scopes names.
@@ -147,6 +149,7 @@ spec:
                             type: string
                           nullable: true
                           type: array
+                          x-kubernetes-list-type: set
                         type:
                           description: Type is a permission type.
                           enum:
@@ -158,6 +161,9 @@ spec:
                       - type
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   policies:
                     items:
                       description: Policy represents a client authorization policy.
@@ -176,6 +182,7 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: set
                           required:
                           - policies
                           type: object
@@ -191,8 +198,44 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: set
                           required:
                           - clients
+                          type: object
+                        clientScopePolicy:
+                          description: ClientScopePolicy is a client scope policy
+                            settings.
+                          properties:
+                            clientScopes:
+                              description: ClientScopes is a list of realm client
+                                scopes. Each client scope must exist in the realm;
+                                manage it with a KeycloakClientScope.
+                              example:
+                              - name: scope1
+                                required: true
+                              - name: scope2
+                              items:
+                                description: ClientScopeDefinition represents a client
+                                  scope in a ClientScopePolicyData.
+                                properties:
+                                  name:
+                                    description: Name is a realm client scope name.
+                                    example: scope1
+                                    type: string
+                                  required:
+                                    description: Required is a flag that specifies
+                                      whether the client scope is required.
+                                    type: boolean
+                                required:
+                                - name
+                                type: object
+                              minItems: 1
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
+                          required:
+                          - clientScopes
                           type: object
                         decisionStrategy:
                           default: UNANIMOUS
@@ -228,6 +271,9 @@ spec:
                                 - name
                                 type: object
                               type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                             groupsClaim:
                               description: |-
                                 GroupsClaim is a group claim.
@@ -274,11 +320,14 @@ spec:
                                 - name
                                 type: object
                               type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                           required:
                           - roles
                           type: object
                         timePolicy:
-                          description: ScopePolicy is a scope policy settings.
+                          description: TimePolicy is a time policy settings.
                           properties:
                             dayMonth:
                               description: |-
@@ -341,6 +390,7 @@ spec:
                           enum:
                           - aggregate
                           - client
+                          - client-scope
                           - group
                           - role
                           - time
@@ -358,6 +408,7 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: set
                           required:
                           - users
                           type: object
@@ -366,6 +417,9 @@ spec:
                       - type
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   resources:
                     items:
                       properties:
@@ -413,10 +467,14 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   scopes:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                 type: object
               authorizationServicesEnabled:
                 description: AuthorizationServicesEnabled enable/disable fine-grained
@@ -576,11 +634,19 @@ spec:
                 - name
                 type: object
               realmRoles:
-                description: RealmRoles is a list of realm roles assigned to client.
+                description: |-
+                  RealmRoles is a list of realm roles to create in the client's realm.
+                  A role is created only if it does not exist; an existing role is never updated, and removing
+                  an entry does not delete the role. The roles are not assigned to the client.
+
+                  Deprecated: use KeycloakRealmRole instead; it takes over a role created by this field.
+                  This field will be removed in a future API version.
                 items:
                   properties:
                     composite:
-                      description: Composite is a realm composite role name.
+                      description: |-
+                        Composite is an existing realm role that the created role is added to as a composite.
+                        If a KeycloakRealmRole with composite: true manages it, list the created role in its composites.
                       type: string
                     name:
                       description: Name is a realm role name.
@@ -601,7 +667,8 @@ spec:
                   RedirectUris is a list of valid URI pattern a browser can redirect to after a successful login.
                   Simple wildcards are allowed such as 'https://example.com/*'.
                   Relative path can be specified too, such as /my/relative/path/*. Relative paths are relative to the client root URL.
-                  If not specified, spec.webUrl + "/*" will be used.
+                  Omit the field to use spec.webUrl + "/*"; without spec.webUrl Keycloak keeps its current list.
+                  Set it to an empty list to remove every redirect URI.
                 example:
                 - https://example.com/*
                 - /my/relative/path/*
@@ -609,6 +676,45 @@ spec:
                   type: string
                 nullable: true
                 type: array
+              scopeMappings:
+                description: |-
+                  ScopeMappings lists the roles in this client's scope (dedicated scope). They limit token
+                  roles only when fullScopeAllowed is false. Omit the field to leave scope mappings unmanaged.
+                properties:
+                  clientRoles:
+                    description: |-
+                      ClientRoles lists client roles in the client's scope, per client that owns them.
+                      A client not listed keeps its scope mappings. Each clientId appears at most once.
+                    items:
+                      properties:
+                        clientId:
+                          description: ClientID is a client ID.
+                          minLength: 1
+                          type: string
+                        roles:
+                          description: |-
+                            Roles is a list of client roles names assigned to user.
+                            Omit the field to leave this client's role mappings unmanaged; set it to an empty list to
+                            remove every mapping for the client.
+                          items:
+                            type: string
+                          nullable: true
+                          type: array
+                      required:
+                      - clientId
+                      type: object
+                    nullable: true
+                    type: array
+                  realmRoles:
+                    description: |-
+                      RealmRoles is a list of realm role names in the client's scope.
+                      Omit the field to leave realm scope mappings unmanaged; set it to an empty list to remove
+                      every realm scope mapping. The roles must exist; create them with KeycloakRealmRole.
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
+                type: object
               secret:
                 description: |-
                   Secret is kubernetes secret name where the client's secret will be stored.
@@ -646,10 +752,13 @@ spec:
                       properties:
                         clientId:
                           description: ClientID is a client ID.
+                          minLength: 1
                           type: string
                         roles:
-                          description: Roles is a list of client roles names assigned
-                            to user.
+                          description: |-
+                            Roles is a list of client roles names assigned to user.
+                            Omit the field to leave this client's role mappings unmanaged; set it to an empty list to
+                            remove every mapping for the client.
                           items:
                             type: string
                           nullable: true
@@ -669,8 +778,10 @@ spec:
                     nullable: true
                     type: array
                   realmRoles:
-                    description: RealmRoles is a list of realm roles assigned to service
-                      account.
+                    description: |-
+                      RealmRoles is a list of realm roles assigned to service account.
+                      Omit the field to leave the service account's realm roles unmanaged; set it to an empty
+                      list to remove every realm role.
                     items:
                       type: string
                     nullable: true
@@ -688,7 +799,9 @@ spec:
                   WebOrigins is a list of allowed CORS origins.
                   To permit all origins of Valid Redirect URIs, add '+'. This does not include the '*' wildcard though.
                   To permit all origins, explicitly add '*'.
-                  If not specified, the value from `WebUrl` is used
+                  Omit the field to use spec.webUrl; with the defaulting webhook enabled, [spec.webUrl] is written into the spec.
+                  Without spec.webUrl Keycloak keeps its current list.
+                  Set it to an empty list to remove every origin.
                 example:
                 - https://example.com/*
                 items:
@@ -766,7 +879,17 @@ spec:
                   type: object
                 nullable: true
                 type: array
+              configSecretsHash:
+                description: ConfigSecretsHash is a hash of referenced secret versions
+                  from the last successful reconcile; it contains no secret-derived
+                  data.
+                type: string
               failureCount:
+                format: int64
+                type: integer
+              observedGeneration:
+                description: ObservedGeneration is the generation last successfully
+                  reconciled to Keycloak.
                 format: int64
                 type: integer
               value:
