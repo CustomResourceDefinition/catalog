@@ -75,8 +75,19 @@
                 }
               ]
             },
+            "maxConnectionDuration": {
+              "description": "MaxConnectionDuration is the maximum duration of a connection, measured from\nwhen the connection was established. When this duration is reached, Envoy starts\nthe drain sequence. If unset, there is no maximum connection duration.\nSee here for more information: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#envoy-v3-api-field-config-core-v3-httpprotocoloptions-max-connection-duration",
+              "type": "string",
+              "maxLength": 32,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
+                  "message": "invalid duration value"
+                }
+              ]
+            },
             "maxHeadersCount": {
-              "description": "Specifies the maximum number of headers that the connection will accept.\nIf not specified, the default of 100 is used. Requests that exceed this limit will receive\na 431 response for HTTP/1.x and cause a stream reset for HTTP/2.",
+              "description": "Specifies the maximum number of response headers that the upstream connection will accept\nfrom the backend. If not specified, the default of 100 is used.\nTo configure the maximum number of headers accepted in downstream requests, use\nListenerPolicy.spec.default.httpSettings.maxHeadersCount.",
               "type": "integer",
               "format": "int32",
               "minimum": 0
@@ -125,6 +136,17 @@
                   "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
                   "message": "invalid duration value"
                 }
+              ]
+            },
+            "lookupFamily": {
+              "description": "LookupFamily selects the address families used to resolve this backend's\nhostnames. It applies only to backends resolved through DNS, such as a\nBackend with a hostname, and has no effect on Kubernetes Services. When\nomitted, KGW_DNS_LOOKUP_FAMILY applies; its default, V4_PREFERRED, is\nequivalent to IPv4Preferred.\n\nFor backends reached through DNS64/NAT64 without IPv4 egress, use IPv6Only\nor IPv6Preferred so Envoy can use synthesized AAAA records. IPv4Preferred\nselects IPv4 addresses when available, even if those addresses are\nunreachable, so a cluster that reaches all IPv4 destinations this way should\nchange KGW_DNS_LOOKUP_FAMILY rather than override each backend.\n\nAmazon EKS IPv6 clusters using the Amazon VPC CNI provide IPv4 egress\nthrough a host-local IPv4 address and node SNAT, so the default reaches\nIPv4-only backends without an override.\n\nIPv6Preferred and IPv4Preferred fall back only when DNS returns no addresses\nfor the preferred family, not when a connection fails. All returns both\nfamilies, and for most backends each address becomes a separate endpoint,\nso requests sent to an unreachable family fail rather than fall back.\n\nNote: This feature is experimental and subject to breaking changes in future releases.",
+              "type": "string",
+              "enum": [
+                "IPv4Preferred",
+                "IPv4Only",
+                "IPv6Only",
+                "IPv6Preferred",
+                "All"
               ]
             },
             "refreshRate": {
@@ -219,13 +241,28 @@
               "additionalProperties": false
             },
             "interval": {
-              "description": "Interval is the time between health checks.",
+              "description": "Interval is the time between health checks after the backend receives its first request.",
               "type": "string",
               "maxLength": 32,
               "x-kubernetes-validations": [
                 {
                   "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
                   "message": "invalid duration value"
+                }
+              ]
+            },
+            "noTrafficInterval": {
+              "description": "NoTrafficInterval is the time between health checks before the backend receives\nits first request. If unset, uses Envoy's default of 60 seconds.\nMust be at least 1ms.",
+              "type": "string",
+              "maxLength": 32,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "matches(self, '^([0-9]{1,5}(h|m|s|ms)){1,4}$')",
+                  "message": "invalid duration value"
+                },
+                {
+                  "rule": "duration(self) \u003e= duration('1ms')",
+                  "message": "noTrafficInterval must be at least 1ms"
                 }
               ]
             },
@@ -275,7 +312,7 @@
           "additionalProperties": false
         },
         "http2ProtocolOptions": {
-          "description": "Http2ProtocolOptions contains the options necessary to configure HTTP/2 backends.\nNote: Http2ProtocolOptions can only be applied to HTTP/2 backends.\nSee [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/tls.proto#envoy-v3-api-msg-extensions-transport-sockets-tls-v3-sslconfig) for more details.",
+          "description": "Http2ProtocolOptions contains the options necessary to configure HTTP/2 backends.\nNote: Http2ProtocolOptions can only be applied to HTTP/2 backends.\nSee [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#envoy-v3-api-msg-config-core-v3-http2protocoloptions) for more details.",
           "type": "object",
           "properties": {
             "connectionKeepalive": {
@@ -815,6 +852,32 @@
               "default": 5,
               "minimum": 0
             },
+            "consecutiveGatewayFailure": {
+              "description": "The number of consecutive gateway failures (502, 503 and 504 status\ncodes) before a host is ejected. When set, ejection is always enforced.\nWhen unset, consecutive gateway failure ejection is disabled.",
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1
+            },
+            "consecutiveLocalOriginFailure": {
+              "description": "The number of consecutive locally originated failures before an ejection\noccurs. Defaults to 5. This setting takes effect only when\nsplitExternalLocalOriginErrors is true. If this is zero, consecutive local\norigin failure ejection is disabled.",
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "enforcingConsecutive5xx": {
+              "description": "The percentage chance that a host is ejected when an outlier status is\ndetected through consecutive 5xx responses. This setting can be used to\ndisable ejection or to ramp it up slowly. Defaults to 100.",
+              "type": "integer",
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 0
+            },
+            "enforcingConsecutiveLocalOriginFailure": {
+              "description": "The percentage chance that a host is ejected when an outlier status is\ndetected through consecutive locally originated failures. This setting can\nbe used to disable ejection or to ramp it up slowly. Defaults to 100 and\ntakes effect only when splitExternalLocalOriginErrors is true.",
+              "type": "integer",
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 0
+            },
             "interval": {
               "description": "The time interval between ejection analysis sweeps. This can result in\nboth new ejections as well as hosts being returned to service. Defaults\nto 10s.",
               "type": "string",
@@ -838,6 +901,10 @@
               "default": 10,
               "maximum": 100,
               "minimum": 0
+            },
+            "splitExternalLocalOriginErrors": {
+              "description": "Determines whether to distinguish locally originated failures from\nexternally generated errors. When true, consecutiveLocalOriginFailure and\nenforcingConsecutiveLocalOriginFailure are used for locally originated\nfailures. Defaults to false.",
+              "type": "boolean"
             }
           },
           "additionalProperties": false
@@ -847,6 +914,95 @@
           "type": "integer",
           "format": "int32",
           "minimum": 0
+        },
+        "sessionPersistence": {
+          "description": "SessionPersistence pins a client to one endpoint of the backend using a\ncookie or header. It applies to HTTPRoutes and GRPCRoutes that reference\nthe backend, and has no effect on TCPRoutes or TLSRoutes. When a route\nsplits traffic, it only pins a client to an endpoint within the backend\nchosen by the split. When set, it takes precedence over the\nsessionPersistence field of an HTTPRoute or GRPCRoute rule.\n\nThis field is experimental and subject to breaking changes. It mirrors the\nexperimental Gateway API SessionPersistence type (v1.7).",
+          "type": "object",
+          "properties": {
+            "absoluteTimeout": {
+              "description": "AbsoluteTimeout defines the absolute timeout of the persistent\nsession. Once the AbsoluteTimeout duration has elapsed, the\nsession becomes invalid.\n\nOnly cookie sessions with lifetimeType Permanent support this field, where it\nsets the cookie lifetime. It has no effect for header sessions and for Session\ncookies (the default lifetimeType), as the gateway does not track the session\nlifetime separately from the cookie.",
+              "type": "string",
+              "pattern": "^([0-9]{1,5}(h|m|s|ms)){1,4}$"
+            },
+            "cookie": {
+              "description": "Cookie provides configuration settings that are specific\nto cookie-based session persistence.",
+              "type": "object",
+              "properties": {
+                "lifetimeType": {
+                  "description": "LifetimeType specifies whether the cookie has a permanent or\nsession-based lifetime. A permanent cookie persists until its\nspecified expiry time, defined by the Expires or Max-Age cookie\nattributes, while a session cookie is deleted when the current\nsession ends.\n\nWhen set to \"Permanent\", AbsoluteTimeout indicates the\ncookie's lifetime via the Expires or Max-Age cookie attributes\nand is required.\n\nWhen set to \"Session\", AbsoluteTimeout has no effect, as the\ngateway does not track the session lifetime separately from\nthe cookie.\n\nDefaults to \"Session\".",
+                  "type": "string",
+                  "default": "Session",
+                  "enum": [
+                    "Permanent",
+                    "Session"
+                  ]
+                },
+                "name": {
+                  "description": "Name defines the name of the cookie used for session persistence.\nIf not specified, a unique cookie name is generated for each backend.\nUsers should avoid reusing cookie names to prevent unintended\nconsequences, such as rejection or unpredictable behavior. Avoid using the\nsame cookie name for backends in the same traffic split, as clients lose\ntheir session whenever the split switches backends.",
+                  "type": "string",
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9!#$%\u0026'*+\\-.^_\\x60|~]+$"
+                },
+                "path": {
+                  "description": "Path defines the cookie Path attribute. Defaults to \"/\".",
+                  "type": "string",
+                  "default": "/",
+                  "maxLength": 1024
+                }
+              },
+              "additionalProperties": false
+            },
+            "header": {
+              "description": "Header provides configuration settings that are specific\nto header-based session persistence.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name defines the name of the header used for session persistence.\nThe client must include this header in subsequent requests to\nmaintain the session. Avoid using the same header name for backends in\nthe same traffic split, as clients lose their session whenever the split\nswitches backends.",
+                  "type": "string",
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9!#$%\u0026'*+\\-.^_\\x60|~]+$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "type": {
+              "description": "Type defines the type of session persistence such as through\nthe use of a header or cookie. Defaults to cookie based session\npersistence.",
+              "type": "string",
+              "default": "Cookie",
+              "enum": [
+                "Cookie",
+                "Header"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!has(self.cookie) || !has(self.cookie.lifetimeType) || self.cookie.lifetimeType != 'Permanent' || has(self.absoluteTimeout)",
+              "message": "AbsoluteTimeout must be specified when cookie lifetimeType is Permanent"
+            },
+            {
+              "rule": "!has(self.cookie) || self.type == 'Cookie'",
+              "message": "cookie must be nil if type is not Cookie"
+            },
+            {
+              "rule": "self.type != 'Cookie' || has(self.cookie)",
+              "message": "cookie must be specified for Cookie type"
+            },
+            {
+              "rule": "!has(self.header) || self.type == 'Header'",
+              "message": "header must be nil if type is not Header"
+            },
+            {
+              "rule": "self.type != 'Header' || has(self.header)",
+              "message": "header must be specified for Header type"
+            }
+          ]
         },
         "targetRefs": {
           "description": "TargetRefs specifies the target references to attach the policy to.",
@@ -977,7 +1133,7 @@
           "additionalProperties": false
         },
         "tls": {
-          "description": "TLS contains the options necessary to configure a backend to use TLS origination.\nSee [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/tls.proto#envoy-v3-api-msg-extensions-transport-sockets-tls-v3-sslconfig) for more details.",
+          "description": "TLS contains the options necessary to configure a backend to use TLS origination.\nSee [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/tls.proto#envoy-v3-api-msg-extensions-transport-sockets-tls-v3-upstreamtlscontext) for more details.",
           "type": "object",
           "properties": {
             "allowRenegotiation": {
@@ -1112,6 +1268,158 @@
             }
           ]
         },
+        "tunnel": {
+          "description": "Tunnel sends Backend connections through an HTTP CONNECT proxy.\nDestination TLS uses tls; proxy TLS uses the proxy backend's policy.\nRequires Backend targetRefs; targetSelectors are not supported.",
+          "type": "object",
+          "required": [
+            "proxy"
+          ],
+          "properties": {
+            "headers": {
+              "description": "Headers are sent only on CONNECT requests. Each requires a name and\nexactly one of value or secretRef.",
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "description": "HTTPHeader represents a single header name/value pair. Exactly one of value or secretRef must\nbe set. When using secretRef, name and key interact as follows:\n  - Both present: name is the header name, key is the Secret data key.\n  - name absent, key present: the key is also used as the header name.\n  - name present, key absent: the name is also used as the Secret data key.\n  - Both absent: every entry in the Secret is injected as a header (data key -\u003e header name).",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "Name is the HTTP header field name. Name matching is case-insensitive.\n(See https://tools.ietf.org/html/rfc7230#section-3.2.)\nRequired when value is set. When secretRef is used, if omitted the Secret data key is\nused as the header name; if both name and key are omitted every Secret entry is injected\nas a header.",
+                    "type": "string",
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9!#$%\u0026'*+\\-.^_\\x60|~]+$"
+                  },
+                  "secretRef": {
+                    "description": "SecretRef sources the header value from a key in a Kubernetes Secret.\nMutually exclusive with value.",
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "key": {
+                        "description": "Key is the key within the Secret's data map to use as the header value. When omitted and\nthe parent HTTPHeader.name is set, that name is used as the key. When both key and name are\nomitted, all entries in the Secret are injected as headers.",
+                        "type": "string",
+                        "maxLength": 253,
+                        "minLength": 1,
+                        "pattern": "^[-._a-zA-Z0-9]+$"
+                      },
+                      "name": {
+                        "description": "Name is the name of the Kubernetes Secret.",
+                        "type": "string",
+                        "maxLength": 253,
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "description": "Namespace is the namespace of the Secret. If omitted, defaults to the namespace of the\nreferencing policy. Cross-namespace references require a ReferenceGrant in the target\nnamespace permitting access from the policy's namespace.",
+                        "type": "string",
+                        "maxLength": 63,
+                        "minLength": 1,
+                        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "value": {
+                    "description": "Value is an inline string value for the header. Mutually exclusive with secretRef.\nMust consist of printable US-ASCII characters. (See https://tools.ietf.org/html/rfc7230#section-3.2.)",
+                    "type": "string",
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "pattern": "^[!-~]+([\\t ]?[!-~]+)*$"
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "has(self.value) ? has(self.name) : true",
+                    "message": "name is required when using an inline value"
+                  },
+                  {
+                    "rule": "[has(self.value),has(self.secretRef)].filter(x,x==true).size() == 1",
+                    "message": "exactly one of the fields in [value secretRef] must be set"
+                  }
+                ]
+              },
+              "x-kubernetes-list-type": "atomic",
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(h, has(h.name))",
+                  "message": "tunnel headers require a name"
+                },
+                {
+                  "rule": "self.all(h, !has(h.name) || h.name.lowerAscii() != 'host')",
+                  "message": "tunnel headers cannot set Host"
+                }
+              ]
+            },
+            "proxy": {
+              "description": "Proxy identifies the forward proxy that establishes the tunnel.",
+              "type": "object",
+              "required": [
+                "backendRef"
+              ],
+              "properties": {
+                "backendRef": {
+                  "description": "BackendRef references the proxy Service or Backend. CONNECT uses that\nbackend's HTTP protocol.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "group": {
+                      "description": "Group is the group of the referent. For example, \"gateway.networking.k8s.io\".\nWhen unspecified or empty string, core API group is inferred.",
+                      "type": "string",
+                      "default": "",
+                      "maxLength": 253,
+                      "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                    },
+                    "kind": {
+                      "description": "Kind is the Kubernetes resource kind of the referent. For example\n\"Service\".\n\nDefaults to \"Service\" when not specified.\n\nExternalName services can refer to CNAME DNS records that may live\noutside of the cluster and as such are difficult to reason about in\nterms of conformance. They also may not be safe to forward to (see\nCVE-2021-25740 for more information). Implementations SHOULD NOT\nsupport ExternalName Services.\n\nSupport: Core (Services with a type other than ExternalName)\n\nSupport: Implementation-specific (Services with type ExternalName)",
+                      "type": "string",
+                      "default": "Service",
+                      "maxLength": 63,
+                      "minLength": 1,
+                      "pattern": "^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
+                    },
+                    "name": {
+                      "description": "Name is the name of the referent.",
+                      "type": "string",
+                      "maxLength": 253,
+                      "minLength": 1
+                    },
+                    "namespace": {
+                      "description": "Namespace is the namespace of the backend. When unspecified, the local\nnamespace is inferred.\n\nNote that when a namespace different than the local namespace is specified,\na ReferenceGrant object is required in the referent namespace to allow that\nnamespace's owner to accept the reference. See the ReferenceGrant\ndocumentation for details.\n\nSupport: Core",
+                      "type": "string",
+                      "maxLength": 63,
+                      "minLength": 1,
+                      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                    },
+                    "port": {
+                      "description": "Port specifies the destination port number to use for this resource.\nPort is required when the referent is a Kubernetes Service. In this\ncase, the port number is the service port number, not the target port.\nFor other resources, destination port might be derived from the referent\nresource or this field.",
+                      "type": "integer",
+                      "format": "int32",
+                      "maximum": 65535,
+                      "minimum": 1
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "(self.group == '' \u0026\u0026 self.kind == 'Service') || (self.group == 'gateway.kgateway.dev' \u0026\u0026 self.kind == 'Backend')",
+                      "message": "proxy backendRef must reference a Service or a Backend"
+                    },
+                    {
+                      "rule": "(size(self.group) == 0 \u0026\u0026 self.kind == 'Service') ? has(self.port) : true",
+                      "message": "Must have port for Service reference"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "upstreamProxyProtocol": {
           "description": "UpstreamProxyProtocol configures the PROXY protocol for upstream connections to the backend.\nWhen enabled, the proxy protocol header is prepended to upstream connections,\nallowing backend services to see the original client connection information.\nSee [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/proxy_protocol/v3/upstream_proxy_protocol.proto) for more details.",
           "type": "object",
@@ -1141,6 +1449,14 @@
       },
       "additionalProperties": false,
       "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.tunnel) || !has(self.targetSelectors)",
+          "message": "tunnel does not support targetSelectors"
+        },
+        {
+          "rule": "!has(self.tunnel) || (has(self.targetRefs) \u0026\u0026 self.targetRefs.all(r, r.group == 'gateway.kgateway.dev' \u0026\u0026 r.kind == 'Backend'))",
+          "message": "tunnel requires targetRefs that reference Backends"
+        },
         {
           "rule": "[has(self.http1ProtocolOptions),has(self.http2ProtocolOptions)].filter(x,x==true).size() \u003c= 1",
           "message": "at most one of the fields in [http1ProtocolOptions http2ProtocolOptions] may be set"

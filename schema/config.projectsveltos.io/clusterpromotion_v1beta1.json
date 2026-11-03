@@ -104,6 +104,43 @@
               },
               "x-kubernetes-list-type": "atomic"
             },
+            "healthMonitoring": {
+              "description": "HealthMonitoring, when enabled, continuously monitors the health of the resources\nthis profile deploys in each matching cluster. Unlike ValidateHealths, which are\nevaluated once during deployment, these checks run for as long as the profile\nis deployed. Results are available as HealthCheckReports.",
+              "type": "object",
+              "required": [
+                "enabled"
+              ],
+              "properties": {
+                "defaultChecks": {
+                  "description": "DefaultChecks, when true (default), monitors the Deployments, StatefulSets, DaemonSets,\nJobs and PersistentVolumeClaims deployed by this profile (raw resources and Helm charts).\nSet it to false to monitor only the HealthChecks listed in HealthChecks.",
+                  "type": "boolean",
+                  "default": true
+                },
+                "enabled": {
+                  "description": "Enabled turns health monitoring on for the resources deployed by this profile.\nWhen true, Sveltos creates a HealthCheck and a ClusterHealthCheck for each\nmatching cluster once the profile is provisioned there, and removes them\nwhen monitoring is disabled or the cluster does not match anymore.",
+                  "type": "boolean"
+                },
+                "healthChecks": {
+                  "description": "HealthChecks is a list of names of HealthCheck instances to monitor in addition\nto the default checks. Those are deployed as they are: selecting only the\nresources deployed by this profile is up to the HealthCheck.\n\nOnly a ClusterProfile can set it. It is ignored for a (namespaced) Profile, which gets the\ndefault checks only. A HealthCheck is a cluster-scoped resource referenced by name, and the\nreport it produces is shared by every profile that references it on a given cluster, with\nno filtering by namespace. Allowing a Profile to reference one would let a tenant name\na HealthCheck it does not own, and learn about resources outside its namespace through\nthe shared report. The default checks are safe for a Profile: they select only the\nresources that profile deployed.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "x-kubernetes-list-type": "set"
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.enabled || !has(self.healthChecks) || size(self.healthChecks) == 0",
+                  "message": "healthChecks can only be set when enabled is true"
+                },
+                {
+                  "rule": "!self.enabled || !has(self.defaultChecks) || self.defaultChecks || (has(self.healthChecks) \u0026\u0026 size(self.healthChecks) \u003e 0)",
+                  "message": "defaultChecks cannot be false when healthChecks is empty: there would be nothing to monitor"
+                }
+              ]
+            },
             "helmCharts": {
               "description": "Helm charts is a list of helm charts that need to be deployed",
               "type": "array",
@@ -178,6 +215,16 @@
                             "description": "prevent hooks from running during install. If set to true, overrides\nDisableHooks in HelmOptions. Use this one when you want to selective\ndisable hooks on install\nDefault to false",
                             "type": "boolean",
                             "default": false
+                          },
+                          "existingCRDs": {
+                            "description": "ExistingCRDs controls what happens when a CRD in the chart's crds/ directory (subcharts\nincluded) already exists in the cluster with a different definition. CRDs not yet in the\ncluster are always created. Ignored when SkipCRDs is true.\nFail fails the installation and reports the CRDs that differ. No CRD is created or changed.\nSkip leaves the existing CRD as it is, logs it and carries on with the rest of the chart.\nOverwrite applies the CRD of the chart over the existing one.\nDefault to Fail",
+                            "type": "string",
+                            "default": "Fail",
+                            "enum": [
+                              "Skip",
+                              "Fail",
+                              "Overwrite"
+                            ]
                           },
                           "recoverAfterConsecutiveFailures": {
                             "description": "RecoverAfterConsecutiveFailures is the number of consecutive install failures for this\nchart after which Sveltos uninstalls any existing release under this name before\nretrying, to clear potentially stale Helm release history that would otherwise keep\nblocking every subsequent install attempt. This only ever runs when there is no\ncurrently deployed release to protect: a release that is deployed, or mid-upgrade, or\nfailed while already existing, is always retried through helm upgrade instead, never\nthrough this. It only applies to a release that was never successfully installed, or\nwas already cleanly uninstalled.\nDefault to 5",

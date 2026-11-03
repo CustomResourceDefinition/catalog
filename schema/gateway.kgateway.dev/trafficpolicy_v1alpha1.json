@@ -20,7 +20,7 @@
       "type": "object",
       "properties": {
         "acl": {
-          "description": "ACL configures IP-based access control for HTTP requests.\nRules are evaluated using longest-prefix matching on the effictive client IP\nfrom envoy base on settings. See the UseRemoteAddress, XffTrustedCIDRs,\nXffNumTrustedHops settings under ListenerPolicy -\u003e HttpSettings for details.\n\nWhen multiple TrafficPolicy objects target the same route, their ACL fields are\ndeep-merged by default: rules are unioned (higher-priority policy's rules first),\nand singleton fields (defaultAction, denyResponse) are taken from the higher-priority\npolicy. If singleton fields conflict between policies, the merge falls back to\nshallow (higher-priority policy wins entirely). Gateway-level and route-level ACL\npolicies are kept in separate merge groups and are never combined with each other;\na route-level ACL completely replaces the gateway-level ACL for that route.",
+          "description": "ACL configures IP-based access control for HTTP requests.\nRules are evaluated using longest-prefix matching on the effective client IP\nfrom envoy base on settings. See the UseRemoteAddress, XffTrustedCIDRs,\nXffNumTrustedHops settings under ListenerPolicy -\u003e HttpSettings for details.\n\nWhen multiple TrafficPolicy objects target the same route, their ACL fields are\ndeep-merged by default: rules are unioned (higher-priority policy's rules first),\nand singleton fields (defaultAction, denyResponse) are taken from the higher-priority\npolicy. If singleton fields conflict between policies, the merge falls back to\nshallow (higher-priority policy wins entirely). Gateway-level and route-level ACL\npolicies are kept in separate merge groups and are never combined with each other;\na route-level ACL completely replaces the gateway-level ACL for that route.",
           "type": "object",
           "required": [
             "defaultAction"
@@ -315,7 +315,7 @@
               "type": "object"
             },
             "filterStage": {
-              "description": "FilterStage specifies where in the HTTP filter chain the buffer filter is placed.\nBy default the buffer filter runs late in the chain, after authentication, authorization\nand rate limiting, so that a request that is going to be rejected outright is rejected\nbefore its body is buffered.\n\n`maxRequestSize` is only enforced while the buffer filter is the filter accumulating the\nrequest body. A filter placed ahead of it that reads or holds the body first - for example\nan ext_proc that waits on its server, or a body transformation - consumes the body before\nthe buffer filter ever sees it, and the limit is then inert. Move the buffer filter ahead\nof such a filter to make the limit enforce, at the cost of buffering bodies that a later\nauthentication or authorization filter may go on to reject.\n\nThe placement is a property of the whole filter chain rather than of a single route, and\nsetting it here affects every route on the listener. Envoy resolves the per-route buffer\nconfig by filter name, and that name-based lookup is what lets a route-level policy override\na Gateway-level one, so the gateway installs exactly one buffer filter per filter chain. If\nTrafficPolicies attached to the same listener ask for different stages, the earliest\nrequested stage is used for the whole chain. A policy that only sets `disable` takes no part\nin that: it keeps its per-route override and leaves the placement to the policies that\nactually buffer, so turning buffering off on one route never moves the buffer filter for the\nothers.\n\nSetting it therefore relaxes, never tightens, what the other routes on the listener do:\na route that asked for the default placement will have its bodies buffered before\nauthentication and authorization run, spending memory on requests those filters would go on\nto reject. Keep buffer policies on a listener consistent, or split the listener, if that\nmatters for a route. The per-route `maxRequestSize` is unaffected and continues to apply\nper route.\n\nWhen request decompression is configured on the same filter chain, the decompressor filters\nstay ahead of the buffer filter, so that `maxRequestSize` is measured against the\ndecompressed body rather than the encoded bytes - otherwise a small compressed body would\nsatisfy the limit and expand past it upstream. Their default placement is already ahead of\nevery stage except `Fault`, so this only moves them when the buffer filter is staged at\n`Fault`, and then it moves them for every route on the listener: request decompression on\nthose routes runs ahead of fault injection, CORS, and any ext_proc staged at `Fault`.\n\n`filterStage.weight` must be 0: it breaks ties between several filters of the same type at\none stage, and a filter chain carries at most one buffer filter.",
+              "description": "FilterStage sets the buffer filter's position in the HTTP filter chain.\nBy default, it runs after authentication, authorization, and rate limiting.\nPlace it before filters that read or hold the body, such as ext_proc or body\ntransformations, to enforce maxRequestSize before those filters consume it.\nEarlier buffering uses memory even for requests that later filters reject.\n\nPlacement affects every route on the listener. If policies request different\nstages, the earliest wins. Policies that only set disable do not affect\nplacement. Per-route maxRequestSize and disable overrides still apply.\nKeep stages consistent or use separate listeners to avoid moving buffering\nearlier for other routes.\n\nRequest decompressors stay ahead of the buffer so maxRequestSize applies to\nthe decompressed body. Placing the buffer at Fault also moves decompression\nahead of fault injection, CORS, and ext_proc filters staged at Fault for all\nroutes on the listener.\n\nfilterStage.weight must be 0.",
               "type": "object",
               "required": [
                 "stage"
@@ -1270,6 +1270,48 @@
             }
           ]
         },
+        "httpUpgrade": {
+          "description": "HTTPUpgrade configures HTTP protocol upgrades on the targeted routes.\nRoute-level upgrade settings override the matching upgrade type configured\non the listener. CONNECT termination is applied per route and cannot be\nconfigured on a listener. After an upgrade is established, tunneled payload\nis not inspected by HTTP filters. Authenticate and authorize the initial\nupgrade request, enable upgrades only for trusted clients, and avoid request\nbuffering.",
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "description": "ProtocolUpgradeConfig specifies configuration for an HTTP protocol upgrade.",
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "connect": {
+                "description": "Connect configures CONNECT-specific behavior. It is valid only when type\nis \"CONNECT\".",
+                "type": "object",
+                "properties": {
+                  "terminate": {
+                    "description": "Terminate causes the gateway to terminate the CONNECT request and forward\nthe request payload upstream as raw TCP data. When false or omitted, the\nCONNECT request is proxied upstream without termination.\n\nBecause the payload is forwarded as raw bytes, configuring TLS for the\nselected backend wraps those bytes in a separate upstream TLS session. Leave\nbackend TLS disabled when the payload must reach the upstream unchanged.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "type": {
+                "description": "Type is the case-insensitive protocol upgrade token, such as \"websocket\",\n\"CONNECT\", or \"spdy/3.1\". Do not configure the same token more than once,\nincluding variants that differ only by letter case.",
+                "type": "string",
+                "maxLength": 256,
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "!has(self.connect) || self.type.lowerAscii() == 'connect'",
+                "message": "connect configuration is only allowed when type is CONNECT"
+              }
+            ]
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
         "internalRedirect": {
           "description": "InternalRedirect handles upstream 3xx redirects inside the gateway.\nApplies only to routes that forward traffic to a backend.",
           "type": "object",
@@ -1531,8 +1573,12 @@
                   "maximum": 100,
                   "minimum": 0
                 },
+                "shareAcrossGateway": {
+                  "description": "ShareAcrossGateway applies the token bucket to the Gateway as a whole rather than to each\nproxy replica individually. Each replica is given an even share of the bucket based on the\ncurrent number of replicas of the Gateway, so the configured rate is the total rate admitted\nby all replicas combined. For example, with tokensPerFill=100 and fillInterval=1s, a Gateway\nwith 4 replicas admits 25 requests per second per gateway. Because the allocation is divided,\nmaxTokens must be greater than or equal to the number of replicas, otherwise no requests are\nadmitted.\n\nDefaults to false.",
+                  "type": "boolean"
+                },
                 "tokenBucket": {
-                  "description": "TokenBucket represents the configuration for a token bucket local rate-limiting mechanism.\nIt defines the parameters for controlling the rate at which requests are allowed.",
+                  "description": "TokenBucket configures the local rate limiter's token bucket.",
                   "type": "object",
                   "required": [
                     "fillInterval",
@@ -1540,7 +1586,7 @@
                   ],
                   "properties": {
                     "fillInterval": {
-                      "description": "FillInterval defines the time duration between consecutive token fills.\nThis value must be a valid duration string (e.g., \"1s\", \"500ms\").\nIt determines the frequency of token replenishment.",
+                      "description": "FillInterval defines the time duration between consecutive token fills.\nThis value must be a valid duration string (e.g., \"1s\", \"500ms\").",
                       "type": "string",
                       "maxLength": 32,
                       "x-kubernetes-validations": [
@@ -1561,7 +1607,7 @@
                       "minimum": 1
                     },
                     "tokensPerFill": {
-                      "description": "TokensPerFill specifies the number of tokens added to the bucket during each fill interval.\nIf not specified, it defaults to 1.\nThis controls the steady-state rate of token generation.",
+                      "description": "TokensPerFill specifies the number of tokens added to the bucket during each fill interval.\nIf not specified, it defaults to 1.",
                       "type": "integer",
                       "format": "int32",
                       "default": 1,
@@ -1571,7 +1617,13 @@
                   "additionalProperties": false
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!has(self.shareAcrossGateway) || !self.shareAcrossGateway || has(self.tokenBucket)",
+                  "message": "shareAcrossGateway requires tokenBucket to be set"
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -1613,6 +1665,23 @@
                 }
               },
               "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "requestMirror": {
+          "description": "RequestMirror configures the behavior of request mirrors defined by\nHTTPRoute or GRPCRoute RequestMirror filters. It does not create request mirrors.\nIt can target HTTPRoutes, GRPCRoutes, or Gateways (including individual Gateway listeners\nvia sectionName). When attached above the route level it applies to every mirror on the\nroutes it covers, and a more-specific policy wins the whole block: its settings are not\ncombined field-by-field with a less-specific policy. If a covered route has no request\nmirror, this has no effect.",
+          "type": "object",
+          "minProperties": 1,
+          "properties": {
+            "disableShadowHostSuffixAppend": {
+              "description": "DisableShadowHostSuffixAppend controls whether Envoy appends the \"-shadow\" suffix to the\nHost/:authority header of mirrored requests. When true, the original Host/:authority is\npreserved; when false, Envoy appends the suffix. Cross-policy precedence applies to the whole\nRequestMirror block (see above), not to this field alone. If hostRewriteLiteral is set, Envoy\nsuppresses the suffix regardless of this field.",
+              "type": "boolean"
+            },
+            "hostRewriteLiteral": {
+              "description": "HostRewriteLiteral replaces the entire Host/:authority header of mirrored requests with this\nvalue. The original port is not preserved, so include a port here if the mirror destination\nneeds one. This implicitly disables appending the \"-shadow\" suffix, regardless of\ndisableShadowHostSuffixAppend.",
+              "type": "string",
+              "minLength": 1
             }
           },
           "additionalProperties": false
@@ -1690,7 +1759,7 @@
               "type": "array",
               "minItems": 1,
               "items": {
-                "description": "HTTPRouteRetryStatusCode defines an HTTP response status code for\nwhich a backend request should be retried.\n\nImplementations MUST support the following status codes as retriable:\n\n* 500\n* 502\n* 503\n* 504\n\nImplementations MAY support specifying additional discrete values in the\n500-599 range.\n\nImplementations MAY support specifying discrete values in the 400-499 range,\nwhich are often inadvisable to retry.\n\n\u003cgateway:experimental\u003e",
+                "description": "HTTPRouteRetryStatusCode defines an HTTP response status code for\nwhich a backend request should be retried.\n\nImplementations MUST support the following status codes as retriable:\n\n* 500\n* 502\n* 503\n* 504\n\nImplementations MAY support specifying additional discrete values in the\n500-599 range.\n\nImplementations MAY support specifying discrete values in the 400-499 range,\nwhich are often inadvisable to retry.",
                 "type": "integer",
                 "maximum": 599,
                 "minimum": 400
@@ -2344,8 +2413,20 @@
           "message": "statPrefix can only be used when targeting HTTPRoute or GRPCRoute resources"
         },
         {
+          "rule": "!has(self.httpUpgrade) || ((!has(self.targetRefs) || self.targetRefs.all(r, r.kind == 'Gateway' || r.kind == 'HTTPRoute' || r.kind.endsWith('ListenerSet'))) \u0026\u0026 (!has(self.targetSelectors) || self.targetSelectors.all(r, r.kind == 'Gateway' || r.kind == 'HTTPRoute' || r.kind.endsWith('ListenerSet'))))",
+          "message": "httpUpgrade can only be used when targeting Gateway, HTTPRoute, or ListenerSet resources"
+        },
+        {
+          "rule": "!has(self.httpUpgrade) || self.httpUpgrade.all(x, self.httpUpgrade.exists_one(y, y.type.lowerAscii() == x.type.lowerAscii()))",
+          "message": "httpUpgrade types must be unique ignoring ASCII case"
+        },
+        {
           "rule": "has(self.retry) \u0026\u0026 has(self.timeouts) ? (has(self.retry.perTryTimeout) \u0026\u0026 has(self.timeouts.request) ? duration(self.retry.perTryTimeout) \u003c duration(self.timeouts.request) : true) : true",
           "message": "retry.perTryTimeout must be less than timeouts.request"
+        },
+        {
+          "rule": "!has(self.buffer) || has(self.buffer.disable) || !has(self.httpUpgrade) || self.httpUpgrade.size() == 0",
+          "message": "buffer cannot be used together with httpUpgrade unless buffering is disabled"
         }
       ]
     },
