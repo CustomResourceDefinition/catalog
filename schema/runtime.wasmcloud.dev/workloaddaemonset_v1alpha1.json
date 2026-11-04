@@ -1,0 +1,732 @@
+{
+  "description": "WorkloadDaemonSet runs a Workload on every Host that matches its host selector, spec.replicasPerHost instances per Host, and follows the Host set as it changes.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "WorkloadDaemonSetSpec defines the desired state of WorkloadDaemonSet.",
+      "type": "object",
+      "required": [
+        "template"
+      ],
+      "properties": {
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "artifactFrom",
+              "name"
+            ],
+            "properties": {
+              "artifactFrom": {
+                "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                    "type": "string",
+                    "default": ""
+                  }
+                },
+                "additionalProperties": false,
+                "x-kubernetes-map-type": "atomic"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "deployPolicy": {
+          "description": "DeployPolicy is how a template change reaches the hosts. RollingUpdate\nstarts the new instances on a host before stopping the old ones there,\nMaxConcurrentHosts hosts at a time. Recreate stops every old instance at once.",
+          "type": "string",
+          "default": "RollingUpdate",
+          "enum": [
+            "RollingUpdate",
+            "Recreate"
+          ]
+        },
+        "kubernetes": {
+          "description": "Kubernetes groups Kubernetes-specific configuration such as Service\nreferences and endpoint management.",
+          "type": "object",
+          "properties": {
+            "service": {
+              "description": "Service references an existing Kubernetes Service that the operator will\nmaintain an EndpointSlice for, pointing to the host pods running this\nworkload. When set, the operator also registers DNS aliases for the\nservice (e.g. service-name, service-name.namespace.svc.cluster.local)\nwith the host so cluster-internal callers can reach the workload via\nService DNS without going through an external gateway.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name is the name of the Kubernetes Service in the same namespace.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "maxConcurrentHosts": {
+          "description": "MaxConcurrentHosts is how many hosts a RollingUpdate updates at once.",
+          "type": "integer",
+          "format": "int32",
+          "default": 1,
+          "minimum": 1
+        },
+        "replicasPerHost": {
+          "description": "ReplicasPerHost is the number of Workload instances to run on each Host\nthat matches template.spec.hostSelector. Unlike WorkloadDeployment's\nreplicas, it is not a total.",
+          "type": "integer",
+          "format": "int32",
+          "default": 1,
+          "minimum": 0
+        },
+        "template": {
+          "type": "object",
+          "required": [
+            "spec"
+          ],
+          "properties": {
+            "annotations": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "spec": {
+              "description": "WorkloadSpec defines the desired state of Workload.",
+              "type": "object",
+              "properties": {
+                "components": {
+                  "type": "array",
+                  "items": {
+                    "description": "WorkloadComponent represents a component of a workload.\nComponents are stateless, invocation-driven units of computation.\nComponents are isolated from each other and can be scaled independently.\nEach Component has a Root WIT World, representing the Components imports/exports. The combined\nlist of all Components' Root WIT Worlds within a workload must be compatible with the Host's WIT World.\nAll components within a workload are guaranteed to be placed on the same Wasm Host.",
+                    "type": "object",
+                    "required": [
+                      "image",
+                      "name"
+                    ],
+                    "properties": {
+                      "image": {
+                        "type": "string"
+                      },
+                      "imagePullPolicy": {
+                        "description": "PullPolicy describes a policy for if/when to pull a container image",
+                        "type": "string"
+                      },
+                      "imagePullSecret": {
+                        "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                            "type": "string",
+                            "default": ""
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-map-type": "atomic"
+                      },
+                      "localResources": {
+                        "description": "LocalResources describes resources that will be made available to a workload component.",
+                        "type": "object",
+                        "properties": {
+                          "allowedHostLoopbackPorts": {
+                            "description": "AllowedHostLoopbackPorts lists ports on the machine's own loopback this\ncomponent may reach through the reserved name\n`host.wasmcloud.internal`.\n\nEach entry is a port with an optional protocol:\n  - \"5432\"      TCP port 5432 (the default)\n  - \"5432/tcp\"  TCP port 5432\n  - \"53/udp\"    UDP port 53\n\nDeliberately narrow: no ranges, no wildcards, no names. Reaching the\nhost's own loopback is the most privileged grant here, and the set of\nlocal ports a component legitimately needs is small and knowable.\n\nAn empty or absent list denies every host-loopback connection. A\nnon-empty list is still inert unless the host itself runs with\n--allow-host-loopback, so neither the workload author nor the operator\ncan open this door alone. Note that \"127.0.0.1\" keeps meaning the\nworkload's own virtual loopback; only the reserved name reaches the\nmachine. Final validation runs in the runtime. This regex is an\nadmission-time guard, not the source of truth.",
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[0-9]{1,5}(/(tcp|udp|TCP|UDP))?$"
+                            }
+                          },
+                          "allowedHosts": {
+                            "description": "AllowedHosts is the outbound egress allowlist for this component.\n\nEach entry must match one of:\n  - \"*\"                       (allow all)\n  - \"host[:port]\"             e.g. \"example.com\" or \"example.com:8443\"\n  - \"scheme://host[:port][/]\" e.g. \"https://api.example.com\" or \"https://api.example.com/\"\n  - \"*.suffix[:port]\"         e.g. \"*.example.com\" or \"*.example.com:8443\"\n  - \"scheme://*.suffix[:port][/]\" e.g. \"https://*.example.com\"\n\nThis is a hosts policy, not a URL policy: entries must not include a\npath (beyond bare `/`), query string, or fragment. The wildcard must\nbe `*.\u003crest\u003e` (leading dot required); a bare `*foo` is rejected.\n\nA raw socket carries no name, so an entry naming a host permits a\nwasi:sockets connection only to an address the component resolved\nthat name into, on the entry's port, for a short time after the\nlookup. The entry also permits the lookup itself. An entry with a\nscheme and no port permits that scheme's default port.\n\nEmpty or absent allowedHosts denies all outgoing requests\n(fail-closed). To opt into unrestricted egress, set `allowedHosts:\n[\"*\"]` explicitly. Final validation runs in the runtime. This regex\nis an admission-time guard, not the source of truth.",
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^\\*$|^([A-Za-z][A-Za-z0-9+.-]*://)(\\*\\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(:[0-9]{1,5})?/?$|^(\\*\\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(:[0-9]{1,5})?$"
+                            }
+                          },
+                          "allowedIpNameLookups": {
+                            "description": "AllowedIPNameLookups is the set of names this component may resolve\nthrough wasi:sockets/ip-name-lookup (resolve-addresses).\n\nEach entry must match one of:\n  - \"*\"                (resolve any name)\n  - \"*.suffix\"         e.g. \"*.wasmcloud.io\"\n  - \"host\"             e.g. \"api.wasmcloud.io\"\n  - a literal IP address, e.g. \"10.0.0.1\" or \"::1\"\n\nA name is not a URL: entries must not carry a scheme, port, path,\nquery string, or fragment. The wildcard must be \"*.\u003crest\u003e\" with a\nleading dot; a bare \"*foo\" is rejected.\n\nA host named in allowedHosts may be resolved without being listed\nhere: this list is for names beyond those. With neither naming it, a\nlookup is denied and reported to the component as\npermanent-resolver-failure. To resolve any name, set\nallowedIpNameLookups: [\"*\"] explicitly; `*` in allowedHosts permits\nconnections but opens no lookup. Final validation runs in the runtime.\nThis regex is an admission-time guard, not the source of truth.",
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^\\*$|^(\\*\\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$|^[0-9A-Fa-f:.]+$"
+                            }
+                          },
+                          "config": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "environment": {
+                            "type": "object",
+                            "properties": {
+                              "config": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "configFrom": {
+                                "description": "ConfigFrom is a list of references to ConfigMaps that will be provided to the workload.\nThe keys and values of all referenced ConfigMaps will be merged. In case of key conflicts,\nthe last ConfigMap in the list wins.",
+                                "type": "array",
+                                "items": {
+                                  "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                                      "type": "string",
+                                      "default": ""
+                                    }
+                                  },
+                                  "additionalProperties": false,
+                                  "x-kubernetes-map-type": "atomic"
+                                }
+                              },
+                              "secretFrom": {
+                                "description": "The keys and values of all referenced Secrets will be merged. In case of key conflicts,\nthe last Secret in the list wins.\nThe values of the Secrets will be base64-decoded, utf-8 decoded before being provided to the workload.",
+                                "type": "array",
+                                "items": {
+                                  "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                                      "type": "string",
+                                      "default": ""
+                                    }
+                                  },
+                                  "additionalProperties": false,
+                                  "x-kubernetes-map-type": "atomic"
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "volumeMounts": {
+                            "description": "VolumeMounts is a list of volume mounts that will be mounted into the workload component.\nThe volumes must be defined in the WorkloadSpec.Volumes field.",
+                            "type": "array",
+                            "items": {
+                              "description": "VolumeMount describes a mounting of a Volume within a component.",
+                              "type": "object",
+                              "required": [
+                                "mountPath",
+                                "name"
+                              ],
+                              "properties": {
+                                "mountPath": {
+                                  "description": "MountPath is the path within the component where the volume should be mounted.",
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "description": "Name must match the Name of a Volume defined in the WorkloadSpec.Volumes field.",
+                                  "type": "string"
+                                },
+                                "readOnly": {
+                                  "description": "ReadOnly indicates whether the volume should be mounted as read-only.",
+                                  "type": "boolean"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "maxConcurrency": {
+                        "description": "MaxConcurrency is how many calls one warm instance may serve at the same\ntime. Unset means one, which is what a component gets without asking.\nRaising it lets an instance overlap calls while it awaits I/O, and is\nonly safe for a guest that yields rather than blocks. Only meaningful\nalongside PoolSize.",
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                      },
+                      "maxInvocations": {
+                        "description": "MaxInvocations retires a warm instance once it has served this many\ncalls, and a fresh one takes its place. Unset means an instance serves\ncalls indefinitely. Only meaningful alongside PoolSize.",
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "poolSize": {
+                        "description": "PoolSize is how many instances of this component are kept warm between\ncalls. Unset means none are: every call gets a fresh instance, and the\ncomponent's state stays ephemeral.",
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                      },
+                      "reclaimMinInstances": {
+                        "description": "ReclaimMinInstances is how many warm instances an idle sweep never\nretires below. Unset lets a fully idle pool empty out, so the next call\nafter a quiet spell starts cold. A value at or above PoolSize disables\nreclaim entirely, since a sweep could never find a surplus to retire.\nThis is a floor on reclaim, not a target to grow to: instances are\nstill only built when a call needs one. Only meaningful alongside\nReclaimWindowSeconds.",
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                      },
+                      "reclaimWindowSeconds": {
+                        "description": "ReclaimWindowSeconds is how long the pool watches its own peak\nconcurrency before retiring the warm instances that peak did not need.\nA pool grows to PoolSize under load and, unset, stays there, so a\nspike's high-water mark outlives the spike. Set this and the pool\nsweeps every window, keeps the instances its measured peak actually\nneeded and drains the rest. Unset means warm instances are never\nreclaimed for idleness. Only meaningful alongside PoolSize.",
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "environment": {
+                  "description": "Environment, if set, scopes scheduling to Hosts whose Environment\nmatches this value, regardless of the Workload's own namespace.\nThe value is matched against Host.Environment — typically a\nKubernetes namespace for in-cluster host pods, or any\noperator-defined identifier for out-of-cluster hosts (e.g. a\nregion or data center). Only honored when the operator is started\nwith allowSharedHosts=true, or when Environment equals the\nWorkload's namespace.",
+                  "type": "string"
+                },
+                "hostId": {
+                  "type": "string"
+                },
+                "hostInterfaces": {
+                  "description": "HostInterfaces declares the host-provided interfaces this workload needs.\nTwo routing invariants are enforced at admission, complementing the\nhost-side checks:\n  1. No two entries may be exact duplicates (same namespace, package,\n     name, and version).\n  2. At most one entry of a given namespace:package may be unnamed — the\n     unnamed entry is the default route and cannot be shared. Declare\n     distinct `name`s to route multiple imports of the same package to\n     different backends. Semver-incompatible versions of the same package\n     may coexist (they are distinct interfaces).\n\nDeclaring an interface here does not by itself guarantee the host serves\nit. A Workload serves itself first: where exactly one component in the\nWorkload exports a declared interface, that component answers its\nsiblings' unlabelled imports of it, and the host binds only the\nexporting component (an export is how the host reaches into a Workload).\nTwo or more exporters are ambiguous and fall back to the host.\n\nBoth routes can be stated explicitly, and an explicit route always wins.\nGive the entry a `name` and import under that `(implements \u003cname\u003e)`\nlabel to reach the host; import under a label naming a component to\nreach that component.",
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "interfaces",
+                      "namespace",
+                      "package"
+                    ],
+                    "properties": {
+                      "config": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "configFrom": {
+                        "description": "ConfigFrom is a list of references to ConfigMaps that will be provided to the workload.\nThe keys and values of all referenced ConfigMaps will be merged. In case of key conflicts,\nthe last ConfigMap in the list wins.",
+                        "type": "array",
+                        "items": {
+                          "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                              "type": "string",
+                              "default": ""
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-map-type": "atomic"
+                        }
+                      },
+                      "interfaces": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "name": {
+                        "description": "Name uniquely identifies this interface instance when multiple entries\nshare the same namespace+package. It is the `(implements \u003cname\u003e)` id the\nhost uses to route a component's named import to this interface's backend,\nso two imports of the same namespace:package can resolve to different\nbackends.\nRequired when multiple entries of the same namespace:package exist.\nA name declared here takes precedence over a component of the same\nname in the same Workload: the host serves the label, and the\ncomponent's export is not linked for it.",
+                        "type": "string",
+                        "maxLength": 64,
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                      },
+                      "namespace": {
+                        "type": "string",
+                        "maxLength": 128
+                      },
+                      "package": {
+                        "type": "string",
+                        "maxLength": 128
+                      },
+                      "secretFrom": {
+                        "description": "The keys and values of all referenced Secrets will be merged. In case of key conflicts,\nthe last Secret in the list wins.\nThe values of the Secrets will be base64-decoded, utf-8 decoded before being provided to the workload.",
+                        "type": "array",
+                        "items": {
+                          "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                              "type": "string",
+                              "default": ""
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-map-type": "atomic"
+                        }
+                      },
+                      "version": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.all(x, self.exists_one(y, y.__namespace__ == x.__namespace__ \u0026\u0026 y.__package__ == x.__package__ \u0026\u0026 (has(y.name) ? y.name : '') == (has(x.name) ? x.name : '') \u0026\u0026 (has(y.version) ? y.version : '') == (has(x.version) ? x.version : '')))",
+                      "message": "hostInterfaces must not contain duplicate entries with the same namespace, package, name, and version"
+                    },
+                    {
+                      "rule": "self.all(x, (has(x.name) \u0026\u0026 x.name != '') || self.filter(y, y.__namespace__ == x.__namespace__ \u0026\u0026 y.__package__ == x.__package__ \u0026\u0026 !(has(y.name) \u0026\u0026 y.name != '')).size() == 1)",
+                      "message": "at most one unnamed hostInterface is allowed per namespace:package; set a unique name to disambiguate multiple imports of the same package"
+                    }
+                  ]
+                },
+                "hostSelector": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "kubernetes": {
+                  "description": "Kubernetes groups Kubernetes-specific configuration such as Service\nreferences and endpoint management.",
+                  "type": "object",
+                  "properties": {
+                    "service": {
+                      "description": "Service references an existing Kubernetes Service that the operator will\nmaintain an EndpointSlice for, pointing to the host pods running this\nworkload. When set, the operator also registers DNS aliases for the\nservice (e.g. service-name, service-name.namespace.svc.cluster.local)\nwith the host so cluster-internal callers can reach the workload via\nService DNS without going through an external gateway.",
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "description": "Name is the name of the Kubernetes Service in the same namespace.",
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "service": {
+                  "description": "WorkloadService represents a long-running service that is part of the workload.\nIt is also sometimes referred to as a \"sidecar\" and is optional.\nA Service differs from a Component in that it is long-running and represents the Workload's \"localhost\".\nServices can bind to TCP \u0026 UDP ports, which are accessible by Components within the same workload via \"localhost\" or \"127.0.0.1\".\nServices export a single WIT interface, shaped as wasi:cli/run.\nServices can import interfaces from any Component within the same workload, or from the Host.",
+                  "type": "object",
+                  "required": [
+                    "image"
+                  ],
+                  "properties": {
+                    "image": {
+                      "type": "string"
+                    },
+                    "imagePullPolicy": {
+                      "description": "PullPolicy describes a policy for if/when to pull a container image",
+                      "type": "string"
+                    },
+                    "imagePullSecret": {
+                      "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                          "type": "string",
+                          "default": ""
+                        }
+                      },
+                      "additionalProperties": false,
+                      "x-kubernetes-map-type": "atomic"
+                    },
+                    "localResources": {
+                      "description": "LocalResources describes resources that will be made available to a workload component.",
+                      "type": "object",
+                      "properties": {
+                        "allowedHostLoopbackPorts": {
+                          "description": "AllowedHostLoopbackPorts lists ports on the machine's own loopback this\ncomponent may reach through the reserved name\n`host.wasmcloud.internal`.\n\nEach entry is a port with an optional protocol:\n  - \"5432\"      TCP port 5432 (the default)\n  - \"5432/tcp\"  TCP port 5432\n  - \"53/udp\"    UDP port 53\n\nDeliberately narrow: no ranges, no wildcards, no names. Reaching the\nhost's own loopback is the most privileged grant here, and the set of\nlocal ports a component legitimately needs is small and knowable.\n\nAn empty or absent list denies every host-loopback connection. A\nnon-empty list is still inert unless the host itself runs with\n--allow-host-loopback, so neither the workload author nor the operator\ncan open this door alone. Note that \"127.0.0.1\" keeps meaning the\nworkload's own virtual loopback; only the reserved name reaches the\nmachine. Final validation runs in the runtime. This regex is an\nadmission-time guard, not the source of truth.",
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[0-9]{1,5}(/(tcp|udp|TCP|UDP))?$"
+                          }
+                        },
+                        "allowedHosts": {
+                          "description": "AllowedHosts is the outbound egress allowlist for this component.\n\nEach entry must match one of:\n  - \"*\"                       (allow all)\n  - \"host[:port]\"             e.g. \"example.com\" or \"example.com:8443\"\n  - \"scheme://host[:port][/]\" e.g. \"https://api.example.com\" or \"https://api.example.com/\"\n  - \"*.suffix[:port]\"         e.g. \"*.example.com\" or \"*.example.com:8443\"\n  - \"scheme://*.suffix[:port][/]\" e.g. \"https://*.example.com\"\n\nThis is a hosts policy, not a URL policy: entries must not include a\npath (beyond bare `/`), query string, or fragment. The wildcard must\nbe `*.\u003crest\u003e` (leading dot required); a bare `*foo` is rejected.\n\nA raw socket carries no name, so an entry naming a host permits a\nwasi:sockets connection only to an address the component resolved\nthat name into, on the entry's port, for a short time after the\nlookup. The entry also permits the lookup itself. An entry with a\nscheme and no port permits that scheme's default port.\n\nEmpty or absent allowedHosts denies all outgoing requests\n(fail-closed). To opt into unrestricted egress, set `allowedHosts:\n[\"*\"]` explicitly. Final validation runs in the runtime. This regex\nis an admission-time guard, not the source of truth.",
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^\\*$|^([A-Za-z][A-Za-z0-9+.-]*://)(\\*\\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(:[0-9]{1,5})?/?$|^(\\*\\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(:[0-9]{1,5})?$"
+                          }
+                        },
+                        "allowedIpNameLookups": {
+                          "description": "AllowedIPNameLookups is the set of names this component may resolve\nthrough wasi:sockets/ip-name-lookup (resolve-addresses).\n\nEach entry must match one of:\n  - \"*\"                (resolve any name)\n  - \"*.suffix\"         e.g. \"*.wasmcloud.io\"\n  - \"host\"             e.g. \"api.wasmcloud.io\"\n  - a literal IP address, e.g. \"10.0.0.1\" or \"::1\"\n\nA name is not a URL: entries must not carry a scheme, port, path,\nquery string, or fragment. The wildcard must be \"*.\u003crest\u003e\" with a\nleading dot; a bare \"*foo\" is rejected.\n\nA host named in allowedHosts may be resolved without being listed\nhere: this list is for names beyond those. With neither naming it, a\nlookup is denied and reported to the component as\npermanent-resolver-failure. To resolve any name, set\nallowedIpNameLookups: [\"*\"] explicitly; `*` in allowedHosts permits\nconnections but opens no lookup. Final validation runs in the runtime.\nThis regex is an admission-time guard, not the source of truth.",
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^\\*$|^(\\*\\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$|^[0-9A-Fa-f:.]+$"
+                          }
+                        },
+                        "config": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "environment": {
+                          "type": "object",
+                          "properties": {
+                            "config": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              }
+                            },
+                            "configFrom": {
+                              "description": "ConfigFrom is a list of references to ConfigMaps that will be provided to the workload.\nThe keys and values of all referenced ConfigMaps will be merged. In case of key conflicts,\nthe last ConfigMap in the list wins.",
+                              "type": "array",
+                              "items": {
+                                "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                                    "type": "string",
+                                    "default": ""
+                                  }
+                                },
+                                "additionalProperties": false,
+                                "x-kubernetes-map-type": "atomic"
+                              }
+                            },
+                            "secretFrom": {
+                              "description": "The keys and values of all referenced Secrets will be merged. In case of key conflicts,\nthe last Secret in the list wins.\nThe values of the Secrets will be base64-decoded, utf-8 decoded before being provided to the workload.",
+                              "type": "array",
+                              "items": {
+                                "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                                    "type": "string",
+                                    "default": ""
+                                  }
+                                },
+                                "additionalProperties": false,
+                                "x-kubernetes-map-type": "atomic"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "volumeMounts": {
+                          "description": "VolumeMounts is a list of volume mounts that will be mounted into the workload component.\nThe volumes must be defined in the WorkloadSpec.Volumes field.",
+                          "type": "array",
+                          "items": {
+                            "description": "VolumeMount describes a mounting of a Volume within a component.",
+                            "type": "object",
+                            "required": [
+                              "mountPath",
+                              "name"
+                            ],
+                            "properties": {
+                              "mountPath": {
+                                "description": "MountPath is the path within the component where the volume should be mounted.",
+                                "type": "string"
+                              },
+                              "name": {
+                                "description": "Name must match the Name of a Volume defined in the WorkloadSpec.Volumes field.",
+                                "type": "string"
+                              },
+                              "readOnly": {
+                                "description": "ReadOnly indicates whether the volume should be mounted as read-only.",
+                                "type": "boolean"
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "maxRestarts": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "volumes": {
+                  "type": "array",
+                  "items": {
+                    "description": "Volume represents a named volume that can be mounted by components.",
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "ephemeral": {
+                        "description": "EphemeralVolume represents a temporary directory that shares a workload's lifetime.",
+                        "type": "object"
+                      },
+                      "hostPath": {
+                        "description": "HostPathVolume represents a pre-existing file or directory on the host machine.",
+                        "type": "object",
+                        "required": [
+                          "path"
+                        ],
+                        "properties": {
+                          "path": {
+                            "description": "Path of the file or directory on the host.",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "name": {
+                        "description": "Name of the volume. Must be a DNS_LABEL and unique within the Workload.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "WorkloadDaemonSetStatus defines the observed state of WorkloadDaemonSet.",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions of the resource.",
+          "type": "array",
+          "items": {
+            "description": "A Condition that may apply to a resource.",
+            "type": "object",
+            "required": [
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastProbeTime": {
+                "description": "Last time we probed the condition.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "lastTransitionTime": {
+                "description": "LastTransitionTime is the last time this condition transitioned from one\nstatus to another.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "A Message containing details about this condition's last transition from\none status to another, if any.",
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "If set, this represents the .metadata.generation that the object condition was set based upon.",
+                "type": "integer",
+                "format": "int64"
+              },
+              "reason": {
+                "description": "A Reason for this condition's last transition from one status to another.",
+                "type": "string"
+              },
+              "status": {
+                "description": "Status of this condition; is it currently True, False, or Unknown.",
+                "type": "string"
+              },
+              "type": {
+                "description": "Type of this condition. At most one of each condition type may apply to\na resource at any point in time.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "desiredHosts": {
+          "description": "DesiredHosts is the number of schedulable Hosts that match the selector.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "hosts": {
+          "description": "Hosts reports the desired Hosts that are not ready or still run an\noutdated instance, sorted by HostID. Hosts that are up to date and\nready are left out, so it stays small on a large host group.",
+          "type": "array",
+          "items": {
+            "description": "WorkloadDaemonSetHostStatus is the observed state of one Host's instances.",
+            "type": "object",
+            "required": [
+              "hostId"
+            ],
+            "properties": {
+              "current": {
+                "description": "Current is the number of instances of the current template on the host.",
+                "type": "integer",
+                "format": "int32"
+              },
+              "hostId": {
+                "type": "string"
+              },
+              "outdated": {
+                "description": "Outdated is the number of instances of a previous template still on the host.",
+                "type": "integer",
+                "format": "int32"
+              },
+              "ready": {
+                "description": "Ready is the number of available instances of the current template.",
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "readyHosts": {
+          "description": "ReadyHosts is the number of desired Hosts running every instance of the\ncurrent template.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "replicas": {
+          "description": "Replicas totals the instances across Hosts; Expected is DesiredHosts × spec.replicasPerHost.",
+          "type": "object",
+          "properties": {
+            "current": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "expected": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "ready": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "unavailable": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "additionalProperties": false
+        },
+        "updatedHosts": {
+          "description": "UpdatedHosts is the number of desired Hosts with no instance of a\nprevious template left.",
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
