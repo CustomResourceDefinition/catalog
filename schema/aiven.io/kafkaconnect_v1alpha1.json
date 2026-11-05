@@ -69,7 +69,7 @@
           "maxLength": 128
         },
         "powered": {
-          "description": "Determines the power state of the service. When `true` (default), the service is running.\nWhen `false`, the service is powered off.\nFor more information please see [Aiven documentation](https://aiven.io/docs/platform/concepts/service-power-cycle).\nNote that:\n- When set to `false` the annotation `controllers.aiven.io/instance-is-running` is also set to `false`.\n- Services cannot be created in a powered off state. The value is ignored during creation.\n- It is highly recommended to not run dependent resources when the service is powered off.\n  Creating a new resource or updating an existing resource that depends on a powered off service will result in an error.\n  Existing resources will need to be manually recreated after the service is powered on.\n- Existing secrets will not be updated or removed when the service is powered off.\n- For Kafka services with backups: Topic configuration, schemas and connectors are all backed up, but not the data in topics. All topic data is lost on power off.\n- For Kafka services without backups: Topic configurations including all topic data is lost on power off.",
+          "description": "Determines the power state of the service. When `true` (default), the service is running.\nWhen `false`, the service is powered off.\nFor more information please see [Aiven documentation](https://aiven.io/docs/platform/concepts/service-power-cycle).\nNote that:\n- When set to `false` the annotation `controllers.aiven.io/instance-is-running` is also set to `false`.\n- Services cannot be created in a powered off state. A resource with `powered: false` whose service\n  does not exist at Aiven reports an error until `powered` is set to `true`; an existing powered off\n  service can be adopted as is.\n- It is highly recommended to not run dependent resources when the service is powered off.\n  Creating a new resource or updating an existing resource that depends on a powered off service will result in an error.\n  Existing resources will need to be manually recreated after the service is powered on.\n- Existing secrets will not be updated or removed when the service is powered off.\n- For Kafka services with backups: Topic configuration, schemas and connectors are all backed up, but not the data in topics. All topic data is lost on power off.\n- For Kafka services without backups: Topic configurations including all topic data is lost on power off.",
           "type": "boolean",
           "default": true
         },
@@ -181,6 +181,36 @@
               "maxItems": 1,
               "items": {
                 "type": "string"
+              }
+            },
+            "custom_plugins": {
+              "description": "Install custom plugins uploaded via the custom file service.",
+              "type": "array",
+              "maxItems": 10,
+              "items": {
+                "description": "Install a custom plugin uploaded via the custom file service.",
+                "type": "object",
+                "required": [
+                  "plugin_name",
+                  "plugin_version"
+                ],
+                "properties": {
+                  "plugin_name": {
+                    "description": "The name of the custom plugin as specified during upload",
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "pattern": "^[^\\r\\n]*$"
+                  },
+                  "plugin_version": {
+                    "description": "The version to install. Use a semver version (e.g. '1.0.0') or 'latest' to always use the most recent version.",
+                    "type": "string",
+                    "maxLength": 32,
+                    "minLength": 1,
+                    "pattern": "(?i)^(latest|v?(?:(?:(?P\u003cepoch\u003e[0-9]+)!)?(?P\u003crelease\u003e[0-9]+(?:\\.[0-9]+)*)(?P\u003cpre\u003e[-_\\.]?(?P\u003cpre_l\u003ealpha|a|beta|b|preview|pre|c|rc)[-_\\.]?(?P\u003cpre_n\u003e[0-9]+)?)?(?P\u003cpost\u003e(?:-(?P\u003cpost_n1\u003e[0-9]+))|(?:[-_\\.]?(?P\u003cpost_l\u003epost|rev|r)[-_\\.]?(?P\u003cpost_n2\u003e[0-9]+)?))?(?P\u003cdev\u003e[-_\\.]?(?P\u003cdev_l\u003edev)[-_\\.]?(?P\u003cdev_n\u003e[0-9]+)?)?)(?:\\+(?P\u003clocal\u003e[a-z0-9]+(?:[-_\\.][a-z0-9]+)*))?)$"
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "gcp_auth_allowed_urls": {
@@ -576,7 +606,13 @@
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!(has(self.projectVpcId) \u0026\u0026 has(self.projectVPCRef))",
+          "message": "set projectVpcId or projectVPCRef, not both"
+        }
+      ]
     },
     "status": {
       "description": "ServiceStatus defines the observed state of service",

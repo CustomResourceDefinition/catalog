@@ -153,7 +153,9 @@ spec:
                     For more information please see [Aiven documentation](https://aiven.io/docs/platform/concepts/service-power-cycle).
                     Note that:
                     - When set to `false` the annotation `controllers.aiven.io/instance-is-running` is also set to `false`.
-                    - Services cannot be created in a powered off state. The value is ignored during creation.
+                    - Services cannot be created in a powered off state. A resource with `powered: false` whose service
+                      does not exist at Aiven reports an error until `powered` is set to `true`; an existing powered off
+                      service can be adopted as is.
                     - It is highly recommended to not run dependent resources when the service is powered off.
                       Creating a new resource or updating an existing resource that depends on a powered off service will result in an error.
                       Existing resources will need to be manually recreated after the service is powered on.
@@ -425,6 +427,13 @@ spec:
                       maxLength: 128
                       pattern: ^[a-zA-Z0-9-_:.]+$
                       type: string
+                    replicas:
+                      description:
+                        Number of replicas per shard in the Valkey cluster.
+                        Only applies to cluster plans.
+                      maximum: 2
+                      minimum: 0
+                      type: integer
                     service_log:
                       description:
                         Store logs for the service so that they are available
@@ -440,6 +449,13 @@ spec:
                       x-kubernetes-validations:
                         - message: Value is immutable
                           rule: self == oldSelf
+                    shard_count:
+                      description:
+                        Number of shards (primaries) in the Valkey cluster.
+                        Required for cluster plans.
+                      maximum: 5
+                      minimum: 1
+                      type: integer
                     static_ips:
                       description: Use static public IP addresses
                       type: boolean
@@ -564,7 +580,7 @@ spec:
                     valkey_version:
                       description: |-
                         Available versions: `8.1`, `9.0`, `9.1`. Newer versions may also be available.
-                        Valkey major version. Deprecated values: `9.0`
+                        Valkey major version
                       type: string
                   type: object
               required:
@@ -576,6 +592,8 @@ spec:
                     connInfoSecretTargetDisabled can only be set during resource
                     creation.
                   rule: has(oldSelf.connInfoSecretTargetDisabled) == has(self.connInfoSecretTargetDisabled)
+                - message: set projectVpcId or projectVPCRef, not both
+                  rule: "!(has(self.projectVpcId) && has(self.projectVPCRef))"
             status:
               description: ServiceStatus defines the observed state of service
               properties:

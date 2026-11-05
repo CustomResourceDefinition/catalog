@@ -176,7 +176,9 @@ spec:
                     For more information please see [Aiven documentation](https://aiven.io/docs/platform/concepts/service-power-cycle).
                     Note that:
                     - When set to `false` the annotation `controllers.aiven.io/instance-is-running` is also set to `false`.
-                    - Services cannot be created in a powered off state. The value is ignored during creation.
+                    - Services cannot be created in a powered off state. A resource with `powered: false` whose service
+                      does not exist at Aiven reports an error until `powered` is set to `true`; an existing powered off
+                      service can be adopted as is.
                     - It is highly recommended to not run dependent resources when the service is powered off.
                       Creating a new resource or updating an existing resource that depends on a powered off service will result in an error.
                       Existing resources will need to be manually recreated after the service is powered on.
@@ -592,6 +594,49 @@ spec:
                             client connections.
                           maximum: 4294967296
                           minimum: 1048576
+                          type: integer
+                        innodb_max_dirty_pages_pct:
+                          description:
+                            Percentage of dirty pages in the InnoDB buffer
+                            pool at which InnoDB starts flushing aggressively. Lowering
+                            it spreads write I/O more evenly and shortens crash recovery,
+                            at the cost of flushing pages that might have been modified
+                            again. Must stay at or above innodb_max_dirty_pages_pct_lwm.
+                            Default is 90.
+                          maximum: 99
+                          minimum: 5
+                          type: number
+                        innodb_max_dirty_pages_pct_lwm:
+                          description:
+                            Percentage of dirty pages in the InnoDB buffer
+                            pool at which InnoDB starts pre-flushing, to keep the dirty
+                            page ratio from reaching innodb_max_dirty_pages_pct. 0 turns
+                            pre-flushing off. Cannot be set above innodb_max_dirty_pages_pct.
+                            Default is 10.
+                          maximum: 99
+                          minimum: 0
+                          type: number
+                        innodb_max_purge_lag:
+                          description:
+                            Number of outstanding transactions the InnoDB
+                            purge operation may fall behind by before INSERT, UPDATE
+                            and DELETE are delayed to let it catch up. The delay applies
+                            per row and grows with the lag, and it is capped by innodb_max_purge_lag_delay,
+                            which has to be set as well for this option to have any
+                            effect. Default is 0, which never delays anything.
+                          maximum: 4294967295
+                          minimum: 0
+                          type: integer
+                        innodb_max_purge_lag_delay:
+                          description:
+                            Cap in microseconds on the per-row delay innodb_max_purge_lag
+                            applies to INSERT, UPDATE and DELETE. MySQL clamps the delay
+                            to this value unconditionally, so while this is 0 no delay
+                            is ever applied and innodb_max_purge_lag on its own does
+                            nothing. Both options must be non-zero for either to take
+                            effect. Default is 0.
+                          maximum: 10000000
+                          minimum: 0
                           type: integer
                         innodb_online_alter_log_max_size:
                           description:
@@ -1018,6 +1063,8 @@ spec:
                     connInfoSecretTargetDisabled can only be set during resource
                     creation.
                   rule: has(oldSelf.connInfoSecretTargetDisabled) == has(self.connInfoSecretTargetDisabled)
+                - message: set projectVpcId or projectVPCRef, not both
+                  rule: "!(has(self.projectVpcId) && has(self.projectVPCRef))"
             status:
               description: ServiceStatus defines the observed state of service
               properties:

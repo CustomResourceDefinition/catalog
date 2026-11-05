@@ -153,7 +153,9 @@ spec:
                     For more information please see [Aiven documentation](https://aiven.io/docs/platform/concepts/service-power-cycle).
                     Note that:
                     - When set to `false` the annotation `controllers.aiven.io/instance-is-running` is also set to `false`.
-                    - Services cannot be created in a powered off state. The value is ignored during creation.
+                    - Services cannot be created in a powered off state. A resource with `powered: false` whose service
+                      does not exist at Aiven reports an error until `powered` is set to `true`; an existing powered off
+                      service can be adopted as is.
                     - It is highly recommended to not run dependent resources when the service is powered off.
                       Creating a new resource or updating an existing resource that depends on a powered off service will result in an error.
                       Existing resources will need to be manually recreated after the service is powered on.
@@ -1149,6 +1151,26 @@ spec:
                           maximum: 2147483647
                           minimum: 1
                           type: integer
+                        knn_cache_item_expiry_enabled:
+                          description:
+                            Enable or disable removing KNN graphs from the
+                            cache when they are idle. Disabled by default.
+                          type: boolean
+                        knn_cache_item_expiry_minutes:
+                          description:
+                            If enabled, the amount of time in minutes a KNN
+                            graph can be idle in the cache before being evicted.
+                          maximum: 10080
+                          minimum: 1
+                          type: integer
+                        knn_circuit_breaker_unset_percentage:
+                          description:
+                            The native memory usage, as a percentage below
+                            the KNN memory circuit breaker limit, at which a tripped
+                            circuit breaker resets. Defaults to 5%.
+                          maximum: 100
+                          minimum: 0
+                          type: number
                         knn_memory_circuit_breaker_enabled:
                           description:
                             Enable or disable KNN memory circuit breaker.
@@ -1169,11 +1191,29 @@ spec:
                             control access and permissions to the connector API using
                             backend_roles. Defaults to false.
                           type: boolean
+                        ml_commons_max_model_on_node:
+                          description:
+                            Maximum number of ML models that can be deployed
+                            on a single ML node. Defaults to 10.
+                          minimum: 1
+                          type: integer
                         ml_commons_model_access_control_enabled:
                           description:
                             Enable or disable model access control for ML
                             Commons. When enabled, access to ML models is controlled
                             by security permissions. Defaults to false.
+                          type: boolean
+                        ml_commons_model_auto_deploy_enable:
+                          description:
+                            "For externally hosted models only: automatically
+                            deploy a model on its first predict request instead of requiring
+                            an explicit deploy call first. Defaults to true."
+                          type: boolean
+                        ml_commons_model_auto_redeploy_enable:
+                          description:
+                            Automatically redeploy deployed or partially
+                            deployed models after ML nodes rejoin the cluster, e.g.
+                            after a node replacement. Defaults to true.
                           type: boolean
                         ml_commons_native_memory_threshold:
                           description:
@@ -1780,7 +1820,7 @@ spec:
                       type: object
                     opensearch_version:
                       description: |-
-                        Available versions: `2`, `2.19`, `3.3`, `3.6`. Newer versions may also be available.
+                        Available versions: `2`, `2.19`, `3.3`, `3.6`, `3.8`. Newer versions may also be available.
                         OpenSearch version. Deprecated values: `2`
                       type: string
                     private_access:
@@ -2060,6 +2100,8 @@ spec:
                     connInfoSecretTargetDisabled can only be set during resource
                     creation.
                   rule: has(oldSelf.connInfoSecretTargetDisabled) == has(self.connInfoSecretTargetDisabled)
+                - message: set projectVpcId or projectVPCRef, not both
+                  rule: "!(has(self.projectVpcId) && has(self.projectVPCRef))"
             status:
               description: ServiceStatus defines the observed state of service
               properties:

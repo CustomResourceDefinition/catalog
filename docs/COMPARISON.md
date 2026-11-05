@@ -9,9 +9,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.20% | 4120 | 12988 | 92 |
+| 99.10% | 4124 | 13002 | 92 |
 
 ### Missing Schemas
+
+| agents.x-k8s.io | |
+| --- | --- |
+| sandbox | v1beta1 |
 
 | compute.coreweave.com | |
 | --- | --- |
@@ -42,6 +46,12 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
+
+| extensions.agents.x-k8s.io | |
+| --- | --- |
+| sandboxclaim | v1beta1 |
+| sandboxtemplate | v1beta1 |
+| sandboxwarmpool | v1beta1 |
 
 | networking.gke.io | |
 | --- | --- |

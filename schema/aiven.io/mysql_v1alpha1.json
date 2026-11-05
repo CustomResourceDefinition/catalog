@@ -144,7 +144,7 @@
           "maxLength": 128
         },
         "powered": {
-          "description": "Determines the power state of the service. When `true` (default), the service is running.\nWhen `false`, the service is powered off.\nFor more information please see [Aiven documentation](https://aiven.io/docs/platform/concepts/service-power-cycle).\nNote that:\n- When set to `false` the annotation `controllers.aiven.io/instance-is-running` is also set to `false`.\n- Services cannot be created in a powered off state. The value is ignored during creation.\n- It is highly recommended to not run dependent resources when the service is powered off.\n  Creating a new resource or updating an existing resource that depends on a powered off service will result in an error.\n  Existing resources will need to be manually recreated after the service is powered on.\n- Existing secrets will not be updated or removed when the service is powered off.\n- For Kafka services with backups: Topic configuration, schemas and connectors are all backed up, but not the data in topics. All topic data is lost on power off.\n- For Kafka services without backups: Topic configurations including all topic data is lost on power off.",
+          "description": "Determines the power state of the service. When `true` (default), the service is running.\nWhen `false`, the service is powered off.\nFor more information please see [Aiven documentation](https://aiven.io/docs/platform/concepts/service-power-cycle).\nNote that:\n- When set to `false` the annotation `controllers.aiven.io/instance-is-running` is also set to `false`.\n- Services cannot be created in a powered off state. A resource with `powered: false` whose service\n  does not exist at Aiven reports an error until `powered` is set to `true`; an existing powered off\n  service can be adopted as is.\n- It is highly recommended to not run dependent resources when the service is powered off.\n  Creating a new resource or updating an existing resource that depends on a powered off service will result in an error.\n  Existing resources will need to be manually recreated after the service is powered on.\n- Existing secrets will not be updated or removed when the service is powered off.\n- For Kafka services with backups: Topic configuration, schemas and connectors are all backed up, but not the data in topics. All topic data is lost on power off.\n- For Kafka services without backups: Topic configurations including all topic data is lost on power off.",
           "type": "boolean",
           "default": true
         },
@@ -525,6 +525,30 @@
                   "maximum": 4294967296,
                   "minimum": 1048576
                 },
+                "innodb_max_dirty_pages_pct": {
+                  "description": "Percentage of dirty pages in the InnoDB buffer pool at which InnoDB starts flushing aggressively. Lowering it spreads write I/O more evenly and shortens crash recovery, at the cost of flushing pages that might have been modified again. Must stay at or above innodb_max_dirty_pages_pct_lwm. Default is 90.",
+                  "type": "number",
+                  "maximum": 99,
+                  "minimum": 5
+                },
+                "innodb_max_dirty_pages_pct_lwm": {
+                  "description": "Percentage of dirty pages in the InnoDB buffer pool at which InnoDB starts pre-flushing, to keep the dirty page ratio from reaching innodb_max_dirty_pages_pct. 0 turns pre-flushing off. Cannot be set above innodb_max_dirty_pages_pct. Default is 10.",
+                  "type": "number",
+                  "maximum": 99,
+                  "minimum": 0
+                },
+                "innodb_max_purge_lag": {
+                  "description": "Number of outstanding transactions the InnoDB purge operation may fall behind by before INSERT, UPDATE and DELETE are delayed to let it catch up. The delay applies per row and grows with the lag, and it is capped by innodb_max_purge_lag_delay, which has to be set as well for this option to have any effect. Default is 0, which never delays anything.",
+                  "type": "integer",
+                  "maximum": 4294967295,
+                  "minimum": 0
+                },
+                "innodb_max_purge_lag_delay": {
+                  "description": "Cap in microseconds on the per-row delay innodb_max_purge_lag applies to INSERT, UPDATE and DELETE. MySQL clamps the delay to this value unconditionally, so while this is 0 no delay is ever applied and innodb_max_purge_lag on its own does nothing. Both options must be non-zero for either to take effect. Default is 0.",
+                  "type": "integer",
+                  "maximum": 10000000,
+                  "minimum": 0
+                },
                 "innodb_online_alter_log_max_size": {
                   "description": "The upper limit in bytes on the size of the temporary log files used during online DDL operations for InnoDB tables.",
                   "type": "integer",
@@ -861,6 +885,10 @@
         {
           "rule": "has(oldSelf.connInfoSecretTargetDisabled) == has(self.connInfoSecretTargetDisabled)",
           "message": "connInfoSecretTargetDisabled can only be set during resource creation."
+        },
+        {
+          "rule": "!(has(self.projectVpcId) \u0026\u0026 has(self.projectVPCRef))",
+          "message": "set projectVpcId or projectVPCRef, not both"
         }
       ]
     },
