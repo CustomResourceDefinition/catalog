@@ -80,7 +80,7 @@ test-kubeconform:
 		-summary < test/fixtures/kubeconform/kubeconform-positive.yaml;
 	docker compose run --quiet-pull --rm -T kubeconform \
 		-schema-location 'http://schema:8080/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-		-summary < test/fixtures/kubeconform/kubeconform-negative.yaml; test 1 -eq $$?
+		-summary < test/fixtures/kubeconform/kubeconform-negative.yaml >/dev/null; test 1 -eq $$?
 	docker compose down --remove-orphans
 	@printf $(GREEN) "OK"
 
