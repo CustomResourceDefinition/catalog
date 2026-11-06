@@ -1,0 +1,470 @@
+{
+  "description": "KongPluginBinding is the schema for Plugin Bindings API which defines a Kong Plugin Binding.",
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "KongPluginBindingSpec defines specification of a KongPluginBinding.",
+      "type": "object",
+      "required": [
+        "controlPlaneRef",
+        "pluginRef"
+      ],
+      "properties": {
+        "adopt": {
+          "description": "Adopt is the options for adopting a plugin instance from an existing plugin in Konnect.",
+          "type": "object",
+          "required": [
+            "from"
+          ],
+          "properties": {
+            "from": {
+              "description": "From is the source of the entity to adopt from.\nNow 'konnect' is supported.",
+              "type": "string",
+              "enum": [
+                "konnect"
+              ]
+            },
+            "konnect": {
+              "description": "Konnect is the options for adopting the entity from Konnect.\nRequired when from == 'konnect'.",
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "description": "ID is the Konnect ID of the entity.",
+                  "type": "string",
+                  "maxLength": 36,
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "mode": {
+              "description": "Mode selects how the operator adopts an already-existing entity (for example,\na Konnect resource) instead of creating a new one.\n\nSupported values:\n- \"match\": the operator retrieves the remote entity referenced by the\n  corresponding Adopt* options (for example, adopt.konnect.id) and performs a\n  field-by-field comparison against this CR's spec (ignoring server-assigned\n  metadata). If the specification matches the remote state, the operator\n  adopts the entity: it sets the status identifier and marks the resource as\n  ready/programmed without issuing any write operation to the remote system.\n  If the specification does not match the remote state, adoption fails: the\n  operator does not modify the remote entity and surfaces a failure\n  condition, allowing the user to align the spec with the existing entity if\n  adoption is desired.\n\n- \"override\": the operator overrides the remote entity by the CR's spec.\n  If the entity with the ID and type exists, and it is not managed\n  by another CR (matching by the metadata.uid of the CR and the \"k8s-uid\"\n  label or tag of the Konnect entity), the operator updates the remote entity\n  by the CR's spec.",
+              "type": "string",
+              "enum": [
+                "match",
+                "override"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.from == oldSelf.from",
+              "message": "'from'(adopt source) is immutable"
+            },
+            {
+              "rule": "self.from == 'konnect' ? has(self.konnect) : true",
+              "message": "Must specify Konnect options when from='konnect'"
+            },
+            {
+              "rule": "has(self.konnect) ? (self.konnect.id == oldSelf.konnect.id) : true",
+              "message": "konnect.id is immutable"
+            }
+          ]
+        },
+        "controlPlaneRef": {
+          "description": "ControlPlaneRef is a reference to a ControlPlane this KongPluginBinding is associated with.",
+          "type": "object",
+          "properties": {
+            "konnectNamespacedRef": {
+              "description": "KonnectNamespacedRef is a reference to a Konnect Control Plane entity inside the cluster.\nIt contains the name of the Konnect Control Plane. It can't reference Control Plane Groups,\nbecause they are read-only.\nThis field is required when the Type is konnectNamespacedRef.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name is the name of the Konnect Control Plane.",
+                  "type": "string",
+                  "maxLength": 253,
+                  "minLength": 1
+                },
+                "namespace": {
+                  "description": "Namespace is the namespace where the Konnect Control Plane is in.\nCurrently the following resources are allowed to set this:\n- cluster scoped resources (KongVault)\n- KongService\n- KongCertificate\n- KongCACertificate\n- KongConsumerGroup\n- KongUpstream\n- KongKeySet\n- KongDataPlaneClientCertificate",
+                  "type": "string",
+                  "maxLength": 253
+                }
+              },
+              "additionalProperties": false
+            },
+            "type": {
+              "description": "Type indicates the type of the control plane being referenced. Allowed values:\n- konnectNamespacedRef\n- kic\n\nThe default is kic, which implies that the Control Plane is KIC.",
+              "type": "string",
+              "default": "kic",
+              "enum": [
+                "konnectNamespacedRef",
+                "kic"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type != 'konnectID'",
+              "message": "'konnectID' type is not supported"
+            },
+            {
+              "rule": "(has(self.type) \u0026\u0026 self.type == 'konnectNamespacedRef') ? has(self.konnectNamespacedRef) : true",
+              "message": "when type is konnectNamespacedRef, konnectNamespacedRef must be set"
+            },
+            {
+              "rule": "(has(self.type) \u0026\u0026 self.type == 'kic') ? !has(self.konnectNamespacedRef) : true",
+              "message": "when type is kic, konnectNamespacedRef must not be set"
+            },
+            {
+              "rule": "!has(self.type) ? !has(self.konnectNamespacedRef) : true",
+              "message": "when type is unset, konnectNamespacedRef must not be set"
+            }
+          ]
+        },
+        "pluginRef": {
+          "description": "PluginReference is a reference to the KongPlugin or KongClusterPlugin resource.",
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "kind": {
+              "description": "Kind can be KongPlugin or KongClusterPlugin. If not set, it is assumed to be KongPlugin.",
+              "type": "string",
+              "default": "KongPlugin",
+              "enum": [
+                "KongPlugin",
+                "KongClusterPlugin"
+              ]
+            },
+            "name": {
+              "description": "Name is the name of the KongPlugin or KongClusterPlugin resource.",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace is the namespace of the referenced KongPlugin resource.\nCan only be set when Kind is KongPlugin.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.name != ''",
+              "message": "pluginRef name must be set"
+            },
+            {
+              "rule": "self.kind == 'KongPlugin' || !has(self.__namespace__)",
+              "message": "Namespace can be set only when kind is 'KongPlugin'"
+            }
+          ]
+        },
+        "scope": {
+          "description": "Scope defines the scope of the plugin binding.",
+          "type": "string",
+          "default": "OnlyTargets",
+          "enum": [
+            "OnlyTargets",
+            "GlobalInControlPlane"
+          ]
+        },
+        "tags": {
+          "description": "Tags is an optional set of strings associated with the Target for grouping and filtering.",
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string"
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.all(tag, size(tag) \u003e= 1 \u0026\u0026 size(tag) \u003c= 128)",
+              "message": "tags entries must not be longer than 128 characters"
+            }
+          ]
+        },
+        "targets": {
+          "description": "Targets contains the targets references. It is possible to set multiple combinations\nof references, as described in https://docs.konghq.com/gateway/latest/key-concepts/plugins/#precedence\nThe complete set of allowed combinations and their order of precedence for plugins\nconfigured to multiple entities is:\n\n1. Consumer + route + service\n2. Consumer group + service + route\n3. Consumer + route\n4. Consumer + service\n5. Consumer group + route\n6. Consumer group + service\n7. Route + service\n8. Consumer\n9. Consumer group\n10. Route\n11. Service",
+          "type": "object",
+          "properties": {
+            "consumerGroupRef": {
+              "description": "ConsumerGroupReference is used to reference a configuration.konghq.com/ConsumerGroup resource.\nThe group/kind is fixed, therefore the reference is performed only by name.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name is the name of the entity.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "consumerRef": {
+              "description": "ConsumerReference is used to reference a configuration.konghq.com/Consumer resource.\nThe group/kind is fixed, therefore the reference is performed only by name.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Name is the name of the entity.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "routeRef": {
+              "description": "RouteReference can be used to reference one of the following resources:\n- networking.k8s.io/Ingress\n- gateway.networking.k8s.io/HTTPRoute\n- gateway.networking.k8s.io/GRPCRoute\n- configuration.konghq.com/KongRoute",
+              "type": "object",
+              "required": [
+                "group",
+                "kind",
+                "name"
+              ],
+              "properties": {
+                "group": {
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "core",
+                    "networking.k8s.io",
+                    "gateway.networking.k8s.io",
+                    "configuration.konghq.com"
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "Service",
+                    "Ingress",
+                    "HTTPRoute",
+                    "GRPCRoute",
+                    "KongService",
+                    "KongRoute"
+                  ]
+                },
+                "name": {
+                  "description": "Name is the name of the entity.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "(self.kind == 'KongRoute' \u0026\u0026 self.group == 'configuration.konghq.com') || (self.kind == 'Ingress' \u0026\u0026 self.group == 'networking.k8s.io') || (self.kind == 'HTTPRoute' \u0026\u0026 self.group == 'gateway.networking.k8s.io') || (self.kind == 'GRPCRoute' \u0026\u0026 self.group == 'gateway.networking.k8s.io')",
+                  "message": "group/kind not allowed for the routeRef"
+                }
+              ]
+            },
+            "serviceRef": {
+              "description": "ServiceReference can be used to reference one of the following resources:\n- core/Service or /Service\n- configuration.konghq.com/KongService",
+              "type": "object",
+              "required": [
+                "group",
+                "kind",
+                "name"
+              ],
+              "properties": {
+                "group": {
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "core",
+                    "networking.k8s.io",
+                    "gateway.networking.k8s.io",
+                    "configuration.konghq.com"
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "Service",
+                    "Ingress",
+                    "HTTPRoute",
+                    "GRPCRoute",
+                    "KongService",
+                    "KongRoute"
+                  ]
+                },
+                "name": {
+                  "description": "Name is the name of the entity.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "(self.kind == 'KongService' \u0026\u0026 self.group == 'configuration.konghq.com') || (self.kind == 'Service' \u0026\u0026 (self.group == '' || self.group == 'core'))",
+                  "message": "group/kind not allowed for the serviceRef"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(has(self.consumerRef) ? !has(self.consumerGroupRef) : true)",
+              "message": "Cannot set Consumer and ConsumerGroup at the same time"
+            },
+            {
+              "rule": "(has(self.routeRef) \u0026\u0026 self.routeRef.kind == 'KongRoute') ? (!has(self.serviceRef) || self.serviceRef.kind == 'KongService') : true",
+              "message": "KongRoute can be used only when serviceRef is unset or set to KongService"
+            },
+            {
+              "rule": "(has(self.serviceRef) \u0026\u0026 self.serviceRef.kind == 'KongService') ? (!has(self.routeRef) || self.routeRef.kind == 'KongRoute') : true",
+              "message": "KongService can be used only when routeRef is unset or set to KongRoute"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "self.scope == 'OnlyTargets' ? has(self.targets) \u0026\u0026 (has(self.targets.routeRef) || has(self.targets.serviceRef) || has(self.targets.consumerRef) || has(self.targets.consumerGroupRef)) : true",
+          "message": "At least one target reference must be set when scope is 'OnlyTargets'"
+        },
+        {
+          "rule": "self.scope == 'GlobalInControlPlane' ? !has(self.targets) : true",
+          "message": "No targets must be set when scope is 'GlobalInControlPlane'"
+        },
+        {
+          "rule": "!has(self.adopt) ? true : (has(self.controlPlaneRef) \u0026\u0026 self.controlPlaneRef.type == 'konnectNamespacedRef')",
+          "message": "spec.adopt is allowed only when controlPlaneRef is konnectNamespacedRef"
+        },
+        {
+          "rule": "(has(oldSelf.adopt) \u0026\u0026 has(self.adopt)) || (!has(oldSelf.adopt) \u0026\u0026 !has(self.adopt))",
+          "message": "Cannot set or unset spec.adopt in updates"
+        }
+      ]
+    },
+    "status": {
+      "description": "KongPluginBindingStatus represents the current status of the KongBinding resource.",
+      "type": "object",
+      "default": {
+        "conditions": [
+          {
+            "lastTransitionTime": "1970-01-01T00:00:00Z",
+            "message": "Waiting for controller",
+            "reason": "Pending",
+            "status": "Unknown",
+            "type": "Programmed"
+          }
+        ]
+      },
+      "properties": {
+        "conditions": {
+          "description": "Conditions describe the status of the Konnect entity.",
+          "type": "array",
+          "maxItems": 8,
+          "minItems": 1,
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "konnect": {
+          "description": "Konnect contains the Konnect entity status.",
+          "type": "object",
+          "properties": {
+            "controlPlaneID": {
+              "description": "ControlPlaneID is the Konnect ID of the ControlPlane this Route is associated with.",
+              "type": "string"
+            },
+            "id": {
+              "description": "ID is the unique identifier of the Konnect entity as assigned by Konnect API.\nIf it's unset (empty string), it means the Konnect entity hasn't been created yet.",
+              "type": "string",
+              "maxLength": 256
+            },
+            "organizationID": {
+              "description": "OrgID is ID of Konnect Org that this entity has been created in.",
+              "type": "string",
+              "maxLength": 256
+            },
+            "serverURL": {
+              "description": "ServerURL is the URL of the Konnect server in which the entity exists.",
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "!has(oldSelf.spec.controlPlaneRef) || has(self.spec.controlPlaneRef)",
+      "message": "controlPlaneRef is required once set"
+    },
+    {
+      "rule": "(!self.status.conditions.exists(c, c.type == 'Programmed' \u0026\u0026 c.status == 'True')) ? true : oldSelf.spec.controlPlaneRef == self.spec.controlPlaneRef",
+      "message": "spec.controlPlaneRef is immutable when an entity is already Programmed"
+    }
+  ]
+}

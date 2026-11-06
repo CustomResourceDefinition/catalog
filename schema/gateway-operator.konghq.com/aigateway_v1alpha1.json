@@ -1,0 +1,381 @@
+{
+  "description": "AIGateway is a network Gateway enabling access and management for AI \u0026\nMachine Learning models such as Large Language Models (LLM).\n\nThe underlying technology for the AIGateway is the Kong Gateway configured\nwith a variety of plugins which provide the AI featureset.\n\nThis is a list of the plugins, which are available in Kong Gateway v3.6.x+:\n\n  - ai-proxy (https://github.com/kong/kong/tree/master/kong/plugins/ai-proxy)\n  - ai-request-transformer (https://github.com/kong/kong/tree/master/kong/plugins/ai-request-transformer)\n  - ai-response-transformers (https://github.com/kong/kong/tree/master/kong/plugins/ai-response-transformer)\n  - ai-prompt-template (https://github.com/kong/kong/tree/master/kong/plugins/ai-prompt-template)\n  - ai-prompt-guard-plugin (https://github.com/kong/kong/tree/master/kong/plugins/ai-prompt-guard)\n  - ai-prompt-decorator-plugin (https://github.com/kong/kong/tree/master/kong/plugins/ai-prompt-decorator)\n\nSo effectively the AIGateway resource provides a bespoke Gateway resource\n(which it owns and manages) with the gateway, consumers and plugin\nconfigurations automated and configurable via Kubernetes APIs.\n\nThe current iteration only supports the proxy itself, but the API is being\nbuilt with room for future growth in several dimensions. For instance:\n\n  - Supporting auxiliary functions (e.g. decorator, guard, templater, token-rate-limit)\n  - Supporting request/response transformers\n  - Supporting more than just LLMs (e.g. CCNs, GANs, e.t.c.)\n  - Supporting more hosting options for LLMs (e.g. self hosted)\n  - Supporting more AI cloud providers\n  - Supporting more AI cloud provider features\n\nThe validation rules throughout are set up to ensure at least one\ncloud-provider-based LLM is specified, but in the future when we have more\nmodel types and more hosting options for those types so we may want to look\ninto using CEL validation to ensure that at least one model configuration is\nprovided. We may also want to use CEL to validate things like identifier\nunique-ness, e.t.c.\n\nSee: https://kubernetes.io/docs/reference/using-api/cel/",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "Spec is the desired state of the AIGateway.",
+      "type": "object",
+      "required": [
+        "cloudProviderCredentials",
+        "gatewayClassName",
+        "largeLanguageModels"
+      ],
+      "properties": {
+        "cloudProviderCredentials": {
+          "description": "CloudProviderCredentials is a reference to an object (e.g. a Kubernetes\nSecret) which contains the credentials needed to access the APIs of\ncloud providers.\n\nThis is the global configuration that will be used by DEFAULT for all\nmodel configurations. A secret configured this way MAY include any number\nof key-value pairs equal to the number of providers you have, but used\nthis way the keys MUST be named according to their providers (e.g.\n\"openai\", \"azure\", \"cohere\", e.t.c.). For example:\n\n  apiVersion: v1\n  kind: Secret\n  metadata:\n    name: devteam-ai-cloud-providers\n  type: Opaque\n  data:\n    openai: *****************\n    azure: *****************\n    cohere: *****************\n\nSee AICloudProviderName for a list of known and valid cloud providers.\n\nNote that the keys are NOT case-sensitive (e.g. \"OpenAI\", \"openai\", and\n\"openAI\" are all valid and considered the same keys) but if there are\nduplicates endpoints failures conditions will be emitted and endpoints\nwill not be configured until the duplicates are resolved.\n\nThis is currently considered required, but in future iterations will be\noptional as we do things like enable configuring credentials at the model\nlevel.",
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "kind": {
+              "description": "Kind is the API object kind\n\nIf not specified, it will be assumed to be \"Secret\". If a Secret is used\nas the Kind, the secret must contain a single key-value pair where the\nvalue is the secret API token. The key can be named anything, as long as\nthere's only one entry, but by convention it should be \"apiToken\".",
+              "type": "string"
+            },
+            "name": {
+              "description": "Name is the name of the reference object.",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace is the namespace of the reference object.\n\nIf not specified, it will be assumed to be the same namespace as the\nobject which references it.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "gatewayClassName": {
+          "description": "GatewayClassName is the name of the GatewayClass which is responsible for\nthe AIGateway.",
+          "type": "string"
+        },
+        "largeLanguageModels": {
+          "description": "LargeLanguageModels is a list of Large Language Models (LLMs) to be\nmanaged by the AI Gateway.\n\nThis is a required field because we only support LLMs at the moment. In\nfuture iterations we may support other model types.",
+          "type": "object",
+          "required": [
+            "cloudHosted"
+          ],
+          "properties": {
+            "cloudHosted": {
+              "description": "CloudHosted configures LLMs hosted and served by cloud providers.\n\nThis is currently a required field, requiring at least one cloud-hosted\nLLM be specified, however in future iterations we may add other hosting\noptions such as self-hosted LLMs as separate fields.",
+              "type": "array",
+              "maxItems": 64,
+              "minItems": 1,
+              "items": {
+                "description": "CloudHostedLargeLanguageModel is the configuration for Large Language Models\n(LLM) hosted by a known and supported AI cloud provider (e.g. OpenAI, Cohere,\nAzure, e.t.c.).",
+                "type": "object",
+                "required": [
+                  "aiCloudProvider",
+                  "identifier"
+                ],
+                "properties": {
+                  "aiCloudProvider": {
+                    "description": "AICloudProvider defines the cloud provider that will fulfill the LLM\nrequests for this CloudHostedLargeLanguageModel",
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "description": "Name is the unique name of an LLM provider.",
+                        "type": "string",
+                        "enum": [
+                          "openai",
+                          "azure",
+                          "cohere",
+                          "mistral"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "defaultPromptParams": {
+                    "description": "DefaultPromptParams configures the parameters which will be sent with\nany and every inference request.\n\nIf this is set, there is currently no way to override these parameters\nat the individual prompt level. This is an expected feature from later\nreleases of our AI plugins.",
+                    "type": "object",
+                    "properties": {
+                      "maxTokens": {
+                        "description": "Max Tokens specifies the maximum length of the model's output in terms\nof the number of tokens (words or pieces of words). This parameter\nlimits the output's size, ensuring the model generates content within a\nmanageable scope. A token can be a word or part of a word, depending on\nthe model's tokenizer.",
+                        "type": "integer"
+                      },
+                      "temperature": {
+                        "description": "Temperature controls the randomness of predictions by scaling the logits\nbefore applying softmax. A lower temperature (e.g., 0.0 to 0.7) makes\nthe model more confident in its predictions, leading to more repetitive\nand deterministic outputs. A higher temperature (e.g., 0.8 to 1.0)\nincreases randomness, generating more diverse and creative outputs. At\nvery high temperatures, the outputs may become nonsensical or highly\nunpredictable.",
+                        "type": "string"
+                      },
+                      "topK": {
+                        "description": "TopK sampling is a technique where the model's prediction is limited to\nthe K most likely next tokens at each step of the generation process.\nThe probability distribution is truncated to these top K tokens, and the\nnext token is randomly sampled from this subset. This method helps in\nreducing the chance of selecting highly improbable tokens, making the\ntext more coherent. A smaller K leads to more predictable text, while a\nlarger K allows for more diversity but with an increased risk of\nincoherence.",
+                        "type": "integer"
+                      },
+                      "topP": {
+                        "description": "TopP (also known as nucleus sampling) is an alternative to top K\nsampling. Instead of selecting the top K tokens, top P sampling chooses\nfrom the smallest set of tokens whose cumulative probability exceeds the\nthreshold P. This method dynamically adjusts the number of tokens\nconsidered at each step, depending on their probability distribution. It\nhelps in maintaining diversity while also avoiding very unlikely tokens.\nA higher P value increases diversity but can lead to less coherence,\nwhereas a lower P value makes the model's outputs more focused and\ncoherent.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "defaultPrompts": {
+                    "description": "DefaultPrompts is a list of prompts that should be provided to the LLM\nby default. This is generally used to influence inference behavior, for\ninstance by providing a \"system\" role prompt that instructs the LLM to\ntake on a certain persona.",
+                    "type": "array",
+                    "maxItems": 64,
+                    "items": {
+                      "description": "LLMPrompt is a text prompt that includes parameters, a role and content.\n\nThis is intended for situations like when you need to provide roles in a\nprompt to an LLM in order to influence its behavior and responses.\n\nFor example, you might want to provide a \"system\" role and tell the LLM\nsomething like \"you are a helpful assistant who responds in the style of\nSherlock Holmes\".",
+                      "type": "object",
+                      "required": [
+                        "content"
+                      ],
+                      "properties": {
+                        "content": {
+                          "description": "Content is the prompt text sent for inference.",
+                          "type": "string"
+                        },
+                        "role": {
+                          "description": "Role indicates the role of the prompt. This is used to identify the\nprompt's purpose, such as \"system\" or \"user\" and can influence the\nbehavior of the LLM.\n\nIf not specified, \"user\" will be used as the default.",
+                          "type": "string",
+                          "default": "user",
+                          "enum": [
+                            "user",
+                            "system"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "identifier": {
+                    "description": "Identifier is the unique name which identifies the LLM. This will be used\nas part of the requests made to an AIGateway endpoint. For instance: if\nyou provided the identifier \"devteam-gpt-access\", then you would access\nthis model via \"https://${endpoint}/devteam-gpt-access\" and supply it\nwith your consumer credentials to authenticate requests.",
+                    "type": "string"
+                  },
+                  "model": {
+                    "description": "Model is the model name of the LLM (e.g. gpt-3.5-turbo, phi-2, e.t.c.).\n\nIf not specified, whatever the cloud provider specifies as the default\nmodel will be used.",
+                    "type": "string"
+                  },
+                  "promptType": {
+                    "description": "PromptType is the type of prompt to be used for inference requests to\nthe LLM (e.g. \"chat\", \"completions\").\n\nIf \"chat\" is specified, prompts sent by the user will be interactive,\ncontextual and stateful. The LLM will dynamically answer questions and\nsimulate a dialogue, while also keeping track of the conversation to\nprovide contextually relevant responses.\n\nIf \"completions\" is specified, prompts sent by the user will be\nstateless and \"one-shot\". The LLM will provide a single response to the\nprompt, without any context from previous prompts.\n\nIf not specified, \"completions\" will be used as the default.",
+                    "type": "string",
+                    "default": "completions",
+                    "enum": [
+                      "chat",
+                      "completions"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(self.cloudHosted.size() != 0)",
+              "message": "At least one class of LLMs has been configured"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "(self.largeLanguageModels != null)",
+          "message": "At least one type of LLM has been specified"
+        }
+      ]
+    },
+    "status": {
+      "description": "Status is the observed state of the AIGateway.",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions describe the current conditions of the AIGateway.\n\nKnown condition types are:\n\n  - \"Accepted\"\n  - \"Provisioning\"\n  - \"EndpointsReady\"",
+          "type": "array",
+          "default": [
+            {
+              "lastTransitionTime": "1970-01-01T00:00:00Z",
+              "message": "Waiting for controller",
+              "reason": "Pending",
+              "status": "Unknown",
+              "type": "Accepted"
+            }
+          ],
+          "maxItems": 8,
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "endpoints": {
+          "description": "Endpoints are collections of the URL, credentials and metadata needed in\norder to access models served by the AIGateway for inference.",
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "description": "AIGatewayEndpoint is a network endpoint for accessing an AIGateway.",
+            "type": "object",
+            "required": [
+              "consumer",
+              "models",
+              "network",
+              "url"
+            ],
+            "properties": {
+              "conditions": {
+                "description": "Conditions describe the current conditions of the AIGatewayEndpoint.\n\nKnown condition types are:\n\n  - \"Provisioning\"\n  - \"EndpointReady\"",
+                "type": "array",
+                "default": [
+                  {
+                    "lastTransitionTime": "1970-01-01T00:00:00Z",
+                    "message": "Waiting for controller",
+                    "reason": "Pending",
+                    "status": "Unknown",
+                    "type": "Provisioning"
+                  }
+                ],
+                "maxItems": 8,
+                "items": {
+                  "description": "Condition contains details for one aspect of the current state of this API Resource.",
+                  "type": "object",
+                  "required": [
+                    "lastTransitionTime",
+                    "message",
+                    "reason",
+                    "status",
+                    "type"
+                  ],
+                  "properties": {
+                    "lastTransitionTime": {
+                      "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "message": {
+                      "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                      "type": "string",
+                      "maxLength": 32768
+                    },
+                    "observedGeneration": {
+                      "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    },
+                    "reason": {
+                      "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                      "type": "string",
+                      "maxLength": 1024,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+                    },
+                    "status": {
+                      "description": "status of the condition, one of True, False, Unknown.",
+                      "type": "string",
+                      "enum": [
+                        "True",
+                        "False",
+                        "Unknown"
+                      ]
+                    },
+                    "type": {
+                      "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                      "type": "string",
+                      "maxLength": 316,
+                      "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "x-kubernetes-list-map-keys": [
+                  "type"
+                ],
+                "x-kubernetes-list-type": "map"
+              },
+              "consumer": {
+                "description": "Consumer is a reference to the Secret that contains the credentials for\nthe Kong consumer that is allowed to access this endpoint.",
+                "type": "object",
+                "required": [
+                  "name",
+                  "namespace"
+                ],
+                "properties": {
+                  "name": {
+                    "description": "Name is the name of the reference object.",
+                    "type": "string"
+                  },
+                  "namespace": {
+                    "description": "Namespace is the namespace of the reference object.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "models": {
+                "description": "AvailableModels is a list of the identifiers of all the AI models that are\naccessible from this endpoint.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "network": {
+                "description": "NetworkAccessHint is a hint to the user about what kind of network access\nis expected for the reachability of this endpoint.",
+                "type": "string"
+              },
+              "url": {
+                "description": "URL is the URL to access the endpoint from the network indicated by the\nNetworkAccessHint.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

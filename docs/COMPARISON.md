@@ -9,36 +9,13 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.10% | 4124 | 13019 | 92 |
+| 99.61% | 4124 | 13100 | 92 |
 
 ### Missing Schemas
-
-| agents.x-k8s.io | |
-| --- | --- |
-| sandbox | v1beta1 |
 
 | compute.coreweave.com | |
 | --- | --- |
 | nodepool | v1alpha1 |
-
-| configuration.konghq.com | |
-| --- | --- |
-| kongcacertificate | v1alpha1 |
-| kongcertificate | v1alpha1 |
-| kongcredentialacl | v1alpha1 |
-| kongcredentialapikey | v1alpha1 |
-| kongcredentialbasicauth | v1alpha1 |
-| kongcredentialhmac | v1alpha1 |
-| kongcredentialjwt | v1alpha1 |
-| kongdataplaneclientcertificate | v1alpha1 |
-| kongkey | v1alpha1 |
-| kongkeyset | v1alpha1 |
-| kongpluginbinding | v1alpha1 |
-| kongroute | v1alpha1 |
-| kongservice | v1alpha1 |
-| kongsni | v1alpha1 |
-| kongtarget | v1alpha1 |
-| kongupstream | v1alpha1 |
 
 | eks.amazonaws.com | |
 | --- | --- |
@@ -46,12 +23,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | nodeclass | v1 |
 | nodediagnostic | v1alpha1 |
 | targetgroupbinding | v1 |
-
-| extensions.agents.x-k8s.io | |
-| --- | --- |
-| sandboxclaim | v1beta1 |
-| sandboxtemplate | v1beta1 |
-| sandboxwarmpool | v1beta1 |
 
 | networking.gke.io | |
 | --- | --- |
@@ -72,10 +43,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | secret-sync.gke.io | |
 | --- | --- |
 | secretsync | v1 |
-
-| trust-manager.io | |
-| --- | --- |
-| clusterbundle | v1alpha2 |
 
 ### Ignored Schemas
 

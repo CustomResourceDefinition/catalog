@@ -1,0 +1,661 @@
+{
+  "description": "ControlPlane is the Schema for the controlplanes API",
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "Spec is the specification of the ControlPlane resource.",
+      "type": "object",
+      "required": [
+        "dataplane"
+      ],
+      "properties": {
+        "cache": {
+          "description": "Cache defines the configuration related to the kubernetes object caches.",
+          "type": "object",
+          "properties": {
+            "initSyncDuration": {
+              "description": "InitSyncDuration defines the initial delay to wait for Kubernetes object caches to be synced before the initial configuration.\nIf omitted, the default value (5s) is used.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "configDump": {
+          "description": "ConfigDump defines the options for dumping generated Kong configuration from a diagnostics server.",
+          "type": "object",
+          "properties": {
+            "dumpSensitive": {
+              "description": "When DumpSensitive is enabled, the configuration will be dumped unchanged, including sensitive parts like private keys and credentials.\nWhen DumpSensitive is disabled, the sensitive configuration parts like private keys and credentials are redacted.",
+              "type": "string",
+              "default": "disabled",
+              "enum": [
+                "enabled",
+                "disabled"
+              ]
+            },
+            "state": {
+              "description": "When State is enabled, Operator will dump the translated Kong configuration by it from a diagnostics server.",
+              "type": "string",
+              "default": "disabled",
+              "enum": [
+                "enabled",
+                "disabled"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.state == 'enabled' || self.dumpSensitive == 'disabled'",
+              "message": "Cannot enable dumpSensitive when state is disabled"
+            }
+          ]
+        },
+        "controllers": {
+          "description": "Controllers defines the controllers that are enabled for this ControlPlane.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "ControlPlaneController defines a controller state for the ControlPlane.\nIt overrides the default behavior as defined in the deployed operator version.",
+            "type": "object",
+            "required": [
+              "name",
+              "state"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name is the name of the controller.",
+                "type": "string",
+                "maxLength": 63,
+                "minLength": 1
+              },
+              "state": {
+                "description": "State indicates whether the feature gate is enabled or disabled.",
+                "type": "string",
+                "enum": [
+                  "enabled",
+                  "disabled"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "dataplane": {
+          "description": "DataPlane designates the target data plane to configure.\n\nIt can be:\n- a name of a DataPlane resource that is managed by the operator,\n- a DataPlane that is managed by the owner of the ControlPlane (e.g. a Gateway resource)",
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "ref": {
+              "description": "Ref is the name of the DataPlane to configure.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Ref is the name of the DataPlane to configure.",
+                  "type": "string",
+                  "maxLength": 63,
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "type": {
+              "description": "Type indicates the type of the DataPlane target.",
+              "type": "string",
+              "enum": [
+                "ref",
+                "managedByOwner"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type != 'ref' || has(self.ref)",
+              "message": "Ref has to be provided when type is set to ref"
+            },
+            {
+              "rule": "self.type != 'managedByOwner' || !has(self.ref)",
+              "message": "Ref cannot be provided when type is set to managedByOwner"
+            }
+          ]
+        },
+        "dataplaneSync": {
+          "description": "DataPlaneSync defines the configuration for syncing Kong configuration to the DataPlane.",
+          "type": "object",
+          "properties": {
+            "interval": {
+              "description": "Interval is the interval between two rounds of syncing Kong configuration with dataplanes.",
+              "type": "string"
+            },
+            "reverseSync": {
+              "description": "ReverseSync sends configuration to DataPlane (Kong Gateway) even if\nthe configuration checksum has not changed since previous update.",
+              "type": "string",
+              "default": "disabled",
+              "enum": [
+                "enabled",
+                "disabled"
+              ]
+            },
+            "timeout": {
+              "description": "Timeout is the timeout of a single run of syncing Kong configuration with dataplanes.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "extensions": {
+          "description": "Extensions provide additional or replacement features for the ControlPlane\nresources to influence or enhance functionality.",
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "description": "ExtensionRef corresponds to another resource in the Kubernetes cluster which\ndefines extended behavior for a resource (e.g. ControlPlane).",
+            "type": "object",
+            "required": [
+              "kind",
+              "name"
+            ],
+            "properties": {
+              "group": {
+                "description": "Group is the group of the extension resource.",
+                "type": "string",
+                "default": "gateway-operator.konghq.com",
+                "maxLength": 253
+              },
+              "kind": {
+                "description": "Kind is kind of the extension resource.",
+                "type": "string",
+                "maxLength": 253,
+                "minLength": 1
+              },
+              "name": {
+                "description": "Name is the name of the referred resource.",
+                "type": "string",
+                "maxLength": 253,
+                "minLength": 1
+              },
+              "namespace": {
+                "description": "Namespace is the namespace of the referred resource.\n\nFor namespace-scoped resources if no Namespace is provided then the\nnamespace of the parent object MUST be used.\n\nThis field MUST not be set when referring to cluster-scoped resources.",
+                "type": "string",
+                "maxLength": 253
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.all(e, (e.group == 'konnect.konghq.com' \u0026\u0026 e.kind == 'KonnectExtension') || (e.group == 'gateway-operator.konghq.com' \u0026\u0026 e.kind == 'DataPlaneMetricsExtension'))",
+              "message": "Extension not allowed for ControlPlane"
+            }
+          ]
+        },
+        "featureGates": {
+          "description": "FeatureGates is a list of feature gates that are enabled for this ControlPlane.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "ControlPlaneFeatureGate defines a feature gate state for the ControlPlane.\nIt overrides the default behavior as defined in the deployed operator version.",
+            "type": "object",
+            "required": [
+              "name",
+              "state"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name is the name of the feature gate.",
+                "type": "string",
+                "maxLength": 63,
+                "minLength": 1
+              },
+              "state": {
+                "description": "State indicates whether the feature gate is enabled or disabled.",
+                "type": "string",
+                "enum": [
+                  "enabled",
+                  "disabled"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "gatewayDiscovery": {
+          "description": "GatewayDiscovery defines the configuration for the Gateway Discovery feature.",
+          "type": "object",
+          "properties": {
+            "readinessCheckInterval": {
+              "description": "ReadinessCheckInterval defines the interval at which the ControlPlane\nchecks the readiness of the DataPlanes it is responsible for.\nIf not specified, the default interval as defined by the operator will be used.",
+              "type": "string"
+            },
+            "readinessCheckTimeout": {
+              "description": "ReadinessCheckTimeout defines the timeout for the DataPlane readiness check.\nIf not specified, the default interval as defined by the operator will be used.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "ingressClass": {
+          "description": "IngressClass enables support for the Ingress resources and indicates\nwhich Ingress resources this ControlPlane should be responsible for.\n\nIf omitted, Ingress resources will not be supported by the ControlPlane.",
+          "type": "string",
+          "maxLength": 63
+        },
+        "konnect": {
+          "description": "Konnect defines the Konnect-related configuration options for the ControlPlane.",
+          "type": "object",
+          "properties": {
+            "configUploadConcurrency": {
+              "description": "ConfigUploadConcurrency is the concurrency of the client for uploading configuration to Konnect.\nIn case of large configuration with many entities,\ntoo high concurrency may trigger rate limiting on Konnect API service and fail with 429 responses on requests.",
+              "type": "integer",
+              "format": "int32",
+              "maximum": 16,
+              "minimum": 1
+            },
+            "configUploadPeriod": {
+              "description": "ConfigUploadPeriod is the period for uploading configuration to Konnect.",
+              "type": "string"
+            },
+            "consumersSync": {
+              "description": "ConsumersSync indicates whether consumer synchronization with Konnect is enabled.",
+              "type": "string",
+              "default": "enabled",
+              "enum": [
+                "enabled",
+                "disabled"
+              ]
+            },
+            "licensing": {
+              "description": "Licensing defines the configuration for Konnect licensing.",
+              "type": "object",
+              "properties": {
+                "initialPollingPeriod": {
+                  "description": "InitialPollingPeriod is the initial polling period for license checks.",
+                  "type": "string"
+                },
+                "pollingPeriod": {
+                  "description": "PollingPeriod is the polling period for license checks.",
+                  "type": "string"
+                },
+                "state": {
+                  "description": "State indicates whether Konnect licensing is enabled.",
+                  "type": "string",
+                  "default": "disabled",
+                  "enum": [
+                    "enabled",
+                    "disabled"
+                  ]
+                },
+                "storageState": {
+                  "description": "StorageState indicates whether to store licenses fetched from Konnect\nto Secrets locally to use them later when connection to Konnect is broken.\nOnly effective when State is set to enabled.",
+                  "type": "string",
+                  "default": "enabled",
+                  "enum": [
+                    "enabled",
+                    "disabled"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!has(self.initialPollingPeriod) || self.state == 'enabled'",
+                  "message": "initialPollingPeriod can only be set when licensing is enabled"
+                },
+                {
+                  "rule": "!has(self.pollingPeriod) || self.state == 'enabled'",
+                  "message": "pollingPeriod can only be set when licensing is enabled"
+                },
+                {
+                  "rule": "!has(self.storageState) || self.storageState == 'disabled' || self.state == 'enabled'",
+                  "message": "storageState can only be set to enabled when licensing is enabled"
+                }
+              ]
+            },
+            "nodeRefreshPeriod": {
+              "description": "NodeRefreshPeriod is the period for refreshing the node information in Konnect.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "objectFilters": {
+          "description": "ObjectFilters defines the filters to limit watched objects by the controllers.",
+          "type": "object",
+          "properties": {
+            "configMaps": {
+              "description": "ConfigMaps defines the filters for watched config maps.",
+              "type": "object",
+              "properties": {
+                "matchLabels": {
+                  "description": "MatchLabels defines the labels that the object must match to get reconciled by the controller for the ControlPlane.\nFor example, if `secrets.matchLabels` is `{\"label1\":\"val1\",\"label2\":\"val2\"}`,\nonly secrets with labels `label1=val1` and `label2=val2` are reconciled.",
+                  "type": "object",
+                  "maxProperties": 8,
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.all(key,key.size() \u003e= 1)",
+                      "message": "Minimum length of key in matchLabels is 1"
+                    },
+                    {
+                      "rule": "self.all(key,self[key].size() \u003c= 63)",
+                      "message": "Maximum length of value in matchLabels is 63"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "secrets": {
+              "description": "Secrets defines the filters for watched secrets.",
+              "type": "object",
+              "properties": {
+                "matchLabels": {
+                  "description": "MatchLabels defines the labels that the object must match to get reconciled by the controller for the ControlPlane.\nFor example, if `secrets.matchLabels` is `{\"label1\":\"val1\",\"label2\":\"val2\"}`,\nonly secrets with labels `label1=val1` and `label2=val2` are reconciled.",
+                  "type": "object",
+                  "maxProperties": 8,
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.all(key,key.size() \u003e= 1)",
+                      "message": "Minimum length of key in matchLabels is 1"
+                    },
+                    {
+                      "rule": "self.all(key,self[key].size() \u003c= 63)",
+                      "message": "Maximum length of value in matchLabels is 63"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "translation": {
+          "description": "Translation defines the configuration for translating Kong configuration.",
+          "type": "object",
+          "default": {
+            "combinedServicesFromDifferentHTTPRoutes": "enabled",
+            "drainSupport": "enabled"
+          },
+          "properties": {
+            "combinedServicesFromDifferentHTTPRoutes": {
+              "description": "CombinedServicesFromDifferentHTTPRoutes indicates whether the ControlPlane should\ncombine services from different HTTPRoutes into a single Kong DataPlane service.",
+              "type": "string",
+              "default": "enabled",
+              "enum": [
+                "enabled",
+                "disabled"
+              ]
+            },
+            "drainSupport": {
+              "description": "DrainSupport defines the configuration for the ControlPlane to include\nterminating endpoints in Kong upstreams with weight=0 for graceful connection draining.",
+              "type": "string",
+              "default": "enabled",
+              "enum": [
+                "enabled",
+                "disabled"
+              ]
+            },
+            "fallbackConfiguration": {
+              "description": "FallbackConfiguration defines the fallback configuration options for the ControlPlane.",
+              "type": "object",
+              "properties": {
+                "useLastValidConfig": {
+                  "description": "UseLastValidConfig indicates whether the ControlPlane should use the last valid configuration\nwhen the current configuration is invalid.",
+                  "type": "string",
+                  "default": "enabled",
+                  "enum": [
+                    "enabled",
+                    "disabled"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "watchNamespaces": {
+          "description": "WatchNamespaces indicates the namespaces to watch for resources.",
+          "type": "object",
+          "default": {
+            "type": "all"
+          },
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "list": {
+              "description": "List is a list of namespaces to watch for resources.\nOnly used when Type is set to List.",
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "maxLength": 64
+              }
+            },
+            "type": {
+              "description": "Type indicates the type of namespace watching to be done.\nBy default, all namespaces are watched.",
+              "type": "string",
+              "enum": [
+                "all",
+                "list",
+                "own"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type == 'list' ? has(self.list) : true",
+              "message": "list is required when type is 'list'"
+            },
+            {
+              "rule": "self.type != 'list' ? !has(self.list) : true",
+              "message": "list must not be specified when type is not 'list'"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "self.dataplane.type != 'ref' || has(self.ingressClass)",
+          "message": "When dataplane target is of type 'ref' the ingressClass must be set"
+        }
+      ]
+    },
+    "status": {
+      "description": "Status is the status of the ControlPlane resource.",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions describe the current conditions of the Gateway.",
+          "type": "array",
+          "default": [
+            {
+              "lastTransitionTime": "1970-01-01T00:00:00Z",
+              "message": "Waiting for controller",
+              "reason": "NotReconciled",
+              "status": "Unknown",
+              "type": "Provisioned"
+            }
+          ],
+          "maxItems": 8,
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "controllers": {
+          "description": "Controllers is a list of enabled and disabled controllers for this ControlPlane.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "ControlPlaneController defines a controller state for the ControlPlane.\nIt overrides the default behavior as defined in the deployed operator version.",
+            "type": "object",
+            "required": [
+              "name",
+              "state"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name is the name of the controller.",
+                "type": "string",
+                "maxLength": 63,
+                "minLength": 1
+              },
+              "state": {
+                "description": "State indicates whether the feature gate is enabled or disabled.",
+                "type": "string",
+                "enum": [
+                  "enabled",
+                  "disabled"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "dataPlane": {
+          "description": "DataPlane describes the status of the DataPlane that the ControlPlane is\nresponsible for configuring.",
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "description": "Name is the name of the DataPlane.",
+              "type": "string",
+              "maxLength": 63,
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "featureGates": {
+          "description": "FeatureGates is a list of effective feature gates for this ControlPlane.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "ControlPlaneFeatureGate defines a feature gate state for the ControlPlane.\nIt overrides the default behavior as defined in the deployed operator version.",
+            "type": "object",
+            "required": [
+              "name",
+              "state"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name is the name of the feature gate.",
+                "type": "string",
+                "maxLength": 63,
+                "minLength": 1
+              },
+              "state": {
+                "description": "State indicates whether the feature gate is enabled or disabled.",
+                "type": "string",
+                "enum": [
+                  "enabled",
+                  "disabled"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,408 @@
+{
+  "description": "ControlPlane is the Schema for the controlplanes API",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "Spec is the specification of the ControlPlane resource.",
+      "type": "object",
+      "required": [
+        "dataplane"
+      ],
+      "properties": {
+        "cache": {
+          "description": "Cache defines the configuration related to the kubernetes object caches.",
+          "type": "object",
+          "properties": {
+            "initSyncDuration": {
+              "description": "InitSyncDuration defines the initial delay to wait for Kubernetes object caches to be synced before the initial configuration.\nIf omitted, the default value (5s) is used.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "controllers": {
+          "description": "Controllers defines the controllers that are enabled for this ControlPlane.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "ControlPlaneController defines a controller state for the ControlPlane.\nIt overrides the default behavior as defined in the deployed operator version.",
+            "type": "object",
+            "required": [
+              "name",
+              "state"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name is the name of the controller.",
+                "type": "string",
+                "minLength": 1
+              },
+              "state": {
+                "description": "State indicates whether the feature gate is enabled or disabled.",
+                "type": "string",
+                "enum": [
+                  "enabled",
+                  "disabled"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "dataplane": {
+          "description": "DataPlane designates the target data plane to configure.\n\nIt can be:\n- a name of a DataPlane resource that is managed by the operator,\n- a DataPlane that is managed by the owner of the ControlPlane (e.g. a Gateway resource)",
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "ref": {
+              "description": "Ref is the name of the DataPlane to configure.",
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "Ref is the name of the DataPlane to configure.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "type": {
+              "description": "Type indicates the type of the DataPlane target.",
+              "type": "string",
+              "enum": [
+                "ref",
+                "managedByOwner"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type != 'ref' || has(self.ref)",
+              "message": "Ref has to be provided when type is set to ref"
+            },
+            {
+              "rule": "self.type != 'managedByOwner' || !has(self.ref)",
+              "message": "Ref cannot be provided when type is set to managedByOwner"
+            }
+          ]
+        },
+        "dataplaneSync": {
+          "description": "DataPlaneSync defines the configuration for syncing Kong configuration to the DataPlane.",
+          "type": "object",
+          "properties": {
+            "enableReverse": {
+              "description": "EnableReverse sends configuration to DataPlane (Kong Gateway) even if the configuration checksum has not changed since previous update.",
+              "type": "boolean",
+              "default": false
+            },
+            "interval": {
+              "description": "Interval is the interval between two rounds of syncing Kong configuration with dataplanes.",
+              "type": "string"
+            },
+            "timeout": {
+              "description": "Timeout is the timeout of a single run of syncing Kong configuration with dataplanes.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "extensions": {
+          "description": "Extensions provide additional or replacement features for the ControlPlane\nresources to influence or enhance functionality.",
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "description": "ExtensionRef corresponds to another resource in the Kubernetes cluster which\ndefines extended behavior for a resource (e.g. ControlPlane).",
+            "type": "object",
+            "required": [
+              "kind",
+              "name"
+            ],
+            "properties": {
+              "group": {
+                "description": "Group is the group of the extension resource.",
+                "type": "string",
+                "default": "gateway-operator.konghq.com"
+              },
+              "kind": {
+                "description": "Kind is kind of the extension resource.",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name is the name of the referred resource.",
+                "type": "string",
+                "maxLength": 253,
+                "minLength": 1
+              },
+              "namespace": {
+                "description": "Namespace is the namespace of the referred resource.\n\nFor namespace-scoped resources if no Namespace is provided then the\nnamespace of the parent object MUST be used.\n\nThis field MUST not be set when referring to cluster-scoped resources.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.all(e, (e.group == 'konnect.konghq.com' \u0026\u0026 e.kind == 'KonnectExtension') || (e.group == 'gateway-operator.konghq.com' \u0026\u0026 e.kind == 'DataPlaneMetricsExtension'))",
+              "message": "Extension not allowed for ControlPlane"
+            }
+          ]
+        },
+        "featureGates": {
+          "description": "FeatureGates is a list of feature gates that are enabled for this ControlPlane.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "ControlPlaneFeatureGate defines a feature gate state for the ControlPlane.\nIt overrides the default behavior as defined in the deployed operator version.",
+            "type": "object",
+            "required": [
+              "name",
+              "state"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name is the name of the feature gate.",
+                "type": "string",
+                "minLength": 1
+              },
+              "state": {
+                "description": "State indicates whether the feature gate is enabled or disabled.",
+                "type": "string",
+                "enum": [
+                  "enabled",
+                  "disabled"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "gatewayDiscovery": {
+          "description": "GatewayDiscovery defines the configuration for the Gateway Discovery feature.",
+          "type": "object",
+          "properties": {
+            "readinessCheckInterval": {
+              "description": "ReadinessCheckInterval defines the interval at which the ControlPlane\nchecks the readiness of the DataPlanes it is responsible for.\nIf not specified, the default interval as defined by the operator will be used.",
+              "type": "string"
+            },
+            "readinessCheckTimeout": {
+              "description": "ReadinessCheckTimeout defines the timeout for the DataPlane readiness check.\nIf not specified, the default interval as defined by the operator will be used.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "ingressClass": {
+          "description": "IngressClass enables support for the Ingress resources and indicates\nwhich Ingress resources this ControlPlane should be responsible for.\n\nIf omitted, Ingress resources will not be supported by the ControlPlane.",
+          "type": "string"
+        },
+        "watchNamespaces": {
+          "description": "WatchNamespaces indicates the namespaces to watch for resources.",
+          "type": "object",
+          "default": {
+            "type": "all"
+          },
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "list": {
+              "description": "List is a list of namespaces to watch for resources.\nOnly used when Type is set to List.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "type": {
+              "description": "Type indicates the type of namespace watching to be done.\nBy default, all namespaces are watched.",
+              "type": "string",
+              "enum": [
+                "all",
+                "list",
+                "own"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type == 'list' ? has(self.list) : true",
+              "message": "list is required when type is 'list'"
+            },
+            {
+              "rule": "self.type != 'list' ? !has(self.list) : true",
+              "message": "list must not be specified when type is not 'list'"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "Status is the status of the ControlPlane resource.",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions describe the current conditions of the Gateway.",
+          "type": "array",
+          "default": [
+            {
+              "lastTransitionTime": "1970-01-01T00:00:00Z",
+              "message": "Waiting for controller",
+              "reason": "NotReconciled",
+              "status": "Unknown",
+              "type": "Scheduled"
+            }
+          ],
+          "maxItems": 8,
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "controllers": {
+          "description": "Controllers is a list of enabled and disabled controllers for this ControlPlane.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "ControlPlaneController defines a controller state for the ControlPlane.\nIt overrides the default behavior as defined in the deployed operator version.",
+            "type": "object",
+            "required": [
+              "name",
+              "state"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name is the name of the controller.",
+                "type": "string",
+                "minLength": 1
+              },
+              "state": {
+                "description": "State indicates whether the feature gate is enabled or disabled.",
+                "type": "string",
+                "enum": [
+                  "enabled",
+                  "disabled"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "featureGates": {
+          "description": "FeatureGates is a list of effective feature gates for this ControlPlane.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "ControlPlaneFeatureGate defines a feature gate state for the ControlPlane.\nIt overrides the default behavior as defined in the deployed operator version.",
+            "type": "object",
+            "required": [
+              "name",
+              "state"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name is the name of the feature gate.",
+                "type": "string",
+                "minLength": 1
+              },
+              "state": {
+                "description": "State indicates whether the feature gate is enabled or disabled.",
+                "type": "string",
+                "enum": [
+                  "enabled",
+                  "disabled"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

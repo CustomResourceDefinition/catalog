@@ -24,6 +24,61 @@
         "prefix"
       ],
       "properties": {
+        "adopt": {
+          "description": "Adopt is the options for adopting a vault from an existing vault in Konnect.",
+          "type": "object",
+          "required": [
+            "from"
+          ],
+          "properties": {
+            "from": {
+              "description": "From is the source of the entity to adopt from.\nNow 'konnect' is supported.",
+              "type": "string",
+              "enum": [
+                "konnect"
+              ]
+            },
+            "konnect": {
+              "description": "Konnect is the options for adopting the entity from Konnect.\nRequired when from == 'konnect'.",
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "description": "ID is the Konnect ID of the entity.",
+                  "type": "string",
+                  "maxLength": 36,
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "mode": {
+              "description": "Mode selects how the operator adopts an already-existing entity (for example,\na Konnect resource) instead of creating a new one.\n\nSupported values:\n- \"match\": the operator retrieves the remote entity referenced by the\n  corresponding Adopt* options (for example, adopt.konnect.id) and performs a\n  field-by-field comparison against this CR's spec (ignoring server-assigned\n  metadata). If the specification matches the remote state, the operator\n  adopts the entity: it sets the status identifier and marks the resource as\n  ready/programmed without issuing any write operation to the remote system.\n  If the specification does not match the remote state, adoption fails: the\n  operator does not modify the remote entity and surfaces a failure\n  condition, allowing the user to align the spec with the existing entity if\n  adoption is desired.\n\n- \"override\": the operator overrides the remote entity by the CR's spec.\n  If the entity with the ID and type exists, and it is not managed\n  by another CR (matching by the metadata.uid of the CR and the \"k8s-uid\"\n  label or tag of the Konnect entity), the operator updates the remote entity\n  by the CR's spec.",
+              "type": "string",
+              "enum": [
+                "match",
+                "override"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.from == oldSelf.from",
+              "message": "'from'(adopt source) is immutable"
+            },
+            {
+              "rule": "self.from == 'konnect' ? has(self.konnect) : true",
+              "message": "Must specify Konnect options when from='konnect'"
+            },
+            {
+              "rule": "has(self.konnect) ? (self.konnect.id == oldSelf.konnect.id) : true",
+              "message": "konnect.id is immutable"
+            }
+          ]
+        },
         "backend": {
           "description": "Backend is the type of the backend storing the secrets in the vault.\nThe supported backends of Kong is listed here:\nhttps://docs.konghq.com/gateway/latest/kong-enterprise/secrets-management/backends/",
           "type": "string",
@@ -33,17 +88,43 @@
           "description": "Config is the configuration of the vault. Varies for different backends.",
           "x-kubernetes-preserve-unknown-fields": true
         },
+        "configStoreRef": {
+          "description": "ConfigStoreRef is a reference to a KonnectConfigStore backing the Konnect\nvault backend. When set, the Konnect ID of the referenced KonnectConfigStore\nis used as the `config_store_id` of the vault configuration sent to Konnect,\nso that the Config Store ID does not have to be copied manually into Config.\n\nIt is only supported when Backend is `konnect`, and it is mutually exclusive\nwith setting `config_store_id` in Config.\n\nKongVault is cluster-scoped and KonnectConfigStore is namespaced, so this\nreference always crosses a namespace boundary and the referenced namespace\nhas to allow it with a KongReferenceGrant granting `from` a KongVault in\nnamespace \"\" (KongVault has no namespace of its own) `to` the\nKonnectConfigStore kind. Without a matching grant the KongVault reports\nConfigStoreRefValid=False with reason RefNotPermitted and is not pushed to\nKonnect. If the grant is removed after the KongVault has been programmed,\nsubsequent updates are stopped, but the existing Konnect vault (including\nits config_store_id) is not rolled back or removed solely because the grant\nwas removed.",
+          "type": "object",
+          "required": [
+            "name",
+            "namespace"
+          ],
+          "properties": {
+            "kind": {
+              "description": "Kind is the kind of the referenced object.",
+              "type": "string",
+              "default": "KonnectConfigStore",
+              "enum": [
+                "KonnectConfigStore"
+              ]
+            },
+            "name": {
+              "description": "Name is the name of the referenced KonnectConfigStore.",
+              "type": "string",
+              "maxLength": 253,
+              "minLength": 1
+            },
+            "namespace": {
+              "description": "Namespace is the namespace of the referenced KonnectConfigStore. It is\nrequired because the referring object is cluster-scoped and hence has no\nnamespace of its own to default to.",
+              "type": "string",
+              "maxLength": 253,
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
         "controlPlaneRef": {
           "description": "ControlPlaneRef is a reference to a Konnect ControlPlane this KongVault is associated with.",
           "type": "object",
           "properties": {
-            "konnectID": {
-              "description": "KonnectID is the schema for the KonnectID type.\nThis field is required when the Type is konnectID.",
-              "type": "string",
-              "pattern": "^[0-9a-f]{8}(?:\\-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
-            },
             "konnectNamespacedRef": {
-              "description": "KonnectNamespacedRef is a reference to a Konnect Control Plane entity inside the cluster.\nIt contains the name of the Konnect Control Plane.\nThis field is required when the Type is konnectNamespacedRef.",
+              "description": "KonnectNamespacedRef is a reference to a Konnect Control Plane entity inside the cluster.\nIt contains the name of the Konnect Control Plane. It can't reference Control Plane Groups,\nbecause they are read-only.\nThis field is required when the Type is konnectNamespacedRef.",
               "type": "object",
               "required": [
                 "name"
@@ -51,21 +132,23 @@
               "properties": {
                 "name": {
                   "description": "Name is the name of the Konnect Control Plane.",
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 253,
+                  "minLength": 1
                 },
                 "namespace": {
-                  "description": "Namespace is the namespace where the Konnect Control Plane is in.\nCurrently only cluster scoped resources (KongVault) are allowed to set `konnectNamespacedRef.namespace`.",
-                  "type": "string"
+                  "description": "Namespace is the namespace where the Konnect Control Plane is in.\nCurrently the following resources are allowed to set this:\n- cluster scoped resources (KongVault)\n- KongService\n- KongCertificate\n- KongCACertificate\n- KongConsumerGroup\n- KongUpstream\n- KongKeySet\n- KongDataPlaneClientCertificate",
+                  "type": "string",
+                  "maxLength": 253
                 }
               },
               "additionalProperties": false
             },
             "type": {
-              "description": "Type indicates the type of the control plane being referenced. Allowed values:\n- konnectID\n- konnectNamespacedRef\n- kic\n\nThe default is kic, which implies that the Control Plane is KIC.",
+              "description": "Type indicates the type of the control plane being referenced. Allowed values:\n- konnectNamespacedRef\n- kic\n\nThe default is kic, which implies that the Control Plane is KIC.",
               "type": "string",
               "default": "kic",
               "enum": [
-                "konnectID",
                 "konnectNamespacedRef",
                 "kic"
               ]
@@ -82,28 +165,8 @@
               "message": "when type is konnectNamespacedRef, konnectNamespacedRef must be set"
             },
             {
-              "rule": "(has(self.type) \u0026\u0026 self.type == 'konnectNamespacedRef') ? !has(self.konnectID) : true",
-              "message": "when type is konnectNamespacedRef, konnectID must not be set"
-            },
-            {
-              "rule": "(has(self.type) \u0026\u0026 self.type == 'konnectID') ? has(self.konnectID) : true",
-              "message": "when type is konnectID, konnectID must be set"
-            },
-            {
-              "rule": "(has(self.type) \u0026\u0026 self.type == 'konnectID') ? !has(self.konnectNamespacedRef) : true",
-              "message": "when type is konnectID, konnectNamespacedRef must not be set"
-            },
-            {
-              "rule": "(has(self.type) \u0026\u0026 self.type == 'kic') ? !has(self.konnectID) : true",
-              "message": "when type is kic, konnectID must not be set"
-            },
-            {
               "rule": "(has(self.type) \u0026\u0026 self.type == 'kic') ? !has(self.konnectNamespacedRef) : true",
               "message": "when type is kic, konnectNamespacedRef must not be set"
-            },
-            {
-              "rule": "!has(self.type) ? !has(self.konnectID) : true",
-              "message": "when type is unset, konnectID must not be set"
             },
             {
               "rule": "!has(self.type) ? !has(self.konnectNamespacedRef) : true",
@@ -135,7 +198,21 @@
           ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.adopt) ? true : (has(self.controlPlaneRef) \u0026\u0026 self.controlPlaneRef.type == 'konnectNamespacedRef')",
+          "message": "spec.adopt is allowed only when controlPlaneRef is konnectNamespacedRef"
+        },
+        {
+          "rule": "(has(oldSelf.adopt) \u0026\u0026 has(self.adopt)) || (!has(oldSelf.adopt) \u0026\u0026 !has(self.adopt))",
+          "message": "Cannot set or unset spec.adopt in updates"
+        },
+        {
+          "rule": "!has(self.configStoreRef) ? true : self.backend == 'konnect'",
+          "message": "spec.configStoreRef is only supported when spec.backend is 'konnect'"
+        }
+      ]
     },
     "status": {
       "description": "KongVaultStatus represents the current status of the KongVault resource.",
@@ -224,15 +301,18 @@
             },
             "id": {
               "description": "ID is the unique identifier of the Konnect entity as assigned by Konnect API.\nIf it's unset (empty string), it means the Konnect entity hasn't been created yet.",
-              "type": "string"
+              "type": "string",
+              "maxLength": 256
             },
             "organizationID": {
               "description": "OrgID is ID of Konnect Org that this entity has been created in.",
-              "type": "string"
+              "type": "string",
+              "maxLength": 256
             },
             "serverURL": {
               "description": "ServerURL is the URL of the Konnect server in which the entity exists.",
-              "type": "string"
+              "type": "string",
+              "maxLength": 512
             }
           },
           "additionalProperties": false
