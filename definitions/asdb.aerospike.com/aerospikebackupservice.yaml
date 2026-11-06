@@ -3,8 +3,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    aerospike-kubernetes-operator/version: 4.6.0
-    controller-gen.kubebuilder.io/version: v0.22.0
+    aerospike-kubernetes-operator/version: 4.7.0
+    controller-gen.kubebuilder.io/version: v0.23.0
   name: aerospikebackupservices.asdb.aerospike.com
 spec:
   group: asdb.aerospike.com
@@ -64,6 +64,49 @@ spec:
               image:
                 description: Image is the image for the backup service.
                 type: string
+              operatorClientCert:
+                description: |-
+                  OperatorClientCert configures how the operator connects to the backup service over HTTPS.
+                  When set, the operator uses the service.https listener from config, which must be enabled.
+                  When not set, the operator uses the service.http listener, which must be enabled.
+                properties:
+                  secretCertSource:
+                    description: |-
+                      SecretCertSource is the Secret holding the CA certificate used to verify the backup service certificate
+                      and, when the backup service requires client certificates, the operator's client certificate and key.
+                    properties:
+                      caCertsFilename:
+                        description: |-
+                          CaCertsFilename is the key of the CA certificate that signed the backup service certificate.
+                          When set, only this CA is trusted. If not set, the system CA certificates are used.
+                        type: string
+                      clientCertFilename:
+                        description: |-
+                          ClientCertFilename is the key of the operator's client certificate.
+                          Required when the backup service sets client-auth to require-and-verify.
+                          Must be set together with ClientKeyFilename.
+                        type: string
+                      clientKeyFilename:
+                        description: ClientKeyFilename is the key of the private key
+                          for ClientCertFilename.
+                        type: string
+                      secretName:
+                        description: SecretName is the name of the Secret.
+                        minLength: 1
+                        type: string
+                    required:
+                    - secretName
+                    type: object
+                  tlsName:
+                    description: |-
+                      TLSName is the host name expected in the backup service certificate.
+                      Defaults to <name>.<namespace>.svc of the AerospikeBackupService, the address the operator connects to.
+                      Set it when the certificate does not list that name, for example when it is issued only for
+                      <name>.<namespace>.svc.cluster.local or for an external DNS name.
+                    type: string
+                required:
+                - secretCertSource
+                type: object
               podSpec:
                 description: Specify additional configuration for the AerospikeBackupService
                   pods
@@ -1411,10 +1454,21 @@ spec:
                       description: VolumeMount is the volume mount options for the
                         secret.
                       properties:
-                        mountPath:
+                        bindMountOptions:
                           description: |-
-                            Path within the container at which the volume should be mounted.  Must
-                            not contain ':'.
+                            bindMountOptions is the list of additional bind mount options to apply when
+                            mounting this volume into the container. Allowed values are noexec,
+                            nodev, and nosuid. These are Linux mount options and have no effect on
+                            Windows nodes.
+                            This field is not supported with image volumes.
+                            This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        mountPath:
+                          description: Path within the container at which the volume
+                            should be mounted.
                           type: string
                         mountPropagation:
                           description: |-
@@ -1505,6 +1559,49 @@ spec:
               image:
                 description: Image is the image for the backup service.
                 type: string
+              operatorClientCert:
+                description: |-
+                  OperatorClientCert is the configuration the operator uses to connect to the backup service over HTTPS.
+                  The backup and restore controllers build their client from status, so it matches the listener the backup
+                  service runs with, not a spec change that is not applied yet.
+                properties:
+                  secretCertSource:
+                    description: |-
+                      SecretCertSource is the Secret holding the CA certificate used to verify the backup service certificate
+                      and, when the backup service requires client certificates, the operator's client certificate and key.
+                    properties:
+                      caCertsFilename:
+                        description: |-
+                          CaCertsFilename is the key of the CA certificate that signed the backup service certificate.
+                          When set, only this CA is trusted. If not set, the system CA certificates are used.
+                        type: string
+                      clientCertFilename:
+                        description: |-
+                          ClientCertFilename is the key of the operator's client certificate.
+                          Required when the backup service sets client-auth to require-and-verify.
+                          Must be set together with ClientKeyFilename.
+                        type: string
+                      clientKeyFilename:
+                        description: ClientKeyFilename is the key of the private key
+                          for ClientCertFilename.
+                        type: string
+                      secretName:
+                        description: SecretName is the name of the Secret.
+                        minLength: 1
+                        type: string
+                    required:
+                    - secretName
+                    type: object
+                  tlsName:
+                    description: |-
+                      TLSName is the host name expected in the backup service certificate.
+                      Defaults to <name>.<namespace>.svc of the AerospikeBackupService, the address the operator connects to.
+                      Set it when the certificate does not list that name, for example when it is issued only for
+                      <name>.<namespace>.svc.cluster.local or for an external DNS name.
+                    type: string
+                required:
+                - secretCertSource
+                type: object
               phase:
                 description: Phase denotes Backup service phase
                 enum:
@@ -2783,7 +2880,8 @@ spec:
                     type: array
                 type: object
               port:
-                description: Port is the listening port of backup service
+                description: Port is the port the operator uses to connect to the
+                  backup service.
                 format: int32
                 type: integer
               resources:
@@ -2849,6 +2947,14 @@ spec:
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
                 type: object
+              scheme:
+                description: |-
+                  Scheme is the URL scheme the operator uses to connect to the backup service.
+                  An empty value means HTTP, which is what a backup service reconciled by an older operator serves.
+                enum:
+                - HTTP
+                - HTTPS
+                type: string
               secrets:
                 description: SecretMounts is the list of secret to be mounted in the
                   backup service.
@@ -2863,10 +2969,21 @@ spec:
                       description: VolumeMount is the volume mount options for the
                         secret.
                       properties:
-                        mountPath:
+                        bindMountOptions:
                           description: |-
-                            Path within the container at which the volume should be mounted.  Must
-                            not contain ':'.
+                            bindMountOptions is the list of additional bind mount options to apply when
+                            mounting this volume into the container. Allowed values are noexec,
+                            nodev, and nosuid. These are Linux mount options and have no effect on
+                            Windows nodes.
+                            This field is not supported with image volumes.
+                            This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        mountPath:
+                          description: Path within the container at which the volume
+                            should be mounted.
                           type: string
                         mountPropagation:
                           description: |-

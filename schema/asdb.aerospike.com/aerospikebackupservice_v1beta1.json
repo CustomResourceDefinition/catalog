@@ -30,6 +30,47 @@
           "description": "Image is the image for the backup service.",
           "type": "string"
         },
+        "operatorClientCert": {
+          "description": "OperatorClientCert configures how the operator connects to the backup service over HTTPS.\nWhen set, the operator uses the service.https listener from config, which must be enabled.\nWhen not set, the operator uses the service.http listener, which must be enabled.",
+          "type": "object",
+          "required": [
+            "secretCertSource"
+          ],
+          "properties": {
+            "secretCertSource": {
+              "description": "SecretCertSource is the Secret holding the CA certificate used to verify the backup service certificate\nand, when the backup service requires client certificates, the operator's client certificate and key.",
+              "type": "object",
+              "required": [
+                "secretName"
+              ],
+              "properties": {
+                "caCertsFilename": {
+                  "description": "CaCertsFilename is the key of the CA certificate that signed the backup service certificate.\nWhen set, only this CA is trusted. If not set, the system CA certificates are used.",
+                  "type": "string"
+                },
+                "clientCertFilename": {
+                  "description": "ClientCertFilename is the key of the operator's client certificate.\nRequired when the backup service sets client-auth to require-and-verify.\nMust be set together with ClientKeyFilename.",
+                  "type": "string"
+                },
+                "clientKeyFilename": {
+                  "description": "ClientKeyFilename is the key of the private key for ClientCertFilename.",
+                  "type": "string"
+                },
+                "secretName": {
+                  "description": "SecretName is the name of the Secret.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "tlsName": {
+              "description": "TLSName is the host name expected in the backup service certificate.\nDefaults to \u003cname\u003e.\u003cnamespace\u003e.svc of the AerospikeBackupService, the address the operator connects to.\nSet it when the certificate does not list that name, for example when it is issued only for\n\u003cname\u003e.\u003cnamespace\u003e.svc.cluster.local or for an external DNS name.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
         "podSpec": {
           "description": "Specify additional configuration for the AerospikeBackupService pods",
           "type": "object",
@@ -1211,8 +1252,16 @@
                   "name"
                 ],
                 "properties": {
+                  "bindMountOptions": {
+                    "description": "bindMountOptions is the list of additional bind mount options to apply when\nmounting this volume into the container. Allowed values are noexec,\nnodev, and nosuid. These are Linux mount options and have no effect on\nWindows nodes.\nThis field is not supported with image volumes.\nThis is an alpha field and requires enabling the VolumeBindMountOptions feature gate.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "x-kubernetes-list-type": "set"
+                  },
                   "mountPath": {
-                    "description": "Path within the container at which the volume should be mounted.  Must\nnot contain ':'.",
+                    "description": "Path within the container at which the volume should be mounted.",
                     "type": "string"
                   },
                   "mountPropagation": {
@@ -1282,6 +1331,47 @@
         "image": {
           "description": "Image is the image for the backup service.",
           "type": "string"
+        },
+        "operatorClientCert": {
+          "description": "OperatorClientCert is the configuration the operator uses to connect to the backup service over HTTPS.\nThe backup and restore controllers build their client from status, so it matches the listener the backup\nservice runs with, not a spec change that is not applied yet.",
+          "type": "object",
+          "required": [
+            "secretCertSource"
+          ],
+          "properties": {
+            "secretCertSource": {
+              "description": "SecretCertSource is the Secret holding the CA certificate used to verify the backup service certificate\nand, when the backup service requires client certificates, the operator's client certificate and key.",
+              "type": "object",
+              "required": [
+                "secretName"
+              ],
+              "properties": {
+                "caCertsFilename": {
+                  "description": "CaCertsFilename is the key of the CA certificate that signed the backup service certificate.\nWhen set, only this CA is trusted. If not set, the system CA certificates are used.",
+                  "type": "string"
+                },
+                "clientCertFilename": {
+                  "description": "ClientCertFilename is the key of the operator's client certificate.\nRequired when the backup service sets client-auth to require-and-verify.\nMust be set together with ClientKeyFilename.",
+                  "type": "string"
+                },
+                "clientKeyFilename": {
+                  "description": "ClientKeyFilename is the key of the private key for ClientCertFilename.",
+                  "type": "string"
+                },
+                "secretName": {
+                  "description": "SecretName is the name of the Secret.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "tlsName": {
+              "description": "TLSName is the host name expected in the backup service certificate.\nDefaults to \u003cname\u003e.\u003cnamespace\u003e.svc of the AerospikeBackupService, the address the operator connects to.\nSet it when the certificate does not list that name, for example when it is issued only for\n\u003cname\u003e.\u003cnamespace\u003e.svc.cluster.local or for an external DNS name.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         },
         "phase": {
           "description": "Phase denotes Backup service phase",
@@ -2386,7 +2476,7 @@
           "additionalProperties": false
         },
         "port": {
-          "description": "Port is the listening port of backup service",
+          "description": "Port is the port the operator uses to connect to the backup service.",
           "type": "integer",
           "format": "int32"
         },
@@ -2455,6 +2545,14 @@
           },
           "additionalProperties": false
         },
+        "scheme": {
+          "description": "Scheme is the URL scheme the operator uses to connect to the backup service.\nAn empty value means HTTP, which is what a backup service reconciled by an older operator serves.",
+          "type": "string",
+          "enum": [
+            "HTTP",
+            "HTTPS"
+          ]
+        },
         "secrets": {
           "description": "SecretMounts is the list of secret to be mounted in the backup service.",
           "type": "array",
@@ -2478,8 +2576,16 @@
                   "name"
                 ],
                 "properties": {
+                  "bindMountOptions": {
+                    "description": "bindMountOptions is the list of additional bind mount options to apply when\nmounting this volume into the container. Allowed values are noexec,\nnodev, and nosuid. These are Linux mount options and have no effect on\nWindows nodes.\nThis field is not supported with image volumes.\nThis is an alpha field and requires enabling the VolumeBindMountOptions feature gate.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "x-kubernetes-list-type": "set"
+                  },
                   "mountPath": {
-                    "description": "Path within the container at which the volume should be mounted.  Must\nnot contain ':'.",
+                    "description": "Path within the container at which the volume should be mounted.",
                     "type": "string"
                   },
                   "mountPropagation": {
