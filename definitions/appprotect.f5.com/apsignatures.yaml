@@ -1,0 +1,232 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: apsignatures.appprotect.f5.com
+spec:
+  conversion:
+    strategy: None
+  group: appprotect.f5.com
+  names:
+    kind: APSignatures
+    listKind: APSignaturesList
+    plural: apsignatures
+    singular: apsignatures
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.installationState
+      name: STATUS
+      type: string
+    - jsonPath: .status['attack-signatures'].installedRevision
+      name: ATTACK
+      priority: 1
+      type: string
+    - jsonPath: .status['bot-signatures'].installedRevision
+      name: BOT
+      priority: 1
+      type: string
+    - jsonPath: .status['threat-campaigns'].installedRevision
+      name: THREAT
+      priority: 1
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: APSignatures is the Schema for the APSignatures API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            properties:
+              name:
+                pattern: ^apsignatures$
+                type: string
+            type: object
+          spec:
+            properties:
+              attack-signatures:
+                properties:
+                  revision:
+                    description: Revision is the desired signature revision (e.g.
+                      "2026.01.01-3" or "latest").
+                    type: string
+                type: object
+              bot-signatures:
+                properties:
+                  revision:
+                    description: Revision is the desired signature revision (e.g.
+                      "2026.01.01-3" or "latest").
+                    type: string
+                type: object
+              repository:
+                description: |-
+                  Repository defines optional configuration for a custom signature repository.
+                  If set, APSignatures will download from the provided repository instead of pkgs.nginx.com.
+                properties:
+                  authentication:
+                    description: Authentication configures optional credentials for
+                      the repository.
+                    properties:
+                      secretName:
+                        description: |-
+                          SecretName is the name of a Kubernetes secret containing the credentials.
+                          For bearer: the secret must have a "token" key.
+                          For basic: the secret must have "username" and "password" keys.
+                        type: string
+                      type:
+                        description: Type indicates the authentication type (bearer
+                          or basic). Required when authentication is configured.
+                        enum:
+                        - bearer
+                        - basic
+                        type: string
+                    required:
+                    - secretName
+                    - type
+                    type: object
+                    x-kubernetes-validations:
+                    - message: authentication.type is required; specify 'bearer' or
+                        'basic'
+                      rule: has(self.type)
+                    - message: authentication.secretName is required
+                      rule: self.secretName != ""
+                  baseUrl:
+                    description: BaseUrl is the base URL where signature .deb packages
+                      are hosted.
+                    type: string
+                  tls:
+                    description: TLS configures optional TLS settings for the repository.
+                    properties:
+                      caBundle:
+                        description: 'CABundle references a secret containing a PEM-encoded
+                          CA bundle (key: ca.crt).'
+                        properties:
+                          secretName:
+                            description: SecretName is the name of the Kubernetes
+                              secret.
+                            type: string
+                        required:
+                        - secretName
+                        type: object
+                      clientCertificate:
+                        description: |-
+                          ClientCertificate references a secret that contains a client TLS certificate and key.
+                          Expected keys: tls.crt and tls.key (security-updates-repo.crt/key are also accepted for compatibility).
+                        properties:
+                          secretName:
+                            description: SecretName is the name of the Kubernetes
+                              secret.
+                            type: string
+                        required:
+                        - secretName
+                        type: object
+                      verifyCertificate:
+                        default: true
+                        description: |-
+                          VerifyCertificate controls whether the server's TLS certificate is verified.
+                          Defaults to true. Set to false to skip verification (use with caution, for dev/test only).
+                        type: boolean
+                    type: object
+                    x-kubernetes-validations:
+                    - message: tls.clientCertificate.secretName must be set
+                      rule: '!has(self.clientCertificate) || self.clientCertificate.secretName
+                        != ""'
+                    - message: tls.caBundle.secretName must be set
+                      rule: '!has(self.caBundle) || self.caBundle.secretName != ""'
+                required:
+                - baseUrl
+                type: object
+                x-kubernetes-validations:
+                - message: repository.baseUrl must be set
+                  rule: self.baseUrl != ""
+                - message: repository.baseUrl must start with http:// or https://
+                  rule: self.baseUrl.startsWith('http://') || self.baseUrl.startsWith('https://')
+              threat-campaigns:
+                properties:
+                  revision:
+                    description: Revision is the desired signature revision (e.g.
+                      "2026.01.01-3" or "latest").
+                    type: string
+                type: object
+            type: object
+          status:
+            properties:
+              attack-signatures:
+                properties:
+                  installedRevision:
+                    type: string
+                  isInstalledRevisionLatest:
+                    type: boolean
+                  latestAvailableRevision:
+                    type: string
+                required:
+                - isInstalledRevisionLatest
+                type: object
+              bot-signatures:
+                properties:
+                  installedRevision:
+                    type: string
+                  isInstalledRevisionLatest:
+                    type: boolean
+                  latestAvailableRevision:
+                    type: string
+                required:
+                - isInstalledRevisionLatest
+                type: object
+              errors:
+                type: string
+              installationState:
+                description: InstallationState is the current installation state (installing,
+                  success, failure)
+                enum:
+                - installing
+                - success
+                - failure
+                type: string
+              observedGeneration:
+                description: |-
+                  ObservedGeneration records the .metadata.generation that was last fully processed.
+                  Used to distinguish user-initiated reconciles (spec change) from periodic requeues.
+                format: int64
+                type: integer
+              threat-campaigns:
+                properties:
+                  installedRevision:
+                    type: string
+                  isInstalledRevisionLatest:
+                    type: boolean
+                  latestAvailableRevision:
+                    type: string
+                required:
+                - isInstalledRevisionLatest
+                type: object
+            required:
+            - installationState
+            type: object
+        type: object
+        x-kubernetes-validations:
+        - message: APSignatures name must be 'apsignatures'
+          rule: self.metadata.name == 'apsignatures'
+    served: true
+    storage: true
+    subresources:
+      status: {}
+

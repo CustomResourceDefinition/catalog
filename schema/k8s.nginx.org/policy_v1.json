@@ -18,7 +18,7 @@
       "type": "object",
       "properties": {
         "accessControl": {
-          "description": "AccessControl defines an access policy based on the source IP of a request.",
+          "description": "The access control policy based on the client IP address.",
           "type": "object",
           "properties": {
             "allow": {
@@ -37,23 +37,26 @@
           "additionalProperties": false
         },
         "apiKey": {
-          "description": "APIKey defines an API Key policy.",
+          "description": "The API Key policy configures NGINX to authorize requests which provide a valid API Key in a specified header or query param.",
           "type": "object",
           "properties": {
             "clientSecret": {
+              "description": "The name of a Kubernetes secret in the Policy namespace. A secret of the type Opaque is recommended. The secret is resolved with the APIKey role; each data key is a client ID and its value is that client API key. Can contain text, variables, or a combination of them. Accepted variables are $http_, $arg_, $cookie_.",
               "type": "string"
             },
             "suppliedIn": {
-              "description": "SuppliedIn defines the locations API Key should be supplied in.",
+              "description": "The location of the API Key. For example, $http_auth, $arg_apikey, $cookie_auth. Accepted variables are $http_, $arg_, $cookie_.",
               "type": "object",
               "properties": {
                 "header": {
+                  "description": "The location of the API Key as a request header. For example, $http_auth. Accepted variables are $http_.",
                   "type": "array",
                   "items": {
                     "type": "string"
                   }
                 },
                 "query": {
+                  "description": "The location of the API Key as a query param. For example, $arg_apikey. Accepted variables are $arg_.",
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -66,206 +69,1029 @@
           "additionalProperties": false
         },
         "basicAuth": {
-          "description": "BasicAuth holds HTTP Basic authentication configuration",
+          "description": "The basic auth policy configures NGINX to authenticate client requests using HTTP Basic authentication credentials.",
           "type": "object",
           "properties": {
             "realm": {
+              "description": "The realm for the basic authentication.",
               "type": "string"
             },
             "secret": {
+              "description": "The name of the Kubernetes secret that stores the Htpasswd configuration. It must be in the same namespace as the Policy resource. A secret of type Opaque is recommended. The secret is resolved with the Htpasswd role and must store the configuration under the htpasswd key.",
               "type": "string"
             }
           },
           "additionalProperties": false
         },
+        "cache": {
+          "description": "The Cache Key defines a cache policy for proxy caching",
+          "type": "object",
+          "required": [
+            "cacheZoneName",
+            "cacheZoneSize"
+          ],
+          "properties": {
+            "allowedCodes": {
+              "description": "AllowedCodes defines which HTTP response codes should be cached.\nAccepts either:\n- The string \"any\" to cache all response codes (must be the only element)\n- A list of HTTP status codes as integers (100-599)\nExamples: [\"any\"], [200, 301, 404], [200].\nInvalid: [\"any\", 200] (cannot mix \"any\" with specific codes).",
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "x-kubernetes-int-or-string": true
+              }
+            },
+            "allowedMethods": {
+              "description": "AllowedMethods defines which HTTP methods should be cached.\nOnly \"GET\", \"HEAD\", and \"POST\" are supported by NGINX proxy_cache_methods directive.\nGET and HEAD are always cached by default even if not specified.\nMaximum of 3 items allowed. Examples: [\"GET\"], [\"GET\", \"HEAD\", \"POST\"].\nInvalid methods: PUT, DELETE, PATCH, etc.",
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "type": "string"
+              },
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(method, method in ['GET', 'HEAD', 'POST'])",
+                  "message": "allowed methods must be one of: GET, HEAD, POST"
+                }
+              ]
+            },
+            "cacheBackgroundUpdate": {
+              "description": "CacheBackgroundUpdate allows starting a background subrequest to update an expired cache item (proxy_cache_background_update).\nA stale cached response is returned to the client while the cache is being updated.",
+              "type": "boolean",
+              "default": false
+            },
+            "cacheKey": {
+              "description": "CacheKey defines a key for caching (proxy_cache_key).\nBy default, close to \"$scheme$proxy_host$uri$is_args$args\".\nMust not contain command execution patterns: $(, `, ;, \u0026\u0026, ||",
+              "type": "string",
+              "maxLength": 1024,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "!self.contains('$(') \u0026\u0026 !self.contains('`') \u0026\u0026 !self.contains(';') \u0026\u0026 !self.contains('\u0026\u0026') \u0026\u0026 !self.contains('||')",
+                  "message": "cache key must not contain command execution patterns: $(, `, ;, \u0026\u0026, ||"
+                }
+              ]
+            },
+            "cacheMinUses": {
+              "description": "CacheMinUses sets the number of requests after which the response will be cached (proxy_cache_min_uses).",
+              "type": "integer",
+              "minimum": 1
+            },
+            "cachePurgeAllow": {
+              "description": "CachePurgeAllow defines IP addresses or CIDR blocks allowed to purge cache.\nThis feature is only available in NGINX Plus.\nExamples: [\"192.168.1.100\", \"10.0.0.0/8\", \"::1\"].\nInvalid in NGINX OSS (will be ignored).",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "cacheRevalidate": {
+              "description": "CacheRevalidate enables revalidation of expired cache items using conditional requests (proxy_cache_revalidate).\nUses \"If-Modified-Since\" and \"If-None-Match\" header fields.",
+              "type": "boolean",
+              "default": false
+            },
+            "cacheUseStale": {
+              "description": "CacheUseStale determines in which cases a stale cached response can be used (proxy_cache_use_stale).\nValid parameters: error, timeout, invalid_header, updating, http_500, http_502, http_503, http_504, http_403, http_404, http_429, off.",
+              "type": "array",
+              "maxItems": 11,
+              "items": {
+                "type": "string"
+              }
+            },
+            "cacheZoneName": {
+              "description": "CacheZoneName defines the name of the cache zone. Must start with a lowercase letter,\nfollowed by alphanumeric characters or underscores, and end with an alphanumeric character.\nSingle lowercase letters are also allowed. Examples: \"cache\", \"my_cache\", \"cache1\".",
+              "type": "string",
+              "pattern": "^[a-z][a-zA-Z0-9_]*[a-zA-Z0-9]$|^[a-z]$"
+            },
+            "cacheZoneSize": {
+              "description": "CacheZoneSize defines the size of the cache zone. Must be a number followed by a size unit:\n'k' or 'K' for kilobytes, 'm' or 'M' for megabytes, or 'g' or 'G' for gigabytes.\nExamples: \"10m\", \"1g\", \"512k\".",
+              "type": "string",
+              "pattern": "^[0-9]+[kmgKMG]$"
+            },
+            "conditions": {
+              "description": "Conditions defines when responses should not be cached or taken from cache.",
+              "type": "object",
+              "properties": {
+                "bypass": {
+                  "description": "Bypass defines conditions under which the response will not be taken from a cache (proxy_cache_bypass).\nIf at least one value of the string parameters is not empty and is not equal to \"0\" then the response will not be taken from the cache.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "noCache": {
+                  "description": "NoCache defines conditions under which the response will not be saved to a cache (proxy_no_cache).\nIf at least one value of the string parameters is not empty and is not equal to \"0\" then the response will not be saved.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "inactive": {
+              "description": "Inactive sets the time after which cached data that are not accessed get removed from the cache (inactive parameter).\nBy default, inactive is set to 10 minutes.",
+              "type": "string",
+              "pattern": "^[0-9]+[smhd]$"
+            },
+            "levels": {
+              "description": "Levels defines the cache directory hierarchy levels for storing cached files.\nMust be in format \"X:Y\" or \"X:Y:Z\" where X, Y, Z are either 1 or 2.\nThis controls the number of subdirectory levels and their name lengths.\nExamples: \"1:2\", \"2:2\", \"1:2:2\".\nInvalid: \"3:1\", \"1:3\", \"1:2:3\".",
+              "type": "string",
+              "pattern": "^[12](?::[12]){0,2}$"
+            },
+            "lock": {
+              "description": "Lock configures cache locking to prevent multiple identical requests from populating the same cache element simultaneously.",
+              "type": "object",
+              "properties": {
+                "age": {
+                  "description": "Age sets the maximum time a cache lock can be held (proxy_cache_lock_age).\nIf the last request passed to the proxied server for populating a new cache element has not completed for the specified time, one more request may be passed.",
+                  "type": "string",
+                  "pattern": "^[0-9]+[smhd]$"
+                },
+                "enable": {
+                  "description": "Enable sets whether cache locking is enabled (proxy_cache_lock).\nWhen enabled, only one request at a time will be allowed to populate a new cache element according to the proxy_cache_key.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "timeout": {
+                  "description": "Timeout sets a timeout for proxy_cache_lock.\nWhen the time expires, the request will be passed to the proxied server, however, the response will not be cached.",
+                  "type": "string",
+                  "pattern": "^[0-9]+[smhd]$"
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "(!has(self.timeout) \u0026\u0026 !has(self.age)) || self.enable",
+                  "message": "timeout or age require enable=true"
+                }
+              ]
+            },
+            "manager": {
+              "description": "Manager configures the cache manager process parameters (manager_files, manager_sleep, manager_threshold).",
+              "type": "object",
+              "properties": {
+                "files": {
+                  "description": "Files sets the maximum number of files that will be deleted in one iteration by the cache manager.\nDuring one iteration no more than manager_files items are deleted (by default, 100).",
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "sleep": {
+                  "description": "Sleep sets the pause between cache manager iterations.\nBetween iterations, a pause configured by manager_sleep (by default, 50 milliseconds) is made.",
+                  "type": "string",
+                  "pattern": "^[0-9]+[mu]?s$"
+                },
+                "threshold": {
+                  "description": "Threshold sets the maximum duration of one cache manager iteration.\nThe duration of one iteration is limited by manager_threshold (by default, 200 milliseconds).",
+                  "type": "string",
+                  "pattern": "^[0-9]+[mu]?s$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "maxSize": {
+              "description": "MaxSize sets the maximum cache size (max_size parameter).\nWhen the size is exceeded, the cache manager removes the least recently used data.",
+              "type": "string",
+              "pattern": "^[0-9]+[kmgKMG]$"
+            },
+            "minFree": {
+              "description": "MinFree sets the minimum amount of free space required on the file system with cache (min_free parameter).\nWhen there is not enough free space, the cache manager removes the least recently used data.",
+              "type": "string",
+              "pattern": "^[0-9]+[kmgKMG]$"
+            },
+            "overrideUpstreamCache": {
+              "description": "OverrideUpstreamCache controls whether to override upstream cache headers\n(using proxy_ignore_headers directive). When true, NGINX will ignore\ncache-related headers from upstream servers like Cache-Control, Expires, etc.\nDefault: false.",
+              "type": "boolean",
+              "default": false
+            },
+            "time": {
+              "description": "Time defines the default cache time. Required when allowedCodes is specified.\nMust be a number followed by a time unit:\n's' for seconds, 'm' for minutes, 'h' for hours, 'd' for days.\nExamples: \"30s\", \"5m\", \"1h\", \"2d\".",
+              "type": "string",
+              "pattern": "^[0-9]+[smhd]$"
+            },
+            "useTempPath": {
+              "description": "UseTempPath controls whether temporary files and the cache are put on different file systems (use_temp_path parameter).\nIf set to false, temporary files will be put directly in the cache directory (use_temp_path=off).\nDefault: false (use_temp_path=off, which puts temp files directly in cache directory for better performance).",
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!has(self.allowedCodes) || (has(self.allowedCodes) \u0026\u0026 has(self.time))",
+              "message": "time is required when allowedCodes is specified"
+            }
+          ]
+        },
+        "cors": {
+          "description": "The CORS policy configures Cross-Origin Resource Sharing headers",
+          "type": "object",
+          "required": [
+            "allowOrigin"
+          ],
+          "properties": {
+            "allowCredentials": {
+              "description": "AllowCredentials indicates whether the response to the request can be exposed when the credentials flag is true.\nWhen used as part of a response to a preflight request, this indicates whether the actual request can be made using credentials.",
+              "type": "boolean",
+              "default": false
+            },
+            "allowHeaders": {
+              "description": "AllowHeaders defines the headers that are allowed in cross-origin requests.\nCommon safe headers: [\"Accept\", \"Accept-Language\", \"Content-Language\", \"Content-Type\"]\nCustom headers: [\"Authorization\", \"X-Requested-With\", \"X-Custom-Header\"]",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(header, header != '')",
+                  "message": "header name cannot be empty"
+                }
+              ]
+            },
+            "allowMethods": {
+              "description": "AllowMethods defines the HTTP methods that are allowed for cross-origin requests.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(method, method != '')",
+                  "message": "method name cannot be empty"
+                }
+              ]
+            },
+            "allowOrigin": {
+              "description": "AllowOrigin defines the origins that are allowed to make cross-origin requests.\nCan be exact domains, single wildcards, or \"*\" for all origins.\nExamples: [\"https://example.com\", \"https://*.mydomain.com\", \"*\"]\nSecurity: When allowCredentials is true, wildcard \"*\" is not allowed per CORS specification.\nThe server must specify explicit origins for credentialed requests.",
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              },
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(origin, origin != '')",
+                  "message": "origin cannot be empty"
+                }
+              ]
+            },
+            "exposeHeaders": {
+              "description": "ExposeHeaders defines the headers that browsers are allowed to access.\nUse this field to expose additional custom headers to the browser.\nExample: [\"X-Total-Count\", \"X-Page-Size\", \"X-RateLimit-Remaining\"]\nNote: Set-Cookie headers cannot be exposed via CORS per official MDN specification.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(header, header != '')",
+                  "message": "header name cannot be empty"
+                }
+              ]
+            },
+            "maxAge": {
+              "description": "MaxAge defines how long (in seconds) the results of a preflight request can be cached.\nDefault: 86400 (24 hours). Maximum recommended value is 86400 (24 hours).",
+              "type": "integer",
+              "default": 86400,
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!(self.allowOrigin.exists(origin, origin == '*') \u0026\u0026 has(self.allowCredentials) \u0026\u0026 self.allowCredentials == true)",
+              "message": "cannot use wildcard '*' for allowOrigin when allowCredentials is true for security reasons"
+            }
+          ]
+        },
         "egressMTLS": {
-          "description": "EgressMTLS defines an Egress MTLS policy.",
+          "description": "The EgressMTLS policy configures upstreams authentication and certificate verification.",
           "type": "object",
           "properties": {
             "ciphers": {
+              "description": "Specifies the enabled ciphers for requests to an upstream HTTPS server. The default is DEFAULT.",
               "type": "string"
             },
             "protocols": {
+              "description": "Specifies the protocols for requests to an upstream HTTPS server. The default is TLSv1 TLSv1.1 TLSv1.2.",
               "type": "string"
             },
             "serverName": {
+              "description": "Enables passing of the server name through Server Name Indication extension.",
               "type": "boolean"
             },
             "sessionReuse": {
+              "description": "Enables reuse of SSL sessions to the upstreams. The default is true.",
               "type": "boolean"
             },
             "sslName": {
+              "description": "Allows overriding the server name used to verify the certificate of the upstream HTTPS server.",
               "type": "string"
             },
             "tlsSecret": {
+              "description": "The name of the Kubernetes secret that stores the TLS certificate and key. It must be in the same namespace as the Policy resource. A secret of the type kubernetes.io/tls or Opaque is recommended. The secret is resolved with the TLS role and must store the certificate chain under tls.crt key and matching private key under the tls.key key.",
               "type": "string"
             },
             "trustedCertSecret": {
+              "description": "The name of the Kubernetes secret that stores the CA certificate. It must be in the same namespace as the Policy resource. A secret of the type Opaque is recommended. The secret is resolved with the CA role and must store the certificate under the ca.crt key.",
               "type": "string"
             },
             "verifyDepth": {
+              "description": "Sets the verification depth in the proxied HTTPS server certificates chain. The default is 1.",
               "type": "integer"
             },
             "verifyServer": {
+              "description": "Enables verification of the upstream HTTPS server certificate.",
               "type": "boolean"
             }
           },
           "additionalProperties": false
         },
+        "externalAuth": {
+          "description": "The ExternalAuth policy configures NGINX to authenticate client requests using an external authentication server, which can be used for example with the oauth2-proxy or any custom authentication server.",
+          "type": "object",
+          "required": [
+            "authServiceName",
+            "authURI"
+          ],
+          "properties": {
+            "authServiceName": {
+              "description": "AuthServiceName is the name of the Kubernetes service to which the request will be sent for authentication.  It can be in the same namespace as the Policy resource or in a different namespace. If the service is in a different namespace, it should be specified in the format \u003cnamespace\u003e/\u003cservice\u003e. For example, auth-service or auth-namespace/auth-service.",
+              "type": "string",
+              "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?\\/)?[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+            },
+            "authServicePorts": {
+              "description": "AuthServicePorts are the ports of the Kubernetes service to which requests will be sent for authentication. If not specified, the ports will be looked up from the service definition. This field is only required if the user wants to choose a specific port from the service definition, otherwise the first port will be used by default.",
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "authSigninRedirectBasePath": {
+              "description": "AuthSigninRedirectBasePath is the base path for the NGINX location block that handles sign-in redirect requests from the external authentication server. For example, oauth2-proxy expects /oauth2. If not specified, defaults to /oauth2.",
+              "type": "string",
+              "pattern": "^/[a-zA-Z0-9._~:/?#\\[\\]@!$\u0026'()*+,;=-]*$"
+            },
+            "authSigninURI": {
+              "description": "AuthSigninURI is the URI which requests will be redirected to if the external authentication server determines that the client needs to be authenticated. This is typically used when the external authentication server is an oauth2-proxy or any custom authentication server that requires redirection for authentication. The URI is a relative URI, for example /signin.",
+              "type": "string",
+              "pattern": "^/.*$"
+            },
+            "authSnippets": {
+              "description": "AuthSnippets can be used to add custom configuration snippets to the location block of the external authentication configuration. This can be used for example to add additional headers to the request sent to the external authentication server, or to configure additional parameters for the auth_request module. The content of this field will be added as-is to the location block, so it must be a valid NGINX configuration snippet.",
+              "type": "string"
+            },
+            "authURI": {
+              "description": "AuthURI is the URI of the external authentication server to which the request will be sent for authentication. The URI is a relative URI, for example /auth.",
+              "type": "string",
+              "default": "/",
+              "pattern": "^/.*$"
+            },
+            "sniName": {
+              "description": "SNIName sets the server name used for SNI and certificate verification when connecting to the external authentication server over TLS. If not specified, defaults to \u003cservice-name\u003e.\u003cnamespace\u003e.svc derived from authServiceName.",
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?)*$"
+            },
+            "sslEnabled": {
+              "description": "SSLEnabled enables HTTPS when proxying requests to the external authentication server. Default is false.",
+              "type": "boolean",
+              "default": false
+            },
+            "sslVerify": {
+              "description": "SSLVerify enables verification of the external authentication server's SSL certificate. Default is false.",
+              "type": "boolean",
+              "default": false
+            },
+            "sslVerifyDepth": {
+              "description": "SSLVerifyDepth sets the verification depth in the external authentication server certificates chain. Default is 1.",
+              "type": "integer",
+              "default": 1,
+              "minimum": 0
+            },
+            "trustedCertSecret": {
+              "description": "TrustedCertSecret is the name of the Kubernetes secret that stores the CA certificate for external authentication server certificate verification. It can be in the same namespace as the Policy resource or in a different namespace specified as \u003cnamespace\u003e/\u003csecret\u003e. A secret of the type Opaque is recommended. The secret is resolved with the CA role and must store the certificate under the ca.crt key.",
+              "type": "string",
+              "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?\\/)?[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "hsts": {
+          "description": "The HSTS policy configures HTTP Strict Transport Security headers",
+          "type": "object",
+          "required": [
+            "maxAge"
+          ],
+          "properties": {
+            "behindProxy": {
+              "description": "BehindProxy configures NGINX to set the HSTS header based on the X-Forwarded-Proto request header rather than the $https variable.",
+              "type": "boolean",
+              "default": false
+            },
+            "includeSubDomains": {
+              "description": "IncludeSubDomains extends the HSTS policy to all subdomains of the host.",
+              "type": "boolean",
+              "default": false
+            },
+            "maxAge": {
+              "description": "MaxAge defines how long (in seconds) the browser should cache and enforce the HSTS policy.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "preload": {
+              "description": "Preload indicates that the domain should be included in browsers' HSTS preload lists.",
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!self.preload || self.includeSubDomains",
+              "message": "preload requires includeSubDomains to be enabled"
+            },
+            {
+              "rule": "!self.preload || (has(self.maxAge) \u0026\u0026 self.maxAge \u003e= 31536000)",
+              "message": "preload requires maxAge to be at least 31536000 (one year)"
+            }
+          ]
+        },
         "ingressClassName": {
+          "description": "Specifies which instance of NGINX Ingress Controller must handle the Policy resource.",
           "type": "string"
         },
         "ingressMTLS": {
-          "description": "IngressMTLS defines an Ingress MTLS policy.",
+          "description": "The IngressMTLS policy configures client certificate verification.",
           "type": "object",
           "properties": {
             "clientCertSecret": {
+              "description": "The name of the Kubernetes secret that stores the CA certificate. It must be in the same namespace as the Policy resource. A secret of type Opaque is recommended. The secret is resolved with the CA role and must store the certificate under the ca.crt key.",
               "type": "string"
             },
             "crlFileName": {
+              "description": "The file name of the Certificate Revocation List. NGINX Ingress Controller will look for this file in /etc/nginx/secrets",
               "type": "string"
             },
             "verifyClient": {
+              "description": "Verification for the client. Possible values are \"on\", \"off\", \"optional\", \"optional_no_ca\". The default is \"on\".",
               "type": "string"
             },
             "verifyDepth": {
+              "description": "Sets the verification depth in the client certificates chain. The default is 1.",
               "type": "integer"
             }
           },
           "additionalProperties": false
         },
         "jwt": {
-          "description": "JWTAuth holds JWT authentication configuration.",
+          "description": "The JWT policy configures NGINX Plus to authenticate client requests using JSON Web Tokens.",
           "type": "object",
           "properties": {
             "jwksURI": {
+              "description": "The remote URI where the request will be sent to retrieve JSON Web Key set",
               "type": "string"
             },
             "keyCache": {
+              "description": "Enables in-memory caching of JWKS (JSON Web Key Sets) that are obtained from the jwksURI and sets a valid time for expiration.",
               "type": "string"
             },
             "realm": {
+              "description": "The realm of the JWT.",
               "type": "string"
             },
             "secret": {
+              "description": "The name of the Kubernetes secret containing the JSON Web Key. It must be in the same namespace as the Policy resource. A secret of the type Opaque is recommended. The secret is resolved with the JWK role and must store the JWK under the jwk key.",
               "type": "string"
             },
-            "token": {
+            "sniEnabled": {
+              "description": "Enables SNI (Server Name Indication) for the JWT policy. This is useful when the remote server requires SNI to serve the correct certificate.",
+              "type": "boolean"
+            },
+            "sniName": {
+              "description": "The SNI name to use when connecting to the remote server. If not set, the hostname from the ``jwksURI`` will be used.",
               "type": "string"
+            },
+            "sslVerify": {
+              "description": "Enables verification of the JWKS server SSL certificate. Default is false.",
+              "type": "boolean",
+              "default": false
+            },
+            "sslVerifyDepth": {
+              "description": "Sets the verification depth in the JWKS server certificates chain. The default is 1.",
+              "type": "integer",
+              "default": 1,
+              "minimum": 0
+            },
+            "token": {
+              "description": "The token specifies a variable that contains the JSON Web Token. By default the JWT is passed in the Authorization header as a Bearer Token. JWT may be also passed as a cookie or a part of a query string, for example: $cookie_auth_token. Accepted variables are $http_, $arg_, $cookie_.",
+              "type": "string"
+            },
+            "trustedCertSecret": {
+              "description": "The name of the Kubernetes secret that stores the CA certificate for JWKS server verification. It must be in the same namespace as the Policy resource. A secret of the type Opaque is recommended. The secret is resolved with the CA role and must store the certificate under the ca.crt key.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
             }
           },
           "additionalProperties": false
         },
         "oidc": {
-          "description": "OIDC defines an Open ID Connect policy.",
+          "description": "The OpenID Connect policy configures NGINX to authenticate client requests by validating a JWT token against an OAuth2/OIDC token provider, such as Auth0 or Keycloak.",
           "type": "object",
           "properties": {
             "accessTokenEnable": {
+              "description": "Option of whether Bearer token is used to authorize NGINX to access protected backend.",
               "type": "boolean"
             },
             "authEndpoint": {
+              "description": "URL for the authorization endpoint provided by your OpenID Connect provider.",
               "type": "string"
             },
             "authExtraArgs": {
+              "description": "A list of extra URL arguments to pass to the authorization endpoint provided by your OpenID Connect provider. Arguments must be URL encoded, multiple arguments may be included in the list, for example [ arg1=value1, arg2=value2 ]",
               "type": "array",
               "items": {
                 "type": "string"
               }
             },
             "clientID": {
+              "description": "The client ID provided by your OpenID Connect provider.",
               "type": "string"
             },
             "clientSecret": {
+              "description": "The name of the Kubernetes secret that stores the client secret provided by your OpenID Connect provider. It must be in the same namespace as the Policy resource. A secret of the type Opaque is recommended. The secret is resolved with the OIDC role and must store the client secret under the client-secret key. If PKCE is enabled, this should be not configured.",
               "type": "string"
             },
             "endSessionEndpoint": {
+              "description": "URL provided by your OpenID Connect provider to request the end user be logged out.",
               "type": "string"
             },
             "jwksURI": {
+              "description": "URL for the JSON Web Key Set (JWK) document provided by your OpenID Connect provider.",
               "type": "string"
             },
+            "pkceEnable": {
+              "description": "Switches Proof Key for Code Exchange on. The OpenID client needs to be in public mode. clientSecret is not used in this mode.",
+              "type": "boolean"
+            },
             "postLogoutRedirectURI": {
+              "description": "URI to redirect to after the logout has been performed. Requires endSessionEndpoint. The default is /_logout.",
               "type": "string"
             },
             "redirectURI": {
+              "description": "Allows overriding the default redirect URI. The default is /_codexch.",
               "type": "string"
             },
             "scope": {
+              "description": "List of OpenID Connect scopes. The scope openid always needs to be present and others can be added concatenating them with a + sign, for example openid+profile+email, openid+email+userDefinedScope. The default is openid.",
               "type": "string"
+            },
+            "sslVerify": {
+              "description": "Enables verification of the IDP server SSL certificate. Default is false.",
+              "type": "boolean",
+              "default": false
+            },
+            "sslVerifyDepth": {
+              "description": "Sets the verification depth in the IDP server certificates chain. The default is 1.",
+              "type": "integer",
+              "default": 1,
+              "minimum": 0
             },
             "tokenEndpoint": {
+              "description": "URL for the token endpoint provided by your OpenID Connect provider.",
               "type": "string"
             },
+            "trustedCertSecret": {
+              "description": "The name of the Kubernetes secret that stores the CA certificate for IDP server verification. It must be in the same namespace as the Policy resource. A secret of the type Opaque is recommended. The secret is resolved with the CA role and must store the certificate under the ca.crt key.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+            },
             "zoneSyncLeeway": {
+              "description": "Specifies the maximum timeout in milliseconds for synchronizing ID/access tokens and shared values between Ingress Controller pods. The default is 200.",
               "type": "integer"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(self.sslVerify == true) || (self.sslVerify == false \u0026\u0026 !has(self.trustedCertSecret))",
+              "message": "trustedCertSecret can be set only if sslVerify is true"
+            }
+          ]
+        },
+        "oidcNative": {
+          "description": "The OpenID Connect policy configures NGINX to authenticate client requests by validating a JWT token against an OAuth2/OIDC token provider, such as Auth0 or Keycloak. NGINX Plus native.",
+          "type": "object",
+          "required": [
+            "clientID",
+            "issuer"
+          ],
+          "properties": {
+            "clientID": {
+              "description": "The client ID provided by your OpenID Connect provider.",
+              "type": "string"
+            },
+            "clientSecret": {
+              "description": "The name of the Kubernetes secret that stores the client secret provided by your OpenID Connect provider. It must be in the same namespace as the Policy resource. A secret of the type Opaque is recommended. The secret is resolved with the OIDC role and must store the client secret under the client-secret key.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+            },
+            "configURL": {
+              "description": "ConfigURL is the URL of the OpenID Provider Configuration Information. If not set, defaults to \u003cissuer\u003e/.well-known/openid-configuration as per the OpenID Connect Discovery specification.",
+              "type": "string",
+              "pattern": "^https?://[^/\\s\"'\\x60$;\\\\]+/[^\\s\"'\\x60$;\\\\]*$"
+            },
+            "cookieName": {
+              "description": "Sets the name of the session cookie. Defaults to NGX_OIDC_\u003cproviderName\u003e.",
+              "type": "string",
+              "pattern": "^[_A-Za-z0-9]+$"
+            },
+            "extraAuthArgs": {
+              "description": "Sets additional query arguments for the authentication request URL, for example \"display=page\u0026prompt=login\".",
+              "type": "string"
+            },
+            "frontChannelLogoutURI": {
+              "description": "Defines the URI path for triggering OIDC front-channel logout. When set, the IdP calls this URI in a hidden iframe when the user logs out globally, allowing NGINX to terminate the local session.",
+              "type": "string",
+              "pattern": "^/[^\\s{};\\\\$\\x60\"']*$"
+            },
+            "issuer": {
+              "description": "Sets the Issuer Identifier URL of the OpenID Provider; required directive. The URL must exactly match the value of “issuer” in the OpenID Provider metadata and requires the “https” scheme.",
+              "type": "string",
+              "pattern": "^https://[^/\\s\"'\\x60$;\\\\]+(/[^\\s\"'\\x60$;\\\\]*)?$"
+            },
+            "logoutTokenHint": {
+              "description": "Adds the id_token_hint argument to the Provider's Logout Endpoint when redirecting user during logout. Required by some providers.",
+              "type": "boolean",
+              "default": false
+            },
+            "logoutURI": {
+              "description": "Defines the URI path for initiating session logout. Upon session termination, the user is redirected to the post logout page.",
+              "type": "string",
+              "pattern": "^/[^\\s{};\\\\$\\x60\"']*$"
+            },
+            "pkce": {
+              "description": "Explicitly enables or disables PKCE. By default, PKCE is automatically enabled based on OpenID Provider metadata.",
+              "type": "string",
+              "enum": [
+                "on",
+                "off"
+              ]
+            },
+            "postLogoutRedirectURI": {
+              "description": "Defines the path where the user is redirected after logout. Must be a path on the same host — absolute URLs are not supported. When set, NIC also auto-generates an unauthenticated location at this path serving a plain-text confirmation response. If multiple OIDCNative providers on the same host set the same path, only one auto-generated location is rendered; providers whose other generated locations (redirectURI, or the internal IdP proxy location) collide are rejected instead.",
+              "type": "string",
+              "pattern": "^/[^\\s{};\\\\$\\x60\"']*$"
+            },
+            "proxyBufferSize": {
+              "description": "Buffer size used when proxying requests to the OpenID Provider. Applies to `proxy_buffer_size` and each buffer in `proxy_buffers`. Default is `32k`.",
+              "type": "string",
+              "default": "32k",
+              "pattern": "^[0-9]{1,8}[kKmM]?$"
+            },
+            "redirectURI": {
+              "description": "Allows overriding the default redirect URI. Defaults to /oidc_callback_\u003cproviderName\u003e.",
+              "type": "string",
+              "pattern": "^/[^\\s{};\\\\$\\x60\"']*$"
+            },
+            "scope": {
+              "description": "List of OpenID Connect scopes, space-separated. The scope openid is always required. Example: \"openid profile email\". Default is \"openid\".",
+              "type": "string",
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self == '' || self.matches('(^|[ +])openid([ +]|$)')",
+                  "message": "scope must contain 'openid' as a token"
+                }
+              ]
+            },
+            "sessionTimeout": {
+              "description": "Sets a timeout after which the session is deleted, unless it was refreshed. Default is 8h.",
+              "type": "string",
+              "pattern": "^[0-9]{1,8}(s|m|h|d)?$"
+            },
+            "sslName": {
+              "description": "Overrides the TLS SNI name and Host header used when connecting to the OpenID Provider. If omitted, NGINX dynamically resolves SNI and Host header from the endpoint URLs.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+            },
+            "sslVerify": {
+              "description": "Enables verification of the OpenID Provider's TLS certificate. Default is true. Set to false to skip verification (dev/test only, insecure).",
+              "type": "boolean",
+              "default": true
+            },
+            "sslVerifyDepth": {
+              "description": "Sets the verification depth in the OpenID Provider TLS certificate chain. Default is 1.",
+              "type": "integer",
+              "default": 1,
+              "minimum": 0
+            },
+            "trustedCertSecret": {
+              "description": "The name of the Kubernetes secret that stores the trusted CA certificate for verifying the OpenID Provider's TLS certificate. A secret of the type Opaque is recommended. The secret is resolved with the CA role and must store the certificate under the ca.crt key.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+            },
+            "userInfoEnable": {
+              "description": "Enables downloading of the UserInfo data and makes UserInfo claims available via the $oidc_claim_name variables.",
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(self.sslVerify == true) || (self.sslVerify == false \u0026\u0026 !has(self.trustedCertSecret))",
+              "message": "trustedCertSecret can be set only if sslVerify is true"
+            }
+          ]
         },
         "rateLimit": {
-          "description": "RateLimit defines a rate limit policy.",
+          "description": "The rate limit policy controls the rate of processing requests per a defined key.",
           "type": "object",
           "properties": {
             "burst": {
+              "description": "Excessive requests are delayed until their number exceeds the burst size, in which case the request is terminated with an error.",
               "type": "integer"
             },
+            "condition": {
+              "description": "Add a condition to a rate-limit policy.",
+              "type": "object",
+              "properties": {
+                "default": {
+                  "description": "sets the rate limit in this policy to be the default if no conditions are met. In a group of policies with the same condition, only one policy can be the default.",
+                  "type": "boolean"
+                },
+                "jwt": {
+                  "description": "defines a JWT condition to rate limit against.",
+                  "type": "object",
+                  "required": [
+                    "claim",
+                    "match"
+                  ],
+                  "properties": {
+                    "claim": {
+                      "description": "the JWT claim to be rate limit by. Nested claims should be separated by \".\"",
+                      "type": "string",
+                      "pattern": "^([^$\\s\"'])*$"
+                    },
+                    "match": {
+                      "description": "the value of the claim to match against.",
+                      "type": "string",
+                      "pattern": "^([^$\\s.\"'])*$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "variables": {
+                  "description": "defines a Variables condition to rate limit against.",
+                  "type": "array",
+                  "maxItems": 1,
+                  "items": {
+                    "description": "VariableCondition defines a condition to rate limit by a variable.",
+                    "type": "object",
+                    "required": [
+                      "match",
+                      "name"
+                    ],
+                    "properties": {
+                      "match": {
+                        "description": "the value of the variable to match against.",
+                        "type": "string",
+                        "pattern": "^([^\\s\"'])*$"
+                      },
+                      "name": {
+                        "description": "the name of the variable to match against.",
+                        "type": "string",
+                        "pattern": "^([^\\s\"'])*$"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
             "delay": {
+              "description": "The delay parameter specifies a limit at which excessive requests become delayed. If not set all excessive requests are delayed.",
               "type": "integer"
             },
             "dryRun": {
+              "description": "Enables the dry run mode. In this mode, the rate limit is not actually applied, but the number of excessive requests is accounted as usual in the shared memory zone.",
               "type": "boolean"
             },
             "key": {
+              "description": "The key to which the rate limit is applied. Can contain text, variables, or a combination of them.\nVariables must be surrounded by ${}. For example: ${binary_remote_addr}. Accepted variables are\n$binary_remote_addr, $request_uri, $request_method, $url, $http_, $args, $arg_, $cookie_,$jwt_claim_ .",
               "type": "string"
             },
             "logLevel": {
+              "description": "Sets the desired logging level for cases when the server refuses to process requests due to rate exceeding, or delays request processing. Allowed values are info, notice, warn or error. Default is error.",
               "type": "string"
             },
             "noDelay": {
+              "description": "Disables the delaying of excessive requests while requests are being limited. Overrides delay if both are set.",
               "type": "boolean"
             },
             "rate": {
+              "description": "The rate of requests permitted. The rate is specified in requests per second (r/s) or requests per minute (r/m).",
               "type": "string"
             },
             "rejectCode": {
+              "description": "Sets the status code to return in response to rejected requests. Must fall into the range 400..599. Default is 503.",
               "type": "integer"
             },
             "scale": {
+              "description": "Enables a constant rate-limit by dividing the configured rate by the number of nginx-ingress pods currently serving traffic. This adjustment ensures that the rate-limit remains consistent, even as the number of nginx-pods fluctuates due to autoscaling. This will not work properly if requests from a client are not evenly distributed across all ingress pods (Such as with sticky sessions, long lived TCP Connections with many requests, and so forth). In such cases using zone-sync instead would give better results. Enabling zone-sync will suppress this setting.",
               "type": "boolean"
             },
             "zoneSize": {
+              "description": "Size of the shared memory zone. Only positive values are allowed. Allowed suffixes are k or m, if none are present k is assumed.",
               "type": "string"
             }
           },
           "additionalProperties": false
         },
         "waf": {
-          "description": "WAF defines an WAF policy.",
+          "description": "The WAF policy configures WAF and log configuration policies for NGINX AppProtect",
           "type": "object",
           "properties": {
             "apBundle": {
+              "description": "The App Protect WAF policy bundle. Mutually exclusive with apPolicy and apBundleSource.",
               "type": "string"
             },
+            "apBundleSource": {
+              "description": "ApBundleSource fetches the WAF policy bundle from N1C, NIM, or an HTTPS endpoint.\nMutually exclusive with ApPolicy and ApBundle.",
+              "type": "object",
+              "required": [
+                "url"
+              ],
+              "properties": {
+                "enablePolling": {
+                  "description": "EnablePolling enables background polling to automatically detect and fetch\nupdated bundles at the configured PollInterval. Defaults to false. When\nfalse, the bundle is fetched once on policy creation or update; subsequent\nupdates require modifying the Policy resource to trigger a new fetch.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "insecureSkipVerify": {
+                  "description": "InsecureSkipVerify disables TLS certificate verification when fetching bundles.\nNot recommended for production use.",
+                  "type": "boolean"
+                },
+                "name": {
+                  "description": "Name is the policy name on the management plane. Required for NIM and N1C; forbidden for HTTPS.",
+                  "type": "string",
+                  "maxLength": 63
+                },
+                "namespace": {
+                  "description": "Namespace is the namespace/tenant on the management plane. Required for N1C; forbidden otherwise.",
+                  "type": "string",
+                  "maxLength": 63
+                },
+                "pollInterval": {
+                  "description": "PollInterval is how often to re-fetch the bundle when enablePolling is true.\nMinimum 1m. Default 5m. Ignored when enablePolling is false.",
+                  "type": "string"
+                },
+                "retryAttempts": {
+                  "description": "RetryAttempts is the number of retry attempts on transient failure. Range 1–10.",
+                  "type": "integer",
+                  "maximum": 10,
+                  "minimum": 1
+                },
+                "secret": {
+                  "description": "Secret is the name of a Kubernetes Secret in the same namespace as the Policy.\nA secret of the type Opaque is recommended.\nFor HTTPS: TLS role (tls.crt + tls.key keys for client mTLS; optional ca.crt for server CA).\nFor N1C: WAF Bundle role; secret with a 'token' field containing the API token.\nFor NIM: WAF Bundle role; secret with a 'token' field (bearer auth) or 'username'+'password' fields (basic auth).",
+                  "type": "string",
+                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                },
+                "timeout": {
+                  "description": "Timeout is the per-request HTTP timeout. Default 60s.",
+                  "type": "string"
+                },
+                "trustedCertSecret": {
+                  "description": "TrustedCertSecret is the name of a Kubernetes Secret with a custom CA certificate\nfor verifying the remote endpoint TLS certificate. The secret must be in the same\nnamespace as the Policy. A secret of the type Opaque is recommended. The secret is\nresolved with the CA role and must store the certificate under the ca.crt key.",
+                  "type": "string",
+                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                },
+                "type": {
+                  "description": "Type is the bundle source backend. Defaults to HTTPS.",
+                  "type": "string",
+                  "default": "HTTPS",
+                  "enum": [
+                    "HTTPS",
+                    "NIM",
+                    "N1C"
+                  ]
+                },
+                "url": {
+                  "description": "URL is the full bundle URL for HTTPS type, or the API base URL for NIM/N1C. Must use https://.",
+                  "type": "string",
+                  "maxLength": 2083,
+                  "minLength": 1,
+                  "pattern": "^https://"
+                },
+                "verifyChecksum": {
+                  "description": "VerifyChecksum enables SHA-256 verification of the downloaded bundle. HTTPS type only.",
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
             "apPolicy": {
+              "description": "The App Protect WAF policy of the WAF. Accepts an optional namespace. Mutually exclusive with apBundle and apBundleSource.",
               "type": "string"
             },
             "enable": {
+              "description": "Enables NGINX App Protect WAF.",
               "type": "boolean"
             },
             "securityLog": {
-              "description": "SecurityLog defines the security log of a WAF policy.",
+              "description": "SecurityLog defines the security log of a WAF policy.\nMutual exclusivity of apLogConf, apLogBundle, and apLogBundleSource is enforced by the Go validation layer.",
               "type": "object",
               "properties": {
                 "apLogBundle": {
+                  "description": "The App Protect WAF log bundle resource. Only works with apBundle.",
                   "type": "string"
                 },
+                "apLogBundleSource": {
+                  "description": "ApLogBundleSource fetches the log profile bundle from N1C, NIM, or an HTTPS endpoint.\nMutually exclusive with ApLogConf and ApLogBundle. Requires apBundleSource on the parent WAF.",
+                  "type": "object",
+                  "required": [
+                    "url"
+                  ],
+                  "properties": {
+                    "enablePolling": {
+                      "description": "EnablePolling enables background polling to automatically detect and fetch\nupdated bundles at the configured PollInterval. Defaults to false. When\nfalse, the bundle is fetched once on policy creation or update; subsequent\nupdates require modifying the Policy resource to trigger a new fetch.",
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "insecureSkipVerify": {
+                      "description": "InsecureSkipVerify disables TLS certificate verification when fetching bundles.\nNot recommended for production use.",
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "description": "Name is the policy name on the management plane. Required for NIM and N1C; forbidden for HTTPS.",
+                      "type": "string",
+                      "maxLength": 63
+                    },
+                    "namespace": {
+                      "description": "Namespace is the namespace/tenant on the management plane. Required for N1C; forbidden otherwise.",
+                      "type": "string",
+                      "maxLength": 63
+                    },
+                    "pollInterval": {
+                      "description": "PollInterval is how often to re-fetch the bundle when enablePolling is true.\nMinimum 1m. Default 5m. Ignored when enablePolling is false.",
+                      "type": "string"
+                    },
+                    "retryAttempts": {
+                      "description": "RetryAttempts is the number of retry attempts on transient failure. Range 1–10.",
+                      "type": "integer",
+                      "maximum": 10,
+                      "minimum": 1
+                    },
+                    "secret": {
+                      "description": "Secret is the name of a Kubernetes Secret in the same namespace as the Policy.\nA secret of the type Opaque is recommended.\nFor HTTPS: TLS role (tls.crt + tls.key keys for client mTLS; optional ca.crt for server CA).\nFor N1C: WAF Bundle role; secret with a 'token' field containing the API token.\nFor NIM: WAF Bundle role; secret with a 'token' field (bearer auth) or 'username'+'password' fields (basic auth).",
+                      "type": "string",
+                      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                    },
+                    "timeout": {
+                      "description": "Timeout is the per-request HTTP timeout. Default 60s.",
+                      "type": "string"
+                    },
+                    "trustedCertSecret": {
+                      "description": "TrustedCertSecret is the name of a Kubernetes Secret with a custom CA certificate\nfor verifying the remote endpoint TLS certificate. The secret must be in the same\nnamespace as the Policy. A secret of the type Opaque is recommended. The secret is\nresolved with the CA role and must store the certificate under the ca.crt key.",
+                      "type": "string",
+                      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                    },
+                    "type": {
+                      "description": "Type is the bundle source backend. Defaults to HTTPS.",
+                      "type": "string",
+                      "default": "HTTPS",
+                      "enum": [
+                        "HTTPS",
+                        "NIM",
+                        "N1C"
+                      ]
+                    },
+                    "url": {
+                      "description": "URL is the full bundle URL for HTTPS type, or the API base URL for NIM/N1C. Must use https://.",
+                      "type": "string",
+                      "maxLength": 2083,
+                      "minLength": 1,
+                      "pattern": "^https://"
+                    },
+                    "verifyChecksum": {
+                      "description": "VerifyChecksum enables SHA-256 verification of the downloaded bundle. HTTPS type only.",
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
                 "apLogConf": {
+                  "description": "The App Protect WAF log conf resource. Accepts an optional namespace. Only works with apPolicy.",
                   "type": "string"
                 },
                 "enable": {
+                  "description": "Enables security log.",
                   "type": "boolean"
                 },
                 "logDest": {
+                  "description": "The log destination for the security log. Only accepted variables are syslog:server=\u003cip-address\u003e; localhost; fqdn\u003e:\u003cport\u003e, stderr, \u003cabsolute path to file\u003e.",
                   "type": "string"
                 }
               },
@@ -274,19 +1100,97 @@
             "securityLogs": {
               "type": "array",
               "items": {
-                "description": "SecurityLog defines the security log of a WAF policy.",
+                "description": "SecurityLog defines the security log of a WAF policy.\nMutual exclusivity of apLogConf, apLogBundle, and apLogBundleSource is enforced by the Go validation layer.",
                 "type": "object",
                 "properties": {
                   "apLogBundle": {
+                    "description": "The App Protect WAF log bundle resource. Only works with apBundle.",
                     "type": "string"
                   },
+                  "apLogBundleSource": {
+                    "description": "ApLogBundleSource fetches the log profile bundle from N1C, NIM, or an HTTPS endpoint.\nMutually exclusive with ApLogConf and ApLogBundle. Requires apBundleSource on the parent WAF.",
+                    "type": "object",
+                    "required": [
+                      "url"
+                    ],
+                    "properties": {
+                      "enablePolling": {
+                        "description": "EnablePolling enables background polling to automatically detect and fetch\nupdated bundles at the configured PollInterval. Defaults to false. When\nfalse, the bundle is fetched once on policy creation or update; subsequent\nupdates require modifying the Policy resource to trigger a new fetch.",
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "insecureSkipVerify": {
+                        "description": "InsecureSkipVerify disables TLS certificate verification when fetching bundles.\nNot recommended for production use.",
+                        "type": "boolean"
+                      },
+                      "name": {
+                        "description": "Name is the policy name on the management plane. Required for NIM and N1C; forbidden for HTTPS.",
+                        "type": "string",
+                        "maxLength": 63
+                      },
+                      "namespace": {
+                        "description": "Namespace is the namespace/tenant on the management plane. Required for N1C; forbidden otherwise.",
+                        "type": "string",
+                        "maxLength": 63
+                      },
+                      "pollInterval": {
+                        "description": "PollInterval is how often to re-fetch the bundle when enablePolling is true.\nMinimum 1m. Default 5m. Ignored when enablePolling is false.",
+                        "type": "string"
+                      },
+                      "retryAttempts": {
+                        "description": "RetryAttempts is the number of retry attempts on transient failure. Range 1–10.",
+                        "type": "integer",
+                        "maximum": 10,
+                        "minimum": 1
+                      },
+                      "secret": {
+                        "description": "Secret is the name of a Kubernetes Secret in the same namespace as the Policy.\nA secret of the type Opaque is recommended.\nFor HTTPS: TLS role (tls.crt + tls.key keys for client mTLS; optional ca.crt for server CA).\nFor N1C: WAF Bundle role; secret with a 'token' field containing the API token.\nFor NIM: WAF Bundle role; secret with a 'token' field (bearer auth) or 'username'+'password' fields (basic auth).",
+                        "type": "string",
+                        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                      },
+                      "timeout": {
+                        "description": "Timeout is the per-request HTTP timeout. Default 60s.",
+                        "type": "string"
+                      },
+                      "trustedCertSecret": {
+                        "description": "TrustedCertSecret is the name of a Kubernetes Secret with a custom CA certificate\nfor verifying the remote endpoint TLS certificate. The secret must be in the same\nnamespace as the Policy. A secret of the type Opaque is recommended. The secret is\nresolved with the CA role and must store the certificate under the ca.crt key.",
+                        "type": "string",
+                        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                      },
+                      "type": {
+                        "description": "Type is the bundle source backend. Defaults to HTTPS.",
+                        "type": "string",
+                        "default": "HTTPS",
+                        "enum": [
+                          "HTTPS",
+                          "NIM",
+                          "N1C"
+                        ]
+                      },
+                      "url": {
+                        "description": "URL is the full bundle URL for HTTPS type, or the API base URL for NIM/N1C. Must use https://.",
+                        "type": "string",
+                        "maxLength": 2083,
+                        "minLength": 1,
+                        "pattern": "^https://"
+                      },
+                      "verifyChecksum": {
+                        "description": "VerifyChecksum enables SHA-256 verification of the downloaded bundle. HTTPS type only.",
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "apLogConf": {
+                    "description": "The App Protect WAF log conf resource. Accepts an optional namespace. Only works with apPolicy.",
                     "type": "string"
                   },
                   "enable": {
+                    "description": "Enables security log.",
                     "type": "boolean"
                   },
                   "logDest": {
+                    "description": "The log destination for the security log. Only accepted variables are syslog:server=\u003cip-address\u003e; localhost; fqdn\u003e:\u003cport\u003e, stderr, \u003cabsolute path to file\u003e.",
                     "type": "string"
                   }
                 },
@@ -300,16 +1204,19 @@
       "additionalProperties": false
     },
     "status": {
-      "description": "PolicyStatus is the status of the policy resource",
+      "description": "the status of the Policy resource",
       "type": "object",
       "properties": {
         "message": {
+          "description": "The message of the current state of the resource. It can contain more detailed information about the reason.",
           "type": "string"
         },
         "reason": {
+          "description": "The reason of the current state of the resource.",
           "type": "string"
         },
         "state": {
+          "description": "Represents the current state of the resource. There are three possible values: Valid, Invalid and Warning. Valid indicates that the resource has been validated and accepted by the Ingress Controller. Invalid means the resource failed validation or",
           "type": "string"
         }
       },

@@ -1,0 +1,216 @@
+{
+  "description": "EtcdSnapshot is the Schema for the etcdsnapshots API. It captures a one-shot\nsnapshot of an EtcdCluster to a destination (S3 or PVC).",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "EtcdSnapshotSpec defines a one-shot etcd snapshot of a cluster to a\ndestination. Snapshots are immutable: change the destination by creating a\nnew EtcdSnapshot.",
+      "type": "object",
+      "required": [
+        "clusterRef",
+        "destination"
+      ],
+      "properties": {
+        "clusterRef": {
+          "description": "ClusterRef names the EtcdCluster (same namespace) to snapshot.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+              "type": "string",
+              "default": ""
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-map-type": "atomic"
+        },
+        "destination": {
+          "description": "Destination selects where the snapshot is stored (S3 or PVC).",
+          "type": "object",
+          "properties": {
+            "pvc": {
+              "description": "PVC stores the snapshot on a PersistentVolumeClaim.",
+              "type": "object",
+              "required": [
+                "claimName"
+              ],
+              "properties": {
+                "claimName": {
+                  "description": "ClaimName is the name of a PVC in the cluster's namespace.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "subPath": {
+                  "description": "SubPath is an optional subdirectory within the volume.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "s3": {
+              "description": "S3 stores the snapshot in an S3-compatible object store.",
+              "type": "object",
+              "required": [
+                "bucket",
+                "credentialsSecretRef",
+                "endpoint"
+              ],
+              "properties": {
+                "bucket": {
+                  "description": "Bucket is the destination bucket.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "credentialsSecretRef": {
+                  "description": "CredentialsSecretRef references a Secret in the cluster's namespace\nholding AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.",
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                      "type": "string",
+                      "default": ""
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-map-type": "atomic"
+                },
+                "endpoint": {
+                  "description": "Endpoint is the S3 endpoint URL (e.g. \"https://s3.amazonaws.com\" or a\nMinIO/Ceph endpoint).",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "forcePathStyle": {
+                  "description": "ForcePathStyle selects path-style addressing (bucket in the path\nrather than the host). MinIO/Ceph typically require true.",
+                  "type": "boolean"
+                },
+                "key": {
+                  "description": "Key is an optional object-key prefix within the bucket. The operator\nappends \"\u003csnapshot-name\u003e.db\".",
+                  "type": "string"
+                },
+                "region": {
+                  "description": "Region is the S3 region. Optional for endpoints that ignore it.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "has(self.s3) != has(self.pvc)",
+              "message": "exactly one of destination.s3 or destination.pvc must be set"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "self == oldSelf",
+          "message": "spec is immutable; create a new EtcdSnapshot instead"
+        }
+      ]
+    },
+    "status": {
+      "description": "EtcdSnapshotStatus is the observed state of an EtcdSnapshot.",
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "description": "Artifact is populated once the snapshot completes.",
+          "type": "object",
+          "required": [
+            "uri"
+          ],
+          "properties": {
+            "checksum": {
+              "description": "Checksum is \"\u003calgo\u003e:\u003chex\u003e\", e.g. \"sha256:abc123...\".",
+              "type": "string"
+            },
+            "sizeBytes": {
+              "description": "SizeBytes is the snapshot size in bytes.",
+              "type": "integer",
+              "format": "int64"
+            },
+            "uri": {
+              "description": "URI is the full snapshot location, e.g. \"s3://bucket/key.db\" or\n\"file:///snapshot/data/name.db\".",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "conditions": {
+          "description": "Conditions represent the latest available observations.",
+          "type": "array",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "phase": {
+          "description": "Phase is the high-level lifecycle phase.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

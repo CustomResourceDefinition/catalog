@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: resourcegraphdefinitions.kro.run
 spec:
   group: kro.run
@@ -26,6 +26,9 @@ spec:
     - jsonPath: .status.state
       name: STATE
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: READY
+      type: string
     - jsonPath: .status.topologicalOrder
       name: TOPOLOGICALORDER
       priority: 1
@@ -36,8 +39,12 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ResourceGraphDefinition is the Schema for the resourcegraphdefinitions
-          API
+        description: |-
+          ResourceGraphDefinition is the core API for defining reusable groups of Kubernetes resources.
+          It allows you to create custom resources that manage multiple underlying resources as a cohesive unit.
+          When you create a ResourceGraphDefinition, kro automatically generates a CRD and deploys a controller
+          to manage instances of your custom resource. Resources can reference each other using CEL expressions,
+          and kro ensures they are created in the correct dependency order.
         properties:
           apiVersion:
             description: |-
@@ -57,58 +64,125 @@ spec:
           metadata:
             type: object
           spec:
-            description: ResourceGraphDefinitionSpec defines the desired state of
-              ResourceGraphDefinition
+            description: |-
+              ResourceGraphDefinitionSpec defines the desired state of ResourceGraphDefinition.
+              It contains the schema for instances (defining the CRD structure) and the list of
+              Kubernetes resources that make up the graph.
             properties:
-              defaultServiceAccounts:
-                additionalProperties:
-                  type: string
-                description: |-
-                  ServiceAccount configuration for controller impersonation.
-                  Key is the namespace, value is the service account name to use.
-                  Special key "*" defines the default service account for any
-                  namespace not explicitly mapped.
-                type: object
               resources:
-                description: The resources that are part of the resourcegraphdefinition.
+                description: |-
+                  Resources is the list of Kubernetes resources that will be created and managed
+                  for each instance. Resources can reference each other using CEL expressions,
+                  creating a dependency graph that determines creation order.
                 items:
+                  description: |-
+                    Resource represents a Kubernetes resource that is part of the ResourceGraphDefinition.
+                    Each resource can either be created using a template or reference an existing resource.
+                    Resources can depend on each other through CEL expressions, creating a dependency graph.
                   properties:
                     externalRef:
                       description: |-
-                        ExternalRef is a reference to an external resource.
-                        It allows the user to specify the Kind, Version, Name and Namespace of the resource
-                        to be read and used in the Graph.
+                        ExternalRef references an existing resource in the cluster instead of creating one.
+                        This is useful for reading existing resources and using their values in other resources.
+                        Exactly one of template or externalRef must be provided.
                       properties:
                         apiVersion:
+                          description: |-
+                            APIVersion is the API version of the external resource.
+                            Example: "v1" for core resources, "apps/v1" for Deployments.
                           type: string
                         kind:
+                          description: |-
+                            Kind is the kind of the external resource.
+                            Example: "Service", "ConfigMap", "Deployment".
                           type: string
                         metadata:
+                          description: Metadata contains the name and optional namespace
+                            of the external resource.
                           properties:
                             name:
+                              description: |-
+                                Name is the name of the external resource to reference.
+                                Mutually exclusive with Selector.
+                              minLength: 1
                               type: string
                             namespace:
+                              description: |-
+                                Namespace is the namespace of the external resource.
+                                For single external refs (Name), defaults to the instance's namespace.
+                                For external collections (Selector), empty means list across all namespaces.
                               type: string
-                          required:
-                          - name
-                          - namespace
+                            selector:
+                              description: |-
+                                Selector is a label selector for collection external references.
+                                When set, all resources matching the selector are included.
+                                The selector may be a literal Kubernetes [metav1.LabelSelector] object or a full CEL
+                                expression that resolves to one at reconcile time.
+
+                                Mutually exclusive with Name.
+                              x-kubernetes-preserve-unknown-fields: true
                           type: object
                       required:
                       - apiVersion
                       - kind
                       - metadata
                       type: object
+                    forEach:
+                      description: |-
+                        ForEach expands this resource into a collection of resources.
+                        Each entry binds a variable name to a CEL expression that evaluates to an array.
+                        kro creates one resource instance for each element in the array.
+                        With multiple entries, kro creates the cartesian product of all combinations.
+                        Use the variable directly in template expressions (e.g., ${region}).
+                        Example: [{"region": "${schema.spec.regions}"}, {"tier": "${schema.spec.tiers}"}]
+                      items:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          ForEachDimension defines a single expansion axis in a forEach block.
+                          Each dimension is a map with exactly one entry where the key is the variable name
+                          and the value is the CEL expression. Example: {"region": "${schema.spec.regions}"}
+                          Multiple dimensions create a cartesian product of expansions.
+                        maxProperties: 1
+                        minProperties: 1
+                        type: object
+                      type: array
                     id:
+                      description: |-
+                        ID is a unique identifier for this resource within the ResourceGraphDefinition.
+                        It is used to reference this resource in CEL expressions from other resources.
+                        Example: "deployment", "service", "configmap".
                       type: string
                     includeWhen:
+                      description: |-
+                        IncludeWhen is a list of CEL expressions that determine whether this resource should be created.
+                        All expressions must evaluate to true for the resource to be included.
+                        If not specified, the resource is always included.
+                        Expressions may reference schema fields and/or fields in other resources in the RGD. They are
+                        re-evaluated during reconciliation, so resources may be created later or
+                        pruned later as conditions change.
+                        Each entry must be a single standalone CEL expression wrapped in ${...}.
+                        Example: ["${schema.spec.enableMonitoring == true}", "${network.status.ready == true}"]
                       items:
                         type: string
                       type: array
                     readyWhen:
+                      description: |-
+                        ReadyWhen is a list of CEL expressions that determine when this resource is considered ready.
+                        All expressions must evaluate to true for the resource to be ready.
+                        If not specified, the resource is considered ready when it exists.
+                        Each entry must be a single standalone CEL expression wrapped in ${...}.
+                        Examples:
+                        - Single resource: ["${database.status.phase == 'Running'}", "${database.status.readyReplicas > 0}"]
+                        - Collection: ["${each.status.phase == 'Running'}"]
                       items:
                         type: string
                       type: array
                     template:
+                      description: |-
+                        Template is the Kubernetes resource manifest to create.
+                        It can contain CEL expressions (using ${...} syntax) that reference other resources.
+                        Exactly one of template or externalRef must be provided.
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                   required:
@@ -121,9 +195,9 @@ spec:
                 type: array
               schema:
                 description: |-
-                  The schema of the resourcegraphdefinition, which includes the
-                  apiVersion, kind, spec, status, types, and some validation
-                  rules.
+                  Schema defines the structure of instances created from this ResourceGraphDefinition.
+                  It specifies the API version, kind, and fields (spec/status) for the generated CRD.
+                  Use SimpleSchema syntax to define the instance schema concisely.
                 properties:
                   additionalPrinterColumns:
                     description: |-
@@ -174,75 +248,129 @@ spec:
                     type: array
                   apiVersion:
                     description: |-
-                      The APIVersion of the resourcegraphdefinition. This is used to generate
-                      and create the CRD for the resourcegraphdefinition.
+                      APIVersion is the version identifier for the generated CRD.
+                      Must follow Kubernetes versioning conventions (v1, v1alpha1, v1beta1, etc.).
+                      This field is immutable after creation.
+                      Example: "v1alpha1", "v1", "v2beta1"
                     pattern: ^v[0-9]+(alpha[0-9]+|beta[0-9]+)?$
                     type: string
                     x-kubernetes-validations:
                     - message: apiVersion is immutable
                       rule: self == oldSelf
+                  categories:
+                    description: |-
+                      Categories is a list of grouped resources this custom resource belongs to.
+                      Resources in a category can be retrieved together with `kubectl get <category>`.
+                      Example: ["kro"] makes instances appear in `kubectl get kro`.
+                    items:
+                      maxLength: 63
+                      pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    maxItems: 32
+                    type: array
+                    x-kubernetes-list-type: set
                   group:
                     default: kro.run
                     description: |-
-                      The group of the resourcegraphdefinition. This is used to set the API group
-                      of the generated CRD. If omitted, it defaults to "kro.run".
+                      Group is the API group for the generated CRD. Together with APIVersion and Kind,
+                      it forms the complete GVK (Group-Version-Kind) identifier.
+                      If omitted, defaults to "kro.run". This field is immutable after creation.
+                      Example: "mycompany.io", "databases.example.com"
                     type: string
+                    x-kubernetes-validations:
+                    - message: group is immutable
+                      rule: self == oldSelf
                   kind:
                     description: |-
-                      The kind of the resourcegraphdefinition. This is used to generate
-                      and create the CRD for the resourcegraphdefinition.
+                      Kind is the name of the custom resource type that will be created.
+                      This becomes the kind field of the generated CRD and must be a valid Kubernetes kind name
+                      (PascalCase, starting with a capital letter). This field is immutable after creation.
+                      Example: "WebApplication", "Database", "MicroService"
                     pattern: ^[A-Z][a-zA-Z0-9]{0,62}$
                     type: string
                     x-kubernetes-validations:
                     - message: kind is immutable
                       rule: self == oldSelf
+                  metadata:
+                    description: Metadata to apply to the generated CRD
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to apply to the generated CRD
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to apply to the generated CRD
+                        type: object
+                    type: object
+                  scope:
+                    default: Namespaced
+                    description: |-
+                      Scope determines whether the generated instance CRD is Namespaced or Cluster scoped.
+                      Defaults to Namespaced to preserve existing behaviour. This field is immutable after creation.
+                    enum:
+                    - Namespaced
+                    - Cluster
+                    type: string
+                    x-kubernetes-validations:
+                    - message: scope is immutable
+                      rule: self == oldSelf
+                  shortNames:
+                    description: |-
+                      ShortNames are aliases for the generated CRD that can be used with kubectl.
+                      Example: ["wa", "webapp"] allows `kubectl get wa` or `kubectl get webapp` instead of `kubectl get webapplications`.
+                    items:
+                      maxLength: 63
+                      pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    maxItems: 32
+                    type: array
+                    x-kubernetes-list-type: set
                   spec:
                     description: |-
-                      The spec of the resourcegraphdefinition. Typically, this is the spec of
-                      the CRD that the resourcegraphdefinition is managing. This is adhering
-                      to the SimpleSchema spec
+                      Spec defines the schema for the instance's spec section using SimpleSchema syntax.
+                      This becomes the OpenAPI schema for instances of the generated CRD.
+                      Use SimpleSchema's concise syntax to define fields, types, defaults, and validations.
+                      Markers are space-separated after a single "|" separator.
+                      Example: {"replicas": "integer | default=1 minimum=1 maximum=10"}
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   status:
                     description: |-
-                      The status of the resourcegraphdefinition. This is the status of the CRD
-                      that the resourcegraphdefinition is managing. This is adhering to the
-                      SimpleSchema spec.
+                      Status defines the schema for the instance's status section using SimpleSchema syntax.
+                      Unlike spec, status fields use CEL expressions to project values from underlying resources.
+                      This allows you to surface important information from managed resources at the instance level.
+                      Example: {"connectionName": "${database.status.connectionName}", "endpoint": "${service.status.loadBalancer.ingress[0].hostname}"}
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   types:
                     description: |-
-                      Types is a map of custom type definitions. These can be used in the spec
-                      of the resourcegraphdefinition. Each type definition is also adhering to
-                      the SimpleSchema spec.
+                      Types is a map of custom type definitions that can be referenced in the Spec.
+                      This allows you to define reusable complex types using SimpleSchema syntax.
+                      Reference custom types in Spec using the type name.
+                      Example: {"Server": {"host": "string", "port": "integer"}}
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
-                  validation:
-                    description: |-
-                      Validation is a list of validation rules that are applied to the
-                      resourcegraphdefinition.
-                    items:
-                      properties:
-                        expression:
-                          type: string
-                        message:
-                          type: string
-                      type: object
-                    type: array
                 required:
                 - apiVersion
                 - kind
+                - scope
                 type: object
             required:
             - schema
             type: object
           status:
-            description: ResourceGraphDefinitionStatus defines the observed state
-              of ResourceGraphDefinition
+            description: |-
+              ResourceGraphDefinitionStatus defines the observed state of ResourceGraphDefinition.
+              It provides information about the deployment state, resource ordering, and conditions.
             properties:
               conditions:
-                description: Conditions represent the latest available observations
-                  of an object's state
+                description: |-
+                  Conditions represent the latest available observations of the ResourceGraphDefinition's state.
+                  Common condition types include "Ready", "GraphRevisionsResolved", "GraphAccepted",
+                  "KindReady", and "ControllerReady".
                 items:
                   description: |-
                     Condition is the common struct used by all CRDs managed by ACK service
@@ -280,39 +408,56 @@ spec:
                   - type
                   type: object
                 type: array
+              lastIssuedRevision:
+                description: |-
+                  LastIssuedRevision is the highest GraphRevision revision number ever issued for this RGD.
+                  It is a persisted high-water mark used to keep revision allocation monotonic across GC.
+                format: int64
+                type: integer
               resources:
-                description: Resources represents the resources, and their information
-                  (dependencies for now)
+                description: |-
+                  Resources provides detailed information about each resource in the graph,
+                  including their dependencies.
                 items:
                   description: |-
-                    ResourceInformation defines the information about a resource
-                    in the resourcegraphdefinition
+                    ResourceInformation provides detailed information about a specific resource
+                    in the ResourceGraphDefinition, particularly its dependencies on other resources.
                   properties:
                     dependencies:
-                      description: Dependencies represents the resource dependencies
-                        of a resource graph definition
+                      description: |-
+                        Dependencies lists all resources that this resource depends on.
+                        A resource depends on another if it references it in a CEL expression.
+                        These dependencies determine the order of resource creation.
                       items:
                         description: |-
-                          Dependency defines the dependency a resource has observed
-                          from the resources it points to based on expressions
+                          Dependency represents a dependency relationship between resources.
+                          When a resource uses CEL expressions to reference another resource,
+                          a dependency is created to ensure proper ordering.
                         properties:
                           id:
-                            description: ID represents the id of the dependency resource
+                            description: ID is the unique identifier of the resource
+                              that this resource depends on.
                             type: string
                         type: object
                       type: array
                     id:
-                      description: ID represents the id of the resources we're providing
-                        information for
+                      description: ID is the unique identifier of the resource as
+                        defined in the resources list.
                       type: string
                   type: object
                 type: array
               state:
-                description: State is the state of the resourcegraphdefinition
+                description: |-
+                  State indicates whether the ResourceGraphDefinition is Active or Inactive.
+                  Active means the graph is accepted and the generated CRD and dynamic controller
+                  are currently serving.
+                  Inactive means the current graph is not accepted or the RGD is not currently serving.
                 type: string
               topologicalOrder:
-                description: TopologicalOrder is the topological order of the resourcegraphdefinition
-                  graph
+                description: |-
+                  TopologicalOrder is the ordered list of resource IDs based on their dependencies.
+                  Resources are created in this order to ensure dependencies are satisfied.
+                  Example: ["configmap", "deployment", "service"]
                 items:
                   type: string
                 type: array
