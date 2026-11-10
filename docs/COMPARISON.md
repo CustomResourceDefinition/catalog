@@ -9,7 +9,7 @@ This page lists missing CRD validation schemas that are present in alternative c
 
 | Coverage | Schemas in theirs | Schemas in /schema | Ignored Missing Schemas |
 | --- | --- | --- | --- |
-| 99.61% | 4138 | 13135 | 92 |
+| 99.61% | 4138 | 13137 | 91 |
 
 ### Missing Schemas
 
@@ -105,7 +105,6 @@ This page lists missing CRD validation schemas that are present in alternative c
 | infrastructure.cluster.x-k8s.io | gcpcluster | v1alpha2 |
 | infrastructure.cluster.x-k8s.io | gcpmachine | v1alpha2 |
 | infrastructure.cluster.x-k8s.io | gcpmachinetemplate | v1alpha2 |
-| internal.kro.run | graphrevision | v1alpha1 |
 | kafka.strimzi.io | kafkatopiccontrolacls | v1alpha1 |
 | kafka.strimzi.io | kafkatopiccontrolacls | v1beta1 |
 | kafka.strimzi.io | strimzipodset | v1beta2 |
