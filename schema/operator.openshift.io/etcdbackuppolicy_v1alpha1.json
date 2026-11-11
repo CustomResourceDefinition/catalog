@@ -1,0 +1,318 @@
+{
+  "description": "# EtcdBackupPolicy sets an automated schedule for taking backups of the etcd cluster\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
+  "type": "object",
+  "required": [
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "spec holds user settable values for configuration",
+      "type": "object",
+      "required": [
+        "schedule",
+        "storage"
+      ],
+      "properties": {
+        "assets": {
+          "description": "assets specifies the type of files to be backed up.\nIf Snapshot is present, the etcd database will be snapshotted and saved to the storage backend.\nIf StaticKubeResources is present, static pod manifests for the control plane will be bundled and saved to the storage backend. If etcd is encrypted, this will include the encryption keys.\nThis field is copied to EtcdBackups created by this policy.\nWhen specified, must contain between 1 and 2 entries, with at most 1 of each type.\nWhen omitted, all assets types will be backed up.\nThis field is optional.",
+          "type": "array",
+          "maxItems": 2,
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "Snapshot",
+              "StaticKubeResources"
+            ]
+          },
+          "x-kubernetes-list-type": "set"
+        },
+        "failedBackupsHistoryLimit": {
+          "description": "failedBackupsHistoryLimit defined the number of failed etcdbackups to retain. Failed backups are deleted from the oldest first.\nMust be non-negative integer.\nIf set to to 0, then failed backups will be deleted immediately.\nIf unset, defaults to 1.\nMust be a positive integer no greater than 100.\nThis field is optional.",
+          "type": "integer",
+          "format": "int32",
+          "maximum": 100,
+          "minimum": 0
+        },
+        "nodeSelector": {
+          "description": "nodeSelector specifies which control plane nodes to select from for running backup jobs.\nThe default node-role.kubernetes.io/control-plane label will always be added on top of any labels set on nodeSelector.\nIf no nodes are matched, then no EtcdBackups will be created.\nFor Local storage type, this may be used to target a specific node to take and store the backup. If distribution is AllNodes, then backups are taken on all selected nodes. If distribution is SingleNode, then backups will round robin selected nodes in lexicographical order starting from the last created backup for the policy.\nFor PVC storage type, this may be used to control where the backup is taken from. If multiple nodes are selected, the scheduler is responsible for placing the backup job based on volume topology and any other scheduling constraints.\nEtcdBackup nodeSelector is derived from this field.\nWhen specified, must contain between 1 and 10 entries.\nThis field is optional.",
+          "type": "object",
+          "maxProperties": 10,
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "retentionRules": {
+          "description": "retentionRules defines the policy for retaining and deleting completed backups.\nCompleted backups are deleted from the oldest first until all rules are satisfied.\nIf no rules are specified then backups created by this policy will not be automatically deleted.\nWhen an EtcdBackup is deleted the files created by it will be deleted as well, as long as the storage backend is still accessible.\nFor Local storage with distribution AllNodes, retention is calculated for EtcdBackups grouped by Node (e.g. MaxQuantity 2 results in 2 backups per node, MaxTotalSizeGiB 5 results in 5GiB of backups per node). In all other cases retention is calculated across all EtcdBackups belonging to the policy.\nWhen specified, must contain between 1 and 2 entries.\nMust not have more than 1 entry of each rule type.\nThis field is optional.",
+          "type": "array",
+          "maxItems": 2,
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "quantity": {
+                "description": "quantity enforces the deletion of EtcdBackups belonging to the EtcdBackupPolicy based on total count.\nThis field is required when the rule type is \"Quantity\", and forbidden otherwise.",
+                "type": "object",
+                "required": [
+                  "maxQuantity"
+                ],
+                "properties": {
+                  "maxQuantity": {
+                    "description": "maxQuantity enforces the deletion of completed backups that exceed the total count.\nThe total count of completed backups may temporarily exceed the limit when new backups are completed. Older backups are not deleted until a new one has succeeded.\nMust be between 1 and 1000.\nThis field is required.",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 1000,
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              },
+              "size": {
+                "description": "size enforces the deletion of EtcdBackups belonging to the EtcdBackupPolicy based on total backup file size.\nAt least one backup will always be retained, even if it exceeds the size limit.\nThis field is required when the rule type is \"Size\", and forbidden otherwise.",
+                "type": "object",
+                "required": [
+                  "maxTotalSizeGiB"
+                ],
+                "properties": {
+                  "maxTotalSizeGiB": {
+                    "description": "maxTotalSizeGiB enforces the deletion of completed backups by the total size of backups on the storage backend (in GiB).\nThis is a soft threshold. The total size of backups may temporarily exceed the limit when new backups are completed. Older backups are not deleted until a new one has succeeded.\nIf the newest backup exceeds the limit on its own, it will be retained with all older backups being pruned to ensure at least one valid backup exists.\nMust be between 1 and 10240 (10 TiB).\nThis field is required.",
+                    "type": "integer",
+                    "format": "int32",
+                    "maximum": 10240,
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              },
+              "type": {
+                "description": "type defined which rule field is set\nAllowed values are Quantity and Size.\nWhen set to Quantity, this rule deletes completed EtcdBackups based on the total count.\nWhen set to Size, this rule deletes completed EtcdBackups based on the total aggregate size of backup files.\nThis field is required.",
+                "type": "string",
+                "enum": [
+                  "Quantity",
+                  "Size"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "(self.type == 'Quantity') ? has(self.quantity) : !has(self.quantity)",
+                "message": "quantity is required when type is Quantity, and forbidden otherwise"
+              },
+              {
+                "rule": "(self.type == 'Size') ? has(self.size) : !has(self.size)",
+                "message": "size is required when type is Size, and forbidden otherwise"
+              }
+            ]
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "schedule": {
+          "description": "schedule sets the backup schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.\nThe value must be one of the following forms:\na predefined macro \"@yearly\", \"@annually\", \"@monthly\", \"@weekly\", \"@daily\" or \"@hourly\";\nan \"@every \u003cduration\u003e\" expression where duration is a sequence of decimal numbers each with\na unit of \"s\", \"m\" or \"h\" (for example \"@every 2h\" or \"@every 1h30m\");\nor a standard cron expression of five space separated fields (minute, hour, day-of-month,\nmonth and day-of-week), where each field may only contain digits, the names used for months\nand days of the week, and the cron special characters \"*\", \"/\", \"-\" and \",\".\nThis validation only checks the overall shape of the value; the individual field values are\nvalidated when the schedule is parsed by the controller, which reports parsing failures via\nthe schedule's status condition.\nMust be between 1 and 1024 characters long.\nThis field is required.",
+          "type": "string",
+          "maxLength": 1024,
+          "minLength": 1,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.matches(\"^(@(annually|yearly|monthly|weekly|daily|hourly)|@every ([0-9]+([.][0-9]+)?(s|m|h))+|(([-0-9*/,A-Za-z]+ ){4}[-0-9*/,A-Za-z]+))$\")",
+              "message": "must be a valid cron expression, or macro"
+            }
+          ]
+        },
+        "storage": {
+          "description": "storage specifies the location where etcd backup files will be saved.\nEtcdBackup storage is derived from this field.\nIn rare cases, where storage type is changed from PVC to Local with AllNodes distribution on an existing policy, old backups on the PVC may need to be manually pruned. Make sure to check that new valid backups exist before deleting old ones.\nThis field is required.",
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "local": {
+              "description": "local specifies a host path directory on the control plane node where the etcd backup file will be saved.\nThis field is optional when storage type is \"Local\", and forbidden otherwise.",
+              "type": "object",
+              "minProperties": 1,
+              "properties": {
+                "distribution": {
+                  "description": "distribution controls whether or not scheduled local backups are only taken on a single node or fan out to all control plane nodes.\nAllowed values are SingleNode and AllNodes\nWhen set to SingleNode, a single EtcdBackup will be created at each schedule execution on one of the selected control plane nodes. If multiple nodes are matched by nodeSelector, then backups round robin the nodes in lexicographical order.\nWhen set to AllNodes, EtcdBackups will be created for all selected control plane nodes at each schedule execution. Retention rules will be applied to EtcdBackups grouped by Node (e.g. MaxQuantity 2 results in 2 backups per node, MaxTotalSizeGiB 5 results in 5GiB of backups per node).\nIf omitted, defaults to SingleNode.\nThis field is optional.",
+                  "type": "string",
+                  "enum": [
+                    "SingleNode",
+                    "AllNodes"
+                  ]
+                },
+                "hostPath": {
+                  "description": "hostPath is a local directory on the control plane node where the etcd backup file will be saved.\nhostPath must be an absolute filepath between 1 and 2048 characters containing only alphanumeric characters, '/', '.', '_', or '-', starting with a '/'.\nWhen omitted, hostPath defaults to \"/etc/kubernetes/cluster-backup\".\nThis field is optional.",
+                  "type": "string",
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.matches('^/[a-zA-Z0-9/._-]+$')",
+                      "message": "hostPath must be a valid absolute filepath containing only alphanumeric characters, '/', '.', '_', or '-', starting with a '/'"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "pvc": {
+              "description": "pvc specifies the PersistentVolumeClaim (PVC) which binds a PersistentVolume where the etcd backup file will be saved.\nThe PVC must always be created in the \"openshift-etcd\" namespace.\nThis field is required when the storage type is \"PVC\", and forbidden otherwise.",
+              "type": "object",
+              "minProperties": 1,
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "description": "name is a reference to a PVC in the \"openshift-etcd\" namespace where the etcd backup file will be saved.\nname must be between 1 and 253 characters and conform to RFC 1123 subdomain format:\nlowercase alphanumeric characters, '-' or '.', starting and ending with alphanumeric characters.\nThis field is required.",
+                  "type": "string",
+                  "maxLength": 253,
+                  "minLength": 1,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "!format.dns1123Subdomain().validate(self).hasValue()",
+                      "message": "name must be a lowercase RFC 1123 subdomain consisting of lowercase alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character"
+                    }
+                  ]
+                },
+                "path": {
+                  "description": "path is a directory on the volume where the etcd backup file will be saved.\nWhen present, path must be an absolute filepath between 1 and 2048 characters containing only alphanumeric characters, '/', '.', '_', or '-', starting with a '/'.\nThis field is optional.",
+                  "type": "string",
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.matches('^/[a-zA-Z0-9/._-]+$')",
+                      "message": "path must be a valid absolute filepath containing only alphanumeric characters, '/', '.', '_', or '-', starting with a '/'"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "type": {
+              "description": "type of storage backend to use for storing the etcd backup.\nAllowed values are Local and PVC.\nWhen set to Local, the backup will be saved to a host path directory on the control plane node it was taken on.\nWhen set to PVC, the backup will be saved to a volume bound by a PersistentVolumeClaim.\nThis field is required.",
+              "type": "string",
+              "enum": [
+                "PVC",
+                "Local"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.type == 'PVC' ? has(self.pvc) : !has(self.pvc)",
+              "message": "pvc is required when type is PVC, and forbidden otherwise"
+            },
+            {
+              "rule": "self.type == 'Local' ? true : !has(self.local)",
+              "message": "local is optional when type is Local, and forbidden otherwise"
+            }
+          ]
+        },
+        "timeZone": {
+          "description": "timeZone is an IANA time zone database name used to interpret the schedule, see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.\nThe accepted values are the same as the timeZone field of a CronJob.\nIf not specified, this will default to the time zone of the cluster.\nMust be between 1 and 64 characters long.\nThis field is optional.",
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "status holds observed values from the cluster. They may not be overridden.",
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "conditions": {
+          "description": "conditions provide details on the status of the etcd backup policy.\nSupported conditions include Scheduled.\nIf Scheduled is true, scheduling the policy succeeded.\nIf Scheduled is false, an error occurred while attempting to schedule the policy. The condition reason and message will provide addition details.\n\nWhen specified, must contain between 1 and 10 entries, with no more than 1 of each type.\nThis field is optional.",
+          "type": "array",
+          "maxItems": 10,
+          "minItems": 1,
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "self.metadata.name.size() \u003c= 52",
+      "message": "name cannot exceed 52 characters"
+    }
+  ]
+}
