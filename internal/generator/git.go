@@ -96,6 +96,16 @@ func (generator *GitGenerator) Crds(version string) ([]crd.Crd, error) {
 					return err
 				}
 
+				for _, ep := range generator.config.ExcludePaths {
+					excluded := filepath.Join(generator.tmpDir, ep)
+					if p == excluded || strings.HasPrefix(p, excluded+string(os.PathSeparator)) {
+						if info.IsDir() {
+							return fs.SkipDir
+						}
+						return nil
+					}
+				}
+
 				name := strings.ToLower(info.Name())
 				if info.IsDir() || !(strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
 					return nil

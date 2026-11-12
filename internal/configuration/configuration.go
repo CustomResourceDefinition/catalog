@@ -25,9 +25,10 @@ type Configuration struct {
 	ApiGroups       []string                `yaml:"apiGroups"`
 	Downloads       []ConfigurationDownload `yaml:"crds"`
 	Entries         []string                `yaml:"entries"`
+	ExcludePaths    []string                `yaml:"excludePaths"`
 	ExcludePatterns []ConfigurationFilter   `yaml:"excludePattern"`
-	IncludePatterns []ConfigurationFilter   `yaml:"includePattern"`
 	GenPaths        []string                `yaml:"genPaths"`
+	IncludePatterns []ConfigurationFilter   `yaml:"includePattern"`
 	Kind            Kind                    `yaml:"kind"`
 	KustomizePaths  []string                `yaml:"kustomizationPaths"`
 	Name            string                  `yaml:"name"`
