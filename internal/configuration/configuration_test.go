@@ -62,6 +62,40 @@ func TestUnmarshalCorrectConfigurations(t *testing.T) {
 	assert.Equal(t, 6, len(conf))
 }
 
+func TestUnmarshalExcludePaths(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		want    []string
+		wantErr bool
+	}{
+		{name: "omitted"},
+		{name: "empty", value: "  excludePaths: []\n", want: []string{}},
+		{name: "paths", value: "  excludePaths: [crds/deprecated, crds/legacy.yaml]\n", want: []string{"crds/deprecated", "crds/legacy.yaml"}},
+		{name: "scalar", value: "  excludePaths: crds/deprecated\n", wantErr: true},
+		{name: "null", value: "  excludePaths: null\n", wantErr: true},
+		{name: "non-string item", value: "  excludePaths: [crds, 1]\n", wantErr: true},
+		{name: "empty path", value: "  excludePaths: [\"\"]\n", wantErr: true},
+		{name: "duplicate paths", value: "  excludePaths: [crds/deprecated, crds/deprecated]\n", wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := fmt.Sprintf("- kind: git\n  name: test\n  repository: https://example.com/repo\n  searchPaths: [crds]\n%s", test.value)
+			configs, err := UnmarshalConfigurations(strings.NewReader(input))
+			if test.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, configs)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Len(t, configs, 1)
+			assert.Equal(t, test.want, configs[0].ExcludePaths)
+		})
+	}
+}
+
 func TestUnmarshalSkippedConfigurations(t *testing.T) {
 	tests := []struct {
 		name    string

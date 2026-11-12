@@ -58,6 +58,8 @@ To add CRDs for [eks-anywhere](https://github.com/aws/eks-anywhere) you should a
   # versionPattern: # regex pattern with capture group for semver major.minor.patch - default: `^([0-9]+\.[0-9]+\.[0-9]+)$`
   # searchPaths: # paths to recursively find yaml files in (non-CRDs are discarded)
   #   - crds
+  # excludePaths: # paths to exclude finding yaml files in
+  #   - crds/deprecated
   # genPaths: # paths to recursively find go files to generate CRDs from
   #   - api
   # includePattern: # list of group/kind pairs of CRDs to include from this source

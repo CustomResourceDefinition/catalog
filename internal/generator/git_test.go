@@ -3,7 +3,10 @@ package generator
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/CustomResourceDefinition/catalog/internal/configuration"
@@ -112,6 +115,137 @@ func TestGitGeneratorMetadataForRegularFile(t *testing.T) {
 	assert.Equal(t, "crd.example.com", metadata[0].Group)
 	assert.Equal(t, "test", metadata[0].Kind)
 	assert.Equal(t, "v1", metadata[0].Version)
+}
+
+func TestGitGeneratorExcludePaths(t *testing.T) {
+	tests := []struct {
+		name         string
+		searchPaths  []string
+		excludePaths []string
+		want         []string
+	}{
+		{
+			name:        "no exclusions",
+			searchPaths: []string{"deploy/crds"},
+			want:        []string{"current", "deprecated", "nested", "sibling", "keep"},
+		},
+		{
+			name:         "excludes directory and descendants",
+			searchPaths:  []string{"deploy/crds"},
+			excludePaths: []string{"deploy/crds/deprecated"},
+			want:         []string{"current", "sibling", "keep"},
+		},
+		{
+			name:         "excludes individual file and retains later sibling",
+			searchPaths:  []string{"deploy/crds"},
+			excludePaths: []string{"deploy/crds/current.yaml"},
+			want:         []string{"deprecated", "nested", "sibling", "keep"},
+		},
+		{
+			name:         "does not exclude similarly named directory",
+			searchPaths:  []string{"deploy/crds"},
+			excludePaths: []string{"deploy/crds/deprecated"},
+			want:         []string{"current", "sibling", "keep"},
+		},
+		{
+			name:         "search path nested in exclusion",
+			searchPaths:  []string{"deploy/crds/deprecated"},
+			excludePaths: []string{"deploy/crds/deprecated"},
+			want:         []string{},
+		},
+		{
+			name:         "exclusions apply to multiple search paths",
+			searchPaths:  []string{"deploy/crds", "other"},
+			excludePaths: []string{"deploy/crds/deprecated"},
+			want:         []string{"current", "sibling", "keep", "other"},
+		},
+		{
+			name:         "missing exclusion",
+			searchPaths:  []string{"deploy/crds"},
+			excludePaths: []string{"deploy/crds/missing"},
+			want:         []string{"current", "deprecated", "nested", "sibling", "keep"},
+		},
+		{
+			name:         "path matching is case sensitive",
+			searchPaths:  []string{"deploy/crds"},
+			excludePaths: []string{"Deploy/crds/deprecated"},
+			want:         []string{"current", "deprecated", "nested", "sibling", "keep"},
+		},
+		{
+			name:         "trailing slash",
+			searchPaths:  []string{"deploy/crds"},
+			excludePaths: []string{"deploy/crds/deprecated/"},
+			want:         []string{"current", "sibling", "keep"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture, err := os.ReadFile("testdata/test-crd.yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			files := []struct {
+				path   string
+				marker string
+			}{
+				{path: "deploy/crds/current.yaml", marker: "current"},
+				{path: "deploy/crds/deprecated/old.yaml", marker: "deprecated"},
+				{path: "deploy/crds/deprecated/nested/older.yaml", marker: "nested"},
+				{path: "deploy/crds/deprecated-other/other.yaml", marker: "sibling"},
+				{path: "deploy/crds/keep.yaml", marker: "keep"},
+				{path: "other/crd.yaml", marker: "other"},
+			}
+			bundlePaths := make([]gitPath, 0, len(files))
+			for _, file := range files {
+				content := strings.Replace(string(fixture), "This is a description", file.marker, 1)
+				fixturePath := filepath.Join(t.TempDir(), file.marker+".yaml")
+				if err := os.WriteFile(fixturePath, []byte(content), 0644); err != nil {
+					t.Fatal(err)
+				}
+				bundlePaths = append(bundlePaths, gitPath{path: file.path, file: fixturePath})
+			}
+
+			repository, err := setupGit(t, []gitBundle{{tag: "1.0.0", paths: bundlePaths}})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			config := configuration.Configuration{
+				Kind:         configuration.Git,
+				Repository:   fmt.Sprintf("file://%s", *repository),
+				SearchPaths:  test.searchPaths,
+				ExcludePaths: test.excludePaths,
+			}
+			reader, err := crd.NewCrdReader(setupLogger())
+			if err != nil {
+				t.Fatal(err)
+			}
+			generator := NewGitGenerator(config, reader, regexp.MustCompile(".*"))
+			defer generator.Close()
+
+			crds, err := generator.Crds("1.0.0")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := make([]string, 0, len(crds))
+			for _, item := range crds {
+				for _, file := range files {
+					if strings.Contains(string(item.Bytes), file.marker) {
+						got = append(got, file.marker)
+						break
+					}
+				}
+			}
+			sort.Strings(got)
+			want := append([]string{}, test.want...)
+			sort.Strings(want)
+			assert.Len(t, crds, len(want))
+			assert.Equal(t, want, got)
+		})
+	}
 }
 
 func TestGitGeneratorMetadataForKustomizeFile(t *testing.T) {
