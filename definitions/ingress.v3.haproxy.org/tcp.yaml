@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    haproxy.org/client-native: v6.2.19
+    haproxy.org/client-native: v6.4.4
   name: tcps.ingress.v3.haproxy.org
 spec:
   group: ingress.v3.haproxy.org
@@ -46,6 +46,14 @@ spec:
 
                     swagger:model Frontend
                   properties:
+                    abortonclose:
+                      description: |-
+                        abortonclose
+                        Enum: ["enabled","disabled"]
+                      enum:
+                      - enabled
+                      - disabled
+                      type: string
                     accept_invalid_http_request:
                       description: |-
                         accept invalid http request
@@ -184,6 +192,9 @@ spec:
                           ca_verify_file:
                             description: ca verify file
                             type: string
+                          cc:
+                            description: cc
+                            type: string
                           ciphers:
                             description: ciphers
                             type: string
@@ -200,7 +211,8 @@ spec:
                             description: crt ignore err
                             type: string
                           crt_list:
-                            description: crt list
+                            description: All of the certificate list files delimited
+                              by ':' as mentioned as a crt-list on the bind line.
                             type: string
                           curves:
                             description: curves
@@ -276,6 +288,17 @@ spec:
                           interface:
                             description: interface
                             type: string
+                          ktls:
+                            description: |-
+                              ktls
+                              Enum: ["on","off"]
+                            enum:
+                            - "on"
+                            - "off"
+                            type: string
+                          label:
+                            description: label
+                            type: string
                           level:
                             description: |-
                               level
@@ -303,6 +326,7 @@ spec:
                           name:
                             description: |-
                               name
+                              Required: true
                               Pattern: ^[^\s]+$
                             pattern: ^[^\s]+$
                             type: string
@@ -452,7 +476,7 @@ spec:
                             type: string
                           ssl_certificate:
                             description: |-
-                              ssl certificate
+                              All of the certificates delimited by ':' as mentioned as a crt on the bind line.
                               Pattern: ^[^\s]+$
                             pattern: ^[^\s]+$
                             type: string
@@ -489,6 +513,22 @@ spec:
                           strict_sni:
                             description: strict sni
                             type: boolean
+                          tcp_md5sig:
+                            description: |-
+                              tcp md5sig
+                              Pattern: ^[^\s]+$
+                            pattern: ^[^\s]+$
+                            type: string
+                          tcp_ss:
+                            description: |-
+                              Sets the TCP Save SYN option for all incoming connections instantiated from this listening socket
+                              Enum: [1,2,3]
+                            enum:
+                            - 1
+                            - 2
+                            - 3
+                            format: int64
+                            type: integer
                           tcp_user_timeout:
                             description: tcp user timeout
                             format: int64
@@ -567,6 +607,8 @@ spec:
                             - optional
                             - required
                             type: string
+                        required:
+                        - name
                         type: object
                       description: binds
                       type: object
@@ -1024,6 +1066,10 @@ spec:
                           trace_hexdump:
                             description: trace hexdump
                             type: boolean
+                          trace_max_fwd:
+                            description: trace max fwd
+                            format: int64
+                            type: integer
                           trace_name:
                             description: |-
                               trace name
@@ -1040,12 +1086,14 @@ spec:
                             description: |-
                               type
                               Required: true
-                              Enum: ["bwlim-in","bwlim-out","cache","compression","fcgi-app","spoe","trace","lua"]
+                              Enum: ["bwlim-in","bwlim-out","cache","compression","comp-req","comp-res","fcgi-app","spoe","trace","lua"]
                             enum:
                             - bwlim-in
                             - bwlim-out
                             - cache
                             - compression
+                            - comp-req
+                            - comp-res
                             - fcgi-app
                             - spoe
                             - trace
@@ -1053,6 +1101,38 @@ spec:
                             type: string
                         required:
                         - type
+                        type: object
+                      type: array
+                    force_be_switch_list:
+                      description: force be switch list
+                      items:
+                        description: |-
+                          ForceBeSwitch Force Backend Switch Rule
+
+                          Allow content switching to select a backend instance even if it is
+                          disabled or unpublished. May appear multiple times on a frontend.
+
+                          swagger:model ForceBeSwitch
+                        properties:
+                          cond:
+                            description: |-
+                              cond
+                              Required: true
+                              Enum: ["if","unless"]
+                            enum:
+                            - if
+                            - unless
+                            type: string
+                          cond_test:
+                            description: |-
+                              cond test
+                              Required: true
+                            type: string
+                          metadata:
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - cond
+                        - cond_test
                         type: object
                       type: array
                     forwarded:
@@ -1176,14 +1256,6 @@ spec:
                       - enabled
                       - disabled
                       type: string
-                    http-use-htx:
-                      description: |-
-                        http use htx
-                        Enum: ["enabled","disabled"]
-                      enum:
-                      - enabled
-                      - disabled
-                      type: string
                     http_after_response_rule_list:
                       description: HTTP after response rule list
                       items:
@@ -1232,6 +1304,9 @@ spec:
                           cond_test:
                             description: cond test
                             type: string
+                          hdr_expr:
+                            description: hdr expr
+                            type: string
                           hdr_format:
                             description: hdr format
                             type: string
@@ -1243,6 +1318,9 @@ spec:
                             type: string
                           hdr_name:
                             description: hdr name
+                            type: string
+                          hdr_prefix:
+                            description: hdr prefix
                             type: string
                           log_level:
                             description: |-
@@ -1258,6 +1336,9 @@ spec:
                             - info
                             - debug
                             - silent
+                            type: string
+                          log_profile:
+                            description: log profile
                             type: string
                           map_file:
                             description: |-
@@ -1318,13 +1399,15 @@ spec:
                             description: |-
                               type
                               Required: true
-                              Enum: ["add-header","allow","capture","del-acl","del-header","del-map","replace-header","replace-value","sc-add-gpc","sc-inc-gpc","sc-inc-gpc0","sc-inc-gpc1","sc-set-gpt","sc-set-gpt0","set-header","set-log-level","set-map","set-status","set-var","set-var-fmt","strict-mode","unset-var","do-log"]
+                              Enum: ["add-header","add-headers-bin","allow","capture","del-acl","del-header","del-headers-bin","del-map","replace-header","replace-value","sc-add-gpc","sc-inc-gpc","sc-inc-gpc0","sc-inc-gpc1","sc-set-gpt","sc-set-gpt0","set-header","set-headers-bin","set-log-level","set-map","set-status","set-var","set-var-fmt","strict-mode","unset-var","do-log"]
                             enum:
                             - add-header
+                            - add-headers-bin
                             - allow
                             - capture
                             - del-acl
                             - del-header
+                            - del-headers-bin
                             - del-map
                             - replace-header
                             - replace-value
@@ -1335,6 +1418,7 @@ spec:
                             - sc-set-gpt
                             - sc-set-gpt0
                             - set-header
+                            - set-headers-bin
                             - set-log-level
                             - set-map
                             - set-status
@@ -1572,6 +1656,9 @@ spec:
                           expr:
                             description: expr
                             type: string
+                          hdr_expr:
+                            description: hdr expr
+                            type: string
                           hdr_format:
                             description: hdr format
                             type: string
@@ -1583,6 +1670,9 @@ spec:
                             type: string
                           hdr_name:
                             description: hdr name
+                            type: string
+                          hdr_prefix:
+                            description: hdr prefix
                             type: string
                           hint_format:
                             description: |-
@@ -1610,6 +1700,9 @@ spec:
                             - info
                             - debug
                             - silent
+                            type: string
+                          log_profile:
+                            description: log profile
                             type: string
                           lua_action:
                             description: |-
@@ -1836,11 +1929,14 @@ spec:
                           timeout_type:
                             description: |-
                               timeout type
-                              Enum: ["server","tunnel","client"]
+                              Enum: ["client","connect","queue","server","tarpit","tunnel"]
                             enum:
-                            - server
-                            - tunnel
                             - client
+                            - connect
+                            - queue
+                            - server
+                            - tarpit
+                            - tunnel
                             type: string
                           tos_value:
                             description: |-
@@ -1868,16 +1964,18 @@ spec:
                             description: |-
                               type
                               Required: true
-                              Enum: ["add-acl","add-header","allow","auth","cache-use","capture","del-acl","del-header","del-map","deny","disable-l7-retry","do-resolve","early-hint","lua","normalize-uri","pause","redirect","reject","replace-header","replace-path","replace-pathq","replace-uri","replace-value","return","sc-add-gpc","sc-inc-gpc","sc-inc-gpc0","sc-inc-gpc1","sc-set-gpt","sc-set-gpt0","send-spoe-group","set-bc-mark","set-bc-tos","set-dst","set-dst-port","set-fc-mark","set-fc-tos","set-header","set-log-level","set-map","set-mark","set-method","set-nice","set-path","set-pathq","set-priority-class","set-priority-offset","set-query","set-src","set-src-port","set-timeout","set-tos","set-uri","set-var","set-var-fmt","silent-drop","strict-mode","tarpit","track-sc","unset-var","use-service","wait-for-body","wait-for-handshake","set-bandwidth-limit","set-retries","do-log"]
+                              Enum: ["add-acl","add-header","add-headers-bin","allow","auth","cache-use","capture","del-acl","del-header","del-headers-bin","del-map","deny","disable-l7-retry","do-resolve","early-hint","lua","normalize-uri","pause","redirect","reject","replace-header","replace-path","replace-pathq","replace-uri","replace-value","return","sc-add-gpc","sc-inc-gpc","sc-inc-gpc0","sc-inc-gpc1","sc-set-gpt","sc-set-gpt0","send-spoe-group","set-bc-mark","set-bc-tos","set-dst","set-dst-port","set-fc-mark","set-fc-tos","set-header","set-headers-bin","set-log-level","set-map","set-mark","set-method","set-nice","set-path","set-pathq","set-priority-class","set-priority-offset","set-query","set-src","set-src-port","set-timeout","set-tos","set-uri","set-var","set-var-fmt","silent-drop","strict-mode","tarpit","track-sc","unset-var","use-service","wait-for-body","wait-for-handshake","set-bandwidth-limit","set-retries","do-log"]
                             enum:
                             - add-acl
                             - add-header
+                            - add-headers-bin
                             - allow
                             - auth
                             - cache-use
                             - capture
                             - del-acl
                             - del-header
+                            - del-headers-bin
                             - del-map
                             - deny
                             - disable-l7-retry
@@ -1908,6 +2006,7 @@ spec:
                             - set-fc-mark
                             - set-fc-tos
                             - set-header
+                            - set-headers-bin
                             - set-log-level
                             - set-map
                             - set-mark
@@ -2054,6 +2153,9 @@ spec:
                           expr:
                             description: expr
                             type: string
+                          hdr_expr:
+                            description: hdr expr
+                            type: string
                           hdr_format:
                             description: hdr format
                             type: string
@@ -2065,6 +2167,9 @@ spec:
                             type: string
                           hdr_name:
                             description: hdr name
+                            type: string
+                          hdr_prefix:
+                            description: hdr prefix
                             type: string
                           log_level:
                             description: |-
@@ -2080,6 +2185,9 @@ spec:
                             - info
                             - debug
                             - silent
+                            type: string
+                          log_profile:
+                            description: log profile
                             type: string
                           lua_action:
                             description: |-
@@ -2263,11 +2371,14 @@ spec:
                           timeout_type:
                             description: |-
                               timeout type
-                              Enum: ["server","tunnel","client"]
+                              Enum: ["client","connect","queue","server","tarpit","tunnel"]
                             enum:
-                            - server
-                            - tunnel
                             - client
+                            - connect
+                            - queue
+                            - server
+                            - tarpit
+                            - tunnel
                             type: string
                           tos_value:
                             description: |-
@@ -2295,15 +2406,17 @@ spec:
                             description: |-
                               type
                               Required: true
-                              Enum: ["add-acl","add-header","allow","cache-store","capture","del-acl","del-header","del-map","deny","lua","pause","redirect","replace-header","replace-value","return","sc-add-gpc","sc-inc-gpc","sc-inc-gpc0","sc-inc-gpc1","sc-set-gpt","sc-set-gpt0","send-spoe-group","set-fc-mark","set-fc-tos","set-header","set-log-level","set-map","set-mark","set-nice","set-status","set-timeout","set-tos","set-var","set-var-fmt","silent-drop","strict-mode","track-sc","unset-var","wait-for-body","set-bandwidth-limit","do-log"]
+                              Enum: ["add-acl","add-header","add-headers-bin","allow","cache-store","capture","del-acl","del-header","del-headers-bin","del-map","deny","lua","pause","redirect","replace-header","replace-value","return","sc-add-gpc","sc-inc-gpc","sc-inc-gpc0","sc-inc-gpc1","sc-set-gpt","sc-set-gpt0","send-spoe-group","set-fc-mark","set-fc-tos","set-header","set-headers-bin","set-log-level","set-map","set-mark","set-nice","set-status","set-timeout","set-tos","set-var","set-var-fmt","silent-drop","strict-mode","track-sc","unset-var","wait-for-body","set-bandwidth-limit","do-log"]
                             enum:
                             - add-acl
                             - add-header
+                            - add-headers-bin
                             - allow
                             - cache-store
                             - capture
                             - del-acl
                             - del-header
+                            - del-headers-bin
                             - del-map
                             - deny
                             - lua
@@ -2322,6 +2435,7 @@ spec:
                             - set-fc-mark
                             - set-fc-tos
                             - set-header
+                            - set-headers-bin
                             - set-log-level
                             - set-map
                             - set-mark
@@ -2940,6 +3054,9 @@ spec:
                             Pattern: ^[^\s]+$
                           pattern: ^[^\s]+$
                           type: string
+                        stats_show_version:
+                          description: stats show version
+                          type: boolean
                         stats_uri_prefix:
                           description: |-
                             stats uri prefix
@@ -3129,6 +3246,9 @@ spec:
                             - info
                             - debug
                             - silent
+                            type: string
+                          log_profile:
+                            description: log profile
                             type: string
                           lua_action:
                             description: |-

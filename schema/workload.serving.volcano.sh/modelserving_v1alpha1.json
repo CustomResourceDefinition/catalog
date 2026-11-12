@@ -21,7 +21,7 @@
       ],
       "properties": {
         "plugins": {
-          "description": "Plugins defines optional plugin chain to customize serving pods.",
+          "description": "Plugins defines optional plugins that customize serving pods or manage\nauxiliary resources through controller lifecycle hooks.",
           "type": "array",
           "items": {
             "description": "PluginSpec declares a plugin instance attached to a ModelServing.",
@@ -85,6 +85,13 @@
           "format": "int32",
           "default": 1
         },
+        "revisionHistoryLimit": {
+          "description": "RevisionHistoryLimit is the maximum number of non-live revisions to retain.\nRevisions still referenced by the ModelServing or its workloads do not count\ntoward this limit.",
+          "type": "integer",
+          "format": "int32",
+          "default": 10,
+          "minimum": 0
+        },
         "rolloutStrategy": {
           "description": "RolloutStrategy defines the strategy that will be applied to update replicas",
           "type": "object",
@@ -92,12 +99,163 @@
             "type"
           ],
           "properties": {
-            "rollingUpdateConfiguration": {
-              "description": "RollingUpdateConfiguration defines the parameters to be used when type is ServingGroupRollingUpdate.\noptional",
+            "evictionStrategy": {
+              "description": "EvictionStrategy defines the protection policy during node eviction.",
               "type": "object",
+              "required": [
+                "protectionLevel"
+              ],
               "properties": {
                 "maxUnavailable": {
-                  "description": "The maximum number of replicas that can be unavailable during the update.\nValue can be an absolute number (ex: 5) or a percentage of total replicas at the start of update (ex: 10%).\nAbsolute number is calculated from percentage by rounding down.\nThis can not be 0.\nBy default, a fixed value of 1 is used.",
+                  "description": "MaxUnavailable defines the maximum number of unavailable ServingGroup instances.\nIt is used only when protectionLevel is ServingGroup.\nIt is mutually exclusive with MinAvailable.\nIt can be an absolute number (ex: 1) or a percentage of total instances (ex: 20%).\nPercentages are rounded up.",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "x-kubernetes-int-or-string": true
+                },
+                "minAvailable": {
+                  "description": "MinAvailable defines the minimum number of available ServingGroup instances.\nIt is used only when protectionLevel is ServingGroup.\nIt is mutually exclusive with MaxUnavailable.\nIt can be an absolute number (ex: 3) or a percentage of total instances (ex: 80%).\nPercentages are rounded up.",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "x-kubernetes-int-or-string": true
+                },
+                "protectionLevel": {
+                  "description": "ProtectionLevel defines the protection level: ServingGroup or Role.\n- ServingGroup: guarantees that the number of ready ServingGroups is not below the threshold.\n- Role: guarantees that the number of ready instances for each role is not below the threshold.",
+                  "type": "string",
+                  "default": "ServingGroup",
+                  "enum": [
+                    "ServingGroup",
+                    "Role"
+                  ]
+                },
+                "roleMaxUnavailable": {
+                  "description": "RoleMaxUnavailable defines role-specific maximum unavailable role instances.\nIt is used only when protectionLevel is Role. Map keys must match names in spec.template.roles.\nIf a role is absent from this map, it is not protected by the eviction budget.\nIt is mutually exclusive with RoleMinAvailable.\nValues can be absolute numbers (ex: 1) or percentages of total role instances (ex: 20%).\nPercentages are rounded up.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "x-kubernetes-int-or-string": true
+                  }
+                },
+                "roleMinAvailable": {
+                  "description": "RoleMinAvailable defines role-specific minimum available role instances.\nIt is used only when protectionLevel is Role. Map keys must match names in spec.template.roles.\nIf a role is absent from this map, it is not protected by the eviction budget.\nValues can be absolute numbers (ex: 3) or percentages of total role instances (ex: 80%).\nPercentages are rounded up.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "x-kubernetes-int-or-string": true
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "progressDeadlineSeconds": {
+              "description": "ProgressDeadlineSeconds is the maximum time for a ServingGroup or Role instance updated in place to become ready on the target image.\nAfter it passes, unfinished Pods are handled according to RecoveryPolicy.\nIt only applies to in-place updates, and defaults to 1800 seconds.",
+              "type": "integer",
+              "format": "int32",
+              "minimum": 60
+            },
+            "roleCoordination": {
+              "description": "RoleCoordination defines the cross-Role coordination parameters to be used\nwhen type is RoleRollingUpdate.",
+              "type": "object",
+              "required": [
+                "maxSkew"
+              ],
+              "properties": {
+                "dependencies": {
+                  "description": "Dependencies defines rollout startup dependencies. A graph root waits for\ntarget-version Ready capacity throughout its dependency closure before its\nfirst target start. Internal Roles may start together; old dependency\ncapacity is retained while old callers remain.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "dependsOn",
+                      "role"
+                    ],
+                    "properties": {
+                      "dependsOn": {
+                        "description": "DependsOn lists the downstream Roles required by Role.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "x-kubernetes-list-type": "set"
+                      },
+                      "role": {
+                        "description": "Role is the dependent Role.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "x-kubernetes-list-map-keys": [
+                    "role"
+                  ],
+                  "x-kubernetes-list-type": "map"
+                },
+                "maxSkew": {
+                  "description": "MaxSkew is the maximum percentage-point difference allowed between the\ntarget-version Ready ratios of participating Roles, using their entire formal\nreplica count, including partition-protected capacity. Only percentage values,\nfor example \"10%\", are accepted.",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "x-kubernetes-int-or-string": true
+                },
+                "roles": {
+                  "description": "Roles selects the Roles participating in coordinated rolling update. An\nempty list selects every Role in spec.template.roles.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "x-kubernetes-list-type": "set"
+                }
+              },
+              "additionalProperties": false
+            },
+            "rollingUpdateConfiguration": {
+              "description": "RollingUpdateConfiguration configures ServingGroupRollingUpdate.\nWhen type is RoleRollingUpdate, these settings are ignored; configure\nmaxUnavailable, maxSurge, and partition on each Role instead.",
+              "type": "object",
+              "properties": {
+                "maxSurge": {
+                  "description": "MaxSurge is the maximum number of resources that may be created above\nthe desired replica count during an update. It can be an absolute number\n(for example, 1) or a percentage (for example, 25%). A percentage is\ncalculated from ModelServing replicas for ServingGroupRollingUpdate and\nfrom the corresponding Role's replicas for RoleRollingUpdate, then rounded\nup. Percentages above 100% are allowed, but replicas plus the resolved\nMaxSurge cannot exceed 2147483647. It defaults to 0.",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "x-kubernetes-int-or-string": true
+                },
+                "maxUnavailable": {
+                  "description": "MaxUnavailable is the maximum number of resources that may be\nunavailable during an update. It can be an absolute number (for example,\n5) or a percentage (for example, 10%). A percentage is calculated from\nModelServing replicas for ServingGroupRollingUpdate and from the\ncorresponding Role's replicas for RoleRollingUpdate, then rounded down.\nIt may resolve to 0 only when MaxSurge resolves above 0, including when all\nreplicas are partition-protected. It cannot exceed replicas. Limits that\ndepend on replicas are not checked when replicas is 0. Defaults to 1.",
                   "default": 1,
                   "anyOf": [
                     {
@@ -110,7 +268,7 @@
                   "x-kubernetes-int-or-string": true
                 },
                 "partition": {
-                  "description": "Partition indicates the ordinal at which the ModelServing should be partitioned\nfor updates. During a rolling update, all ServingGroups from ordinal Replicas-1 to\nPartition are updated. All ServingGroups from ordinal Partition-1 to 0 remain untouched.\nValue can be an absolute number (ex: 5) or a percentage of total replicas (ex: 10%).\nAbsolute number is calculated from percentage by rounding up.\nThe default value is 0.",
+                  "description": "Partition protects replicas whose absolute ordinal is in [0, Partition)\nfrom template updates, including when the existing ordinal set is sparse.\nIt does not change the selection priority of explicit replica-count decreases.\nValue can be an absolute number (ex: 5) or a percentage of total replicas (ex: 10%).\nAbsolute number is calculated from percentage by rounding up.\nThe default value is 0.",
                   "anyOf": [
                     {
                       "type": "integer"
@@ -125,12 +283,21 @@
               "additionalProperties": false
             },
             "type": {
-              "description": "Type defines the rollout strategy. Supported values are\n\"ServingGroupRollingUpdate\" and \"RoleRollingUpdate\". If not specified,\nit defaults to \"ServingGroupRollingUpdate\".\nFor `RoleRollingUpdate`, the `maxUnavailable` field in each Role will be used to determine the maximum number of role instances that can be unavailable during the update.",
+              "description": "Type selects the granularity of rolling updates. Supported values are\nServingGroupRollingUpdate and RoleRollingUpdate. It defaults to\nServingGroupRollingUpdate.\n\nServingGroupRollingUpdate uses rolloutStrategy.rollingUpdateConfiguration;\nrolling update settings on individual Roles do not take effect.\nRoleRollingUpdate uses the rolling update configuration on each Role;\nrolloutStrategy.rollingUpdateConfiguration is allowed but ignored.\nKthena performs RoleRollingUpdate across all ServingGroups at the same time.\nTherefore, we recommend using it only in scenarios with a single ServingGroup.",
               "type": "string",
               "default": "ServingGroupRollingUpdate",
               "enum": [
                 "ServingGroupRollingUpdate",
                 "RoleRollingUpdate"
+              ]
+            },
+            "updateMethod": {
+              "description": "UpdateMethod selects how outdated ServingGroups or Roles are moved to the desired revision.\nSupported values are Recreate (default) and InPlace.\n\nInPlace patches container images on existing Pods when only regular-container images change.\nOtherwise the ServingGroup, or the Role instance under RoleRollingUpdate, is recreated, and an InPlaceUpdateFallback event reports why.",
+              "type": "string",
+              "default": "Recreate",
+              "enum": [
+                "Recreate",
+                "InPlace"
               ]
             }
           },
@@ -229,10 +396,11 @@
               "additionalProperties": false
             },
             "restartGracePeriodSeconds": {
-              "description": "RestartGracePeriodSeconds defines the grace time for the controller to rebuild the ServingGroup when an error occurs\nDefaults to 0 (ServingGroup will be rebuilt immediately after an error)",
+              "description": "RestartGracePeriodSeconds defines the grace time for the controller to rebuild the ServingGroup when an error occurs\nDefaults to 0 (ServingGroup will be rebuilt immediately after an error)\n-1 tolerates a failed or restarted Pod indefinitely: the controller never deletes it,\nincluding one that misses an in-place update deadline. A Pod deleted by others is\nstill rebuilt according to recoveryPolicy. Values below -1 are rejected.",
               "type": "integer",
               "format": "int64",
-              "default": 0
+              "default": 0,
+              "minimum": -1
             },
             "roles": {
               "type": "array",
@@ -1935,7 +2103,7 @@
                                   "additionalProperties": false
                                 },
                                 "resizePolicy": {
-                                  "description": "Resources resize policy for the container.",
+                                  "description": "Resources resize policy for the container.\nThis field cannot be set on ephemeral containers.",
                                   "type": "array",
                                   "items": {
                                     "description": "ContainerResizePolicy represents resource resize policy for the container.",
@@ -4857,7 +5025,7 @@
                                   "additionalProperties": false
                                 },
                                 "resizePolicy": {
-                                  "description": "Resources resize policy for the container.",
+                                  "description": "Resources resize policy for the container.\nThis field cannot be set on ephemeral containers.",
                                   "type": "array",
                                   "items": {
                                     "description": "ContainerResizePolicy represents resource resize policy for the container.",
@@ -5472,7 +5640,7 @@
                             "x-kubernetes-list-type": "atomic"
                           },
                           "resourceClaims": {
-                            "description": "ResourceClaims defines which ResourceClaims must be allocated\nand reserved before the Pod is allowed to start. The resources\nwill be made available to those containers which consume them\nby name.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable.",
+                            "description": "ResourceClaims defines which ResourceClaims must be allocated\nand reserved before the Pod is allowed to start. The resources\nwill be made available to those containers which consume them\nby name.\n\nThis is a stable field but requires that the\nDynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
                             "type": "array",
                             "items": {
                               "description": "PodResourceClaim references exactly one ResourceClaim, either directly\nor by naming a ResourceClaimTemplate which is then turned into a ResourceClaim\nfor the pod.\n\nIt adds a name to it that uniquely identifies the ResourceClaim inside the Pod.\nContainers that need access to the ResourceClaim reference it with this name.",
@@ -5794,7 +5962,7 @@
                                   "type": "string"
                                 },
                                 "operator": {
-                                  "description": "Operator represents a key's relationship to the value.\nValid operators are Exists and Equal. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.",
+                                  "description": "Operator represents a key's relationship to the value.\nValid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.\nLt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).",
                                   "type": "string"
                                 },
                                 "tolerationSeconds": {
@@ -6375,7 +6543,7 @@
                                               "additionalProperties": false
                                             },
                                             "resources": {
-                                              "description": "resources represents the minimum resources the volume should have.\nIf RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
+                                              "description": "resources represents the minimum resources the volume should have.\nUsers are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
                                               "type": "object",
                                               "properties": {
                                                 "limits": {
@@ -7088,6 +7256,13 @@
                                               "signerName": {
                                                 "description": "Kubelet's generated CSRs will be addressed to this signer.",
                                                 "type": "string"
+                                              },
+                                              "userAnnotations": {
+                                                "description": "userAnnotations allow pod authors to pass additional information to\nthe signer implementation.  Kubernetes does not restrict or validate this\nmetadata in any way.\n\nThese values are copied verbatim into the `spec.unverifiedUserAnnotations` field of\nthe PodCertificateRequest objects that Kubelet creates.\n\nEntries are subject to the same validation as object metadata annotations,\nwith the addition that all keys must be domain-prefixed. No restrictions\nare placed on values, except an overall size limitation on the entire field.\n\nSigners should document the keys and values they support. Signers should\ndeny requests that contain keys they do not recognize.",
+                                                "type": "object",
+                                                "additionalProperties": {
+                                                  "type": "string"
+                                                }
                                               }
                                             },
                                             "additionalProperties": false
@@ -7444,6 +7619,29 @@
                               "name"
                             ],
                             "x-kubernetes-list-type": "map"
+                          },
+                          "workloadRef": {
+                            "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to.\nThis field is used by the scheduler to identify the PodGroup and apply the\ncorrect group scheduling policies. The Workload object referenced\nby this field may not exist at the time the Pod is created.\nThis field is immutable, but a Workload object with the same name\nmay be recreated with different policies. Doing this during pod scheduling\nmay result in the placement not conforming to the expected policies.",
+                            "type": "object",
+                            "required": [
+                              "name",
+                              "podGroup"
+                            ],
+                            "properties": {
+                              "name": {
+                                "description": "Name defines the name of the Workload object this Pod belongs to.\nWorkload must be in the same namespace as the Pod.\nIf it doesn't match any existing Workload, the Pod will remain unschedulable\nuntil a Workload object is created and observed by the kube-scheduler.\nIt must be a DNS subdomain.",
+                                "type": "string"
+                              },
+                              "podGroup": {
+                                "description": "PodGroup is the name of the PodGroup within the Workload that this Pod\nbelongs to. If it doesn't match any existing PodGroup within the Workload,\nthe Pod will remain unschedulable until the Workload object is recreated\nand observed by the kube-scheduler. It must be a DNS label.",
+                                "type": "string"
+                              },
+                              "podGroupReplicaKey": {
+                                "description": "PodGroupReplicaKey specifies the replica key of the PodGroup to which this\nPod belongs. It is used to distinguish pods belonging to different replicas\nof the same pod group. The pod group policy is applied separately to each replica.\nWhen set, it must be a DNS label.",
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false
                           }
                         },
                         "additionalProperties": false
@@ -7451,8 +7649,21 @@
                     },
                     "additionalProperties": false
                   },
+                  "maxSurge": {
+                    "description": "MaxSurge is the maximum number of resources that may be created above\nthe desired replica count during an update. It can be an absolute number\n(for example, 1) or a percentage (for example, 25%). A percentage is\ncalculated from ModelServing replicas for ServingGroupRollingUpdate and\nfrom the corresponding Role's replicas for RoleRollingUpdate, then rounded\nup. Percentages above 100% are allowed, but replicas plus the resolved\nMaxSurge cannot exceed 2147483647. It defaults to 0.",
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "x-kubernetes-int-or-string": true
+                  },
                   "maxUnavailable": {
-                    "description": "MaxUnavailable is the maximum number of replicas of this Role that can be\nunavailable during a RoleRollingUpdate. Value can be an absolute number (ex: 2)\nor a percentage of this Role's replicas (ex: 50%). Percentages are rounded down.\nThis field is only valid when rolloutStrategy.type is RoleRollingUpdate.\nWhen unset, all outdated replicas of this Role are recreated at once.",
+                    "description": "MaxUnavailable is the maximum number of resources that may be\nunavailable during an update. It can be an absolute number (for example,\n5) or a percentage (for example, 10%). A percentage is calculated from\nModelServing replicas for ServingGroupRollingUpdate and from the\ncorresponding Role's replicas for RoleRollingUpdate, then rounded down.\nIt may resolve to 0 only when MaxSurge resolves above 0, including when all\nreplicas are partition-protected. It cannot exceed replicas. Limits that\ndepend on replicas are not checked when replicas is 0. Defaults to 1.",
+                    "default": 1,
                     "anyOf": [
                       {
                         "type": "integer"
@@ -7468,6 +7679,18 @@
                     "type": "string",
                     "maxLength": 12,
                     "pattern": "^[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?$"
+                  },
+                  "partition": {
+                    "description": "Partition protects replicas whose absolute ordinal is in [0, Partition)\nfrom template updates, including when the existing ordinal set is sparse.\nIt does not change the selection priority of explicit replica-count decreases.\nValue can be an absolute number (ex: 5) or a percentage of total replicas (ex: 10%).\nAbsolute number is calculated from percentage by rounding up.\nThe default value is 0.",
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "x-kubernetes-int-or-string": true
                   },
                   "replicas": {
                     "description": "The number of a certain role.\nFor example, in Disaggregated Prefilling, setting the replica count for both the P and D roles to 1 results in 1P1D deployment configuration.\nThis approach can similarly be applied to configure a xPyD deployment scenario.\nDefault to 1.",
@@ -9168,7 +9391,7 @@
                                   "additionalProperties": false
                                 },
                                 "resizePolicy": {
-                                  "description": "Resources resize policy for the container.",
+                                  "description": "Resources resize policy for the container.\nThis field cannot be set on ephemeral containers.",
                                   "type": "array",
                                   "items": {
                                     "description": "ContainerResizePolicy represents resource resize policy for the container.",
@@ -12090,7 +12313,7 @@
                                   "additionalProperties": false
                                 },
                                 "resizePolicy": {
-                                  "description": "Resources resize policy for the container.",
+                                  "description": "Resources resize policy for the container.\nThis field cannot be set on ephemeral containers.",
                                   "type": "array",
                                   "items": {
                                     "description": "ContainerResizePolicy represents resource resize policy for the container.",
@@ -12705,7 +12928,7 @@
                             "x-kubernetes-list-type": "atomic"
                           },
                           "resourceClaims": {
-                            "description": "ResourceClaims defines which ResourceClaims must be allocated\nand reserved before the Pod is allowed to start. The resources\nwill be made available to those containers which consume them\nby name.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable.",
+                            "description": "ResourceClaims defines which ResourceClaims must be allocated\nand reserved before the Pod is allowed to start. The resources\nwill be made available to those containers which consume them\nby name.\n\nThis is a stable field but requires that the\nDynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
                             "type": "array",
                             "items": {
                               "description": "PodResourceClaim references exactly one ResourceClaim, either directly\nor by naming a ResourceClaimTemplate which is then turned into a ResourceClaim\nfor the pod.\n\nIt adds a name to it that uniquely identifies the ResourceClaim inside the Pod.\nContainers that need access to the ResourceClaim reference it with this name.",
@@ -13027,7 +13250,7 @@
                                   "type": "string"
                                 },
                                 "operator": {
-                                  "description": "Operator represents a key's relationship to the value.\nValid operators are Exists and Equal. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.",
+                                  "description": "Operator represents a key's relationship to the value.\nValid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.\nLt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).",
                                   "type": "string"
                                 },
                                 "tolerationSeconds": {
@@ -13608,7 +13831,7 @@
                                               "additionalProperties": false
                                             },
                                             "resources": {
-                                              "description": "resources represents the minimum resources the volume should have.\nIf RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
+                                              "description": "resources represents the minimum resources the volume should have.\nUsers are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
                                               "type": "object",
                                               "properties": {
                                                 "limits": {
@@ -14321,6 +14544,13 @@
                                               "signerName": {
                                                 "description": "Kubelet's generated CSRs will be addressed to this signer.",
                                                 "type": "string"
+                                              },
+                                              "userAnnotations": {
+                                                "description": "userAnnotations allow pod authors to pass additional information to\nthe signer implementation.  Kubernetes does not restrict or validate this\nmetadata in any way.\n\nThese values are copied verbatim into the `spec.unverifiedUserAnnotations` field of\nthe PodCertificateRequest objects that Kubelet creates.\n\nEntries are subject to the same validation as object metadata annotations,\nwith the addition that all keys must be domain-prefixed. No restrictions\nare placed on values, except an overall size limitation on the entire field.\n\nSigners should document the keys and values they support. Signers should\ndeny requests that contain keys they do not recognize.",
+                                                "type": "object",
+                                                "additionalProperties": {
+                                                  "type": "string"
+                                                }
                                               }
                                             },
                                             "additionalProperties": false
@@ -14677,6 +14907,29 @@
                               "name"
                             ],
                             "x-kubernetes-list-type": "map"
+                          },
+                          "workloadRef": {
+                            "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to.\nThis field is used by the scheduler to identify the PodGroup and apply the\ncorrect group scheduling policies. The Workload object referenced\nby this field may not exist at the time the Pod is created.\nThis field is immutable, but a Workload object with the same name\nmay be recreated with different policies. Doing this during pod scheduling\nmay result in the placement not conforming to the expected policies.",
+                            "type": "object",
+                            "required": [
+                              "name",
+                              "podGroup"
+                            ],
+                            "properties": {
+                              "name": {
+                                "description": "Name defines the name of the Workload object this Pod belongs to.\nWorkload must be in the same namespace as the Pod.\nIf it doesn't match any existing Workload, the Pod will remain unschedulable\nuntil a Workload object is created and observed by the kube-scheduler.\nIt must be a DNS subdomain.",
+                                "type": "string"
+                              },
+                              "podGroup": {
+                                "description": "PodGroup is the name of the PodGroup within the Workload that this Pod\nbelongs to. If it doesn't match any existing PodGroup within the Workload,\nthe Pod will remain unschedulable until the Workload object is recreated\nand observed by the kube-scheduler. It must be a DNS label.",
+                                "type": "string"
+                              },
+                              "podGroupReplicaKey": {
+                                "description": "PodGroupReplicaKey specifies the replica key of the PodGroup to which this\nPod belongs. It is used to distinguish pods belonging to different replicas\nof the same pod group. The pod group policy is applied separately to each replica.\nWhen set, it must be a DNS label.",
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false
                           }
                         },
                         "additionalProperties": false
@@ -14712,6 +14965,11 @@
       "properties": {
         "availableReplicas": {
           "description": "AvailableReplicas track the number of ServingGroup that are in ready state (updated or not).",
+          "type": "integer",
+          "format": "int32"
+        },
+        "collisionCount": {
+          "description": "CollisionCount tracks hash collisions for ControllerRevision names.",
           "type": "integer",
           "format": "int32"
         },
@@ -14777,7 +15035,7 @@
           "format": "int32"
         },
         "currentRevision": {
-          "description": "CurrentRevision, if not empty, indicates the ControllerRevision version used to generate\nServingGroups in the sequence [0,currentReplicas).",
+          "description": "CurrentRevision, if not empty, indicates the ControllerRevision version preserved by\nServingGroups that have not been updated.",
           "type": "string"
         },
         "labelSelector": {
@@ -14795,7 +15053,7 @@
           "format": "int32"
         },
         "updateRevision": {
-          "description": "UpdateRevision, if not empty, indicates the ControllerRevision version used to generate\nServingGroups in the sequence [replicas-updatedReplicas,replicas).",
+          "description": "UpdateRevision, if not empty, indicates the ControllerRevision version targeted by\nthe current ModelServing spec.",
           "type": "string"
         },
         "updatedReplicas": {

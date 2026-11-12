@@ -17,10 +17,54 @@
       "description": "ModelServerSpec defines the desired state of ModelServer.",
       "type": "object",
       "required": [
-        "inferenceEngine",
-        "workloadSelector"
+        "inferenceEngine"
       ],
       "properties": {
+        "endpoints": {
+          "description": "Endpoints is a static list of model serving instances. It is intended for\ndeployments where the serving instances are not discoverable as pods of the\ncluster the router runs in, for example when the router reads its\nconfiguration from local files instead of the Kubernetes API server.\n`endpoints` and `workloadSelector.matchLabels` are mutually exclusive;\nexactly one of them must be specified.",
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "description": "Endpoint describes a single statically configured model serving instance.",
+            "type": "object",
+            "required": [
+              "address",
+              "name"
+            ],
+            "properties": {
+              "address": {
+                "description": "Address is the IP address or DNS name of the model serving instance.",
+                "type": "string",
+                "maxLength": 253
+              },
+              "labels": {
+                "description": "Labels are attached to the endpoint. They do not select serving instances;\nthey are only matched against `workloadSelector.pdGroup` to assign the\nendpoint a prefill or decode role, `pdGroup` being the sole\n`workloadSelector` field that may be combined with `endpoints`.",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "name": {
+                "description": "Name uniquely identifies the endpoint within the ModelServer. Together with\nthe ModelServer name it forms the instance identity in the router, for\nexample in metrics and debug output.",
+                "type": "string",
+                "maxLength": 253,
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+              },
+              "port": {
+                "description": "Port is the port the model serving instance listens on. It defaults to\n`spec.workloadPort.port` when unset.",
+                "type": "integer",
+                "format": "int32",
+                "maximum": 65535,
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
         "inferenceEngine": {
           "description": "The inference engine used to serve the model.",
           "type": "string",
@@ -56,6 +100,35 @@
           "description": "Traffic Policy for accessing the model server instance.",
           "type": "object",
           "properties": {
+            "connectionPool": {
+              "description": "ConnectionPool configures the upstream HTTP connection pool used when\nforwarding to this ModelServer's pods. When omitted, a shared default\npool is used. Each ModelServer that sets this gets its own isolated pool.",
+              "type": "object",
+              "properties": {
+                "idleTimeout": {
+                  "description": "IdleTimeout is how long an idle connection stays open before closing.\nDefaults to 90s when omitted.",
+                  "type": "string"
+                },
+                "maxConnectionsPerHost": {
+                  "description": "MaxConnectionsPerHost limits dialing, active and idle connections per host.\n0 means unlimited. Defaults to 0 when omitted.",
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 0
+                },
+                "maxIdleConnections": {
+                  "description": "MaxIdleConnections is the total idle connections across all endpoints.\nDefaults to 100 when omitted.",
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 0
+                },
+                "maxIdleConnectionsPerHost": {
+                  "description": "MaxIdleConnectionsPerHost is the idle connections per pod/endpoint.\nDefaults to 64 when omitted.",
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
             "retry": {
               "description": "The retry policy for the inference request.",
               "type": "object",
@@ -73,15 +146,65 @@
               },
               "additionalProperties": false
             },
+            "sessionSticky": {
+              "description": "SessionSticky pins requests with the same extracted session key to the same\nbackend Pod of this ModelServer for a TTL. Nil or omitted disables session\naffinity for this ModelServer. It does not override ModelRoute weighted\nselection among ModelServers.",
+              "type": "object",
+              "properties": {
+                "sessionAffinitySeconds": {
+                  "description": "SessionAffinitySeconds is binding TTL in seconds.\nOnce the session has been idle for more than the specified duration, the session becomes invalid.\nWhen unset, the default is 300 (5 minutes).",
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 1
+                },
+                "sources": {
+                  "description": "Sources are evaluated in order; the first non-empty extracted value is the session key.",
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "description": "SessionKeySource defines one session key extraction rule.",
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "type"
+                    ],
+                    "properties": {
+                      "name": {
+                        "description": "Name is the header name, query key, cookie name, or JWT claim name.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "type": {
+                        "description": "SessionKeySourceType identifies how a session key fragment is read.",
+                        "type": "string",
+                        "enum": [
+                          "Header",
+                          "Query",
+                          "Cookie",
+                          "JWTClaim"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
             "timeout": {
-              "description": "The request timeout for the inference request.\nBy default, there is no timeout.",
+              "description": "Timeout bounds how long the router waits for the backend to start responding,\ncovering connection setup, sending the request and waiting for the response\nheaders. It does not bound inference response bodies, so a streamed response\nmay run longer. Connector setup exchanges may use the timeout for their\ncomplete response. By default, there is no timeout.",
               "type": "string"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!has(self.sessionSticky) || self.sessionSticky == null || size(self.sessionSticky.sources) \u003e 0",
+              "message": "sessionSticky.sources must be non-empty when sessionSticky is set"
+            }
+          ]
         },
         "workloadPort": {
-          "description": "WorkloadPort defines the port and protocol configuration for the model server.",
+          "description": "WorkloadPort defines the port and protocol configuration for the model server.\nIt may be omitted only when every entry in `endpoints` declares its own\n`port`; endpoints without an explicit `port` fall back to `workloadPort.port`.",
           "type": "object",
           "required": [
             "port"
@@ -107,7 +230,7 @@
           "additionalProperties": false
         },
         "workloadSelector": {
-          "description": "WorkloadSelector is used to match the model serving instances.\nCurrently, they must be pods within the same namespace as modelServer object.",
+          "description": "WorkloadSelector is used to match the model serving instances.\nCurrently, they must be pods within the same namespace as modelServer object.\n`workloadSelector.matchLabels` and `endpoints` are mutually exclusive ways of\ndeclaring the serving instances, so exactly one of them must be used.\n`workloadSelector.pdGroup` does not select instances; it only assigns them\nprefill and decode roles, and therefore is the sole `workloadSelector` field\nthat may also be combined with `endpoints`.",
           "type": "object",
           "properties": {
             "matchLabels": {

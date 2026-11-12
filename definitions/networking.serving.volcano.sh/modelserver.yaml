@@ -14,7 +14,23 @@ spec:
     singular: modelserver
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: Inference engine used to serve the model
+      jsonPath: .spec.inferenceEngine
+      name: Engine
+      type: string
+    - description: Model server port
+      jsonPath: .spec.workloadPort.port
+      name: Port
+      type: integer
+    - description: Model server protocol
+      jsonPath: .spec.workloadPort.protocol
+      name: Protocol
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ModelServer is the Schema for the modelservers API.
@@ -39,6 +55,57 @@ spec:
           spec:
             description: ModelServerSpec defines the desired state of ModelServer.
             properties:
+              endpoints:
+                description: |-
+                  Endpoints is a static list of model serving instances. It is intended for
+                  deployments where the serving instances are not discoverable as pods of the
+                  cluster the router runs in, for example when the router reads its
+                  configuration from local files instead of the Kubernetes API server.
+                  `endpoints` and `workloadSelector.matchLabels` are mutually exclusive;
+                  exactly one of them must be specified.
+                items:
+                  description: Endpoint describes a single statically configured model
+                    serving instance.
+                  properties:
+                    address:
+                      description: Address is the IP address or DNS name of the model
+                        serving instance.
+                      maxLength: 253
+                      type: string
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Labels are attached to the endpoint. They do not select serving instances;
+                        they are only matched against `workloadSelector.pdGroup` to assign the
+                        endpoint a prefill or decode role, `pdGroup` being the sole
+                        `workloadSelector` field that may be combined with `endpoints`.
+                      type: object
+                    name:
+                      description: |-
+                        Name uniquely identifies the endpoint within the ModelServer. Together with
+                        the ModelServer name it forms the instance identity in the router, for
+                        example in metrics and debug output.
+                      maxLength: 253
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    port:
+                      description: |-
+                        Port is the port the model serving instance listens on. It defaults to
+                        `spec.workloadPort.port` when unset.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                  required:
+                  - address
+                  - name
+                  type: object
+                maxItems: 1024
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               inferenceEngine:
                 description: The inference engine used to serve the model.
                 enum:
@@ -71,6 +138,39 @@ spec:
               trafficPolicy:
                 description: Traffic Policy for accessing the model server instance.
                 properties:
+                  connectionPool:
+                    description: |-
+                      ConnectionPool configures the upstream HTTP connection pool used when
+                      forwarding to this ModelServer's pods. When omitted, a shared default
+                      pool is used. Each ModelServer that sets this gets its own isolated pool.
+                    properties:
+                      idleTimeout:
+                        description: |-
+                          IdleTimeout is how long an idle connection stays open before closing.
+                          Defaults to 90s when omitted.
+                        type: string
+                      maxConnectionsPerHost:
+                        description: |-
+                          MaxConnectionsPerHost limits dialing, active and idle connections per host.
+                          0 means unlimited. Defaults to 0 when omitted.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      maxIdleConnections:
+                        description: |-
+                          MaxIdleConnections is the total idle connections across all endpoints.
+                          Defaults to 100 when omitted.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      maxIdleConnectionsPerHost:
+                        description: |-
+                          MaxIdleConnectionsPerHost is the idle connections per pod/endpoint.
+                          Defaults to 64 when omitted.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                    type: object
                   retry:
                     description: The retry policy for the inference request.
                     properties:
@@ -85,15 +185,68 @@ spec:
                         description: RetryInterval is the interval between retries.
                         type: string
                     type: object
+                  sessionSticky:
+                    description: |-
+                      SessionSticky pins requests with the same extracted session key to the same
+                      backend Pod of this ModelServer for a TTL. Nil or omitted disables session
+                      affinity for this ModelServer. It does not override ModelRoute weighted
+                      selection among ModelServers.
+                    properties:
+                      sessionAffinitySeconds:
+                        description: |-
+                          SessionAffinitySeconds is binding TTL in seconds.
+                          Once the session has been idle for more than the specified duration, the session becomes invalid.
+                          When unset, the default is 300 (5 minutes).
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      sources:
+                        description: Sources are evaluated in order; the first non-empty
+                          extracted value is the session key.
+                        items:
+                          description: SessionKeySource defines one session key extraction
+                            rule.
+                          properties:
+                            name:
+                              description: Name is the header name, query key, cookie
+                                name, or JWT claim name.
+                              minLength: 1
+                              type: string
+                            type:
+                              description: SessionKeySourceType identifies how a session
+                                key fragment is read.
+                              enum:
+                              - Header
+                              - Query
+                              - Cookie
+                              - JWTClaim
+                              type: string
+                          required:
+                          - name
+                          - type
+                          type: object
+                        maxItems: 16
+                        type: array
+                    type: object
                   timeout:
                     description: |-
-                      The request timeout for the inference request.
-                      By default, there is no timeout.
+                      Timeout bounds how long the router waits for the backend to start responding,
+                      covering connection setup, sending the request and waiting for the response
+                      headers. It does not bound inference response bodies, so a streamed response
+                      may run longer. Connector setup exchanges may use the timeout for their
+                      complete response. By default, there is no timeout.
                     type: string
                 type: object
+                x-kubernetes-validations:
+                - message: sessionSticky.sources must be non-empty when sessionSticky
+                    is set
+                  rule: '!has(self.sessionSticky) || self.sessionSticky == null ||
+                    size(self.sessionSticky.sources) > 0'
               workloadPort:
-                description: WorkloadPort defines the port and protocol configuration
-                  for the model server.
+                description: |-
+                  WorkloadPort defines the port and protocol configuration for the model server.
+                  It may be omitted only when every entry in `endpoints` declares its own
+                  `port`; endpoints without an explicit `port` fall back to `workloadPort.port`.
                 properties:
                   port:
                     description: The port of the model server. The number must be
@@ -117,6 +270,11 @@ spec:
                 description: |-
                   WorkloadSelector is used to match the model serving instances.
                   Currently, they must be pods within the same namespace as modelServer object.
+                  `workloadSelector.matchLabels` and `endpoints` are mutually exclusive ways of
+                  declaring the serving instances, so exactly one of them must be used.
+                  `workloadSelector.pdGroup` does not select instances; it only assigns them
+                  prefill and decode roles, and therefore is the sole `workloadSelector` field
+                  that may also be combined with `endpoints`.
                 properties:
                   matchLabels:
                     additionalProperties:
@@ -155,7 +313,6 @@ spec:
                 type: object
             required:
             - inferenceEngine
-            - workloadSelector
             type: object
           status:
             description: ModelServerStatus defines the observed state of ModelServer.
