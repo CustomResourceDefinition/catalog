@@ -23,6 +23,172 @@
         "shards"
       ],
       "properties": {
+        "acl": {
+          "description": "ACL configures the Valkey access control the operator manages.",
+          "type": "object",
+          "properties": {
+            "users": {
+              "description": "Users managed by the operator",
+              "type": "array",
+              "items": {
+                "description": "ACLUserSpec defines a Valkey ACL user.",
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "channels": {
+                    "description": "Channel restrictions",
+                    "type": "object",
+                    "properties": {
+                      "patterns": {
+                        "description": "Pub/Sub channel patterns - maps to Valkey: \u0026pattern",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[^\\s]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "commands": {
+                    "description": "Valkey command categories, commands, and subcommands restrictions for this user",
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "description": "Allowed commands for this user",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^(@[A-Za-z]+|[A-Za-z0-9_]+(-[A-Za-z0-9_]+)*(\\.[A-Za-z0-9_]+(-[A-Za-z0-9_]+)*)*(\\|[A-Za-z0-9_]+(-[A-Za-z0-9_]+)*(\\.[A-Za-z0-9_]+(-[A-Za-z0-9_]+)*)*)?)$"
+                        }
+                      },
+                      "deny": {
+                        "description": "Denied commands for this user",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^(@[A-Za-z]+|[A-Za-z0-9_]+(-[A-Za-z0-9_]+)*(\\.[A-Za-z0-9_]+(-[A-Za-z0-9_]+)*)*(\\|[A-Za-z0-9_]+(-[A-Za-z0-9_]+)*(\\.[A-Za-z0-9_]+(-[A-Za-z0-9_]+)*)*)?)$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "keys": {
+                    "description": "Key restrictions",
+                    "type": "object",
+                    "properties": {
+                      "readOnly": {
+                        "description": "Keys restricted to read-only; maps to Valkey: %R~pattern",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[^\\s]+$"
+                        }
+                      },
+                      "readWrite": {
+                        "description": "Keys on which this user can read, and write; maps to Valkey: ~pattern",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[^\\s]+$"
+                        }
+                      },
+                      "writeOnly": {
+                        "description": "Keys restricted to write-only; maps to Valkey: %W~pattern",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[^\\s]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "name": {
+                    "description": "Username",
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[^\\s]+$",
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "!self.startsWith('_')",
+                        "message": "Username cannot start with '_'",
+                        "reason": "FieldValueForbidden"
+                      }
+                    ]
+                  },
+                  "password": {
+                    "description": "Password authentication; defaults to the passwords in the Secret \u003ccluster\u003e-users",
+                    "type": "object",
+                    "default": {},
+                    "properties": {
+                      "secret": {
+                        "description": "Reference information to a Secret containing user passwords",
+                        "type": "object",
+                        "properties": {
+                          "keys": {
+                            "description": "An array of keys inside the referencing Secret to find passwords; defaults to username\nValkey supports multiple passwords per user for rotation",
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "name": {
+                            "description": "Name of the referencing Secret; Defaults to clustername-users",
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "type": {
+                        "description": "How the user authenticates with a password",
+                        "type": "string",
+                        "default": "Secret",
+                        "enum": [
+                          "Secret",
+                          "Any",
+                          "Disabled"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "!has(self.secret) || !has(self.type) || self.type == 'Secret'",
+                        "message": "secret is only used when type is Secret",
+                        "reason": "FieldValueForbidden",
+                        "fieldPath": ".secret"
+                      }
+                    ]
+                  },
+                  "permissions": {
+                    "description": "Raw ACL for (additional) permissions. Appended to anything generated.",
+                    "type": "string",
+                    "pattern": "^[^\\r\\n]*\\n?$"
+                  },
+                  "state": {
+                    "description": "Whether the user can authenticate",
+                    "type": "string",
+                    "default": "Enabled",
+                    "enum": [
+                      "Enabled",
+                      "Disabled"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-list-map-keys": [
+                "name"
+              ],
+              "x-kubernetes-list-type": "map"
+            }
+          },
+          "additionalProperties": false
+        },
         "config": {
           "description": "Additional Valkey configuration parameters",
           "type": "object",
@@ -1462,7 +1628,14 @@
               }
             },
             "additionalProperties": false
-          }
+          },
+          "x-kubernetes-validations": [
+            {
+              "rule": "!self.exists(c, c.name == 'server-init')",
+              "message": "container name 'server-init' is reserved for the operator-managed init container",
+              "reason": "FieldValueForbidden"
+            }
+          ]
         },
         "exporter": {
           "description": "Metrics exporter options",
@@ -1720,7 +1893,7 @@
           }
         },
         "networking": {
-          "description": "Networking groups how clients and peers reach cluster nodes (TLS,\nin-cluster discovery announce, and later external access).",
+          "description": "Networking groups how clients and peers reach cluster nodes (TLS,\nin-cluster discovery announce, per-node Services, and later external access).",
           "type": "object",
           "properties": {
             "clusterDomain": {
@@ -1746,6 +1919,10 @@
                 }
               },
               "additionalProperties": false
+            },
+            "perNodeServices": {
+              "description": "PerNodeServices opts in to one ClusterIP Service per node.\nOmit it to create none. Each Service selects that one pod.\nAnnounce settings are unchanged.",
+              "type": "object"
             },
             "tls": {
               "description": "TLS configuration for the cluster.",
@@ -1784,6 +1961,45 @@
                   "description": "ClientAuth configures client certificate authentication. When omitted,\nmode defaults to `Optional` and certificateUser defaults to `Disabled`.",
                   "type": "object",
                   "properties": {
+                    "ca": {
+                      "description": "CA lists additional trust roots for verifying client certificates, for\nclients whose certificates are issued by a different CA than the server\ncertificate. Each entry names a Secret or a ConfigMap, and the key in it\nholding the roots (default `ca.crt`) as PEM certificates or a SPIFFE\ntrust bundle.\n\nThe operator merges the server secret's `ca.crt` with the roots under\neach entry's key, in list order and without duplicates, into the\noperator-managed `valkey-\u003ccluster\u003e-tls-trust` Secret, and nodes verify clients\nand peers against that bundle. The server root always stays in the\nbundle, since peers present the server certificate on the cluster bus\nand replication links.\n\nThe operator re-reads these sources on every reconcile, and nodes reload\na changed bundle live, without a restart. SPIRE's\nbundle ConfigMap can be referenced as is, with its key (`bundle.spiffe`\nor `bundle.crt`).",
+                      "type": "array",
+                      "maxItems": 16,
+                      "items": {
+                        "description": "TrustSource references CA certificates held in a Secret or a ConfigMap.\nExactly one of secretName and configMapName must be set.",
+                        "type": "object",
+                        "properties": {
+                          "configMapName": {
+                            "description": "ConfigMapName is the name of a ConfigMap holding the roots, as SPIRE and\ntrust-manager publish bundles.",
+                            "type": "string",
+                            "maxLength": 253,
+                            "minLength": 1
+                          },
+                          "key": {
+                            "description": "Key is the key holding the roots. Defaults to `ca.crt`. Its contents are\neither PEM certificates or a SPIFFE trust bundle (a JWK Set, as SPIRE\npublishes under `bundle.spiffe`); the operator tells them apart by their\ncontent and, for a SPIFFE bundle, uses the `x5c` certificate of every\nkey whose `use` is `x509-svid`.",
+                            "type": "string",
+                            "default": "ca.crt",
+                            "maxLength": 253,
+                            "minLength": 1,
+                            "pattern": "^[-._a-zA-Z0-9]+$"
+                          },
+                          "secretName": {
+                            "description": "SecretName is the name of a Secret holding the roots. The Secret type\ndoes not matter.",
+                            "type": "string",
+                            "maxLength": 253,
+                            "minLength": 1
+                          }
+                        },
+                        "additionalProperties": false,
+                        "x-kubernetes-validations": [
+                          {
+                            "rule": "has(self.secretName) != has(self.configMapName)",
+                            "message": "exactly one of secretName and configMapName must be set"
+                          }
+                        ]
+                      },
+                      "x-kubernetes-list-type": "atomic"
+                    },
                     "certificateUser": {
                       "description": "CertificateUser configures how Valkey maps an authenticated client\ncertificate to an ACL user. Set to `CN` to use the certificate's Common Name\n(requires Valkey \u003e= 9.0), or `URI` to use the first matching URI from the\ncertificate's Subject Alternative Name (SAN) (requires Valkey \u003e= 9.1).\nDefaults to `Disabled`, which leaves the directive unset.",
                       "type": "string",
@@ -1809,7 +2025,15 @@
                   "x-kubernetes-validations": [
                     {
                       "rule": "!(has(self.mode) \u0026\u0026 self.mode == 'Disabled' \u0026\u0026 has(self.certificateUser) \u0026\u0026 self.certificateUser != 'Disabled')",
-                      "message": "certificateUser has no effect when mode=Disabled: Valkey ignores client certificates in that mode"
+                      "message": "certificateUser has no effect when mode=Disabled: Valkey ignores client certificates in that mode",
+                      "reason": "FieldValueForbidden",
+                      "fieldPath": ".certificateUser"
+                    },
+                    {
+                      "rule": "!(has(self.mode) \u0026\u0026 self.mode == 'Disabled' \u0026\u0026 has(self.ca) \u0026\u0026 size(self.ca) \u003e 0)",
+                      "message": "ca has no effect when mode=Disabled: Valkey ignores client certificates in that mode",
+                      "reason": "FieldValueForbidden",
+                      "fieldPath": ".ca"
                     }
                   ]
                 },
@@ -1905,7 +2129,8 @@
                 },
                 {
                   "rule": "self.all(k, !k.startsWith('valkey.io/'))",
-                  "message": "annotation keys under valkey.io/ are reserved for the operator"
+                  "message": "annotation keys under valkey.io/ are reserved for the operator",
+                  "reason": "FieldValueForbidden"
                 }
               ]
             },
@@ -1926,7 +2151,8 @@
                 },
                 {
                   "rule": "self.all(k, !k.startsWith('valkey.io/') \u0026\u0026 !(k in ['app.kubernetes.io/name', 'app.kubernetes.io/instance', 'app.kubernetes.io/component', 'app.kubernetes.io/part-of', 'app.kubernetes.io/managed-by']))",
-                  "message": "label keys under valkey.io/ and app.kubernetes.io/ name, instance, component, part-of and managed-by are reserved for the operator"
+                  "message": "label keys under valkey.io/ and app.kubernetes.io/ name, instance, component, part-of and managed-by are reserved for the operator",
+                  "reason": "FieldValueForbidden"
                 }
               ]
             }
@@ -2087,7 +2313,13 @@
           "additionalProperties": false
         },
         "replicas": {
-          "description": "The number of replicas for each shard group.",
+          "description": "Deprecated: use replicasPerShard, which has the same meaning. A spec\ncannot set both. This field is removed in v1beta1.",
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0
+        },
+        "replicasPerShard": {
+          "description": "The number of replicas in each shard, in addition to its primary.",
           "type": "integer",
           "format": "int32",
           "minimum": 0
@@ -3164,7 +3396,7 @@
                   ],
                   "properties": {
                     "zones": {
-                      "description": "Zones is the ordered round-robin sequence. A pod's zone is\nzones[(shardIndex + nodeIndex) % len(zones)], so each shard's pods walk\nthe list from a different starting point, and while there are at least\nas many zones as shards, primaries land in distinct zones as a side\neffect. When replicas+1 exceeds the zone count, some members of a shard\nnecessarily share a zone.\n\nAdding shards or replicas never moves an existing pod, because a pod's\nindices never change. Changing this list would move nearly all of them,\nso it is immutable while set: remove pinning, reconcile, then re-add it\nwith the new sequence. On a cluster with persistence, note that zonal\nvolumes cannot follow a pod to a new zone.\n\nThe list is ordered, so it is atomic rather than a set: a set list is\nunordered under server-side apply, which would scramble the assignment.\nUniqueness is enforced by CEL for the same reason.\n\nEach entry must be a valid Kubernetes label value, because it is rendered\nas the value of a topology.kubernetes.io/zone nodeSelector entry. Without\nthat constraint an entry such as \"eu-west-1a!\" is accepted here and then\nrejected when the StatefulSet is created, surfacing on the ValkeyNode\nrather than on the ValkeyCluster the user edited.",
+                      "description": "Zones is the ordered round-robin sequence. A pod's zone is\nzones[(shardIndex + nodeIndex) % len(zones)], so each shard's pods walk\nthe list from a different starting point, and while there are at least\nas many zones as shards, primaries land in distinct zones as a side\neffect. When replicasPerShard+1 exceeds the zone count, some members of\na shard necessarily share a zone.\n\nAdding shards or replicas never moves an existing pod, because a pod's\nindices never change. Changing this list would move nearly all of them,\nso it is immutable while set: remove pinning, reconcile, then re-add it\nwith the new sequence. On a cluster with persistence, note that zonal\nvolumes cannot follow a pod to a new zone.\n\nThe list is ordered, so it is atomic rather than a set: a set list is\nunordered under server-side apply, which would scramble the assignment.\nUniqueness is enforced by CEL for the same reason.\n\nEach entry must be a valid Kubernetes label value, because it is rendered\nas the value of a topology.kubernetes.io/zone nodeSelector entry. Without\nthat constraint an entry such as \"eu-west-1a!\" is accepted here and then\nrejected when the StatefulSet is created, surfacing on the ValkeyNode\nrather than on the ValkeyCluster the user edited.",
                       "type": "array",
                       "maxItems": 32,
                       "minItems": 1,
@@ -3181,7 +3413,9 @@
                   "x-kubernetes-validations": [
                     {
                       "rule": "self.zones.all(z, self.zones.exists_one(y, y == z))",
-                      "message": "zone.pinning.zones entries must be unique: a repeated zone silently biases the round-robin"
+                      "message": "zone.pinning.zones entries must be unique: a repeated zone silently biases the round-robin",
+                      "reason": "FieldValueForbidden",
+                      "fieldPath": ".zones"
                     }
                   ]
                 },
@@ -3266,10 +3500,10 @@
           "minimum": 1
         },
         "users": {
-          "description": "Users, and ACL-related configuration; see valkeyacls_types.go",
+          "description": "Valkey users managed by the operator.\n\nDeprecated: use spec.acl.users; removed in v1beta1.",
           "type": "array",
           "items": {
-            "description": "An UserAclSpec contains user, authorization, and permissions-related configurations",
+            "description": "An UserAclSpec contains user, authorization, and permissions-related configurations.\nIt is the legacy spec.users entry, replaced by ACLUserSpec and removed in v1beta1.",
             "type": "object",
             "required": [
               "name"
@@ -3283,7 +3517,8 @@
                     "description": "Pub/Sub channel patterns - maps to Valkey: \u0026pattern",
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "pattern": "^[^\\s]+$"
                     }
                   }
                 },
@@ -3325,21 +3560,24 @@
                     "description": "Keys restricted to read-only; maps to Valkey: %R~pattern",
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "pattern": "^[^\\s]+$"
                     }
                   },
                   "readWrite": {
                     "description": "Keys on which this user can read, and write; maps to Valkey: ~pattern",
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "pattern": "^[^\\s]+$"
                     }
                   },
                   "writeOnly": {
                     "description": "Keys restricted to write-only; maps to Valkey: %W~pattern",
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "pattern": "^[^\\s]+$"
                     }
                   }
                 },
@@ -3348,10 +3586,14 @@
               "name": {
                 "description": "Username",
                 "type": "string",
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[^\\s]+$",
                 "x-kubernetes-validations": [
                   {
                     "rule": "!self.startsWith('_')",
-                    "message": "Username cannot start with '_'"
+                    "message": "Username cannot start with '_'",
+                    "reason": "FieldValueForbidden"
                   }
                 ]
               },
@@ -3380,7 +3622,8 @@
               },
               "permissions": {
                 "description": "Raw ACL for (additional) permissions. Appended to anything generated.",
-                "type": "string"
+                "type": "string",
+                "pattern": "^[^\\r\\n]*\\n?$"
               },
               "resetpass": {
                 "description": "Apply the resetpass flag to this user",
@@ -3406,7 +3649,8 @@
           "x-kubernetes-validations": [
             {
               "rule": "self == oldSelf",
-              "message": "workloadType is immutable"
+              "message": "workloadType is immutable",
+              "reason": "FieldValueForbidden"
             }
           ]
         }
@@ -3415,71 +3659,117 @@
       "x-kubernetes-validations": [
         {
           "rule": "!(has(self.persistence) \u0026\u0026 self.workloadType == 'Deployment')",
-          "message": "persistence requires workloadType StatefulSet"
+          "message": "persistence requires workloadType StatefulSet",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".persistence"
+        },
+        {
+          "rule": "!(has(self.users) \u0026\u0026 size(self.users) \u003e 0 \u0026\u0026 has(self.acl) \u0026\u0026 has(self.acl.users) \u0026\u0026 size(self.acl.users) \u003e 0)",
+          "message": "spec.users is deprecated and cannot be combined with spec.acl.users: move every user to spec.acl.users",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".acl.users"
+        },
+        {
+          "rule": "!(has(self.replicas) \u0026\u0026 has(self.replicasPerShard))",
+          "message": "spec.replicas is deprecated and cannot be combined with spec.replicasPerShard: remove spec.replicas (set it to null) in the same update",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".replicasPerShard"
         },
         {
           "rule": "!has(oldSelf.persistence) || has(self.persistence)",
-          "message": "persistence cannot be removed once set"
+          "message": "persistence cannot be removed once set",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".persistence"
         },
         {
           "rule": "has(oldSelf.persistence) || !has(self.persistence)",
-          "message": "persistence cannot be added after creation"
+          "message": "persistence cannot be added after creation",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".persistence"
         },
         {
           "rule": "!has(self.persistence) || !has(oldSelf.persistence) || quantity(self.persistence.size).compareTo(quantity(oldSelf.persistence.size)) \u003e= 0",
-          "message": "persistence.size may only be expanded"
+          "message": "persistence.size may only be expanded",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".persistence.size"
         },
         {
           "rule": "!has(self.persistence) || !has(oldSelf.persistence) || ((!has(self.persistence.storageClassName) \u0026\u0026 !has(oldSelf.persistence.storageClassName)) || (has(self.persistence.storageClassName) \u0026\u0026 has(oldSelf.persistence.storageClassName) \u0026\u0026 self.persistence.storageClassName == oldSelf.persistence.storageClassName))",
-          "message": "persistence.storageClassName is immutable"
+          "message": "persistence.storageClassName is immutable",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".persistence.storageClassName"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.node) || !has(self.scheduling.node.spread) || !( ((has(self.scheduling.node.spread.primaries) \u0026\u0026 has(self.scheduling.node.spread.primaries.mode)) ? self.scheduling.node.spread.primaries.mode : 'Disabled') == 'Required' \u0026\u0026 ((has(self.scheduling.node.spread.pods) \u0026\u0026 has(self.scheduling.node.spread.pods.mode)) ? self.scheduling.node.spread.pods.mode : 'Disabled') == 'Required' )",
-          "message": "node.spread.primaries and node.spread.pods cannot both be Required: they render duplicate kubernetes.io/hostname DoNotSchedule topology spread constraints"
+          "message": "node.spread.primaries and node.spread.pods cannot both be Required: they render duplicate kubernetes.io/hostname DoNotSchedule topology spread constraints",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.node.spread"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.node) || !has(self.scheduling.node.spread) || !( ((has(self.scheduling.node.spread.primaries) \u0026\u0026 has(self.scheduling.node.spread.primaries.mode)) ? self.scheduling.node.spread.primaries.mode : 'Disabled') == 'Preferred' \u0026\u0026 ((has(self.scheduling.node.spread.pods) \u0026\u0026 has(self.scheduling.node.spread.pods.mode)) ? self.scheduling.node.spread.pods.mode : 'Disabled') == 'Preferred' )",
-          "message": "node.spread.primaries and node.spread.pods cannot both be Preferred: they render duplicate kubernetes.io/hostname ScheduleAnyway topology spread constraints (set one to Disabled or Required)"
+          "message": "node.spread.primaries and node.spread.pods cannot both be Preferred: they render duplicate kubernetes.io/hostname ScheduleAnyway topology spread constraints (set one to Disabled or Required)",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.node.spread"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.topologySpreadConstraints) || !self.scheduling.topologySpreadConstraints.exists(c, c.topologyKey == 'kubernetes.io/hostname' \u0026\u0026 c.whenUnsatisfiable == 'DoNotSchedule') || !has(self.scheduling.node) || !has(self.scheduling.node.spread) || !( ((has(self.scheduling.node.spread.primaries) \u0026\u0026 has(self.scheduling.node.spread.primaries.mode)) ? self.scheduling.node.spread.primaries.mode : 'Disabled') == 'Required' || ((has(self.scheduling.node.spread.pods) \u0026\u0026 has(self.scheduling.node.spread.pods.mode)) ? self.scheduling.node.spread.pods.mode : 'Disabled') == 'Required' )",
-          "message": "a topologySpreadConstraints entry on kubernetes.io/hostname with whenUnsatisfiable DoNotSchedule collides with node.spread.primaries or node.spread.pods set to Required, which render the same hostname DoNotSchedule constraint: set that node.spread mode to Disabled, or remove the passthrough constraint"
+          "message": "a topologySpreadConstraints entry on kubernetes.io/hostname with whenUnsatisfiable DoNotSchedule collides with node.spread.primaries or node.spread.pods set to Required, which render the same hostname DoNotSchedule constraint: set that node.spread mode to Disabled, or remove the passthrough constraint",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.topologySpreadConstraints"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.topologySpreadConstraints) || !self.scheduling.topologySpreadConstraints.exists(c, c.topologyKey == 'kubernetes.io/hostname' \u0026\u0026 c.whenUnsatisfiable == 'ScheduleAnyway') || !has(self.scheduling.node) || !has(self.scheduling.node.spread) || !( ((has(self.scheduling.node.spread.primaries) \u0026\u0026 has(self.scheduling.node.spread.primaries.mode)) ? self.scheduling.node.spread.primaries.mode : 'Disabled') == 'Preferred' || ((has(self.scheduling.node.spread.pods) \u0026\u0026 has(self.scheduling.node.spread.pods.mode)) ? self.scheduling.node.spread.pods.mode : 'Disabled') == 'Preferred' )",
-          "message": "a topologySpreadConstraints entry on kubernetes.io/hostname with whenUnsatisfiable ScheduleAnyway collides with node.spread.primaries or node.spread.pods set to Preferred, which render the same hostname ScheduleAnyway constraint: set that node.spread mode to Disabled or Required, or remove the passthrough constraint"
+          "message": "a topologySpreadConstraints entry on kubernetes.io/hostname with whenUnsatisfiable ScheduleAnyway collides with node.spread.primaries or node.spread.pods set to Preferred, which render the same hostname ScheduleAnyway constraint: set that node.spread mode to Disabled or Required, or remove the passthrough constraint",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.topologySpreadConstraints"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.zone) || !has(self.scheduling.zone.spread) || !( (((has(self.scheduling.zone.spread.shard) \u0026\u0026 has(self.scheduling.zone.spread.shard.mode)) ? self.scheduling.zone.spread.shard.mode : 'Disabled') == 'Required' \u0026\u0026 ((has(self.scheduling.zone.spread.primaries) \u0026\u0026 has(self.scheduling.zone.spread.primaries.mode)) ? self.scheduling.zone.spread.primaries.mode : 'Disabled') == 'Required') || (((has(self.scheduling.zone.spread.shard) \u0026\u0026 has(self.scheduling.zone.spread.shard.mode)) ? self.scheduling.zone.spread.shard.mode : 'Disabled') == 'Required' \u0026\u0026 ((has(self.scheduling.zone.spread.pods) \u0026\u0026 has(self.scheduling.zone.spread.pods.mode)) ? self.scheduling.zone.spread.pods.mode : 'Disabled') == 'Required') || (((has(self.scheduling.zone.spread.primaries) \u0026\u0026 has(self.scheduling.zone.spread.primaries.mode)) ? self.scheduling.zone.spread.primaries.mode : 'Disabled') == 'Required' \u0026\u0026 ((has(self.scheduling.zone.spread.pods) \u0026\u0026 has(self.scheduling.zone.spread.pods.mode)) ? self.scheduling.zone.spread.pods.mode : 'Disabled') == 'Required') )",
-          "message": "at most one of zone.spread.shard, zone.spread.primaries, zone.spread.pods may be Required: they render duplicate topology.kubernetes.io/zone DoNotSchedule topology spread constraints"
+          "message": "at most one of zone.spread.shard, zone.spread.primaries, zone.spread.pods may be Required: they render duplicate topology.kubernetes.io/zone DoNotSchedule topology spread constraints",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.zone.spread"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.zone) || !has(self.scheduling.zone.spread) || !( (((has(self.scheduling.zone.spread.shard) \u0026\u0026 has(self.scheduling.zone.spread.shard.mode)) ? self.scheduling.zone.spread.shard.mode : 'Disabled') == 'Preferred' \u0026\u0026 ((has(self.scheduling.zone.spread.primaries) \u0026\u0026 has(self.scheduling.zone.spread.primaries.mode)) ? self.scheduling.zone.spread.primaries.mode : 'Disabled') == 'Preferred') || (((has(self.scheduling.zone.spread.shard) \u0026\u0026 has(self.scheduling.zone.spread.shard.mode)) ? self.scheduling.zone.spread.shard.mode : 'Disabled') == 'Preferred' \u0026\u0026 ((has(self.scheduling.zone.spread.pods) \u0026\u0026 has(self.scheduling.zone.spread.pods.mode)) ? self.scheduling.zone.spread.pods.mode : 'Disabled') == 'Preferred') || (((has(self.scheduling.zone.spread.primaries) \u0026\u0026 has(self.scheduling.zone.spread.primaries.mode)) ? self.scheduling.zone.spread.primaries.mode : 'Disabled') == 'Preferred' \u0026\u0026 ((has(self.scheduling.zone.spread.pods) \u0026\u0026 has(self.scheduling.zone.spread.pods.mode)) ? self.scheduling.zone.spread.pods.mode : 'Disabled') == 'Preferred') )",
-          "message": "at most one of zone.spread.shard, zone.spread.primaries, zone.spread.pods may be Preferred: they render duplicate topology.kubernetes.io/zone ScheduleAnyway topology spread constraints (set one to Disabled or Required)"
+          "message": "at most one of zone.spread.shard, zone.spread.primaries, zone.spread.pods may be Preferred: they render duplicate topology.kubernetes.io/zone ScheduleAnyway topology spread constraints (set one to Disabled or Required)",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.zone.spread"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.topologySpreadConstraints) || !self.scheduling.topologySpreadConstraints.exists(c, c.topologyKey == 'topology.kubernetes.io/zone' \u0026\u0026 c.whenUnsatisfiable == 'DoNotSchedule') || !has(self.scheduling.zone) || !has(self.scheduling.zone.spread) || !( ((has(self.scheduling.zone.spread.shard) \u0026\u0026 has(self.scheduling.zone.spread.shard.mode)) ? self.scheduling.zone.spread.shard.mode : 'Disabled') == 'Required' || ((has(self.scheduling.zone.spread.primaries) \u0026\u0026 has(self.scheduling.zone.spread.primaries.mode)) ? self.scheduling.zone.spread.primaries.mode : 'Disabled') == 'Required' || ((has(self.scheduling.zone.spread.pods) \u0026\u0026 has(self.scheduling.zone.spread.pods.mode)) ? self.scheduling.zone.spread.pods.mode : 'Disabled') == 'Required' )",
-          "message": "a topologySpreadConstraints entry on topology.kubernetes.io/zone with whenUnsatisfiable DoNotSchedule collides with zone.spread.shard, primaries, or pods set to Required, which render the same zone DoNotSchedule constraint: set that zone.spread mode to Disabled, or remove the passthrough constraint"
+          "message": "a topologySpreadConstraints entry on topology.kubernetes.io/zone with whenUnsatisfiable DoNotSchedule collides with zone.spread.shard, primaries, or pods set to Required, which render the same zone DoNotSchedule constraint: set that zone.spread mode to Disabled, or remove the passthrough constraint",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.topologySpreadConstraints"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.topologySpreadConstraints) || !self.scheduling.topologySpreadConstraints.exists(c, c.topologyKey == 'topology.kubernetes.io/zone' \u0026\u0026 c.whenUnsatisfiable == 'ScheduleAnyway') || !has(self.scheduling.zone) || !has(self.scheduling.zone.spread) || !( ((has(self.scheduling.zone.spread.shard) \u0026\u0026 has(self.scheduling.zone.spread.shard.mode)) ? self.scheduling.zone.spread.shard.mode : 'Disabled') == 'Preferred' || ((has(self.scheduling.zone.spread.primaries) \u0026\u0026 has(self.scheduling.zone.spread.primaries.mode)) ? self.scheduling.zone.spread.primaries.mode : 'Disabled') == 'Preferred' || ((has(self.scheduling.zone.spread.pods) \u0026\u0026 has(self.scheduling.zone.spread.pods.mode)) ? self.scheduling.zone.spread.pods.mode : 'Disabled') == 'Preferred' )",
-          "message": "a topologySpreadConstraints entry on topology.kubernetes.io/zone with whenUnsatisfiable ScheduleAnyway collides with zone.spread.shard, primaries, or pods set to Preferred, which render the same zone ScheduleAnyway constraint: set that zone.spread mode to Disabled or Required, or remove the passthrough constraint"
+          "message": "a topologySpreadConstraints entry on topology.kubernetes.io/zone with whenUnsatisfiable ScheduleAnyway collides with zone.spread.shard, primaries, or pods set to Preferred, which render the same zone ScheduleAnyway constraint: set that zone.spread mode to Disabled or Required, or remove the passthrough constraint",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.topologySpreadConstraints"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.zone) || !has(self.scheduling.zone.pinning) || !has(self.scheduling.zone.spread) || ( ((has(self.scheduling.zone.spread.shard) \u0026\u0026 has(self.scheduling.zone.spread.shard.mode)) ? self.scheduling.zone.spread.shard.mode : 'Disabled') == 'Disabled' \u0026\u0026 ((has(self.scheduling.zone.spread.primaries) \u0026\u0026 has(self.scheduling.zone.spread.primaries.mode)) ? self.scheduling.zone.spread.primaries.mode : 'Disabled') == 'Disabled' \u0026\u0026 ((has(self.scheduling.zone.spread.pods) \u0026\u0026 has(self.scheduling.zone.spread.pods.mode)) ? self.scheduling.zone.spread.pods.mode : 'Disabled') == 'Disabled' )",
-          "message": "zone.pinning cannot be combined with a non-Disabled zone.spread.shard, primaries, or pods: pinning already assigns every pod a fixed zone, which a zone spread constraint can contradict"
+          "message": "zone.pinning cannot be combined with a non-Disabled zone.spread.shard, primaries, or pods: pinning already assigns every pod a fixed zone, which a zone spread constraint can contradict",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.zone.pinning"
         },
         {
           "rule": "!has(oldSelf.scheduling) || !has(oldSelf.scheduling.zone) || !has(oldSelf.scheduling.zone.pinning) || !has(self.scheduling) || !has(self.scheduling.zone) || !has(self.scheduling.zone.pinning) || self.scheduling.zone.pinning.zones == oldSelf.scheduling.zone.pinning.zones",
-          "message": "zone.pinning.zones is immutable while set: changing it reassigns nearly every pod. Remove zone.pinning, reconcile, then re-add it with the new list"
+          "message": "zone.pinning.zones is immutable while set: changing it reassigns nearly every pod. Remove zone.pinning, reconcile, then re-add it with the new list",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.zone.pinning.zones"
         },
         {
           "rule": "!has(self.scheduling) || !has(self.scheduling.zone) || !has(self.scheduling.zone.pinning) || !has(self.scheduling.nodeSelector) || !('topology.kubernetes.io/zone' in self.scheduling.nodeSelector)",
-          "message": "scheduling.nodeSelector cannot set topology.kubernetes.io/zone while zone.pinning is set: pinning renders that key itself, and the curated value would overwrite yours"
+          "message": "scheduling.nodeSelector cannot set topology.kubernetes.io/zone while zone.pinning is set: pinning renders that key itself, and the curated value would overwrite yours",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".scheduling.nodeSelector"
         },
         {
           "rule": "!has(self.networking) || !has(self.networking.discovery) || !has(self.networking.discovery.preferredEndpointType) || self.networking.discovery.preferredEndpointType != 'Hostname' || !has(self.workloadType) || self.workloadType == 'StatefulSet'",
-          "message": "networking.discovery.preferredEndpointType Hostname requires workloadType StatefulSet (or omit workloadType for the StatefulSet default)"
+          "message": "networking.discovery.preferredEndpointType Hostname requires workloadType StatefulSet (or omit workloadType for the StatefulSet default)",
+          "reason": "FieldValueForbidden",
+          "fieldPath": ".networking.discovery.preferredEndpointType"
         }
       ]
     },
@@ -3589,7 +3879,7 @@
   },
   "x-kubernetes-validations": [
     {
-      "rule": "(has(self.spec.workloadType) \u0026\u0026 self.spec.workloadType == 'Deployment') || size(self.metadata.name) + size(string(self.spec.shards - 1)) + size(string(has(self.spec.replicas) ? self.spec.replicas : 0)) \u003c= 43",
+      "rule": "(has(self.spec.workloadType) \u0026\u0026 self.spec.workloadType == 'Deployment') || size(self.metadata.name) + size(string(self.spec.shards - 1)) + size(string(has(self.spec.replicasPerShard) ? self.spec.replicasPerShard : (has(self.spec.replicas) ? self.spec.replicas : 0))) \u003c= 43",
       "message": "metadata.name is too long: the StatefulSet name valkey-\u003cname\u003e-\u003cshard\u003e-\u003cnode\u003e must stay within 52 characters, because Kubernetes appends an 11-character controller-revision-hash to it in a pod label limited to 63 characters"
     },
     {
@@ -3597,8 +3887,29 @@
       "message": "metadata.name is too long: the headless Service name valkey-\u003cname\u003e must stay within 63 characters"
     },
     {
-      "rule": "!(has(self.spec.workloadType) \u0026\u0026 self.spec.workloadType == 'Deployment') || size(self.metadata.name) + size(string(self.spec.shards - 1)) + size(string(has(self.spec.replicas) ? self.spec.replicas : 0)) \u003c= 61",
+      "rule": "!(has(self.spec.workloadType) \u0026\u0026 self.spec.workloadType == 'Deployment') || size(self.metadata.name) + size(string(self.spec.shards - 1)) + size(string(has(self.spec.replicasPerShard) ? self.spec.replicasPerShard : (has(self.spec.replicas) ? self.spec.replicas : 0))) \u003c= 61",
       "message": "metadata.name is too long: the ValkeyNode name \u003cname\u003e-\u003cshard\u003e-\u003cnode\u003e is the app.kubernetes.io/instance label value of its pod and must stay within 63 characters"
+    },
+    {
+      "rule": "!has(self.spec.networking) || !has(self.spec.networking.perNodeServices) || size(self.metadata.name) + 9 + size(string(self.spec.shards - 1)) + size(string(has(self.spec.replicasPerShard) ? self.spec.replicasPerShard : (has(self.spec.replicas) ? self.spec.replicas : 0))) \u003c= 63",
+      "message": "metadata.name is too long: the per-node Service name valkey-\u003cname\u003e-\u003cshard\u003e-\u003cnode\u003e must stay within 63 characters"
+    },
+    {
+      "rule": "!has(self.spec.networking) || !has(self.spec.networking.tls) || !has(self.spec.networking.tls.clientAuth) || !has(self.spec.networking.tls.clientAuth.ca) || self.spec.networking.tls.clientAuth.ca.all(s, !has(s.secretName) || s.secretName != 'valkey-%s-tls-trust'.format([self.metadata.name]))",
+      "message": "clientAuth.ca cannot name valkey-\u003cname\u003e-tls-trust: it is the operator-managed trust bundle",
+      "reason": "FieldValueForbidden",
+      "fieldPath": ".spec.networking.tls.clientAuth.ca"
+    },
+    {
+      "rule": "oldSelf.hasValue() || !self.metadata.name.contains('.')",
+      "message": "metadata.name must not contain '.', because the headless Service name valkey-\u003cname\u003e is derived from it",
+      "optionalOldSelf": true
+    },
+    {
+      "rule": "!has(self.spec.networking) || !has(self.spec.networking.tls) || !has(self.spec.networking.tls.clientAuth) || !has(self.spec.networking.tls.clientAuth.ca) || size(self.spec.networking.tls.clientAuth.ca) == 0 || self.spec.networking.tls.certificates.server.secretName != 'valkey-%s-tls-trust'.format([self.metadata.name])",
+      "message": "certificates.server.secretName cannot be valkey-\u003cname\u003e-tls-trust while clientAuth.ca is set: it is the operator-managed trust bundle",
+      "reason": "FieldValueForbidden",
+      "fieldPath": ".spec.networking.tls.certificates.server.secretName"
     }
   ]
 }
