@@ -592,6 +592,53 @@
               },
               "additionalProperties": false
             },
+            "osieFiles": {
+              "description": "OSIEFiles, when defined, is the set of additional files to be made available to the OSIE (Operating System Installation Environment).",
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "description": "OSIEFile represents a file to be made available to the OSIE (Operating System Installation Environment).\nAll files are relative to the default /osie_files directory in the OSIE (Operating System Installation Environment).",
+                "type": "object",
+                "required": [
+                  "path"
+                ],
+                "properties": {
+                  "contents": {
+                    "description": "Contents is the contents of the file.",
+                    "type": "string"
+                  },
+                  "mode": {
+                    "description": "Mode is the file's permission bits as an octal string, e.g. \"0644\", \"644\" or \"0o644\".\nOnly permission bits are allowed (max \"0777\"); setuid, setgid and sticky bits are rejected.\nSymbolic forms like \"rw-r--r--\" and decimal values are invalid.\nOmitted or \"0\" means the default, \"0400\" (read-only for the owner).",
+                    "type": "string",
+                    "maxLength": 8,
+                    "pattern": "^(0[oO])?0*[0-7]{1,3}$"
+                  },
+                  "path": {
+                    "description": "Path is the file path where the file should be made available within the default /osie_files directory in the OSIE (Operating System Installation Environment).\nA leading \"/\" is ignored. Empty, \".\" and \"..\" segments are not allowed.",
+                    "type": "string",
+                    "maxLength": 255,
+                    "pattern": "^/?[^/]+(/[^/]+)*$",
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "!self.split('/').exists(s, s == '.' || s == '..')",
+                        "message": "path must not contain '.' or '..' segments"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.all(a, self.exists_one(b, (b.path.startsWith('/') ? b.path.substring(1) : b.path) == (a.path.startsWith('/') ? a.path.substring(1) : a.path)))",
+                  "message": "osieFiles paths must be unique"
+                },
+                {
+                  "rule": "self.all(a, !self.exists(b, (b.path.startsWith('/') ? b.path.substring(1) : b.path).startsWith((a.path.startsWith('/') ? a.path.substring(1) : a.path) + '/')))",
+                  "message": "an osieFiles path must not be the parent directory of another"
+                }
+              ]
+            },
             "state": {
               "type": "string"
             }
@@ -603,6 +650,11 @@
           "type": "object",
           "additionalProperties": {
             "type": "object",
+            "required": [
+              "name",
+              "resource",
+              "version"
+            ],
             "properties": {
               "group": {
                 "description": "Group of the referent.\nMore info: https://kubernetes.io/docs/reference/using-api/#api-groups",
@@ -613,7 +665,7 @@
                 "type": "string"
               },
               "namespace": {
-                "description": "Namespace of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
+                "description": "Namespace of the referent. Leave empty for cluster-scoped resources.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
                 "type": "string"
               },
               "resource": {
@@ -662,6 +714,1601 @@
       "description": "HardwareStatus defines the observed state of Hardware.",
       "type": "object",
       "properties": {
+        "attributes": {
+          "description": "Attributes describes the hardware itself, as observed by Tinkerbell. It is\nsplit by collection path rather than merged, so each collector owns a\ndisjoint subtree and neither can clobber the other.",
+          "type": "object",
+          "properties": {
+            "inBand": {
+              "description": "InBand holds attributes reported by the Tink Agent from within the running\nOS. Only available once the machine has booted and the Agent has checked\nin; unlike OutOfBand, it cannot see hardware the OS doesn't expose (e.g. the\nBMC's own firmware, PSUs) but can see hardware the BMC doesn't (e.g. the PCI\nbus, loaded drivers).",
+              "type": "object",
+              "properties": {
+                "baseboard": {
+                  "description": "Baseboard describes the mainboard/motherboard.",
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "firmwareVersion": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                      "type": "object",
+                      "properties": {
+                        "health": {
+                          "type": "string"
+                        },
+                        "postCode": {
+                          "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        "postCodeStatus": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "bios": {
+                  "description": "BIOS describes the system BIOS firmware.",
+                  "type": "object",
+                  "properties": {
+                    "firmwareVersion": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "releaseDate": {
+                      "description": "ReleaseDate is the BIOS release date as the source reports it, format\nunspecified (e.g. \"12/13/2021\"). In-band only.",
+                      "type": "string"
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                      "type": "object",
+                      "properties": {
+                        "health": {
+                          "type": "string"
+                        },
+                        "postCode": {
+                          "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        "postCodeStatus": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "blockDevices": {
+                  "description": "BlockDevices lists storage drives.",
+                  "type": "array",
+                  "items": {
+                    "description": "BlockDevice describes a storage drive.",
+                    "type": "object",
+                    "properties": {
+                      "controllerType": {
+                        "type": "string"
+                      },
+                      "driveType": {
+                        "type": "string"
+                      },
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "description": "Name is the OS-visible device name (e.g. \"nvme0n1\"). In-band only.",
+                        "type": "string"
+                      },
+                      "path": {
+                        "description": "Path is the device's position in the topology (udev ID_PATH, e.g.\n\"pci-0000:17:00.0-nvme-1\"), i.e. /dev/disk/by-path/\u003cpath\u003e. Stable where Name\nis not, and identifies the slot rather than the drive: WWN and SerialNumber\nidentify the drive, Path the port it is attached to. In-band only.",
+                        "type": "string"
+                      },
+                      "physicalBlockSizeBytes": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "sizeBytes": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "smartStatus": {
+                        "description": "SmartStatus is the drive's self-reported SMART health status (e.g. \"ok\",\n\"predict-failure\"). Out-of-band only.",
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      },
+                      "wwn": {
+                        "description": "WWN is the World Wide Name, a standard unique storage identifier. Where both\nsources report a drive, this is the key they can be joined on.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "bmc": {
+                  "description": "BMC describes the BMC's own firmware and management NIC. Out-of-band only.",
+                  "type": "object",
+                  "properties": {
+                    "firmwareVersion": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "nic": {
+                      "description": "NIC is the BMC's own management network interface. It is distinct from\nAttributes.NetworkInterfaces, which lists the host's NICs.",
+                      "type": "object",
+                      "properties": {
+                        "firmwareVersion": {
+                          "type": "string"
+                        },
+                        "model": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "description": "Name is the OS-visible interface name (e.g. \"eno1\"). In-band only.",
+                          "type": "string"
+                        },
+                        "ports": {
+                          "description": "Ports lists the physical ports on this adapter. The in-band collector reports\none port per interface; the out-of-band collector groups ports under the\nadapter that carries them.",
+                          "type": "array",
+                          "items": {
+                            "description": "NetworkPort describes a single physical port on a network adapter.",
+                            "type": "object",
+                            "properties": {
+                              "enabledCapabilities": {
+                                "description": "EnabledCapabilities lists enabled offloads and features. In-band only.",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "linkStatus": {
+                                "type": "string"
+                              },
+                              "lldpNeighbors": {
+                                "description": "LLDPNeighbors lists every neighbor advertising to this port over LLDP; a\nport can see more than one (e.g. a switch plus a hypervisor vSwitch or a\ndaisy-chained device). In-band only: this comes from passively listening\non the wire, not from the BMC.",
+                                "type": "array",
+                                "items": {
+                                  "description": "LLDPNeighbor describes the switch (or other LLDP-speaking device) discovered\non the other end of a NetworkPort.",
+                                  "type": "object",
+                                  "properties": {
+                                    "chassisID": {
+                                      "description": "ChassisID identifies the neighbor's chassis, format depending on what the\nneighbor advertises (e.g. a MAC address).",
+                                      "type": "string"
+                                    },
+                                    "portDescription": {
+                                      "description": "PortDescription is the neighbor's description of that port (e.g. an\ninterface alias configured on the switch).",
+                                      "type": "string"
+                                    },
+                                    "portID": {
+                                      "description": "PortID identifies the neighbor's port that this port is connected to, as\nthe neighbor names it (e.g. a switch port name).",
+                                      "type": "string"
+                                    },
+                                    "systemName": {
+                                      "description": "SystemName is the neighbor's advertised hostname (e.g. the switch name).",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              },
+                              "mac": {
+                                "description": "MAC is the port's hardware address. Where both sources report a port, this is\nthe key they can be joined on.",
+                                "type": "string"
+                              },
+                              "mtu": {
+                                "type": "integer",
+                                "format": "int32"
+                              },
+                              "portID": {
+                                "description": "PortID identifies the port as the BMC names it (e.g. \"NIC.Embedded.1\").\nOut-of-band only.",
+                                "type": "string"
+                              },
+                              "speedMbps": {
+                                "type": "integer",
+                                "format": "int32"
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "serialNumber": {
+                          "type": "string"
+                        },
+                        "vendor": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                      "type": "object",
+                      "properties": {
+                        "health": {
+                          "type": "string"
+                        },
+                        "postCode": {
+                          "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        "postCodeStatus": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "chassis": {
+                  "description": "Chassis describes the enclosure.",
+                  "type": "object",
+                  "properties": {
+                    "model": {
+                      "type": "string"
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "collectionMethod": {
+                  "description": "CollectionMethod identifies what produced this subtree: \"agent\" for in-band,\nor the bmclib driver for out-of-band (e.g. \"redfish\", \"dell\", \"supermicro\",\n\"asrockrack\", \"openbmc\"). Consumers should use this to interpret absent\nfields rather than treating them as errors.",
+                  "type": "string"
+                },
+                "cpu": {
+                  "description": "CPU holds aggregate CPU totals and per-socket detail. Both in-band and\nout-of-band report sockets; CPUSocket.Slot is a numeric processor ID\nin-band and a physical socket label (e.g. \"CPU1\") out-of-band.",
+                  "type": "object",
+                  "properties": {
+                    "sockets": {
+                      "description": "Sockets lists the individual physical CPUs.",
+                      "type": "array",
+                      "items": {
+                        "description": "CPUSocket describes a single physical CPU. Note: on the out-of-band Redfish\ncollection path, SerialNumber is always empty — that is what the BMC exposes,\nnot a mapping gap.",
+                        "type": "object",
+                        "properties": {
+                          "capabilities": {
+                            "description": "Capabilities lists CPU feature flags. In-band only.",
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "clockSpeedMHz": {
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "cores": {
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "firmwareVersion": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "serialNumber": {
+                            "type": "string"
+                          },
+                          "slot": {
+                            "description": "Slot identifies the physical socket (e.g. \"CPU1\").",
+                            "type": "string"
+                          },
+                          "threads": {
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "vendor": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "totalCores": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "totalThreads": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "gpuDevices": {
+                  "description": "GPUDevices lists GPU and accelerator devices.",
+                  "type": "array",
+                  "items": {
+                    "description": "GPUDevice describes a GPU or accelerator device.",
+                    "type": "object",
+                    "properties": {
+                      "class": {
+                        "description": "Class is the PCI device class. In-band only.",
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "driver": {
+                        "description": "Driver is the loaded kernel driver. In-band only.",
+                        "type": "string"
+                      },
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "lastUpdated": {
+                  "description": "LastUpdated is the time at which this subtree was last refreshed.",
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "memory": {
+                  "description": "Memory holds aggregate memory totals and per-module detail. In-band reports\nthe totals; out-of-band reports the modules.",
+                  "type": "object",
+                  "properties": {
+                    "modules": {
+                      "description": "Modules lists the individual memory modules. Out-of-band only: the physical\nDIMM topology is not visible from inside the OS.",
+                      "type": "array",
+                      "items": {
+                        "description": "MemoryModule describes a single memory module. Note: on the out-of-band Redfish\ncollection path, Model is always empty — that is what the BMC exposes.",
+                        "type": "object",
+                        "properties": {
+                          "firmwareVersion": {
+                            "type": "string"
+                          },
+                          "formFactor": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "partNumber": {
+                            "type": "string"
+                          },
+                          "serialNumber": {
+                            "type": "string"
+                          },
+                          "sizeBytes": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "slot": {
+                            "description": "Slot identifies the physical slot (e.g. \"DIMM.A1\").",
+                            "type": "string"
+                          },
+                          "speedMHz": {
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "vendor": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "totalBytes": {
+                      "description": "TotalBytes is the total physical memory installed.",
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "usableBytes": {
+                      "description": "UsableBytes is the memory usable by the OS. In-band only.",
+                      "type": "integer",
+                      "format": "int64"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "networkInterfaces": {
+                  "description": "NetworkInterfaces lists the host's network adapters. Distinct from\nHardware.spec.interfaces, which is DHCP/netboot configuration rather than\nobserved hardware.",
+                  "type": "array",
+                  "items": {
+                    "description": "NetworkInterface describes a network adapter and its ports.",
+                    "type": "object",
+                    "properties": {
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "description": "Name is the OS-visible interface name (e.g. \"eno1\"). In-band only.",
+                        "type": "string"
+                      },
+                      "ports": {
+                        "description": "Ports lists the physical ports on this adapter. The in-band collector reports\none port per interface; the out-of-band collector groups ports under the\nadapter that carries them.",
+                        "type": "array",
+                        "items": {
+                          "description": "NetworkPort describes a single physical port on a network adapter.",
+                          "type": "object",
+                          "properties": {
+                            "enabledCapabilities": {
+                              "description": "EnabledCapabilities lists enabled offloads and features. In-band only.",
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "linkStatus": {
+                              "type": "string"
+                            },
+                            "lldpNeighbors": {
+                              "description": "LLDPNeighbors lists every neighbor advertising to this port over LLDP; a\nport can see more than one (e.g. a switch plus a hypervisor vSwitch or a\ndaisy-chained device). In-band only: this comes from passively listening\non the wire, not from the BMC.",
+                              "type": "array",
+                              "items": {
+                                "description": "LLDPNeighbor describes the switch (or other LLDP-speaking device) discovered\non the other end of a NetworkPort.",
+                                "type": "object",
+                                "properties": {
+                                  "chassisID": {
+                                    "description": "ChassisID identifies the neighbor's chassis, format depending on what the\nneighbor advertises (e.g. a MAC address).",
+                                    "type": "string"
+                                  },
+                                  "portDescription": {
+                                    "description": "PortDescription is the neighbor's description of that port (e.g. an\ninterface alias configured on the switch).",
+                                    "type": "string"
+                                  },
+                                  "portID": {
+                                    "description": "PortID identifies the neighbor's port that this port is connected to, as\nthe neighbor names it (e.g. a switch port name).",
+                                    "type": "string"
+                                  },
+                                  "systemName": {
+                                    "description": "SystemName is the neighbor's advertised hostname (e.g. the switch name).",
+                                    "type": "string"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "mac": {
+                              "description": "MAC is the port's hardware address. Where both sources report a port, this is\nthe key they can be joined on.",
+                              "type": "string"
+                            },
+                            "mtu": {
+                              "type": "integer",
+                              "format": "int32"
+                            },
+                            "portID": {
+                              "description": "PortID identifies the port as the BMC names it (e.g. \"NIC.Embedded.1\").\nOut-of-band only.",
+                              "type": "string"
+                            },
+                            "speedMbps": {
+                              "type": "integer",
+                              "format": "int32"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "pciDevices": {
+                  "description": "PCIDevices lists PCI devices. In-band only: enumerating the PCI bus requires\na running OS.",
+                  "type": "array",
+                  "items": {
+                    "description": "PCIDevice describes a device on the PCI bus. In-band only.",
+                    "type": "object",
+                    "properties": {
+                      "class": {
+                        "type": "string"
+                      },
+                      "driver": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "product": {
+                  "description": "Product describes the overall system identity — the machine's own asset\ndetails, distinct from any individual component.",
+                  "type": "object",
+                  "properties": {
+                    "model": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                      "type": "object",
+                      "properties": {
+                        "health": {
+                          "type": "string"
+                        },
+                        "postCode": {
+                          "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        "postCodeStatus": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "psus": {
+                  "description": "PSUs lists power supply units. Out-of-band only.",
+                  "type": "array",
+                  "items": {
+                    "description": "PSU describes a power supply unit. Out-of-band only.",
+                    "type": "object",
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "powerCapacityWatts": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "storageControllers": {
+                  "description": "StorageControllers lists storage controllers. Out-of-band only.",
+                  "type": "array",
+                  "items": {
+                    "description": "StorageController describes a storage controller. Out-of-band only.",
+                    "type": "object",
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "tpms": {
+                  "description": "TPMs lists trusted platform modules. Out-of-band only.",
+                  "type": "array",
+                  "items": {
+                    "description": "TPM describes a trusted platform module. Out-of-band only.",
+                    "type": "object",
+                    "properties": {
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "interfaceType": {
+                        "description": "InterfaceType is the TPM interface (e.g. \"TPM2_0\").",
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "outOfBand": {
+              "description": "OutOfBand holds attributes collected via the BMC (Redfish or vendor API).\nAvailable before the machine boots. IPMI-only BMCs cannot provide this data\nand will not populate this field.",
+              "type": "object",
+              "properties": {
+                "baseboard": {
+                  "description": "Baseboard describes the mainboard/motherboard.",
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "firmwareVersion": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                      "type": "object",
+                      "properties": {
+                        "health": {
+                          "type": "string"
+                        },
+                        "postCode": {
+                          "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        "postCodeStatus": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "bios": {
+                  "description": "BIOS describes the system BIOS firmware.",
+                  "type": "object",
+                  "properties": {
+                    "firmwareVersion": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "releaseDate": {
+                      "description": "ReleaseDate is the BIOS release date as the source reports it, format\nunspecified (e.g. \"12/13/2021\"). In-band only.",
+                      "type": "string"
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                      "type": "object",
+                      "properties": {
+                        "health": {
+                          "type": "string"
+                        },
+                        "postCode": {
+                          "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        "postCodeStatus": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "blockDevices": {
+                  "description": "BlockDevices lists storage drives.",
+                  "type": "array",
+                  "items": {
+                    "description": "BlockDevice describes a storage drive.",
+                    "type": "object",
+                    "properties": {
+                      "controllerType": {
+                        "type": "string"
+                      },
+                      "driveType": {
+                        "type": "string"
+                      },
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "description": "Name is the OS-visible device name (e.g. \"nvme0n1\"). In-band only.",
+                        "type": "string"
+                      },
+                      "path": {
+                        "description": "Path is the device's position in the topology (udev ID_PATH, e.g.\n\"pci-0000:17:00.0-nvme-1\"), i.e. /dev/disk/by-path/\u003cpath\u003e. Stable where Name\nis not, and identifies the slot rather than the drive: WWN and SerialNumber\nidentify the drive, Path the port it is attached to. In-band only.",
+                        "type": "string"
+                      },
+                      "physicalBlockSizeBytes": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "sizeBytes": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "smartStatus": {
+                        "description": "SmartStatus is the drive's self-reported SMART health status (e.g. \"ok\",\n\"predict-failure\"). Out-of-band only.",
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      },
+                      "wwn": {
+                        "description": "WWN is the World Wide Name, a standard unique storage identifier. Where both\nsources report a drive, this is the key they can be joined on.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "bmc": {
+                  "description": "BMC describes the BMC's own firmware and management NIC. Out-of-band only.",
+                  "type": "object",
+                  "properties": {
+                    "firmwareVersion": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "nic": {
+                      "description": "NIC is the BMC's own management network interface. It is distinct from\nAttributes.NetworkInterfaces, which lists the host's NICs.",
+                      "type": "object",
+                      "properties": {
+                        "firmwareVersion": {
+                          "type": "string"
+                        },
+                        "model": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "description": "Name is the OS-visible interface name (e.g. \"eno1\"). In-band only.",
+                          "type": "string"
+                        },
+                        "ports": {
+                          "description": "Ports lists the physical ports on this adapter. The in-band collector reports\none port per interface; the out-of-band collector groups ports under the\nadapter that carries them.",
+                          "type": "array",
+                          "items": {
+                            "description": "NetworkPort describes a single physical port on a network adapter.",
+                            "type": "object",
+                            "properties": {
+                              "enabledCapabilities": {
+                                "description": "EnabledCapabilities lists enabled offloads and features. In-band only.",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "linkStatus": {
+                                "type": "string"
+                              },
+                              "lldpNeighbors": {
+                                "description": "LLDPNeighbors lists every neighbor advertising to this port over LLDP; a\nport can see more than one (e.g. a switch plus a hypervisor vSwitch or a\ndaisy-chained device). In-band only: this comes from passively listening\non the wire, not from the BMC.",
+                                "type": "array",
+                                "items": {
+                                  "description": "LLDPNeighbor describes the switch (or other LLDP-speaking device) discovered\non the other end of a NetworkPort.",
+                                  "type": "object",
+                                  "properties": {
+                                    "chassisID": {
+                                      "description": "ChassisID identifies the neighbor's chassis, format depending on what the\nneighbor advertises (e.g. a MAC address).",
+                                      "type": "string"
+                                    },
+                                    "portDescription": {
+                                      "description": "PortDescription is the neighbor's description of that port (e.g. an\ninterface alias configured on the switch).",
+                                      "type": "string"
+                                    },
+                                    "portID": {
+                                      "description": "PortID identifies the neighbor's port that this port is connected to, as\nthe neighbor names it (e.g. a switch port name).",
+                                      "type": "string"
+                                    },
+                                    "systemName": {
+                                      "description": "SystemName is the neighbor's advertised hostname (e.g. the switch name).",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              },
+                              "mac": {
+                                "description": "MAC is the port's hardware address. Where both sources report a port, this is\nthe key they can be joined on.",
+                                "type": "string"
+                              },
+                              "mtu": {
+                                "type": "integer",
+                                "format": "int32"
+                              },
+                              "portID": {
+                                "description": "PortID identifies the port as the BMC names it (e.g. \"NIC.Embedded.1\").\nOut-of-band only.",
+                                "type": "string"
+                              },
+                              "speedMbps": {
+                                "type": "integer",
+                                "format": "int32"
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "serialNumber": {
+                          "type": "string"
+                        },
+                        "vendor": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                      "type": "object",
+                      "properties": {
+                        "health": {
+                          "type": "string"
+                        },
+                        "postCode": {
+                          "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        "postCodeStatus": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "chassis": {
+                  "description": "Chassis describes the enclosure.",
+                  "type": "object",
+                  "properties": {
+                    "model": {
+                      "type": "string"
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "collectionMethod": {
+                  "description": "CollectionMethod identifies what produced this subtree: \"agent\" for in-band,\nor the bmclib driver for out-of-band (e.g. \"redfish\", \"dell\", \"supermicro\",\n\"asrockrack\", \"openbmc\"). Consumers should use this to interpret absent\nfields rather than treating them as errors.",
+                  "type": "string"
+                },
+                "cpu": {
+                  "description": "CPU holds aggregate CPU totals and per-socket detail. Both in-band and\nout-of-band report sockets; CPUSocket.Slot is a numeric processor ID\nin-band and a physical socket label (e.g. \"CPU1\") out-of-band.",
+                  "type": "object",
+                  "properties": {
+                    "sockets": {
+                      "description": "Sockets lists the individual physical CPUs.",
+                      "type": "array",
+                      "items": {
+                        "description": "CPUSocket describes a single physical CPU. Note: on the out-of-band Redfish\ncollection path, SerialNumber is always empty — that is what the BMC exposes,\nnot a mapping gap.",
+                        "type": "object",
+                        "properties": {
+                          "capabilities": {
+                            "description": "Capabilities lists CPU feature flags. In-band only.",
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "clockSpeedMHz": {
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "cores": {
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "firmwareVersion": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "serialNumber": {
+                            "type": "string"
+                          },
+                          "slot": {
+                            "description": "Slot identifies the physical socket (e.g. \"CPU1\").",
+                            "type": "string"
+                          },
+                          "threads": {
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "vendor": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "totalCores": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "totalThreads": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "gpuDevices": {
+                  "description": "GPUDevices lists GPU and accelerator devices.",
+                  "type": "array",
+                  "items": {
+                    "description": "GPUDevice describes a GPU or accelerator device.",
+                    "type": "object",
+                    "properties": {
+                      "class": {
+                        "description": "Class is the PCI device class. In-band only.",
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "driver": {
+                        "description": "Driver is the loaded kernel driver. In-band only.",
+                        "type": "string"
+                      },
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "lastUpdated": {
+                  "description": "LastUpdated is the time at which this subtree was last refreshed.",
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "memory": {
+                  "description": "Memory holds aggregate memory totals and per-module detail. In-band reports\nthe totals; out-of-band reports the modules.",
+                  "type": "object",
+                  "properties": {
+                    "modules": {
+                      "description": "Modules lists the individual memory modules. Out-of-band only: the physical\nDIMM topology is not visible from inside the OS.",
+                      "type": "array",
+                      "items": {
+                        "description": "MemoryModule describes a single memory module. Note: on the out-of-band Redfish\ncollection path, Model is always empty — that is what the BMC exposes.",
+                        "type": "object",
+                        "properties": {
+                          "firmwareVersion": {
+                            "type": "string"
+                          },
+                          "formFactor": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "partNumber": {
+                            "type": "string"
+                          },
+                          "serialNumber": {
+                            "type": "string"
+                          },
+                          "sizeBytes": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "slot": {
+                            "description": "Slot identifies the physical slot (e.g. \"DIMM.A1\").",
+                            "type": "string"
+                          },
+                          "speedMHz": {
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "vendor": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "totalBytes": {
+                      "description": "TotalBytes is the total physical memory installed.",
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "usableBytes": {
+                      "description": "UsableBytes is the memory usable by the OS. In-band only.",
+                      "type": "integer",
+                      "format": "int64"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "networkInterfaces": {
+                  "description": "NetworkInterfaces lists the host's network adapters. Distinct from\nHardware.spec.interfaces, which is DHCP/netboot configuration rather than\nobserved hardware.",
+                  "type": "array",
+                  "items": {
+                    "description": "NetworkInterface describes a network adapter and its ports.",
+                    "type": "object",
+                    "properties": {
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "description": "Name is the OS-visible interface name (e.g. \"eno1\"). In-band only.",
+                        "type": "string"
+                      },
+                      "ports": {
+                        "description": "Ports lists the physical ports on this adapter. The in-band collector reports\none port per interface; the out-of-band collector groups ports under the\nadapter that carries them.",
+                        "type": "array",
+                        "items": {
+                          "description": "NetworkPort describes a single physical port on a network adapter.",
+                          "type": "object",
+                          "properties": {
+                            "enabledCapabilities": {
+                              "description": "EnabledCapabilities lists enabled offloads and features. In-band only.",
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "linkStatus": {
+                              "type": "string"
+                            },
+                            "lldpNeighbors": {
+                              "description": "LLDPNeighbors lists every neighbor advertising to this port over LLDP; a\nport can see more than one (e.g. a switch plus a hypervisor vSwitch or a\ndaisy-chained device). In-band only: this comes from passively listening\non the wire, not from the BMC.",
+                              "type": "array",
+                              "items": {
+                                "description": "LLDPNeighbor describes the switch (or other LLDP-speaking device) discovered\non the other end of a NetworkPort.",
+                                "type": "object",
+                                "properties": {
+                                  "chassisID": {
+                                    "description": "ChassisID identifies the neighbor's chassis, format depending on what the\nneighbor advertises (e.g. a MAC address).",
+                                    "type": "string"
+                                  },
+                                  "portDescription": {
+                                    "description": "PortDescription is the neighbor's description of that port (e.g. an\ninterface alias configured on the switch).",
+                                    "type": "string"
+                                  },
+                                  "portID": {
+                                    "description": "PortID identifies the neighbor's port that this port is connected to, as\nthe neighbor names it (e.g. a switch port name).",
+                                    "type": "string"
+                                  },
+                                  "systemName": {
+                                    "description": "SystemName is the neighbor's advertised hostname (e.g. the switch name).",
+                                    "type": "string"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "mac": {
+                              "description": "MAC is the port's hardware address. Where both sources report a port, this is\nthe key they can be joined on.",
+                              "type": "string"
+                            },
+                            "mtu": {
+                              "type": "integer",
+                              "format": "int32"
+                            },
+                            "portID": {
+                              "description": "PortID identifies the port as the BMC names it (e.g. \"NIC.Embedded.1\").\nOut-of-band only.",
+                              "type": "string"
+                            },
+                            "speedMbps": {
+                              "type": "integer",
+                              "format": "int32"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "pciDevices": {
+                  "description": "PCIDevices lists PCI devices. In-band only: enumerating the PCI bus requires\na running OS.",
+                  "type": "array",
+                  "items": {
+                    "description": "PCIDevice describes a device on the PCI bus. In-band only.",
+                    "type": "object",
+                    "properties": {
+                      "class": {
+                        "type": "string"
+                      },
+                      "driver": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "product": {
+                  "description": "Product describes the overall system identity — the machine's own asset\ndetails, distinct from any individual component.",
+                  "type": "object",
+                  "properties": {
+                    "model": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "serialNumber": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                      "type": "object",
+                      "properties": {
+                        "health": {
+                          "type": "string"
+                        },
+                        "postCode": {
+                          "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        "postCodeStatus": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "vendor": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "psus": {
+                  "description": "PSUs lists power supply units. Out-of-band only.",
+                  "type": "array",
+                  "items": {
+                    "description": "PSU describes a power supply unit. Out-of-band only.",
+                    "type": "object",
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "powerCapacityWatts": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "storageControllers": {
+                  "description": "StorageControllers lists storage controllers. Out-of-band only.",
+                  "type": "array",
+                  "items": {
+                    "description": "StorageController describes a storage controller. Out-of-band only.",
+                    "type": "object",
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "tpms": {
+                  "description": "TPMs lists trusted platform modules. Out-of-band only.",
+                  "type": "array",
+                  "items": {
+                    "description": "TPM describes a trusted platform module. Out-of-band only.",
+                    "type": "object",
+                    "properties": {
+                      "firmwareVersion": {
+                        "type": "string"
+                      },
+                      "interfaceType": {
+                        "description": "InterfaceType is the TPM interface (e.g. \"TPM2_0\").",
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "serialNumber": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "description": "ComponentStatus is health/state information reported for an individual\ncomponent. PostCode and PostCodeStatus are device-level POST diagnostics and\nare only populated on Product (the machine's own identity), never on a\nper-component status.",
+                        "type": "object",
+                        "properties": {
+                          "health": {
+                            "type": "string"
+                          },
+                          "postCode": {
+                            "description": "PostCode is a pointer because 0 is a meaningful POST code (success), which\nomitempty on a value type would drop.",
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "postCodeStatus": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "vendor": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "state": {
           "description": "HardwareState represents the hardware state.",
           "type": "string"

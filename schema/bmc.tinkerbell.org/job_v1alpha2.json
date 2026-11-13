@@ -14,46 +14,21 @@
       "type": "object"
     },
     "spec": {
-      "description": "JobSpec defines the desired state of Job.",
+      "description": "JobSpec defines the operations to be executed against a BMC.",
       "type": "object",
       "required": [
         "operations"
       ],
       "properties": {
-        "bmcRef": {
-          "description": "BMCRef represents the BMC object that will be used for connection details when executing the Job.\nAll the operations in the Job are executed for the same BMC.\nMutually exclusive with Connection.",
-          "type": "object",
-          "required": [
-            "name",
-            "namespace"
-          ],
-          "properties": {
-            "name": {
-              "description": "Name of the object.",
-              "type": "string"
-            },
-            "namespace": {
-              "description": "Namespace in which the object resides.",
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "x-kubernetes-validations": [
-            {
-              "rule": "(self.name != \"\") == (self.namespace != \"\")",
-              "message": "name and namespace must both be non-empty or both be empty"
-            }
-          ]
-        },
         "connection": {
-          "description": "Connection contains connection details that will be used for executing the Job.\nMutually exclusive with BMCRef.",
+          "description": "Connection contains connection details that will be used for executing the Job.\nMutually exclusive with HardwareRef.",
           "type": "object",
           "required": [
             "host"
           ],
           "properties": {
-            "authRef": {
-              "description": "AuthRef is the Secret object that contains authentication information of the Machine.\nThe Secret must contain username and password keys. This is optional as it is not required when using\nthe RPC provider.",
+            "credentialsRef": {
+              "description": "CredentialsRef is the Secret object that contains credentials for authenticating to the BMC.\nThe Secret must contain username and password keys.\nThis is optional as it is not required when using the RPC provider.",
               "type": "object",
               "required": [
                 "name",
@@ -78,12 +53,12 @@
               ]
             },
             "host": {
-              "description": "Host is the host IP address or hostname of the Machine.",
+              "description": "Host is the IP address or hostname of the BMC.",
               "type": "string",
               "minLength": 1
             },
             "insecureTLS": {
-              "description": "InsecureTLS specifies trusted TLS connections.",
+              "description": "InsecureTLS indicates whether to skip TLS certificate verification when connecting to the BMC.",
               "type": "boolean"
             },
             "providerOptions": {
@@ -289,8 +264,33 @@
           },
           "additionalProperties": false
         },
+        "hardwareRef": {
+          "description": "HardwareRef represents the Hardware object that holds the connection details to be used for executing the Job.\nAll the operations in the Job are executed for the same BMC.\nMutually exclusive with Connection.",
+          "type": "object",
+          "required": [
+            "name",
+            "namespace"
+          ],
+          "properties": {
+            "name": {
+              "description": "Name of the object.",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace in which the object resides.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(self.name != \"\") == (self.namespace != \"\")",
+              "message": "name and namespace must both be non-empty or both be empty"
+            }
+          ]
+        },
         "operations": {
-          "description": "Operations represents a list of baseboard management actions to be executed.\nThe operations are executed sequentially. Controller waits for one operation to complete before executing the next.\nIf a single operation fails, job execution stops and sets condition Failed.\nCondition Completed is set only if all the operations were successful.",
+          "description": "Operations represents a list of BMC (baseboard management) operations to be executed.\nThe operations are executed sequentially. Controller waits for one operation to complete before executing the next.\nIf a single operation fails, job execution stops and sets condition Failed.\nCondition Completed is set only if all the operations were successful.",
           "type": "array",
           "minItems": 1,
           "items": {
@@ -301,13 +301,13 @@
                 "description": "BootDevice is the device to set as the first boot device on the Machine.",
                 "type": "object",
                 "properties": {
-                  "device": {
-                    "description": "Device is the name of the device to set as the first boot device.",
-                    "type": "string"
-                  },
                   "efiBoot": {
                     "description": "EFIBoot indicates whether the boot device should be set to efiboot mode.",
                     "type": "boolean"
+                  },
+                  "name": {
+                    "description": "Name is the name of the device to set as the first boot device.",
+                    "type": "string"
                   },
                   "persistent": {
                     "description": "Persistent indicates whether the boot device should be set persistently as the first boot device.",
@@ -365,8 +365,8 @@
       "additionalProperties": false,
       "x-kubernetes-validations": [
         {
-          "rule": "!(has(self.bmcRef) \u0026\u0026 has(self.connection))",
-          "message": "bmcRef and connection are mutually exclusive"
+          "rule": "!(has(self.hardwareRef) \u0026\u0026 has(self.connection))",
+          "message": "hardwareRef and connection are mutually exclusive"
         }
       ]
     },
@@ -374,6 +374,11 @@
       "description": "JobStatus defines the observed state of Job.",
       "type": "object",
       "properties": {
+        "completedOperations": {
+          "description": "CompletedOperations is the number of operations in the Job that have\ncompleted successfully. It is used to resume a partially completed Job\nafter a controller restart or leadership change without re-running\noperations that already succeeded.",
+          "type": "integer",
+          "format": "int32"
+        },
         "completionTime": {
           "description": "CompletionTime represents time when the job was completed.\nThe completion time is only set when the job finishes successfully.",
           "type": "string",
@@ -399,7 +404,7 @@
                 "type": "string"
               },
               "observedGeneration": {
-                "description": "ObservedGeneration is the generation of the Machine that was last observed by the controller.\nIt is used to determine if the condition is up to date with the latest changes.",
+                "description": "ObservedGeneration is the generation of the BMC that was last observed by the controller.\nIt is used to determine if the condition is up to date with the latest changes.",
                 "type": "integer",
                 "format": "int64"
               },

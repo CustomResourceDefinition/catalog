@@ -21,20 +21,9 @@
           "description": "AgentID is the unique identifier an Agent uses that is associated with this Hardware.\nThis is used to identify Hardware during the discovery and enrollment process.\nIt is typically the MAC address of the primary network interface.",
           "type": "string"
         },
-        "attributes": {
-          "description": "Attributes related to Hardware. These are attributes that are needed/used to make logical decisions\naround builtin capabilities. For example, the Arch determines which OSIE files to server (x86_64 or aarch64).\nThe UEFI boolean us needed/used to determine options in IPMI calls.",
-          "type": "object",
-          "properties": {
-            "arch": {
-              "description": "Arch represents the Hardware's architecture type.\nFor example; x86_64 or aarch64",
-              "type": "string"
-            },
-            "uefi": {
-              "description": "UEFI reports whether the Hardware uses UEFI.",
-              "type": "boolean"
-            }
-          },
-          "additionalProperties": false
+        "arch": {
+          "description": "Arch represents the Hardware's architecture type.\nFor example: x86_64, amd64, aarch64, arm64, etc.",
+          "type": "string"
         },
         "auto": {
           "description": "Auto is the configuration for the automatic capabilities.",
@@ -44,6 +33,266 @@
               "description": "EnrollmentEnabled enables automatic enrollment of the Hardware.\nWhen set to true, auto enrollment will create Workflows for this Hardware.",
               "type": "boolean",
               "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "bmc": {
+          "description": "BMC contains connection and configuration data for the BMC (Baseboard Management Controller) of this Hardware.",
+          "type": "object",
+          "properties": {
+            "bootMode": {
+              "description": "BootMode specifies the firmware boot mode of the Hardware.\nOne of UEFI or BIOS.",
+              "type": "string",
+              "default": "UEFI",
+              "enum": [
+                "UEFI",
+                "BIOS"
+              ]
+            },
+            "connection": {
+              "description": "Connection contains connection data for a Baseboard Management Controller.",
+              "type": "object",
+              "required": [
+                "host"
+              ],
+              "properties": {
+                "credentialsRef": {
+                  "description": "CredentialsRef is the Secret object that contains credentials for authenticating to the BMC.\nThe Secret must contain username and password keys.\nThis is optional as it is not required when using the RPC provider.",
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "namespace"
+                  ],
+                  "properties": {
+                    "name": {
+                      "description": "Name of the object.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace in which the object resides.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "(self.name != \"\") == (self.namespace != \"\")",
+                      "message": "name and namespace must both be non-empty or both be empty"
+                    }
+                  ]
+                },
+                "host": {
+                  "description": "Host is the IP address or hostname of the BMC.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "insecureTLS": {
+                  "description": "InsecureTLS indicates whether to skip TLS certificate verification when connecting to the BMC.",
+                  "type": "boolean"
+                },
+                "providerOptions": {
+                  "description": "ProviderOptions contains provider specific options.",
+                  "type": "object",
+                  "properties": {
+                    "intelAMT": {
+                      "description": "IntelAMT contains the options to customize the IntelAMT provider.",
+                      "type": "object",
+                      "properties": {
+                        "hostScheme": {
+                          "description": "HostScheme determines whether to use http or https for intelAMT calls.",
+                          "type": "string",
+                          "default": "http",
+                          "enum": [
+                            "http",
+                            "https"
+                          ]
+                        },
+                        "port": {
+                          "description": "Port that intelAMT will use for calls.",
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "ipmitool": {
+                      "description": "IPMITOOL contains the options to customize the Ipmitool provider.",
+                      "type": "object",
+                      "properties": {
+                        "cipherSuite": {
+                          "description": "CipherSuite that ipmitool will use for calls.",
+                          "type": "string"
+                        },
+                        "port": {
+                          "description": "Port that ipmitool will use for calls.",
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "preferredOrder": {
+                      "description": "PreferredOrder allows customizing the order that BMC providers are called.\nProviders added to this list will be moved to the front of the default order.\nProvider names are case insensitive.\nThe default order is: ipmitool, asrockrack, gofish, intelamt, dell, supermicro, openbmc.",
+                      "type": "array",
+                      "items": {
+                        "description": "ProviderName is the bmclib specific provider name. Names are case insensitive.",
+                        "type": "string",
+                        "pattern": "(?i)^(ipmitool|asrockrack|gofish|IntelAMT|dell|supermicro|openbmc)$"
+                      }
+                    },
+                    "redfish": {
+                      "description": "Redfish contains the options to customize the Redfish provider.",
+                      "type": "object",
+                      "properties": {
+                        "port": {
+                          "description": "Port that redfish will use for calls.",
+                          "type": "integer"
+                        },
+                        "systemName": {
+                          "description": "SystemName is the name of the system to use for redfish calls.\nWith redfish implementations that manage multiple systems via a single endpoint, this allows for specifying the system to manage.",
+                          "type": "string"
+                        },
+                        "useBasicAuth": {
+                          "description": "UseBasicAuth for redfish calls. The default is false which means token based auth is used.",
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rpc": {
+                      "description": "RPC contains the options to customize the RPC provider.",
+                      "type": "object",
+                      "required": [
+                        "consumerURL"
+                      ],
+                      "properties": {
+                        "consumerURL": {
+                          "description": "ConsumerURL is the URL where an rpc consumer/listener is running\nand to which we will send and receive all notifications.",
+                          "type": "string"
+                        },
+                        "experimental": {
+                          "description": "Experimental options.",
+                          "type": "object",
+                          "properties": {
+                            "customRequestPayload": {
+                              "description": "CustomRequestPayload must be in json.",
+                              "type": "string"
+                            },
+                            "dotPath": {
+                              "description": "DotPath is the path to the json object where the bmclib RequestPayload{} struct will be embedded. For example: object.data.body",
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "hmac": {
+                          "description": "HMAC is the options used to create a HMAC signature.",
+                          "type": "object",
+                          "properties": {
+                            "prefixSigDisabled": {
+                              "description": "PrefixSigDisabled determines whether the algorithm will be prefixed to the signature. Example: sha256=abc123",
+                              "type": "boolean"
+                            },
+                            "secrets": {
+                              "description": "Secrets are a map of algorithms to secrets used for signing.",
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                  "description": "SimpleReference is used to reference an object.",
+                                  "type": "object",
+                                  "required": [
+                                    "name",
+                                    "namespace"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "description": "Name of the object.",
+                                      "type": "string"
+                                    },
+                                    "namespace": {
+                                      "description": "Namespace in which the object resides.",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "x-kubernetes-validations": [
+                                    {
+                                      "rule": "(self.name != \"\") == (self.namespace != \"\")",
+                                      "message": "name and namespace must both be non-empty or both be empty"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "logNotificationsDisabled": {
+                          "description": "LogNotificationsDisabled determines whether responses from rpc consumer/listeners will be logged or not.",
+                          "type": "boolean"
+                        },
+                        "request": {
+                          "description": "Request is the options used to create the rpc HTTP request.",
+                          "type": "object",
+                          "properties": {
+                            "httpContentType": {
+                              "description": "HTTPContentType is the content type to use for the rpc request notification.",
+                              "type": "string"
+                            },
+                            "httpMethod": {
+                              "description": "HTTPMethod is the HTTP method to use for the rpc request notification.",
+                              "type": "string"
+                            },
+                            "staticHeaders": {
+                              "description": "StaticHeaders are predefined headers that will be added to every request.",
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "timestampFormat": {
+                              "description": "TimestampFormat is the time format for the timestamp header.",
+                              "type": "string"
+                            },
+                            "timestampHeader": {
+                              "description": "TimestampHeader is the header name that should contain the timestamp. Example: X-BMCLIB-Timestamp",
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "signature": {
+                          "description": "Signature is the options used for adding an HMAC signature to an HTTP request.",
+                          "type": "object",
+                          "properties": {
+                            "appendAlgoToHeaderDisabled": {
+                              "description": "AppendAlgoToHeaderDisabled decides whether to append the algorithm to the signature header or not.\nExample: X-BMCLIB-Signature becomes X-BMCLIB-Signature-256\nWhen set to true, a header will be added for each algorithm. Example: X-BMCLIB-Signature-256 and X-BMCLIB-Signature-512",
+                              "type": "boolean"
+                            },
+                            "headerName": {
+                              "description": "HeaderName is the header name that should contain the signature(s). Example: X-BMCLIB-Signature",
+                              "type": "string"
+                            },
+                            "includedPayloadHeaders": {
+                              "description": "IncludedPayloadHeaders are headers whose values will be included in the signature payload. Example: X-BMCLIB-My-Custom-Header\nAll headers will be deduplicated.",
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -428,66 +677,31 @@
         "references": {
           "description": "References allow for linking custom resource objects of any kind to this Hardware object.\nThese are available in Workflows for templating. They are referenced by the name of the reference.\nFor example, given a reference with the name \"lvm\", you can access it in a Workflow with {{ .references.lvm }}.",
           "type": "object",
-          "properties": {
-            "additional": {
-              "description": "Additional references are dynamic and defined by the user.",
-              "type": "object",
-              "additionalProperties": {
-                "type": "object",
-                "properties": {
-                  "group": {
-                    "description": "Group of the referent.\nMore info: https://kubernetes.io/docs/reference/using-api/#api-groups",
-                    "type": "string"
-                  },
-                  "name": {
-                    "description": "Name of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
-                    "type": "string"
-                  },
-                  "namespace": {
-                    "description": "Namespace of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
-                    "type": "string"
-                  },
-                  "resource": {
-                    "description": "Resource of the referent. Must be the pluralized kind of the referent. Must be all lowercase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-                    "type": "string"
-                  },
-                  "version": {
-                    "description": "API version of the referent.\nMore info: https://kubernetes.io/docs/reference/using-api/#api-versioning",
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            "builtin": {
-              "description": "Builtin references are predefined.",
-              "type": "object",
-              "properties": {
-                "bmc": {
-                  "description": "BMC is the reference to a machine.bmc.tinkerbell.org object.",
-                  "type": "object",
-                  "properties": {
-                    "name": {
-                      "description": "Name of the object.",
-                      "type": "string"
-                    },
-                    "namespace": {
-                      "description": "Namespace where the object resides.",
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "x-kubernetes-validations": [
-                    {
-                      "rule": "(has(self.name) \u0026\u0026 self.name != \"\") == (has(self.namespace) \u0026\u0026 self.namespace != \"\")",
-                      "message": "name and namespace must both be specified or both be empty"
-                    }
-                  ]
-                }
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "group": {
+                "description": "Group of the referent.\nMore info: https://kubernetes.io/docs/reference/using-api/#api-groups",
+                "type": "string"
               },
-              "additionalProperties": false
+              "name": {
+                "description": "Name of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                "type": "string"
+              },
+              "namespace": {
+                "description": "Namespace of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
+                "type": "string"
+              },
+              "resource": {
+                "description": "Resource of the referent. Must be the pluralized kind of the referent. Must be all lowercase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+                "type": "string"
+              },
+              "version": {
+                "description": "API version of the referent.\nMore info: https://kubernetes.io/docs/reference/using-api/#api-versioning",
+                "type": "string"
+              }
             }
-          },
-          "additionalProperties": false
+          }
         },
         "storageDevices": {
           "description": "StorageDevices is a list of storage devices that will be available in the OSIE.",
@@ -498,6 +712,49 @@
             "properties": {
               "name": {
                 "description": "Name must be a valid Linux path. It should not contain partitions.\n\nGood\n\n\t/dev/sda\n\t/dev/nvme0n1\n\nBad (contains partitions)\n\n\t/dev/sda1\n\t/dev/nvme0n1p1\n\nBad (invalid Linux path)\n\n\t\\dev\\sda",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "HardwareStatus defines the observed state of Hardware.",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions represents the latest available observations of an object's current state.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastUpdateTime": {
+                "description": "LastUpdateTime of the condition.",
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "description": "Message represents human readable message indicating details about last transition.",
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "ObservedGeneration is the generation of the BMC that was last observed by the controller.\nIt is used to determine if the condition is up to date with the latest changes.",
+                "type": "integer",
+                "format": "int64"
+              },
+              "status": {
+                "description": "Status is the status of the Job condition.\nCan be True or False.",
+                "type": "string"
+              },
+              "type": {
+                "description": "Type of the Job condition.",
                 "type": "string"
               }
             },
