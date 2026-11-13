@@ -69,7 +69,7 @@ For Helm and OCI sources:
 - Verify configured source charts are available
 - Remove repo
 
-For http sources and when it is unclear if a git/oci/helm source is available, you should copy the singular configuration entry to `build/configuration.yaml` and run `make check`.
+For http sources and when it is unclear if a git/oci/helm source is available, you should copy their configuration entries to `build/configuration.yaml` and run `make check`, although this should a last resort effort.
 
 Suggest unavailable sources have their description updated to reflect their state, if it is not already.
 
