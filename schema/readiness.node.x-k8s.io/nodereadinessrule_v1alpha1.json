@@ -26,6 +26,14 @@
         "taint"
       ],
       "properties": {
+        "conditionPolicy": {
+          "description": "conditionPolicy controls how the conditions list is evaluated.\n\"allOf\" (default) requires every condition to match its requiredStatus before the taint is removed.\n\"anyOf\" requires at least one condition to match its requiredStatus.\n\nanyOf cannot be used with enforcementMode: bootstrap-only.",
+          "type": "string",
+          "enum": [
+            "allOf",
+            "anyOf"
+          ]
+        },
         "conditions": {
           "description": "conditions contains a list of the Node conditions that defines the specific\ncriteria that must be met for taints to be managed on the target Node.\nThe presence or status of these conditions directly triggers the application or removal of Node taints.",
           "type": "array",
@@ -96,7 +104,7 @@
           ]
         },
         "nodeSelector": {
-          "description": "nodeSelector limits the scope of this rule to a specific subset of Nodes.",
+          "description": "nodeSelector limits the scope of this rule to a specific subset of Nodes.\n\nAn empty selector matches every Node in the cluster, so it is rejected.\nAt least one of matchLabels or matchExpressions must be set.",
           "type": "object",
           "properties": {
             "matchExpressions": {
@@ -145,6 +153,10 @@
             {
               "rule": "self == oldSelf",
               "message": "nodeSelector is immutable"
+            },
+            {
+              "rule": "(has(self.matchLabels) \u0026\u0026 size(self.matchLabels) \u003e 0) || (has(self.matchExpressions) \u0026\u0026 size(self.matchExpressions) \u003e 0)",
+              "message": "nodeSelector must not be empty"
             }
           ]
         },
@@ -189,16 +201,20 @@
               "message": "taint key must have exactly one '/' separator (prefix/name format)"
             },
             {
-              "rule": "size(self.key.split('/')[1]) \u003e 0 \u0026\u0026 size(self.key.split('/')[1]) \u003c= 63",
+              "rule": "self.key.size() \u003e= 18 \u0026\u0026 self.key.size() \u003c= 80",
               "message": "taint key name part must be 1-63 characters"
             },
             {
-              "rule": "self.key.split('/')[1].matches('^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$')",
-              "message": "taint key name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character"
+              "rule": "self.key.matches('^readiness[.]k8s[.]io/[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$')",
+              "message": "taint key must start with 'readiness.k8s.io/' and name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character"
             },
             {
               "rule": "!has(self.value) || self.value.size() \u003c= 63",
               "message": "taint value length must be at most 63 characters"
+            },
+            {
+              "rule": "!has(self.value) || self.value.matches('^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$')",
+              "message": "taint value must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character"
             },
             {
               "rule": "self.effect in ['NoSchedule', 'PreferNoSchedule', 'NoExecute']",
@@ -219,7 +235,25 @@
           ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "(!has(oldSelf.conditionPolicy) ? 'allOf' : oldSelf.conditionPolicy) == (!has(self.conditionPolicy) ? 'allOf' : self.conditionPolicy)",
+          "message": "conditionPolicy is immutable"
+        },
+        {
+          "rule": "!has(self.conditionPolicy) || self.conditionPolicy != 'anyOf' || self.conditions.all(c, !has(c.defaultStatus))",
+          "message": "defaultStatus is not supported when conditionPolicy is anyOf"
+        },
+        {
+          "rule": "!has(self.enforcementMode) || self.enforcementMode != 'bootstrap-only' || !has(self.conditionPolicy) || self.conditionPolicy != 'anyOf'",
+          "message": "anyOf conditionPolicy is not supported with bootstrap-only enforcementMode"
+        },
+        {
+          "rule": "!has(self.enforcementMode) || self.enforcementMode != 'bootstrap-only' || !has(self.conditions) || self.conditions.all(c, !has(c.defaultStatus))",
+          "message": "defaultStatus should not be used with bootstrap-only enforcementMode"
+        }
+      ]
     },
     "status": {
       "description": "status defines the observed state of NodeReadinessRule",

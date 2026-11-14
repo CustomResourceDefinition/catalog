@@ -61,6 +61,17 @@ spec:
           spec:
             description: spec defines the desired state of NodeReadinessRule
             properties:
+              conditionPolicy:
+                description: |-
+                  conditionPolicy controls how the conditions list is evaluated.
+                  "allOf" (default) requires every condition to match its requiredStatus before the taint is removed.
+                  "anyOf" requires at least one condition to match its requiredStatus.
+
+                  anyOf cannot be used with enforcementMode: bootstrap-only.
+                enum:
+                - allOf
+                - anyOf
+                type: string
               conditions:
                 description: |-
                   conditions contains a list of the Node conditions that defines the specific
@@ -135,8 +146,11 @@ spec:
                 - message: enforcementMode is immutable
                   rule: self == oldSelf
               nodeSelector:
-                description: nodeSelector limits the scope of this rule to a specific
-                  subset of Nodes.
+                description: |-
+                  nodeSelector limits the scope of this rule to a specific subset of Nodes.
+
+                  An empty selector matches every Node in the cluster, so it is rejected.
+                  At least one of matchLabels or matchExpressions must be set.
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
@@ -184,6 +198,9 @@ spec:
                 x-kubernetes-validations:
                 - message: nodeSelector is immutable
                   rule: self == oldSelf
+                - message: nodeSelector must not be empty
+                  rule: (has(self.matchLabels) && size(self.matchLabels) > 0) || (has(self.matchExpressions)
+                    && size(self.matchExpressions) > 0)
               taint:
                 description: |-
                   taint defines the specific Taint (Key, Value, and Effect) to be managed
@@ -228,13 +245,16 @@ spec:
                     format)
                   rule: size(self.key.split('/')) == 2
                 - message: taint key name part must be 1-63 characters
-                  rule: size(self.key.split('/')[1]) > 0 && size(self.key.split('/')[1])
-                    <= 63
-                - message: taint key name part must consist of alphanumeric characters,
-                    '-', '_' or '.', and must start and end with an alphanumeric character
-                  rule: self.key.split('/')[1].matches('^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$')
+                  rule: self.key.size() >= 18 && self.key.size() <= 80
+                - message: taint key must start with 'readiness.k8s.io/' and name
+                    part must consist of alphanumeric characters, '-', '_' or '.',
+                    and must start and end with an alphanumeric character
+                  rule: self.key.matches('^readiness[.]k8s[.]io/[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$')
                 - message: taint value length must be at most 63 characters
                   rule: '!has(self.value) || self.value.size() <= 63'
+                - message: taint value must consist of alphanumeric characters, '-',
+                    '_' or '.', and must start and end with an alphanumeric character
+                  rule: '!has(self.value) || self.value.matches(''^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$'')'
                 - message: taint effect must be one of 'NoSchedule', 'PreferNoSchedule',
                     'NoExecute'
                   rule: self.effect in ['NoSchedule', 'PreferNoSchedule', 'NoExecute']
@@ -250,6 +270,20 @@ spec:
             - nodeSelector
             - taint
             type: object
+            x-kubernetes-validations:
+            - message: conditionPolicy is immutable
+              rule: '(!has(oldSelf.conditionPolicy) ? ''allOf'' : oldSelf.conditionPolicy)
+                == (!has(self.conditionPolicy) ? ''allOf'' : self.conditionPolicy)'
+            - message: defaultStatus is not supported when conditionPolicy is anyOf
+              rule: '!has(self.conditionPolicy) || self.conditionPolicy != ''anyOf''
+                || self.conditions.all(c, !has(c.defaultStatus))'
+            - message: anyOf conditionPolicy is not supported with bootstrap-only
+                enforcementMode
+              rule: '!has(self.enforcementMode) || self.enforcementMode != ''bootstrap-only''
+                || !has(self.conditionPolicy) || self.conditionPolicy != ''anyOf'''
+            - message: defaultStatus should not be used with bootstrap-only enforcementMode
+              rule: '!has(self.enforcementMode) || self.enforcementMode != ''bootstrap-only''
+                || !has(self.conditions) || self.conditions.all(c, !has(c.defaultStatus))'
           status:
             description: status defines the observed state of NodeReadinessRule
             minProperties: 1
