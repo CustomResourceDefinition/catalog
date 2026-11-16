@@ -1,6 +1,6 @@
 module github.com/CustomResourceDefinition/catalog
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
