@@ -56,11 +56,11 @@
               "type": "object",
               "properties": {
                 "bargeInAwareness": {
-                  "description": "Optional. If enabled, the agent will adapt its next response based on the assumption that the user hasn't heard the full preceding agent message. This should not be used in scenarios where agent responses are displayed visually.",
+                  "description": "Optional. Whether to disable user barge-in control in the conversation.",
                   "type": "boolean"
                 },
                 "disableBargeIn": {
-                  "description": "Optional. Disables user barge-in while the agent is speaking. If true, user\n input during agent response playback will be ignored.\n\n Deprecated: `disable_barge_in` is deprecated in favor of\n [`disable_barge_in_control`][google.cloud.ces.v1beta.ChannelProfile.disable_barge_in_control]\n in ChannelProfile.",
+                  "description": "Optional. Deprecated: `disable_barge_in` is deprecated in favor of `barge_in_awareness`. Whether to disable user barge-in control in the conversation. - **true**: User interruptions are disabled while the agent is speaking. - **false**: User interruptions are allowed while the agent is speaking.",
                   "type": "boolean"
                 }
               },
@@ -69,6 +69,23 @@
             "inactivityTimeout": {
               "description": "Optional. The duration of user inactivity (no speech or interaction) before the agent prompts the user for reengagement. If not set, the agent will not prompt the user for reengagement.",
               "type": "string"
+            },
+            "synthesizeSpeechConfigs": {
+              "description": "Optional. Configuration of how the agent response should be synthesized,\n mapping from the language code to\n [SynthesizeSpeechConfig][google.cloud.ces.v1.SynthesizeSpeechConfig].\n\n If the configuration for the specified language code is not found, the\n configuration for the root language code will be used. For example, if the\n map contains \"en-us\" and \"en\", and the specified language code is \"en-gb\",\n then \"en\" configuration will be used.\n\n Note: Language code is case-insensitive.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "speakingRate": {
+                    "description": "Optional. The speaking rate/speed in the range [0.25, 2.0]. 1.0 is the normal native speed supported by the specific voice. 2.0 is twice as fast, and 0.5 is half as fast. Values outside of the range [0.25, 2.0] will return an error.",
+                    "type": "number"
+                  },
+                  "voice": {
+                    "description": "Optional. The name of the voice. If not set, the service will choose a\n voice based on the other parameters such as language_code.\n\n For the list of available voices, please refer to [Supported voices and\n languages](https://cloud.google.com/text-to-speech/docs/voices) from Cloud\n Text-to-Speech.",
+                    "type": "string"
+                  }
+                }
+              }
             }
           },
           "additionalProperties": false
@@ -78,6 +95,7 @@
           "type": "object",
           "properties": {
             "passphraseRef": {
+              "description": "Optional. The name of the SecretManager secret version resource storing the passphrase to decrypt the private key. Should be left unset if the private key is not encrypted. Format: `projects/{project}/secrets/{secret}/versions/{version}`",
               "type": "object",
               "oneOf": [
                 {
@@ -127,6 +145,7 @@
               "additionalProperties": false
             },
             "privateKeyRef": {
+              "description": "Required. The name of the SecretManager secret version resource storing the private key encoded in PEM format. Format: `projects/{project}/secrets/{secret}/versions/{version}`",
               "type": "object",
               "oneOf": [
                 {
@@ -176,6 +195,7 @@
               "additionalProperties": false
             },
             "tlsCertificate": {
+              "description": "Required. The TLS certificate encoded in PEM format. This string must include the begin header and end footer lines.",
               "type": "string"
             }
           },
@@ -282,11 +302,9 @@
           "type": "object",
           "properties": {
             "endSessionConfig": {
-              "description": "Optional. Configuration for ending the session in case of system errors (e.g. LLM errors).",
               "type": "object",
               "properties": {
                 "escalateSession": {
-                  "description": "Optional. Whether to escalate the session in [EndSession][google.cloud.ces.v1beta.EndSession]. If session is escalated, [metadata in EndSession][google.cloud.ces.v1beta.EndSession.metadata] will contain `session_escalated = true`. See https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/deploy/google-telephony-platform#transfer_a_call_to_a_human_agent for details.",
                   "type": "boolean"
                 }
               },
@@ -297,18 +315,15 @@
               "type": "string"
             },
             "fallbackResponseConfig": {
-              "description": "Optional. Configuration for handling fallback responses.",
               "type": "object",
               "properties": {
                 "customFallbackMessages": {
-                  "description": "Optional. The fallback messages in case of system errors (e.g. LLM errors), mapped by [supported language code](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/language).",
                   "type": "object",
                   "additionalProperties": {
                     "type": "string"
                   }
                 },
                 "maxFallbackAttempts": {
-                  "description": "Optional. The maximum number of fallback attempts to make before the agent emitting [EndSession][google.cloud.ces.v1beta.EndSession] Signal.",
                   "type": "integer",
                   "format": "int32"
                 }
@@ -376,7 +391,7 @@
               "type": "string"
             },
             "hallucinationMetricBehavior": {
-              "description": "Optional. Deprecated: Use `golden_hallucination_metric_behavior` instead. The hallucination metric behavior is currently used for golden evaluations.",
+              "description": "Optional. Deprecated: `hallucination_metric_behavior` is deprecated in favor of `golden_hallucination_metric_behavior` and `scenario_hallucination_metric_behavior`. Behavior if hallucination metric threshold is not met.",
               "type": "string"
             },
             "scenarioHallucinationMetricBehavior": {
@@ -387,7 +402,7 @@
           "additionalProperties": false
         },
         "evaluationPersonas": {
-          "description": "Optional. The evaluation personas for the app. This field is used to define the personas that can be used for evaluation. Maximum of 30 personas can be defined.",
+          "description": "Optional. The evaluation personas for the app.",
           "type": "array",
           "items": {
             "type": "object",
@@ -402,7 +417,6 @@
                 "type": "string"
               },
               "nameRef": {
-                "description": "CESEvaluationPersonaRef defines the resource reference to CESEvaluationPersona.",
                 "type": "object",
                 "oneOf": [
                   {
@@ -457,49 +471,39 @@
           "type": "object",
           "properties": {
             "goldenEvaluationToolCallBehaviour": {
-              "description": "Optional. Configures the default tool call behaviour for golden evaluations.",
               "type": "string"
             },
             "goldenRunMethod": {
-              "description": "Optional. The default method used to run golden evaluations. This will be used if no golden_run_method is specified in the RunEvaluationRequest.",
               "type": "string"
             },
             "metricsConfig": {
-              "description": "Optional. Configures the default metrics for evaluations.",
               "type": "object",
               "properties": {
                 "goldenMetricsConfig": {
-                  "description": "Optional. Configuration for the golden metrics for the evaluation.",
                   "type": "object",
                   "properties": {
                     "semanticSimilarityMetricsConfig": {
-                      "description": "Optional. Global configuration for semantic similarity metrics.",
                       "type": "object",
                       "properties": {
                         "enableSemanticSimilarityMetrics": {
-                          "description": "Optional. Whether to calculate semantic similarity metrics for the evaluation.",
                           "type": "boolean"
                         }
                       },
                       "additionalProperties": false
                     },
                     "stepToolCorrectnessMetricsConfig": {
-                      "description": "Optional. Configuration for step level tool correctness metrics.",
                       "type": "object",
                       "properties": {
                         "enableToolCorrectnessMetrics": {
-                          "description": "Optional. Whether to calculate tool correctness metrics for the evaluation.",
                           "type": "boolean"
                         }
                       },
                       "additionalProperties": false
                     },
                     "toolCorrectnessMetricsConfig": {
-                      "description": "Optional. Configuration for turn level tool correctness metrics.",
                       "type": "object",
                       "properties": {
                         "enableToolCorrectnessMetrics": {
-                          "description": "Optional. Whether to calculate tool correctness metrics for the evaluation.",
                           "type": "boolean"
                         }
                       },
@@ -509,26 +513,21 @@
                   "additionalProperties": false
                 },
                 "scenarioMetricsConfig": {
-                  "description": "Optional. Configuration for the scenario metrics for the evaluation.",
                   "type": "object",
                   "properties": {
                     "expectationsMetMetricsConfig": {
-                      "description": "Optional. Configuration for expectation level metrics.",
                       "type": "object",
                       "properties": {
                         "enableExpectationsMetMetrics": {
-                          "description": "Optional. Whether to calculate the expectation level metrics for the evaluation.",
                           "type": "boolean"
                         }
                       },
                       "additionalProperties": false
                     },
                     "userGoalMetMetricsConfig": {
-                      "description": "Optional. Configuration for user goal met metrics.",
                       "type": "object",
                       "properties": {
                         "enableUserGoalMetMetrics": {
-                          "description": "Optional. Whether to calculate the user goal met metrics for the evaluation.",
                           "type": "boolean"
                         }
                       },
@@ -541,15 +540,12 @@
               "additionalProperties": false
             },
             "scenarioConversationInitiator": {
-              "description": "Optional. Who starts the conversation in a scenario evaluation.",
               "type": "string"
             },
             "scenarioEvaluationToolCallBehaviour": {
-              "description": "Optional. Configures the default tool call behaviour for scenario evaluations.",
               "type": "string"
             },
             "scenarioExecutionMode": {
-              "description": "Optional. The execution mode for scenario evaluations. If not provided, will default to QUALITY_OPTIMIZED.",
               "type": "string"
             }
           },
@@ -563,7 +559,7 @@
           "description": "Optional. List of guardrails for the app. Format: `projects/{project}/locations/{location}/apps/{app}/guardrails/{guardrail}`",
           "type": "array",
           "items": {
-            "description": "CESGuardrailRef defines the resource reference to CESGuardrail.",
+            "description": "CesGuardrailRef is a reference to a GCP CesGuardrail.",
             "type": "object",
             "oneOf": [
               {
@@ -598,15 +594,15 @@
             ],
             "properties": {
               "external": {
-                "description": "A reference to an externally managed CES Guardrail. Format: `projects/{project}/locations/{location}/apps/{app}/guardrails/{guardrail}`",
+                "description": "A reference to an externally managed CesGuardrail resource. Should be in the format \"projects/{{projectID}}/locations/{{location}}/apps/{{appID}}/guardrails/{{guardrailID}}\".",
                 "type": "string"
               },
               "name": {
-                "description": "The `name` of a `CESGuardrail` resource.",
+                "description": "The name of a CesGuardrail resource.",
                 "type": "string"
               },
               "namespace": {
-                "description": "The `namespace` of a `CESGuardrail` resource.",
+                "description": "The namespace of a CesGuardrail resource.",
                 "type": "string"
               }
             },
@@ -618,19 +614,19 @@
           "type": "object",
           "properties": {
             "defaultLanguageCode": {
-              "description": "Optional. The default language code of the app.",
+              "description": "Required. The default language code of the app.",
               "type": "string"
             },
             "enableMultilingualSupport": {
-              "description": "Optional. Enables multilingual support. If true, agents in the app will use pre-built instructions to improve handling of multilingual input.",
+              "description": "Optional. Whether to enable multilingual support for the app.",
               "type": "boolean"
             },
             "fallbackAction": {
-              "description": "Optional. Deprecated: This feature is no longer supported. Use\n `enable_multilingual_support` instead to improve handling of multilingual\n input.\n The action to perform when an agent receives input in an unsupported\n language.\n\n This can be a predefined action or a custom tool call.\n Valid values are:\n - A tool's full resource name, which triggers a specific tool execution.\n - A predefined system action, such as \"escalate\" or \"exit\", which triggers\n an [EndSession][google.cloud.ces.v1beta.EndSession] signal with\n corresponding [metadata][google.cloud.ces.v1beta.EndSession.metadata] to\n terminate the conversation.",
+              "description": "Optional. Deprecated: `fallback_action` is deprecated. Action to take when a user speaks in a language that is not supported.",
               "type": "string"
             },
             "supportedLanguageCodes": {
-              "description": "Optional. List of languages codes supported by the app, in addition to the `default_language_code`.",
+              "description": "Optional. The list of languages supported by the app.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -640,8 +636,14 @@
           "additionalProperties": false
         },
         "location": {
-          "description": "The location of this resource.",
-          "type": "string"
+          "description": "The location that this resource belongs to.",
+          "type": "string",
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == oldSelf",
+              "message": "Location is immutable."
+            }
+          ]
         },
         "locked": {
           "description": "Optional. Indicates whether the app is locked for changes. If the app is locked, modifications to the app resources will be rejected.",
@@ -652,22 +654,72 @@
           "type": "object",
           "properties": {
             "audioRecordingConfig": {
-              "description": "Optional. Configuration for how audio interactions should be recorded. The audio is subject to redaction as configured in [RedactionConfig][google.cloud.ces.v1beta.LoggingSettings.redaction_config].",
+              "description": "Optional. Configuration of how the audio should be recorded.",
               "type": "object",
               "properties": {
                 "gcsBucket": {
                   "description": "Optional. The [Cloud Storage](https://cloud.google.com/storage) bucket to\n store the session audio recordings. The URI must start with \"gs://\".\n\n Please choose a bucket location that meets your data residency\n requirements.\n\n Note: If the Cloud Storage bucket is in a different project from the app,\n you should grant `storage.objects.create` permission to the CES service\n agent `service-\u003cPROJECT-NUMBER\u003e@gcp-sa-ces.iam.gserviceaccount.com`.",
                   "type": "string"
                 },
+                "gcsBucketRef": {
+                  "description": "Reference to the Cloud Storage bucket to store session audio recordings.",
+                  "type": "object",
+                  "oneOf": [
+                    {
+                      "required": [
+                        "name"
+                      ],
+                      "not": {
+                        "required": [
+                          "external"
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "external"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "name"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "namespace"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "external": {
+                      "description": "A reference to an externally managed StorageBucket resource. Should be in the format \"projects/{{projectID}}/buckets/{{bucketID}}\".",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "The name of a StorageBucket resource.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "The namespace of a StorageBucket resource.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
                 "gcsPathPrefix": {
-                  "description": "Optional. The Cloud Storage path prefix for audio recordings.\n\n This prefix can include the following placeholders, which will be\n dynamically substituted at serving time:\n   - $project:   project ID\n   - $location:  app location\n   - $app:       app ID\n   - $date:      session date in YYYY-MM-DD format\n   - $session:   session ID\n\n If the path prefix is not specified, the default prefix\n `$project/$location/$app/$date/$session/` will be used.",
+                  "description": "Optional. The Cloud Storage path prefix for audio recordings.\n\n This prefix can include the following placeholders, which will be\n dynamically substituted at serving time:\n   - $project:   project ID\n   - $location:  app location\n   - $app:       app ID\n   - $date:      session date in YYYY-MM-DD format",
                   "type": "string"
                 }
               },
               "additionalProperties": false
             },
             "bigqueryExportSettings": {
-              "description": "Optional. Configures the BigQuery export behaviors for the app. The conversation data is subject to redaction as configured in [RedactionConfig][google.cloud.ces.v1beta.LoggingSettings.redaction_config].",
+              "description": "Optional. Configuration of how the data should be exported to BigQuery.",
               "type": "object",
               "properties": {
                 "dataset": {
@@ -681,12 +733,66 @@
                 "project": {
                   "description": "Optional. The **project ID** of the BigQuery dataset to export the data to.\n\n Note: If the BigQuery dataset is in a different project from the app,\n you should grant `roles/bigquery.admin` role to the CES service agent\n `service-\u003cPROJECT-NUMBER\u003e@gcp-sa-ces.iam.gserviceaccount.com`.",
                   "type": "string"
+                },
+                "projectRef": {
+                  "description": "Reference to the Project of the BigQuery dataset.",
+                  "type": "object",
+                  "oneOf": [
+                    {
+                      "required": [
+                        "name"
+                      ],
+                      "not": {
+                        "required": [
+                          "external"
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "external"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "name"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "namespace"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "external": {
+                      "description": "The `projectID` field of a project, when not managed by Config Connector.",
+                      "type": "string"
+                    },
+                    "kind": {
+                      "description": "The kind of the Project resource; optional but must be `Project` if provided.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "The `name` field of a `Project` resource.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "The `namespace` field of a `Project` resource.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "additionalProperties": false
             },
             "cloudLoggingSettings": {
-              "description": "Optional. Settings to describe the Cloud Logging behaviors for the app.",
+              "description": "Optional. Configuration of how the data should be logged to Cloud Logging.",
               "type": "object",
               "properties": {
                 "enableCloudLogging": {
@@ -697,37 +803,86 @@
               "additionalProperties": false
             },
             "conversationLoggingSettings": {
-              "description": "Optional. Settings to describe the conversation logging behaviors for the app.",
+              "description": "Optional. Configuration of how the conversation should be logged.",
               "type": "object",
               "properties": {
                 "disableConversationLogging": {
-                  "description": "Optional. Whether to disable conversation logging for the sessions.",
+                  "description": "Optional. Whether to disable conversation logging.",
                   "type": "boolean"
                 },
                 "retentionWindow": {
-                  "description": "Optional. Controls the retention window for the conversation. If not set, the conversation will be retained for 365 days.",
                   "type": "string"
                 }
               },
               "additionalProperties": false
             },
             "evaluationAudioRecordingConfig": {
-              "description": "Optional. Configuration for how audio interactions should be recorded for the evaluation. By default, audio recording is not enabled for evaluation sessions.",
+              "description": "Optional. Configuration of how the evaluation audio should be recorded.",
               "type": "object",
               "properties": {
                 "gcsBucket": {
                   "description": "Optional. The [Cloud Storage](https://cloud.google.com/storage) bucket to\n store the session audio recordings. The URI must start with \"gs://\".\n\n Please choose a bucket location that meets your data residency\n requirements.\n\n Note: If the Cloud Storage bucket is in a different project from the app,\n you should grant `storage.objects.create` permission to the CES service\n agent `service-\u003cPROJECT-NUMBER\u003e@gcp-sa-ces.iam.gserviceaccount.com`.",
                   "type": "string"
                 },
+                "gcsBucketRef": {
+                  "description": "Reference to the Cloud Storage bucket to store session audio recordings.",
+                  "type": "object",
+                  "oneOf": [
+                    {
+                      "required": [
+                        "name"
+                      ],
+                      "not": {
+                        "required": [
+                          "external"
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "external"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "name"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "namespace"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "external": {
+                      "description": "A reference to an externally managed StorageBucket resource. Should be in the format \"projects/{{projectID}}/buckets/{{bucketID}}\".",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "The name of a StorageBucket resource.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "The namespace of a StorageBucket resource.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
                 "gcsPathPrefix": {
-                  "description": "Optional. The Cloud Storage path prefix for audio recordings.\n\n This prefix can include the following placeholders, which will be\n dynamically substituted at serving time:\n   - $project:   project ID\n   - $location:  app location\n   - $app:       app ID\n   - $date:      session date in YYYY-MM-DD format\n   - $session:   session ID\n\n If the path prefix is not specified, the default prefix\n `$project/$location/$app/$date/$session/` will be used.",
+                  "description": "Optional. The Cloud Storage path prefix for audio recordings.\n\n This prefix can include the following placeholders, which will be\n dynamically substituted at serving time:\n   - $project:   project ID\n   - $location:  app location\n   - $app:       app ID\n   - $date:      session date in YYYY-MM-DD format",
                   "type": "string"
                 }
               },
               "additionalProperties": false
             },
             "metricAnalysisSettings": {
-              "description": "Optional. Settings to describe the conversation data collection behaviors for the LLM analysis pipeline for the app.",
+              "description": "Optional. Configuration of how the metric analysis should be performed.",
               "type": "object",
               "properties": {
                 "llmMetricsOptedOut": {
@@ -738,10 +893,11 @@
               "additionalProperties": false
             },
             "redactionConfig": {
-              "description": "Optional. Configuration for how sensitive data should be redacted.",
+              "description": "Optional. Configuration of how the sensitive data should be redacted.",
               "type": "object",
               "properties": {
                 "deidentifyTemplateRef": {
+                  "description": "Optional. [DLP](https://cloud.google.com/dlp/docs) deidentify template name\n to instruct on how to de-identify content.\n\n Format:\n `projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}`",
                   "type": "object",
                   "oneOf": [
                     {
@@ -791,9 +947,11 @@
                   "additionalProperties": false
                 },
                 "enableRedaction": {
+                  "description": "Optional. Whether redaction is enabled.",
                   "type": "boolean"
                 },
                 "inspectTemplateRef": {
+                  "description": "Optional. [DLP](https://cloud.google.com/dlp/docs) inspect template name to\n configure detection of sensitive data types.\n\n Format:\n `projects/{project}/locations/{location}/inspectTemplates/{inspect_template}`",
                   "type": "object",
                   "oneOf": [
                     {
@@ -846,15 +1004,65 @@
               "additionalProperties": false
             },
             "unredactedAudioRecordingConfig": {
-              "description": "Optional. Configures an additional recording of unredacted audio. This can be used to maintain a raw audio copy when audio redaction is [enabled][google.cloud.ces.v1beta.RedactionConfig.enable_redaction], typically for auditing or monitoring purposes.",
+              "description": "Optional. Configuration of unredacted audio recording.",
               "type": "object",
               "properties": {
                 "gcsBucket": {
                   "description": "Optional. The [Cloud Storage](https://cloud.google.com/storage) bucket to\n store the session audio recordings. The URI must start with \"gs://\".\n\n Please choose a bucket location that meets your data residency\n requirements.\n\n Note: If the Cloud Storage bucket is in a different project from the app,\n you should grant `storage.objects.create` permission to the CES service\n agent `service-\u003cPROJECT-NUMBER\u003e@gcp-sa-ces.iam.gserviceaccount.com`.",
                   "type": "string"
                 },
+                "gcsBucketRef": {
+                  "description": "Reference to the Cloud Storage bucket to store session audio recordings.",
+                  "type": "object",
+                  "oneOf": [
+                    {
+                      "required": [
+                        "name"
+                      ],
+                      "not": {
+                        "required": [
+                          "external"
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "external"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "name"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "namespace"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "external": {
+                      "description": "A reference to an externally managed StorageBucket resource. Should be in the format \"projects/{{projectID}}/buckets/{{bucketID}}\".",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "The name of a StorageBucket resource.",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "The namespace of a StorageBucket resource.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
                 "gcsPathPrefix": {
-                  "description": "Optional. The Cloud Storage path prefix for audio recordings.\n\n This prefix can include the following placeholders, which will be\n dynamically substituted at serving time:\n   - $project:   project ID\n   - $location:  app location\n   - $app:       app ID\n   - $date:      session date in YYYY-MM-DD format\n   - $session:   session ID\n\n If the path prefix is not specified, the default prefix\n `$project/$location/$app/$date/$session/` will be used.",
+                  "description": "Optional. The Cloud Storage path prefix for audio recordings.\n\n This prefix can include the following placeholders, which will be\n dynamically substituted at serving time:\n   - $project:   project ID\n   - $location:  app location\n   - $app:       app ID\n   - $date:      session date in YYYY-MM-DD format",
                   "type": "string"
                 }
               },
@@ -890,7 +1098,7 @@
           "type": "boolean"
         },
         "projectRef": {
-          "description": "The project that this resource belongs to.",
+          "description": "The Project that this resource belongs to.",
           "type": "object",
           "oneOf": [
             {
@@ -983,15 +1191,15 @@
           ],
           "properties": {
             "external": {
-              "description": "A reference to an externally managed CES Agent. Format: `projects/{project}/locations/{location}/apps/{app}/agents/{agent}`",
+              "description": "A reference to an externally managed CesAgent resource. Should be in the format \"projects/{{projectID}}/locations/{{location}}/apps/{{appID}}/agents/{{agentID}}\".",
               "type": "string"
             },
             "name": {
-              "description": "The `name` of a `CESAgent` resource.",
+              "description": "The name of a CesAgent resource.",
               "type": "string"
             },
             "namespace": {
-              "description": "The `namespace` of a `CESAgent` resource.",
+              "description": "The namespace of a CesAgent resource.",
               "type": "string"
             }
           },
