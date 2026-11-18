@@ -1,55 +1,55 @@
 {
-  "description": "AIGatewayAuthStrategy is the Schema for the aigatewayauthstrategys API.",
   "type": "object",
-  "required": [
-    "metadata"
-  ],
   "properties": {
     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
       "type": "string"
     },
     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
       "type": "string"
     },
     "metadata": {
       "type": "object"
     },
     "spec": {
-      "description": "AIGatewayAuthStrategySpec defines the desired state of AIGatewayAuthStrategy.",
       "type": "object",
       "required": [
         "aiGatewayRef"
       ],
       "properties": {
         "aiGatewayRef": {
-          "description": "AIGatewayRef is the reference to the parent KonnectAIGateway object.",
           "type": "object",
           "required": [
-            "type"
+            "namespacedRef"
           ],
           "properties": {
-            "konnectID": {
-              "description": "KonnectID is the schema for the KonnectID type.\nThis field is required when the Type is konnectID.",
+            "group": {
               "type": "string",
-              "maxLength": 36
+              "default": "konnect.konghq.com",
+              "enum": [
+                "konnect.konghq.com",
+                "aigateway.konghq.com"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "default": "KonnectAIGateway",
+              "enum": [
+                "KonnectAIGateway",
+                "OnPremAIGateway"
+              ]
             },
             "namespacedRef": {
-              "description": "NamespacedRef is a reference to a KeySet entity inside the cluster.\nThis field is required when the Type is namespacedRef.",
               "type": "object",
               "required": [
                 "name"
               ],
               "properties": {
                 "name": {
-                  "description": "Name is the name of the referred resource.",
                   "type": "string",
                   "maxLength": 253,
                   "minLength": 1
                 },
                 "namespace": {
-                  "description": "Namespace is the namespace of the referred resource.\n\nFor namespace-scoped resources if no Namespace is provided then the\nnamespace of the parent object MUST be used.\n\nThis field MUST not be set when referring to cluster-scoped resources.",
                   "type": "string",
                   "maxLength": 253
                 }
@@ -57,10 +57,9 @@
               "additionalProperties": false
             },
             "type": {
-              "description": "Type defines type of the object which is referenced. It can be one of:\n\n- konnectID\n- namespacedRef",
               "type": "string",
+              "default": "namespacedRef",
               "enum": [
-                "konnectID",
                 "namespacedRef"
               ]
             }
@@ -68,32 +67,22 @@
           "additionalProperties": false,
           "x-kubernetes-validations": [
             {
-              "rule": "self.type == 'namespacedRef' ? has(self.namespacedRef) : true",
-              "message": "when type is namespacedRef, namespacedRef must be set"
+              "rule": "self.kind == 'OnPremAIGateway' ? self.group == 'aigateway.konghq.com' : self.group == 'konnect.konghq.com'",
+              "message": "group must be aigateway.konghq.com when kind is OnPremAIGateway, and konnect.konghq.com when kind is KonnectAIGateway"
             },
             {
-              "rule": "self.type == 'namespacedRef' ? !has(self.konnectID) : true",
-              "message": "when type is namespacedRef, konnectID must not be set"
-            },
-            {
-              "rule": "self.type == 'konnectID' ? has(self.konnectID) : true",
-              "message": "when type is konnectID, konnectID must be set"
-            },
-            {
-              "rule": "self.type == 'konnectID' ? !has(self.namespacedRef) : true",
-              "message": "when type is konnectID, namespacedRef must not be set"
+              "rule": "!has(oldSelf.kind) || self.kind == oldSelf.kind",
+              "message": "repointing an entity between KonnectAIGateway and OnPremAIGateway is forbidden"
             }
           ]
         },
         "apiSpec": {
-          "description": "APISpec defines the desired state of the resource's API spec fields.",
           "type": "object",
           "required": [
             "type"
           ],
           "properties": {
             "key-auth": {
-              "description": "KeyAuth configuration.",
               "type": "object",
               "required": [
                 "displayName",
@@ -101,19 +90,41 @@
               ],
               "properties": {
                 "config": {
-                  "description": "Configuration for the key-auth auth strategy.\nFor advanced use cases, additional config properties can be sent in the\nrequest body.\nSee: https://developer.konghq.com/plugins/key-auth/reference/ for the list\nof properties",
                   "type": "object",
                   "properties": {
+                    "anonymous": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
                     "hideCredentials": {
-                      "description": "An optional boolean value telling the plugin to show or hide the credential\nfrom the upstream service.\nIf true, the plugin strips the credential from the request.",
                       "type": "string",
                       "enum": [
                         "Enabled",
                         "Disabled"
                       ]
                     },
+                    "identityRealms": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "region": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "scope": {
+                            "type": "string",
+                            "maxLength": 253,
+                            "enum": [
+                              "cp",
+                              "realm"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
                     "keyInBody": {
-                      "description": "If enabled, reads the request body.\nSupported MIME types: application/www-form-urlencoded, application/json, and\nmultipart/form-data.",
                       "type": "string",
                       "enum": [
                         "Enabled",
@@ -121,7 +132,6 @@
                       ]
                     },
                     "keyInHeader": {
-                      "description": "If enabled (default), the plugin reads the request header and tries to find\nthe key in it.",
                       "type": "string",
                       "enum": [
                         "Enabled",
@@ -129,7 +139,6 @@
                       ]
                     },
                     "keyInQuery": {
-                      "description": "If enabled (default), the plugin reads the query parameter in the request\nand tries to find the key in it.",
                       "type": "string",
                       "enum": [
                         "Enabled",
@@ -137,24 +146,19 @@
                       ]
                     },
                     "keyNames": {
-                      "description": "An array of strings containing the names of the keys to look for in the\nrequest.",
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
                     "principals": {
-                      "description": "Authenticate against Kong Identity instead of local credentials.\nMutually exclusive with identity realms.",
                       "type": "object",
                       "properties": {
                         "directory": {
-                          "description": "The Kong Identity directory instance to authenticate against.",
                           "type": "string",
-                          "maxLength": 253,
-                          "pattern": "^[a-zA-Z0-9_-]+$"
+                          "maxLength": 253
                         },
                         "enabled": {
-                          "description": "When true, authenticate against Kong Identity instead of local credentials.",
                           "type": "string",
                           "enum": [
                             "Enabled",
@@ -162,7 +166,6 @@
                           ]
                         },
                         "errorOnMiss": {
-                          "description": "When true (default), reject the request if no matching principal is found in\nKong Identity.\nWhen false, allow the request to continue unauthenticated instead.",
                           "type": "string",
                           "enum": [
                             "Enabled",
@@ -171,21 +174,57 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "realm": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "runOnPreflight": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
                     }
                   },
                   "additionalProperties": false
                 },
+                "datastores": {
+                  "type": "array",
+                  "maxItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "default": "AIGatewayDatastore",
+                        "enum": [
+                          "AIGatewayDatastore"
+                        ]
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
                 "displayName": {
-                  "description": "The display name for this auth strategy instance.",
                   "type": "string",
                   "maxLength": 256,
                   "minLength": 1
                 },
                 "labels": {
-                  "description": "Public labels store information about an entity that can be used for\nfiltering a list of objects.\n\nPublic labels are intended to store **PUBLIC** metadata.\n\nKeys must be of length 1-63 characters, and cannot start with \"kong\",\n\"konnect\", \"mesh\", \"kic\", or \"_\".",
                   "type": "object",
+                  "maxProperties": 50,
                   "additionalProperties": {
-                    "description": "PublicLabelsValue is the value type for PublicLabels.",
                     "type": "string",
                     "maxLength": 63,
                     "minLength": 1,
@@ -193,28 +232,25 @@
                   }
                 },
                 "managedBy": {
-                  "description": "Stores information about what manages this entity, such as the tool or\nsystem responsible for its lifecycle (for example, `terraform`).\n\nKeys must be 1–63 characters long and start with an alphanumeric\ncharacter.",
                   "type": "object",
+                  "maxProperties": 5,
                   "additionalProperties": {
-                    "description": "ManagedByValue is the value type for ManagedBy.",
                     "type": "string",
-                    "maxLength": 63,
+                    "maxLength": 127,
                     "minLength": 1,
-                    "pattern": "^[a-z0-9A-Z]{1}([a-z0-9A-Z-._]*[a-z0-9A-Z]+)?$"
+                    "pattern": "^[^\\s\\x00-\\x1F\\x7F-\\x9F]+$"
                   }
                 },
                 "name": {
-                  "description": "**Pre-release Feature**\nThis feature is currently in beta and is subject to change.\n\nA user-defined unique identifier for this auth strategy instance, used as a\nstable human-readable reference.\nThis value is immutable after creation.",
                   "type": "string",
                   "maxLength": 256,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9._:-]{1,256}$"
+                  "pattern": "^[A-Za-z0-9._:@-]{1,256}$"
                 }
               },
               "additionalProperties": false
             },
             "openid-connect": {
-              "description": "OpenIDConnect configuration.",
               "type": "object",
               "required": [
                 "displayName",
@@ -222,28 +258,143 @@
               ],
               "properties": {
                 "config": {
-                  "description": "Configuration for the OpenID Connect auth strategy.\nFor advanced use cases, additional config properties can be sent in the\nrequest body.\nSee: https://developer.konghq.com/plugins/openid-connect/reference/ for the\nlist of properties",
                   "type": "object",
                   "required": [
-                    "cacheTokensSalt"
+                    "cacheTokensSalt",
+                    "issuer"
                   ],
                   "properties": {
+                    "anonymous": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "audience": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "audienceClaim": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "audienceRequired": {
-                      "description": "Audiences required in the access token or introspection response.",
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
                     "authMethods": {
-                      "description": "Types of credentials/grants to enable.",
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
+                    "authenticatedGroupsClaim": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "authorizationCookieDomain": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "authorizationCookieHTTPOnly": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "authorizationCookieName": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "authorizationCookiePath": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "authorizationCookieSameSite": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "Default",
+                        "Lax",
+                        "None",
+                        "Strict"
+                      ]
+                    },
+                    "authorizationCookieSecure": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "authorizationEndpoint": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "authorizationQueryArgsClient": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "authorizationQueryArgsNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "authorizationQueryArgsValues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "authorizationRollingTimeout": {
+                      "type": "number"
+                    },
+                    "bearerTokenCookieName": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "bearerTokenHeaderName": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "bearerTokenParamType": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "byUsernameIgnoreCase": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
                     "cacheIntrospection": {
-                      "description": "Cache introspection endpoint requests.",
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "cacheTokenExchange": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "cacheTokens": {
                       "type": "string",
                       "enum": [
                         "Enabled",
@@ -251,44 +402,188 @@
                       ]
                     },
                     "cacheTokensSalt": {
-                      "description": "Salt used for generating the cache key that is used for caching the token\nendpoint requests.",
                       "type": "string",
                       "maxLength": 253,
                       "minLength": 1
                     },
-                    "clientAlg": {
-                      "description": "Algorithm to use for `client_secret_jwt` or `private_key_jwt`\nauthentication.",
+                    "cacheTtl": {
+                      "type": "number"
+                    },
+                    "cacheTtlMax": {
+                      "type": "number"
+                    },
+                    "cacheTtlMin": {
+                      "type": "number"
+                    },
+                    "cacheTtlNeg": {
+                      "type": "number"
+                    },
+                    "cacheTtlResurrect": {
+                      "type": "number"
+                    },
+                    "cacheUserInfo": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "claimsForbidden": {
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
+                    "clientAlg": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "clientArg": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
                     "clientAuth": {
-                      "description": "Client authentication methods used with the identity provider.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "clientCredentialsParamType": {
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
                     "clientID": {
-                      "description": "An array of strings representing the client id for the OpenID Connect\nprovider.\nWhen multiple values are provided, the client ID and secrets pairs\ncorrespond based on their locations in the array.",
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
-                    "clientSecret": {
-                      "description": "An array of strings representing the client secret for the OpenID Connect\nprovider.\nWhen multiple values are provided, the client ID and secrets pairs\ncorrespond based on their locations in the array.",
+                    "clientJwk": {
                       "type": "array",
                       "items": {
-                        "description": "SensitiveDataSource holds a sensitive string value that can be provided\neither inline or sourced from a Kubernetes Secret.",
+                        "type": "object",
+                        "properties": {
+                          "alg": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "crv": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "d": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "dp": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "dq": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "e": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "issuer": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "k": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "keyOps": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "kid": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "kty": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "n": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "oth": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "p": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "q": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "qi": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "r": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "t": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "use": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "x": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "x5c": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "x5t": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "x5t#S256": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "x5u": {
+                            "type": "string",
+                            "maxLength": 253
+                          },
+                          "y": {
+                            "type": "string",
+                            "maxLength": 253
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "clientSecret": {
+                      "type": "array",
+                      "items": {
                         "type": "object",
                         "required": [
                           "type"
                         ],
                         "properties": {
                           "secretRef": {
-                            "description": "SecretRef is a reference to a Kubernetes Secret containing the sensitive data.\nRequired when type is 'secretRef'.",
                             "type": "object",
                             "required": [
                               "key",
@@ -296,19 +591,16 @@
                             ],
                             "properties": {
                               "key": {
-                                "description": "Key is the data key within the Secret.",
                                 "type": "string",
                                 "maxLength": 253,
                                 "minLength": 1
                               },
                               "name": {
-                                "description": "Name is the name of the referred resource.",
                                 "type": "string",
                                 "maxLength": 253,
                                 "minLength": 1
                               },
                               "namespace": {
-                                "description": "Namespace is the namespace of the referred resource.\n\nFor namespace-scoped resources if no Namespace is provided then the\nnamespace of the parent object MUST be used.\n\nThis field MUST not be set when referring to cluster-scoped resources.",
                                 "type": "string",
                                 "maxLength": 253
                               }
@@ -316,7 +608,6 @@
                             "additionalProperties": false
                           },
                           "type": {
-                            "description": "Type indicates the source of the sensitive data: 'inline' or 'secretRef'.",
                             "type": "string",
                             "default": "inline",
                             "enum": [
@@ -325,7 +616,6 @@
                             ]
                           },
                           "value": {
-                            "description": "Value contains the sensitive data provided inline.\nRequired when type is 'inline'.",
                             "type": "string",
                             "maxLength": 4096
                           }
@@ -335,19 +625,329 @@
                           {
                             "rule": "self.type == 'inline' ? has(self.value) : has(self.secretRef)",
                             "message": "value required when type=inline; secretRef required when type=secretRef"
+                          },
+                          {
+                            "rule": "!(has(self.value) \u0026\u0026 has(self.secretRef))",
+                            "message": "only one of value and secretRef can be set"
                           }
                         ]
                       }
                     },
+                    "clusterCacheRedis": {
+                      "type": "object",
+                      "properties": {
+                        "cloudAuthentication": {
+                          "type": "object",
+                          "properties": {
+                            "authProvider": {
+                              "type": "string",
+                              "maxLength": 253,
+                              "enum": [
+                                "aws",
+                                "azure",
+                                "gcp"
+                              ]
+                            },
+                            "awsAccessKeyID": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsAssumeRoleArn": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsCacheName": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsIsServerless": {
+                              "type": "string",
+                              "enum": [
+                                "Enabled",
+                                "Disabled"
+                              ]
+                            },
+                            "awsRegion": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsRoleSessionName": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsSecretAccessKey": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "azureClientID": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "azureClientSecret": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "azureTenantID": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "gcpServiceAccountJSON": {
+                              "type": "string",
+                              "maxLength": 253
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "clusterMaxRedirections": {
+                          "type": "integer"
+                        },
+                        "clusterNodes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "ip": {
+                                "type": "string",
+                                "maxLength": 253
+                              },
+                              "port": {
+                                "type": "integer",
+                                "maximum": 65535,
+                                "minimum": 0
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "connectTimeout": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 0
+                        },
+                        "connectionIsProxied": {
+                          "type": "string",
+                          "enum": [
+                            "Enabled",
+                            "Disabled"
+                          ]
+                        },
+                        "database": {
+                          "type": "integer"
+                        },
+                        "host": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "keepaliveBacklog": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 0
+                        },
+                        "keepalivePoolSize": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 1
+                        },
+                        "password": {
+                          "type": "object",
+                          "required": [
+                            "type"
+                          ],
+                          "properties": {
+                            "secretRef": {
+                              "type": "object",
+                              "required": [
+                                "key",
+                                "name"
+                              ],
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1
+                                },
+                                "namespace": {
+                                  "type": "string",
+                                  "maxLength": 253
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "type": {
+                              "type": "string",
+                              "default": "inline",
+                              "enum": [
+                                "inline",
+                                "secretRef"
+                              ]
+                            },
+                            "value": {
+                              "type": "string",
+                              "maxLength": 4096
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-validations": [
+                            {
+                              "rule": "self.type == 'inline' ? has(self.value) : has(self.secretRef)",
+                              "message": "value required when type=inline; secretRef required when type=secretRef"
+                            },
+                            {
+                              "rule": "!(has(self.value) \u0026\u0026 has(self.secretRef))",
+                              "message": "only one of value and secretRef can be set"
+                            }
+                          ]
+                        },
+                        "port": {
+                          "type": "integer",
+                          "maximum": 65535,
+                          "minimum": 0
+                        },
+                        "readTimeout": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 0
+                        },
+                        "sendTimeout": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 0
+                        },
+                        "sentinelMaster": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "sentinelNodes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "host": {
+                                "type": "string",
+                                "maxLength": 253
+                              },
+                              "port": {
+                                "type": "integer",
+                                "maximum": 65535,
+                                "minimum": 0
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "sentinelPassword": {
+                          "type": "object",
+                          "required": [
+                            "type"
+                          ],
+                          "properties": {
+                            "secretRef": {
+                              "type": "object",
+                              "required": [
+                                "key",
+                                "name"
+                              ],
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1
+                                },
+                                "namespace": {
+                                  "type": "string",
+                                  "maxLength": 253
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "type": {
+                              "type": "string",
+                              "default": "inline",
+                              "enum": [
+                                "inline",
+                                "secretRef"
+                              ]
+                            },
+                            "value": {
+                              "type": "string",
+                              "maxLength": 4096
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-validations": [
+                            {
+                              "rule": "self.type == 'inline' ? has(self.value) : has(self.secretRef)",
+                              "message": "value required when type=inline; secretRef required when type=secretRef"
+                            },
+                            {
+                              "rule": "!(has(self.value) \u0026\u0026 has(self.secretRef))",
+                              "message": "only one of value and secretRef can be set"
+                            }
+                          ]
+                        },
+                        "sentinelRole": {
+                          "type": "string",
+                          "maxLength": 253,
+                          "enum": [
+                            "any",
+                            "master",
+                            "slave"
+                          ]
+                        },
+                        "sentinelUsername": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "serverName": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "ssl": {
+                          "type": "string",
+                          "enum": [
+                            "Enabled",
+                            "Disabled"
+                          ]
+                        },
+                        "sslVerify": {
+                          "type": "string",
+                          "enum": [
+                            "Enabled",
+                            "Disabled"
+                          ]
+                        },
+                        "username": {
+                          "type": "string",
+                          "maxLength": 253
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "clusterCacheStrategy": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "off",
+                        "redis"
+                      ]
+                    },
                     "consumerBy": {
-                      "description": "Consumer fields used when mapping a token claim to a Kong consumer.",
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
                     "consumerClaims": {
-                      "description": "An array containing an array of string paths representing the location of\nthe claim in a nested object.\nFor example, to map to user.info.id, set [ \"user\", \"info\", \"id\" ].",
                       "type": "array",
                       "items": {
                         "type": "array",
@@ -357,14 +957,12 @@
                       }
                     },
                     "consumerGroupsClaim": {
-                      "description": "The claim used for consumer groups mapping.\nIf multiple values are set, it means the claim is inside a nested object of\nthe token payload.",
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
                     "consumerGroupsOptional": {
-                      "description": "Do not terminate the request if consumer groups mapping fails.",
                       "type": "string",
                       "enum": [
                         "Enabled",
@@ -372,7 +970,6 @@
                       ]
                     },
                     "consumerOptional": {
-                      "description": "Do not terminate the request if consumer mapping fails.",
                       "type": "string",
                       "enum": [
                         "Enabled",
@@ -380,14 +977,191 @@
                       ]
                     },
                     "credentialClaim": {
-                      "description": "Claim path used to derive virtual credentials when consumer mapping is not\nused.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "credentialClaims": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "disableSession": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "discoveryHeadersNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "discoveryHeadersValues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "displayErrors": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "downstreamAccessTokenHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "downstreamAccessTokenJwkHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "downstreamHeaders": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "header",
+                          "path"
+                        ],
+                        "properties": {
+                          "header": {
+                            "type": "string",
+                            "maxLength": 253,
+                            "minLength": 1
+                          },
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "downstreamHeadersClaims": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "downstreamHeadersNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "downstreamIDTokenHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "downstreamIDTokenJwkHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "downstreamIntrospectionHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "downstreamIntrospectionJwtHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "downstreamRefreshTokenHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "downstreamSessionIDHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "downstreamUserInfoHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "downstreamUserInfoJwtHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "dpopProofLifetime": {
+                      "type": "number"
+                    },
+                    "dpopUseNonce": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "enableHsSignatures": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "endSessionEndpoint": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "exposeErrorCode": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "extraJwksUris": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "forbiddenDestroySession": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "forbiddenErrorMessage": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "forbiddenRedirectURI": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "groupsClaim": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "groupsRequired": {
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
                     "hideCredentials": {
-                      "description": "Remove credentials used for authentication before proxying the request\nupstream.",
                       "type": "string",
                       "enum": [
                         "Enabled",
@@ -395,46 +1169,154 @@
                       ]
                     },
                     "httpProxy": {
-                      "description": "HTTP proxy used for identity provider requests.",
                       "type": "string",
                       "maxLength": 253
                     },
                     "httpProxyAuthorization": {
-                      "description": "Authorization header value sent to the HTTP proxy.",
                       "type": "string",
                       "maxLength": 253
                     },
                     "httpVersion": {
-                      "description": "HTTP version used for identity provider requests.",
                       "type": "number"
                     },
                     "httpsProxy": {
-                      "description": "HTTPS proxy used for identity provider requests.",
                       "type": "string",
                       "maxLength": 253
                     },
                     "httpsProxyAuthorization": {
-                      "description": "Authorization header value sent to the HTTPS proxy.",
                       "type": "string",
                       "maxLength": 253
                     },
+                    "idTokenParamName": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "idTokenParamType": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "ignoreSignature": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "introspectJwtTokens": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "introspectionAccept": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "application/json",
+                        "application/jwt",
+                        "application/token-introspection+jwt"
+                      ]
+                    },
+                    "introspectionCheckActive": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
                     "introspectionEndpoint": {
-                      "description": "Overrides the introspection endpoint returned by discovery.",
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "introspectionEndpointAuthMethod": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "client_secret_basic",
+                        "client_secret_jwt",
+                        "client_secret_post",
+                        "none",
+                        "private_key_jwt",
+                        "self_signed_tls_client_auth",
+                        "tls_client_auth"
+                      ]
+                    },
+                    "introspectionHeadersClient": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "introspectionHeadersNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "introspectionHeadersValues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "introspectionHint": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "introspectionPostArgsClient": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "introspectionPostArgsClientHeaders": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "introspectionPostArgsNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "introspectionPostArgsValues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "introspectionTokenParamName": {
                       "type": "string",
                       "maxLength": 253
                     },
                     "issuer": {
-                      "description": "URL that identifies the OpenID Provider",
+                      "type": "string",
+                      "maxLength": 253,
+                      "minLength": 1
+                    },
+                    "issuersAllowed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "jwksEndpoint": {
                       "type": "string",
                       "maxLength": 253
                     },
-                    "jwksEndpoint": {
-                      "description": "Overrides the JWKS endpoint returned by discovery.",
+                    "jwtSessionClaim": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "jwtSessionCookie": {
                       "type": "string",
                       "maxLength": 253
                     },
                     "keepalive": {
-                      "description": "Reuse HTTP client connections for identity provider requests.",
                       "type": "string",
                       "enum": [
                         "Enabled",
@@ -442,32 +1324,128 @@
                       ]
                     },
                     "leeway": {
-                      "description": "Leeway, in seconds, for validating token time claims.",
-                      "type": "integer",
-                      "minimum": 0
+                      "type": "number"
+                    },
+                    "loginAction": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "redirect",
+                        "response",
+                        "upstream"
+                      ]
+                    },
+                    "loginMethods": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "loginRedirectMode": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "fragment",
+                        "query"
+                      ]
+                    },
+                    "loginRedirectURI": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "loginTokens": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "logoutMethods": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "logoutPostArg": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "logoutQueryArg": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "logoutRedirectURI": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "logoutRevoke": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "logoutRevokeAccessToken": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "logoutRevokeRefreshToken": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "logoutURISuffix": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "maxAge": {
+                      "type": "number"
                     },
                     "mtlsIntrospectionEndpoint": {
-                      "description": "mTLS alias for the introspection endpoint.",
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "mtlsRevocationEndpoint": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "mtlsTokenEndpoint": {
                       "type": "string",
                       "maxLength": 253
                     },
                     "noProxy": {
-                      "description": "Comma-separated hosts that bypass the configured proxies.",
                       "type": "string",
                       "maxLength": 253
                     },
+                    "passwordParamType": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "preserveQueryArgs": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
                     "principals": {
-                      "description": "Map a request to a Kong Identity principal after token verification.",
                       "type": "object",
                       "properties": {
                         "directory": {
-                          "description": "The Kong Identity directory instance to look up against.",
                           "type": "string",
-                          "maxLength": 253,
-                          "pattern": "^[a-zA-Z0-9_-]+$"
+                          "maxLength": 253
                         },
                         "enabled": {
-                          "description": "When true, look up a Kong Identity principal after token verification.",
                           "type": "string",
                           "enum": [
                             "Enabled",
@@ -475,15 +1453,32 @@
                           ]
                         },
                         "errorOnMiss": {
-                          "description": "When true (default), reject the request if no principal is matched in Kong\nIdentity after token\nverification.\nWhen false, the request continues without an authenticated principal set.",
                           "type": "string",
                           "enum": [
                             "Enabled",
                             "Disabled"
                           ]
                         },
+                        "jit": {
+                          "type": "object",
+                          "properties": {
+                            "allClaims": {
+                              "type": "string",
+                              "enum": [
+                                "Enabled",
+                                "Disabled"
+                              ]
+                            },
+                            "claims": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "matchConsumer": {
-                          "description": "If a consumer is attached to the matched principal, load it and set it in\nthe request context,\noverriding consumer_by.",
                           "type": "string",
                           "enum": [
                             "Enabled",
@@ -491,7 +1486,6 @@
                           ]
                         },
                         "matchConsumerGroups": {
-                          "description": "If consumer groups are attached to the matched principal, load them,\noverriding consumer_groups_claim.",
                           "type": "string",
                           "enum": [
                             "Enabled",
@@ -499,13 +1493,11 @@
                           ]
                         },
                         "principalBy": {
-                          "description": "Custom identity name for a custom Kong Identity lookup.\nWhen absent and principal_claim is set,\na lookup is performed using principal_claim as the claim name instead of the\ndefault sub claim.",
                           "type": "string",
                           "maxLength": 253,
                           "minLength": 1
                         },
                         "principalClaim": {
-                          "description": "Token claim used for the Kong Identity lookup.\nIf multiple values are set, the claim is inside a\nnested object of the token payload.\nUsed together with, or instead of, principal_by.",
                           "type": "array",
                           "items": {
                             "type": "string"
@@ -514,12 +1506,688 @@
                       },
                       "additionalProperties": false
                     },
-                    "scopes": {
-                      "description": "This field is referenceable.",
+                    "proofOfPossessionAuthMethodsValidation": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "proofOfPossessionDpop": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "off",
+                        "optional",
+                        "strict"
+                      ]
+                    },
+                    "proofOfPossessionMtls": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "off",
+                        "optional",
+                        "strict"
+                      ]
+                    },
+                    "protectedResourceMetadata": {
+                      "type": "object",
+                      "required": [
+                        "authorizationServers",
+                        "resource"
+                      ],
+                      "properties": {
+                        "authorizationServers": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "metadataEndpoint": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "resource": {
+                          "type": "string",
+                          "maxLength": 253,
+                          "minLength": 1
+                        },
+                        "scopesSupported": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "pushedAuthorizationRequestEndpoint": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "pushedAuthorizationRequestEndpointAuthMethod": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "client_secret_basic",
+                        "client_secret_jwt",
+                        "client_secret_post",
+                        "none",
+                        "private_key_jwt",
+                        "self_signed_tls_client_auth",
+                        "tls_client_auth"
+                      ]
+                    },
+                    "redirectURI": {
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "redis": {
+                      "type": "object",
+                      "properties": {
+                        "cloudAuthentication": {
+                          "type": "object",
+                          "properties": {
+                            "authProvider": {
+                              "type": "string",
+                              "maxLength": 253,
+                              "enum": [
+                                "aws",
+                                "azure",
+                                "gcp"
+                              ]
+                            },
+                            "awsAccessKeyID": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsAssumeRoleArn": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsCacheName": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsIsServerless": {
+                              "type": "string",
+                              "enum": [
+                                "Enabled",
+                                "Disabled"
+                              ]
+                            },
+                            "awsRegion": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsRoleSessionName": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "awsSecretAccessKey": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "azureClientID": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "azureClientSecret": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "azureTenantID": {
+                              "type": "string",
+                              "maxLength": 253
+                            },
+                            "gcpServiceAccountJSON": {
+                              "type": "string",
+                              "maxLength": 253
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "clusterMaxRedirections": {
+                          "type": "integer"
+                        },
+                        "clusterNodes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "ip": {
+                                "type": "string",
+                                "maxLength": 253
+                              },
+                              "port": {
+                                "type": "integer",
+                                "maximum": 65535,
+                                "minimum": 0
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "connectTimeout": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 0
+                        },
+                        "connectionIsProxied": {
+                          "type": "string",
+                          "enum": [
+                            "Enabled",
+                            "Disabled"
+                          ]
+                        },
+                        "database": {
+                          "type": "integer"
+                        },
+                        "host": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "keepaliveBacklog": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 0
+                        },
+                        "keepalivePoolSize": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 1
+                        },
+                        "password": {
+                          "type": "object",
+                          "required": [
+                            "type"
+                          ],
+                          "properties": {
+                            "secretRef": {
+                              "type": "object",
+                              "required": [
+                                "key",
+                                "name"
+                              ],
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1
+                                },
+                                "namespace": {
+                                  "type": "string",
+                                  "maxLength": 253
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "type": {
+                              "type": "string",
+                              "default": "inline",
+                              "enum": [
+                                "inline",
+                                "secretRef"
+                              ]
+                            },
+                            "value": {
+                              "type": "string",
+                              "maxLength": 4096
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-validations": [
+                            {
+                              "rule": "self.type == 'inline' ? has(self.value) : has(self.secretRef)",
+                              "message": "value required when type=inline; secretRef required when type=secretRef"
+                            },
+                            {
+                              "rule": "!(has(self.value) \u0026\u0026 has(self.secretRef))",
+                              "message": "only one of value and secretRef can be set"
+                            }
+                          ]
+                        },
+                        "port": {
+                          "type": "integer",
+                          "maximum": 65535,
+                          "minimum": 0
+                        },
+                        "prefix": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "readTimeout": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 0
+                        },
+                        "sendTimeout": {
+                          "type": "integer",
+                          "maximum": 2147483646,
+                          "minimum": 0
+                        },
+                        "sentinelMaster": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "sentinelNodes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "host": {
+                                "type": "string",
+                                "maxLength": 253
+                              },
+                              "port": {
+                                "type": "integer",
+                                "maximum": 65535,
+                                "minimum": 0
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "sentinelPassword": {
+                          "type": "object",
+                          "required": [
+                            "type"
+                          ],
+                          "properties": {
+                            "secretRef": {
+                              "type": "object",
+                              "required": [
+                                "key",
+                                "name"
+                              ],
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "minLength": 1
+                                },
+                                "namespace": {
+                                  "type": "string",
+                                  "maxLength": 253
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "type": {
+                              "type": "string",
+                              "default": "inline",
+                              "enum": [
+                                "inline",
+                                "secretRef"
+                              ]
+                            },
+                            "value": {
+                              "type": "string",
+                              "maxLength": 4096
+                            }
+                          },
+                          "additionalProperties": false,
+                          "x-kubernetes-validations": [
+                            {
+                              "rule": "self.type == 'inline' ? has(self.value) : has(self.secretRef)",
+                              "message": "value required when type=inline; secretRef required when type=secretRef"
+                            },
+                            {
+                              "rule": "!(has(self.value) \u0026\u0026 has(self.secretRef))",
+                              "message": "only one of value and secretRef can be set"
+                            }
+                          ]
+                        },
+                        "sentinelRole": {
+                          "type": "string",
+                          "maxLength": 253,
+                          "enum": [
+                            "any",
+                            "master",
+                            "slave"
+                          ]
+                        },
+                        "sentinelUsername": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "serverName": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "socket": {
+                          "type": "string",
+                          "maxLength": 253
+                        },
+                        "ssl": {
+                          "type": "string",
+                          "enum": [
+                            "Enabled",
+                            "Disabled"
+                          ]
+                        },
+                        "sslVerify": {
+                          "type": "string",
+                          "enum": [
+                            "Enabled",
+                            "Disabled"
+                          ]
+                        },
+                        "username": {
+                          "type": "string",
+                          "maxLength": 253
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rediscoveryLifetime": {
+                      "type": "number"
+                    },
+                    "refreshTokenParamName": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "refreshTokenParamType": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "refreshTokens": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "requireProofKeyForCodeExchange": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "requirePushedAuthorizationRequests": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "requireSignedRequestObject": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "resolveDistributedClaims": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "responseMode": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "form_post",
+                        "form_post.jwt",
+                        "fragment",
+                        "fragment.jwt",
+                        "jwt",
+                        "query",
+                        "query.jwt"
+                      ]
+                    },
+                    "responseType": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "reverify": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "revocationEndpoint": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "revocationEndpointAuthMethod": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "client_secret_basic",
+                        "client_secret_jwt",
+                        "client_secret_post",
+                        "none",
+                        "private_key_jwt",
+                        "self_signed_tls_client_auth",
+                        "tls_client_auth"
+                      ]
+                    },
+                    "revocationTokenParamName": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "rolesClaim": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rolesRequired": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "runOnPreflight": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "scopesClaim": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "scopesRequired": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "searchUserInfo": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "sessionAbsoluteTimeout": {
+                      "type": "number"
+                    },
+                    "sessionAudience": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "sessionBind": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "sessionCookieDomain": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "sessionCookieHTTPOnly": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "sessionCookieName": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "sessionCookiePath": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "sessionCookieSameSite": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "Default",
+                        "Lax",
+                        "None",
+                        "Strict"
+                      ]
+                    },
+                    "sessionCookieSecure": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "sessionEnforceSameSubject": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "sessionHashStorageKey": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "sessionHashSubject": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "sessionIdlingTimeout": {
+                      "type": "number"
+                    },
+                    "sessionMemcachedHost": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "sessionMemcachedPort": {
+                      "type": "integer",
+                      "maximum": 65535,
+                      "minimum": 0
+                    },
+                    "sessionMemcachedPrefix": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "sessionMemcachedSSL": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "sessionMemcachedSSLVerify": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "sessionMemcachedSocket": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "sessionRemember": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "sessionRememberAbsoluteTimeout": {
+                      "type": "number"
+                    },
+                    "sessionRememberCookieName": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "sessionRememberRollingTimeout": {
+                      "type": "number"
+                    },
+                    "sessionRequestHeaders": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "sessionResponseHeaders": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "sessionRollingTimeout": {
+                      "type": "number"
+                    },
+                    "sessionSecret": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "sessionStorage": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "cookie",
+                        "memcache",
+                        "memcached",
+                        "redis"
+                      ]
+                    },
+                    "sessionStoreMetadata": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
                     },
                     "sslVerify": {
                       "type": "string",
@@ -529,15 +2197,344 @@
                       ]
                     },
                     "timeout": {
-                      "description": "Network I/O timeout, in milliseconds, for identity provider requests.",
-                      "type": "integer",
-                      "minimum": 0
+                      "type": "number"
                     },
-                    "upstreamHeaders": {
-                      "description": "Map token claims to upstream headers using path-based access.",
+                    "tlsClientAuthCertID": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "tlsClientAuthSSLVerify": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "tokenCacheKeyIncludeScope": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "tokenEndpoint": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "tokenEndpointAuthMethod": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "client_secret_basic",
+                        "client_secret_jwt",
+                        "client_secret_post",
+                        "none",
+                        "private_key_jwt",
+                        "self_signed_tls_client_auth",
+                        "tls_client_auth"
+                      ]
+                    },
+                    "tokenExchange": {
+                      "type": "object",
+                      "required": [
+                        "subjectTokenIssuers"
+                      ],
+                      "properties": {
+                        "cache": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "string",
+                              "enum": [
+                                "Enabled",
+                                "Disabled"
+                              ]
+                            },
+                            "ttl": {
+                              "type": "integer"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "grantType": {
+                          "type": "string",
+                          "maxLength": 253,
+                          "enum": [
+                            "jwt_bearer",
+                            "token_exchange"
+                          ]
+                        },
+                        "mapIdentitiesFrom": {
+                          "type": "string",
+                          "maxLength": 253,
+                          "enum": [
+                            "exchanged_tokens",
+                            "subject_token"
+                          ]
+                        },
+                        "provider": {
+                          "type": "string",
+                          "maxLength": 253,
+                          "enum": [
+                            "microsoft",
+                            "standard"
+                          ]
+                        },
+                        "request": {
+                          "type": "object",
+                          "properties": {
+                            "actorToken": {
+                              "type": "object",
+                              "properties": {
+                                "headerName": {
+                                  "type": "string",
+                                  "maxLength": 253
+                                },
+                                "source": {
+                                  "type": "string",
+                                  "maxLength": 253,
+                                  "enum": [
+                                    "config",
+                                    "header",
+                                    "none"
+                                  ]
+                                },
+                                "staticToken": {
+                                  "type": "string",
+                                  "maxLength": 253
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "maxLength": 253
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "audience": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "emptyAudience": {
+                              "type": "string",
+                              "enum": [
+                                "Enabled",
+                                "Disabled"
+                              ]
+                            },
+                            "emptyHeaders": {
+                              "type": "string",
+                              "enum": [
+                                "Enabled",
+                                "Disabled"
+                              ]
+                            },
+                            "emptyPostArgs": {
+                              "type": "string",
+                              "enum": [
+                                "Enabled",
+                                "Disabled"
+                              ]
+                            },
+                            "emptyScopes": {
+                              "type": "string",
+                              "enum": [
+                                "Enabled",
+                                "Disabled"
+                              ]
+                            },
+                            "headersNames": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "headersValues": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "postArgsNames": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "postArgsValues": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "scopes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "subjectTokenIssuers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "issuer"
+                            ],
+                            "properties": {
+                              "conditions": {
+                                "type": "object",
+                                "properties": {
+                                  "hasAudience": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "hasScopes": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "missingAudience": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "missingScopes": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "denyOnMismatch": {
+                                "type": "string",
+                                "enum": [
+                                  "Enabled",
+                                  "Disabled"
+                                ]
+                              },
+                              "issuer": {
+                                "type": "string",
+                                "maxLength": 253,
+                                "minLength": 1
+                              },
+                              "jwksURI": {
+                                "type": "string",
+                                "maxLength": 253
+                              },
+                              "verifySignature": {
+                                "type": "string",
+                                "enum": [
+                                  "Enabled",
+                                  "Disabled"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "tokenExchangeEndpoint": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "tokenHeadersClient": {
                       "type": "array",
                       "items": {
-                        "description": "AIGatewayAuthStrategyOpenIDConnectConfigUpstreamHeaders Map token claims to\nupstream headers using path-based access.",
+                        "type": "string"
+                      }
+                    },
+                    "tokenHeadersGrants": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tokenHeadersNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tokenHeadersPrefix": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "tokenHeadersReplay": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tokenHeadersValues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tokenPostArgsClient": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tokenPostArgsNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tokenPostArgsValues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "unauthorizedDestroySession": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "unauthorizedErrorMessage": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "unauthorizedRedirectURI": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "unexpectedRedirectURI": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "upstreamAccessTokenHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "upstreamAccessTokenJwkHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "upstreamHeaders": {
+                      "type": "array",
+                      "items": {
                         "type": "object",
                         "required": [
                           "header",
@@ -545,13 +2542,11 @@
                         ],
                         "properties": {
                           "header": {
-                            "description": "The name of the header.",
                             "type": "string",
                             "maxLength": 253,
                             "minLength": 1
                           },
                           "path": {
-                            "description": "The path of the header value.",
                             "type": "array",
                             "items": {
                               "type": "string"
@@ -560,21 +2555,173 @@
                         },
                         "additionalProperties": false
                       }
+                    },
+                    "upstreamHeadersClaims": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "upstreamHeadersNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "upstreamIDTokenHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "upstreamIDTokenJwkHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "upstreamIntrospectionHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "upstreamIntrospectionJwtHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "upstreamRefreshTokenHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "upstreamSessionIDHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "upstreamUserInfoHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "upstreamUserInfoJwtHeader": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "userinfoAccept": {
+                      "type": "string",
+                      "maxLength": 253,
+                      "enum": [
+                        "application/json",
+                        "application/jwt"
+                      ]
+                    },
+                    "userinfoEndpoint": {
+                      "type": "string",
+                      "maxLength": 253
+                    },
+                    "userinfoHeadersClient": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "userinfoHeadersNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "userinfoHeadersValues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "userinfoQueryArgsClient": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "userinfoQueryArgsNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "userinfoQueryArgsValues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "usingPseudoIssuer": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "verifyClaims": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "verifyNonce": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "verifyParameters": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    },
+                    "verifySignature": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
                     }
                   },
                   "additionalProperties": false
                 },
+                "datastores": {
+                  "type": "array",
+                  "maxItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "default": "AIGatewayDatastore",
+                        "enum": [
+                          "AIGatewayDatastore"
+                        ]
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
                 "displayName": {
-                  "description": "The display name for this auth strategy instance.",
                   "type": "string",
                   "maxLength": 256,
                   "minLength": 1
                 },
                 "labels": {
-                  "description": "Public labels store information about an entity that can be used for\nfiltering a list of objects.\n\nPublic labels are intended to store **PUBLIC** metadata.\n\nKeys must be of length 1-63 characters, and cannot start with \"kong\",\n\"konnect\", \"mesh\", \"kic\", or \"_\".",
                   "type": "object",
+                  "maxProperties": 50,
                   "additionalProperties": {
-                    "description": "PublicLabelsValue is the value type for PublicLabels.",
                     "type": "string",
                     "maxLength": 63,
                     "minLength": 1,
@@ -582,28 +2729,38 @@
                   }
                 },
                 "managedBy": {
-                  "description": "Stores information about what manages this entity, such as the tool or\nsystem responsible for its lifecycle (for example, `terraform`).\n\nKeys must be 1–63 characters long and start with an alphanumeric\ncharacter.",
                   "type": "object",
+                  "maxProperties": 5,
                   "additionalProperties": {
-                    "description": "ManagedByValue is the value type for ManagedBy.",
                     "type": "string",
-                    "maxLength": 63,
+                    "maxLength": 127,
                     "minLength": 1,
-                    "pattern": "^[a-z0-9A-Z]{1}([a-z0-9A-Z-._]*[a-z0-9A-Z]+)?$"
+                    "pattern": "^[^\\s\\x00-\\x1F\\x7F-\\x9F]+$"
                   }
                 },
                 "name": {
-                  "description": "**Pre-release Feature**\nThis feature is currently in beta and is subject to change.\n\nA user-defined unique identifier for this auth strategy instance, used as a\nstable human-readable reference.\nThis value is immutable after creation.",
                   "type": "string",
                   "maxLength": 256,
                   "minLength": 1,
-                  "pattern": "^[A-Za-z0-9._:-]{1,256}$"
+                  "pattern": "^[A-Za-z0-9._:@-]{1,256}$"
+                },
+                "tokenVault": {
+                  "type": "object",
+                  "properties": {
+                    "enableCredentialManager": {
+                      "type": "string",
+                      "enum": [
+                        "Enabled",
+                        "Disabled"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "additionalProperties": false
             },
             "type": {
-              "description": "Type designates the type of configuration.",
               "type": "string",
               "minLength": 1,
               "enum": [
@@ -618,15 +2775,12 @@
       "additionalProperties": false
     },
     "status": {
-      "description": "AIGatewayAuthStrategyStatus defines the observed state of AIGatewayAuthStrategy.",
       "type": "object",
       "properties": {
         "conditions": {
-          "description": "Conditions represent the current state of the resource.",
           "type": "array",
           "maxItems": 8,
           "items": {
-            "description": "Condition contains details for one aspect of the current state of this API Resource.",
             "type": "object",
             "required": [
               "lastTransitionTime",
@@ -637,30 +2791,25 @@
             ],
             "properties": {
               "lastTransitionTime": {
-                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
                 "type": "string",
                 "format": "date-time"
               },
               "message": {
-                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
                 "type": "string",
                 "maxLength": 32768
               },
               "observedGeneration": {
-                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
                 "type": "integer",
                 "format": "int64",
                 "minimum": 0
               },
               "reason": {
-                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
                 "type": "string",
                 "maxLength": 1024,
                 "minLength": 1,
                 "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
               },
               "status": {
-                "description": "status of the condition, one of True, False, Unknown.",
                 "type": "string",
                 "enum": [
                   "True",
@@ -669,7 +2818,6 @@
                 ]
               },
               "type": {
-                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
                 "type": "string",
                 "maxLength": 316,
                 "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
@@ -683,11 +2831,9 @@
           "x-kubernetes-list-type": "map"
         },
         "gatewayID": {
-          "description": "GatewayID is the Konnect ID of the parent Gateway.",
           "type": "object",
           "properties": {
             "id": {
-              "description": "ID is the unique identifier of the Konnect entity as assigned by Konnect API.",
               "type": "string",
               "maxLength": 256
             }
@@ -695,22 +2841,18 @@
           "additionalProperties": false
         },
         "id": {
-          "description": "ID is the unique identifier of the Konnect entity as assigned by Konnect API.\nIf it's unset (empty string), it means the Konnect entity hasn't been created yet.",
           "type": "string",
           "maxLength": 256
         },
         "observedGeneration": {
-          "description": "ObservedGeneration is the most recent generation observed",
           "type": "integer",
           "format": "int64"
         },
         "organizationID": {
-          "description": "OrgID is ID of Konnect Org that this entity has been created in.",
           "type": "string",
           "maxLength": 256
         },
         "serverURL": {
-          "description": "ServerURL is the URL of the Konnect server in which the entity exists.",
           "type": "string",
           "maxLength": 512
         }
@@ -720,7 +2862,7 @@
   },
   "x-kubernetes-validations": [
     {
-      "rule": "!has(self.spec.aiGatewayRef) || !has(self.status.conditions) || !self.status.conditions.exists(c, c.type == 'Programmed' \u0026\u0026 c.status == 'True') || oldSelf.spec.aiGatewayRef == self.spec.aiGatewayRef",
+      "rule": "!has(self.spec.aiGatewayRef) || !has(self.status) || !has(self.status.conditions) || !self.status.conditions.exists(c, c.type == 'Programmed' \u0026\u0026 c.status == 'True') || oldSelf.spec.aiGatewayRef == self.spec.aiGatewayRef",
       "message": "spec.aiGatewayRef is immutable when an entity is already Programmed"
     }
   ]

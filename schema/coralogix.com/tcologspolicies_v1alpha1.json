@@ -1,5 +1,5 @@
 {
-  "description": "TCOLogsPolicies is the Schema for the TCOLogsPolicies API.\nNOTE: This resource performs an atomic overwrite of all existing TCO logs policies\nin the backend. Any existing policies not defined in this resource will be\nremoved. Use with caution as this operation is destructive.\n\nSee also https://coralogix.com/docs/tco-optimizer-api\n\n**Added in v0.4.0**",
+  "description": "TCOLogsPolicies is the Schema for the tcologspolicies API.\nNOTE: The TCOLogsPolicies is the whole list of the API. Each write replaces every item of the list,\nso an item that the spec does not have is removed. Deleting the TCOLogsPolicies removes every item.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -14,25 +14,25 @@
       "type": "object"
     },
     "spec": {
-      "description": "TCOLogsPoliciesSpec defines the desired state of Coralogix TCO logs policies.",
+      "description": "TCOLogsPoliciesSpec defines the desired state of a TCOLogsPolicies.",
       "type": "object",
       "required": [
         "policies"
       ],
       "properties": {
         "policies": {
-          "description": "Coralogix TCO-Policies-List.",
+          "description": "List of policies.",
           "type": "array",
           "maxItems": 200,
           "items": {
-            "description": "A TCO policy for logs.",
+            "description": "TCOLogsPoliciesPolicy is the Policy object of the API.",
             "type": "object",
             "required": [
               "name"
             ],
             "properties": {
               "applications": {
-                "description": "The applications to apply the policy on. Applies the policy on all the applications by default.",
+                "description": "Rule.",
                 "type": "object",
                 "required": [
                   "names",
@@ -40,7 +40,7 @@
                 ],
                 "properties": {
                   "names": {
-                    "description": "Names to match.",
+                    "description": "The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.\nThe API holds the values as one string, joined by \",\".",
                     "type": "array",
                     "maxItems": 50,
                     "minItems": 1,
@@ -49,7 +49,7 @@
                     }
                   },
                   "ruleType": {
-                    "description": "Type of matching for the name.",
+                    "description": "Rule type id.",
                     "type": "string",
                     "enum": [
                       "is",
@@ -62,7 +62,7 @@
                 "additionalProperties": false
               },
               "archiveRetention": {
-                "description": "Matches the specified retention.",
+                "description": "Archive retention.\nIt refers to a ArchiveRetention by backend id, backend name, or custom resource.",
                 "type": "object",
                 "required": [
                   "backendRef"
@@ -95,49 +95,50 @@
                 "additionalProperties": false
               },
               "description": {
-                "description": "Description of the policy.",
+                "description": "Optional free-text description of the policy's purpose. Only Latin-1 characters are accepted. A policy that `POST /dataplans/policies/v1` created without a description returns an empty string. A policy that an atomic overwrite created without a description can return none.",
                 "type": "string"
               },
               "disabled": {
-                "description": "Whether the policy is disabled.",
+                "description": "Indicates whether the policy is actively evaluated and applied. A create or atomic-overwrite request sets it as the opposite of its `disabled` value; `PUT /dataplans/policies/v1` sets `enabled` directly.",
                 "type": "boolean"
               },
               "dpxlExpression": {
-                "description": "A DPXL expression to match logs on. Mutually exclusive with severities, applications and subsystems.",
+                "description": "The DataPrime expression that selects the data. It starts with a version tag, for example `\u003cv1\u003e $d.severity == 'INFO'`; the service rejects an expression without one.",
                 "type": "string",
                 "maxLength": 65535,
                 "minLength": 1
               },
               "name": {
-                "description": "Name of the policy.",
+                "description": "Human-readable name for the policy. Only Latin-1 characters are accepted.",
                 "type": "string"
               },
               "priority": {
-                "description": "The policy priority. Required when targets is not set. Mutually exclusive with targets, which carry their own per-target priorities.",
+                "description": "TCO priority level assigned to a policy, controlling how data is routed and archived.",
                 "type": "string",
                 "enum": [
                   "block",
-                  "high",
+                  "low",
                   "medium",
-                  "low"
+                  "high"
                 ]
               },
               "priorityOverride": {
-                "description": "Dynamic quota-based priority override for the policy. Use with the policy-level priority;\nmutually exclusive with per-target priority overrides.",
+                "description": "Priority override.",
                 "type": "object",
                 "properties": {
                   "quotaBased": {
-                    "description": "TCOPolicyQuotaBased maps daily quota consumption percentages to priority levels.",
+                    "description": "Quota based.",
                     "type": "object",
                     "required": [
                       "usageTiers"
                     ],
                     "properties": {
                       "usageTiers": {
+                        "description": "Ordered list of usage tiers that map daily quota consumption percentages to priority levels. Percentages must be strictly increasing and priorities strictly decreasing, using only LOW, MEDIUM, or HIGH.",
                         "type": "array",
                         "minItems": 1,
                         "items": {
-                          "description": "TCOPolicyUsageTier maps a daily quota threshold percentage to a priority.",
+                          "description": "TCOLogsPoliciesUsageTier is the UsageTier object of the API.",
                           "type": "object",
                           "required": [
                             "dailyQuotaPercentage",
@@ -145,6 +146,7 @@
                           ],
                           "properties": {
                             "dailyQuotaPercentage": {
+                              "description": "The daily quota percentage. Must be between 0 and 100.",
                               "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
                               "anyOf": [
                                 {
@@ -160,9 +162,9 @@
                               "type": "string",
                               "enum": [
                                 "block",
-                                "high",
                                 "low",
-                                "medium"
+                                "medium",
+                                "high"
                               ]
                             }
                           },
@@ -176,23 +178,22 @@
                 "additionalProperties": false
               },
               "severities": {
-                "description": "The severities to apply the policy on. Mutually exclusive with dpxlExpression.",
+                "description": "The severities. A request without `dpxlExpression` needs at least one, and a request with it must have none. A response with `dpxlExpression` has an empty list.",
                 "type": "array",
                 "items": {
-                  "description": "The severities to apply the policy on.",
                   "type": "string",
                   "enum": [
+                    "debug",
+                    "verbose",
                     "info",
                     "warning",
-                    "critical",
                     "error",
-                    "debug",
-                    "verbose"
+                    "critical"
                   ]
                 }
               },
               "subsystems": {
-                "description": "The subsystems to apply the policy on. Applies the policy on all the subsystems by default.",
+                "description": "Rule.",
                 "type": "object",
                 "required": [
                   "names",
@@ -200,7 +201,7 @@
                 ],
                 "properties": {
                   "names": {
-                    "description": "Names to match.",
+                    "description": "The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.\nThe API holds the values as one string, joined by \",\".",
                     "type": "array",
                     "maxItems": 50,
                     "minItems": 1,
@@ -209,7 +210,7 @@
                     }
                   },
                   "ruleType": {
-                    "description": "Type of matching for the name.",
+                    "description": "Rule type id.",
                     "type": "string",
                     "enum": [
                       "is",
@@ -222,10 +223,10 @@
                 "additionalProperties": false
               },
               "targets": {
-                "description": "Targets defines the datasets to route matched data to, each with its own required priority.\nSetting targets requires omitting the policy-level priority; the two are mutually exclusive.",
+                "description": "List of data targets/destinations to which this policy routes data. A log policy created without targets has one target: the `logs` dataset of the `default` dataspace, with the priority and the override of the policy. A span policy has one `spans` target. A RUM policy has none.",
                 "type": "array",
                 "items": {
-                  "description": "TCOPolicyTarget defines a dataset destination with its own priority for matched log data.",
+                  "description": "TCOLogsPoliciesV1Target is the v1.Target object of the API.",
                   "type": "object",
                   "required": [
                     "dataset",
@@ -233,7 +234,7 @@
                   ],
                   "properties": {
                     "archiveRetention": {
-                      "description": "Matches the specified archive retention for this target.",
+                      "description": "Optional archive retention configuration for the target. The service accepts it and does not store it: a target never returns it.\nIt refers to a ArchiveRetention by backend id, backend name, or custom resource.",
                       "type": "object",
                       "required": [
                         "backendRef"
@@ -266,41 +267,42 @@
                       "additionalProperties": false
                     },
                     "dataset": {
-                      "description": "The dataset to route data to.",
+                      "description": "The dataset.",
                       "type": "string",
                       "minLength": 1
                     },
                     "dataspace": {
-                      "description": "The dataspace within the dataset.",
+                      "description": "The dataspace. Only `default` is supported, in any letter case; the service rejects another value with `400`. A log policy target reads back with the value as sent, and with `default` when it is omitted. Span and RUM policies reject targets in a request: a span policy reads back with one `spans` target in `default`, and a RUM policy with none.",
                       "type": "string",
                       "maxLength": 50
                     },
                     "priority": {
-                      "description": "Per-target priority. Required on every target. Mutually exclusive with the policy-level priority.",
+                      "description": "The base priority for the target.",
                       "type": "string",
                       "enum": [
                         "block",
-                        "high",
                         "low",
-                        "medium"
+                        "medium",
+                        "high"
                       ]
                     },
                     "priorityOverride": {
-                      "description": "Dynamic quota-based priority override for this target.",
+                      "description": "Optional quota-based tiered priority override for the target.",
                       "type": "object",
                       "properties": {
                         "quotaBased": {
-                          "description": "TCOPolicyQuotaBased maps daily quota consumption percentages to priority levels.",
+                          "description": "Quota based.",
                           "type": "object",
                           "required": [
                             "usageTiers"
                           ],
                           "properties": {
                             "usageTiers": {
+                              "description": "Ordered list of usage tiers that map daily quota consumption percentages to priority levels. Percentages must be strictly increasing and priorities strictly decreasing, using only LOW, MEDIUM, or HIGH.",
                               "type": "array",
                               "minItems": 1,
                               "items": {
-                                "description": "TCOPolicyUsageTier maps a daily quota threshold percentage to a priority.",
+                                "description": "TCOLogsPoliciesUsageTier is the UsageTier object of the API.",
                                 "type": "object",
                                 "required": [
                                   "dailyQuotaPercentage",
@@ -308,6 +310,7 @@
                                 ],
                                 "properties": {
                                   "dailyQuotaPercentage": {
+                                    "description": "The daily quota percentage. Must be between 0 and 100.",
                                     "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
                                     "anyOf": [
                                       {
@@ -323,9 +326,9 @@
                                     "type": "string",
                                     "enum": [
                                       "block",
-                                      "high",
                                       "low",
-                                      "medium"
+                                      "medium",
+                                      "high"
                                     ]
                                   }
                                 },
@@ -356,7 +359,7 @@
       "additionalProperties": false
     },
     "status": {
-      "description": "TCOLogsPoliciesStatus defines the observed state of TCOLogsPolicies.",
+      "description": "TCOLogsPoliciesStatus defines the observed state of a TCOLogsPolicies.",
       "type": "object",
       "properties": {
         "conditions": {

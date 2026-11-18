@@ -1,5 +1,5 @@
 {
-  "description": "TCORumPolicies is the Schema for the TCORumPolicies API.\nNOTE: This resource performs an atomic overwrite of all existing TCO RUM policies\nin the backend. Any existing policies not defined in this resource will be\nremoved. Use with caution as this operation is destructive.\n\nSee also https://coralogix.com/docs/tco-optimizer-api\n\n**Added in v0.5.0**",
+  "description": "TCORumPolicies is the Schema for the tcorumpolicies API.\nNOTE: The TCORumPolicies is the whole list of the API. Each write replaces every item of the list,\nso an item that the spec does not have is removed. Deleting the TCORumPolicies removes every item.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -14,18 +14,18 @@
       "type": "object"
     },
     "spec": {
-      "description": "TCORumPoliciesSpec defines the desired state of Coralogix TCO RUM policies.",
+      "description": "TCORumPoliciesSpec defines the desired state of a TCORumPolicies.",
       "type": "object",
       "required": [
         "policies"
       ],
       "properties": {
         "policies": {
-          "description": "Coralogix TCO-Policies-List.",
+          "description": "List of policies.",
           "type": "array",
           "maxItems": 10000,
           "items": {
-            "description": "A TCO policy for RUM (browser/mobile) events.",
+            "description": "TCORumPoliciesPolicy is the Policy object of the API.",
             "type": "object",
             "required": [
               "name",
@@ -33,7 +33,7 @@
             ],
             "properties": {
               "applications": {
-                "description": "The applications to apply the policy on. Applies the policy on all the applications by default.",
+                "description": "Rule.",
                 "type": "object",
                 "required": [
                   "names",
@@ -41,7 +41,7 @@
                 ],
                 "properties": {
                   "names": {
-                    "description": "Names to match.",
+                    "description": "The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.\nThe API holds the values as one string, joined by \",\".",
                     "type": "array",
                     "maxItems": 50,
                     "minItems": 1,
@@ -50,7 +50,7 @@
                     }
                   },
                   "ruleType": {
-                    "description": "Type of matching for the name.",
+                    "description": "Rule type id.",
                     "type": "string",
                     "enum": [
                       "is",
@@ -63,7 +63,7 @@
                 "additionalProperties": false
               },
               "archiveRetention": {
-                "description": "Matches the specified retention.",
+                "description": "Archive retention.\nIt refers to a ArchiveRetention by backend id, backend name, or custom resource.",
                 "type": "object",
                 "required": [
                   "backendRef"
@@ -96,50 +96,51 @@
                 "additionalProperties": false
               },
               "description": {
-                "description": "Description of the policy.",
+                "description": "Optional free-text description of the policy's purpose. Only Latin-1 characters are accepted. A policy that `POST /dataplans/policies/v1` created without a description returns an empty string. A policy that an atomic overwrite created without a description can return none.",
                 "type": "string"
               },
               "disabled": {
-                "description": "Whether the policy is disabled.",
+                "description": "Indicates whether the policy is actively evaluated and applied. A create or atomic-overwrite request sets it as the opposite of its `disabled` value; `PUT /dataplans/policies/v1` sets `enabled` directly.",
                 "type": "boolean"
               },
               "dpxlExpression": {
-                "description": "A DPXL expression to match RUM events on. Mutually exclusive with severities; exactly one of the two is required.\nThe expression must carry a \u003cv1\u003e version prefix and use the canonical $d.* schema (NOT $d.cx_rum.*),\notherwise it fails to compile.",
+                "description": "The DataPrime expression that selects the data. It starts with a version tag, for example `\u003cv1\u003e $d.severity == 'INFO'`; the service rejects an expression without one.",
                 "type": "string",
                 "minLength": 1
               },
               "name": {
-                "description": "Name of the policy.",
+                "description": "Human-readable name for the policy. Only Latin-1 characters are accepted.",
                 "type": "string",
                 "maxLength": 255,
                 "minLength": 1
               },
               "priority": {
-                "description": "The policy priority.",
+                "description": "TCO priority level assigned to a policy, controlling how data is routed and archived.",
                 "type": "string",
                 "enum": [
                   "block",
-                  "high",
+                  "low",
                   "medium",
-                  "low"
+                  "high"
                 ]
               },
               "priorityOverride": {
-                "description": "Dynamic quota-based priority override for the policy.",
+                "description": "Priority override.",
                 "type": "object",
                 "properties": {
                   "quotaBased": {
-                    "description": "TCOPolicyQuotaBased maps daily quota consumption percentages to priority levels.",
+                    "description": "Quota based.",
                     "type": "object",
                     "required": [
                       "usageTiers"
                     ],
                     "properties": {
                       "usageTiers": {
+                        "description": "Ordered list of usage tiers that map daily quota consumption percentages to priority levels. Percentages must be strictly increasing and priorities strictly decreasing, using only LOW, MEDIUM, or HIGH.",
                         "type": "array",
                         "minItems": 1,
                         "items": {
-                          "description": "TCOPolicyUsageTier maps a daily quota threshold percentage to a priority.",
+                          "description": "TCORumPoliciesUsageTier is the UsageTier object of the API.",
                           "type": "object",
                           "required": [
                             "dailyQuotaPercentage",
@@ -147,6 +148,7 @@
                           ],
                           "properties": {
                             "dailyQuotaPercentage": {
+                              "description": "The daily quota percentage. Must be between 0 and 100.",
                               "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
                               "anyOf": [
                                 {
@@ -162,9 +164,9 @@
                               "type": "string",
                               "enum": [
                                 "block",
-                                "high",
                                 "low",
-                                "medium"
+                                "medium",
+                                "high"
                               ]
                             }
                           },
@@ -178,25 +180,24 @@
                 "additionalProperties": false
               },
               "severities": {
-                "description": "The severities to apply the policy on. Mutually exclusive with dpxlExpression; exactly one of the two is required.",
+                "description": "The severities. A request without `dpxlExpression` needs at least one, and a request with it must have none. A response with `dpxlExpression` has an empty list.",
                 "type": "array",
                 "maxItems": 6,
                 "minItems": 1,
                 "items": {
-                  "description": "The severities to apply the policy on.",
                   "type": "string",
                   "enum": [
+                    "debug",
+                    "verbose",
                     "info",
                     "warning",
-                    "critical",
                     "error",
-                    "debug",
-                    "verbose"
+                    "critical"
                   ]
                 }
               },
               "subsystems": {
-                "description": "The subsystems to apply the policy on. Applies the policy on all the subsystems by default.",
+                "description": "Rule.",
                 "type": "object",
                 "required": [
                   "names",
@@ -204,7 +205,7 @@
                 ],
                 "properties": {
                   "names": {
-                    "description": "Names to match.",
+                    "description": "The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.\nThe API holds the values as one string, joined by \",\".",
                     "type": "array",
                     "maxItems": 50,
                     "minItems": 1,
@@ -213,7 +214,7 @@
                     }
                   },
                   "ruleType": {
-                    "description": "Type of matching for the name.",
+                    "description": "Rule type id.",
                     "type": "string",
                     "enum": [
                       "is",
@@ -239,7 +240,7 @@
       "additionalProperties": false
     },
     "status": {
-      "description": "TCORumPoliciesStatus defines the observed state of TCORumPolicies.",
+      "description": "TCORumPoliciesStatus defines the observed state of a TCORumPolicies.",
       "type": "object",
       "properties": {
         "conditions": {

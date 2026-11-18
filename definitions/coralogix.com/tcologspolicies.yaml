@@ -25,14 +25,9 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          TCOLogsPolicies is the Schema for the TCOLogsPolicies API.
-          NOTE: This resource performs an atomic overwrite of all existing TCO logs policies
-          in the backend. Any existing policies not defined in this resource will be
-          removed. Use with caution as this operation is destructive.
-
-          See also https://coralogix.com/docs/tco-optimizer-api
-
-          **Added in v0.4.0**
+          TCOLogsPolicies is the Schema for the tcologspolicies API.
+          NOTE: The TCOLogsPolicies is the whole list of the API. Each write replaces every item of the list,
+          so an item that the spec does not have is removed. Deleting the TCOLogsPolicies removes every item.
         properties:
           apiVersion:
             description: |-
@@ -52,27 +47,27 @@ spec:
           metadata:
             type: object
           spec:
-            description: TCOLogsPoliciesSpec defines the desired state of Coralogix
-              TCO logs policies.
+            description: TCOLogsPoliciesSpec defines the desired state of a TCOLogsPolicies.
             properties:
               policies:
-                description: Coralogix TCO-Policies-List.
+                description: List of policies.
                 items:
-                  description: A TCO policy for logs.
+                  description: TCOLogsPoliciesPolicy is the Policy object of the API.
                   properties:
                     applications:
-                      description: The applications to apply the policy on. Applies
-                        the policy on all the applications by default.
+                      description: Rule.
                       properties:
                         names:
-                          description: Names to match.
+                          description: |-
+                            The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.
+                            The API holds the values as one string, joined by ",".
                           items:
                             type: string
                           maxItems: 50
                           minItems: 1
                           type: array
                         ruleType:
-                          description: Type of matching for the name.
+                          description: Rule type id.
                           enum:
                           - is
                           - is_not
@@ -84,7 +79,9 @@ spec:
                       - ruleType
                       type: object
                     archiveRetention:
-                      description: Matches the specified retention.
+                      description: |-
+                        Archive retention.
+                        It refers to a ArchiveRetention by backend id, backend name, or custom resource.
                       properties:
                         backendRef:
                           description: Reference to the retention policy
@@ -105,56 +102,67 @@ spec:
                       - backendRef
                       type: object
                     description:
-                      description: Description of the policy.
+                      description: Optional free-text description of the policy's
+                        purpose. Only Latin-1 characters are accepted. A policy that
+                        `POST /dataplans/policies/v1` created without a description
+                        returns an empty string. A policy that an atomic overwrite
+                        created without a description can return none.
                       type: string
                     disabled:
-                      description: Whether the policy is disabled.
+                      description: Indicates whether the policy is actively evaluated
+                        and applied. A create or atomic-overwrite request sets it
+                        as the opposite of its `disabled` value; `PUT /dataplans/policies/v1`
+                        sets `enabled` directly.
                       type: boolean
                     dpxlExpression:
-                      description: A DPXL expression to match logs on. Mutually exclusive
-                        with severities, applications and subsystems.
+                      description: The DataPrime expression that selects the data.
+                        It starts with a version tag, for example `<v1> $d.severity
+                        == 'INFO'`; the service rejects an expression without one.
                       maxLength: 65535
                       minLength: 1
                       type: string
                     name:
-                      description: Name of the policy.
+                      description: Human-readable name for the policy. Only Latin-1
+                        characters are accepted.
                       type: string
                     priority:
-                      description: The policy priority. Required when targets is not
-                        set. Mutually exclusive with targets, which carry their own
-                        per-target priorities.
+                      description: TCO priority level assigned to a policy, controlling
+                        how data is routed and archived.
                       enum:
                       - block
-                      - high
-                      - medium
                       - low
+                      - medium
+                      - high
                       type: string
                     priorityOverride:
-                      description: |-
-                        Dynamic quota-based priority override for the policy. Use with the policy-level priority;
-                        mutually exclusive with per-target priority overrides.
+                      description: Priority override.
                       properties:
                         quotaBased:
-                          description: TCOPolicyQuotaBased maps daily quota consumption
-                            percentages to priority levels.
+                          description: Quota based.
                           properties:
                             usageTiers:
+                              description: Ordered list of usage tiers that map daily
+                                quota consumption percentages to priority levels.
+                                Percentages must be strictly increasing and priorities
+                                strictly decreasing, using only LOW, MEDIUM, or HIGH.
                               items:
-                                description: TCOPolicyUsageTier maps a daily quota
-                                  threshold percentage to a priority.
+                                description: TCOLogsPoliciesUsageTier is the UsageTier
+                                  object of the API.
                                 properties:
                                   dailyQuotaPercentage:
                                     anyOf:
                                     - type: integer
                                     - type: string
+                                    description: The daily quota percentage. Must
+                                      be between 0 and 100.
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   priority:
                                     enum:
                                     - block
-                                    - high
                                     - low
                                     - medium
+                                    - high
                                     type: string
                                 required:
                                 - dailyQuotaPercentage
@@ -167,32 +175,33 @@ spec:
                           type: object
                       type: object
                     severities:
-                      description: The severities to apply the policy on. Mutually
-                        exclusive with dpxlExpression.
+                      description: The severities. A request without `dpxlExpression`
+                        needs at least one, and a request with it must have none.
+                        A response with `dpxlExpression` has an empty list.
                       items:
-                        description: The severities to apply the policy on.
                         enum:
-                        - info
-                        - warning
-                        - critical
-                        - error
                         - debug
                         - verbose
+                        - info
+                        - warning
+                        - error
+                        - critical
                         type: string
                       type: array
                     subsystems:
-                      description: The subsystems to apply the policy on. Applies
-                        the policy on all the subsystems by default.
+                      description: Rule.
                       properties:
                         names:
-                          description: Names to match.
+                          description: |-
+                            The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.
+                            The API holds the values as one string, joined by ",".
                           items:
                             type: string
                           maxItems: 50
                           minItems: 1
                           type: array
                         ruleType:
-                          description: Type of matching for the name.
+                          description: Rule type id.
                           enum:
                           - is
                           - is_not
@@ -204,16 +213,19 @@ spec:
                       - ruleType
                       type: object
                     targets:
-                      description: |-
-                        Targets defines the datasets to route matched data to, each with its own required priority.
-                        Setting targets requires omitting the policy-level priority; the two are mutually exclusive.
+                      description: 'List of data targets/destinations to which this
+                        policy routes data. A log policy created without targets has
+                        one target: the `logs` dataset of the `default` dataspace,
+                        with the priority and the override of the policy. A span policy
+                        has one `spans` target. A RUM policy has none.'
                       items:
-                        description: TCOPolicyTarget defines a dataset destination
-                          with its own priority for matched log data.
+                        description: TCOLogsPoliciesV1Target is the v1.Target object
+                          of the API.
                         properties:
                           archiveRetention:
-                            description: Matches the specified archive retention for
-                              this target.
+                            description: |-
+                              Optional archive retention configuration for the target. The service accepts it and does not store it: a target never returns it.
+                              It refers to a ArchiveRetention by backend id, backend name, or custom resource.
                             properties:
                               backendRef:
                                 description: Reference to the retention policy
@@ -234,47 +246,58 @@ spec:
                             - backendRef
                             type: object
                           dataset:
-                            description: The dataset to route data to.
+                            description: The dataset.
                             minLength: 1
                             type: string
                           dataspace:
-                            description: The dataspace within the dataset.
+                            description: 'The dataspace. Only `default` is supported,
+                              in any letter case; the service rejects another value
+                              with `400`. A log policy target reads back with the
+                              value as sent, and with `default` when it is omitted.
+                              Span and RUM policies reject targets in a request: a
+                              span policy reads back with one `spans` target in `default`,
+                              and a RUM policy with none.'
                             maxLength: 50
                             type: string
                           priority:
-                            description: Per-target priority. Required on every target.
-                              Mutually exclusive with the policy-level priority.
+                            description: The base priority for the target.
                             enum:
                             - block
-                            - high
                             - low
                             - medium
+                            - high
                             type: string
                           priorityOverride:
-                            description: Dynamic quota-based priority override for
-                              this target.
+                            description: Optional quota-based tiered priority override
+                              for the target.
                             properties:
                               quotaBased:
-                                description: TCOPolicyQuotaBased maps daily quota
-                                  consumption percentages to priority levels.
+                                description: Quota based.
                                 properties:
                                   usageTiers:
+                                    description: Ordered list of usage tiers that
+                                      map daily quota consumption percentages to priority
+                                      levels. Percentages must be strictly increasing
+                                      and priorities strictly decreasing, using only
+                                      LOW, MEDIUM, or HIGH.
                                     items:
-                                      description: TCOPolicyUsageTier maps a daily
-                                        quota threshold percentage to a priority.
+                                      description: TCOLogsPoliciesUsageTier is the
+                                        UsageTier object of the API.
                                       properties:
                                         dailyQuotaPercentage:
                                           anyOf:
                                           - type: integer
                                           - type: string
+                                          description: The daily quota percentage.
+                                            Must be between 0 and 100.
                                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                           x-kubernetes-int-or-string: true
                                         priority:
                                           enum:
                                           - block
-                                          - high
                                           - low
                                           - medium
+                                          - high
                                           type: string
                                       required:
                                       - dailyQuotaPercentage
@@ -306,7 +329,7 @@ spec:
             - policies
             type: object
           status:
-            description: TCOLogsPoliciesStatus defines the observed state of TCOLogsPolicies.
+            description: TCOLogsPoliciesStatus defines the observed state of a TCOLogsPolicies.
             properties:
               conditions:
                 items:

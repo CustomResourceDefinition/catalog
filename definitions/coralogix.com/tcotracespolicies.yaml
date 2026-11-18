@@ -26,13 +26,8 @@ spec:
       openAPIV3Schema:
         description: |-
           TCOTracesPolicies is the Schema for the tcotracespolicies API.
-          NOTE: This resource performs an atomic overwrite of all existing TCO traces policies
-          in the backend. Any existing policies not defined in this resource will be
-          removed. Use with caution as this operation is destructive.
-
-          See also https://coralogix.com/docs/tco-optimizer-api
-
-          **Added in v0.4.0**
+          NOTE: The TCOTracesPolicies is the whole list of the API. Each write replaces every item of the list,
+          so an item that the spec does not have is removed. Deleting the TCOTracesPolicies removes every item.
         properties:
           apiVersion:
             description: |-
@@ -52,27 +47,28 @@ spec:
           metadata:
             type: object
           spec:
-            description: TCOTracesPoliciesSpec defines the desired state of Coralogix
-              TCO policies for traces.
+            description: TCOTracesPoliciesSpec defines the desired state of a TCOTracesPolicies.
             properties:
               policies:
-                description: Coralogix TCO-Policies-List.
+                description: List of policies.
                 items:
-                  description: Coralogix TCO policy for traces.
+                  description: TCOTracesPoliciesPolicy is the Policy object of the
+                    API.
                   properties:
                     actions:
-                      description: The actions to apply the policy on. Applies the
-                        policy on all the actions by default.
+                      description: Rule.
                       properties:
                         names:
-                          description: Names to match.
+                          description: |-
+                            The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.
+                            The API holds the values as one string, joined by ",".
                           items:
                             type: string
                           maxItems: 50
                           minItems: 1
                           type: array
                         ruleType:
-                          description: Type of matching for the name.
+                          description: Rule type id.
                           enum:
                           - is
                           - is_not
@@ -84,18 +80,19 @@ spec:
                       - ruleType
                       type: object
                     applications:
-                      description: The applications to apply the policy on. Applies
-                        the policy on all the applications by default.
+                      description: Rule.
                       properties:
                         names:
-                          description: Names to match.
+                          description: |-
+                            The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.
+                            The API holds the values as one string, joined by ",".
                           items:
                             type: string
                           maxItems: 50
                           minItems: 1
                           type: array
                         ruleType:
-                          description: Type of matching for the name.
+                          description: Rule type id.
                           enum:
                           - is
                           - is_not
@@ -107,7 +104,9 @@ spec:
                       - ruleType
                       type: object
                     archiveRetention:
-                      description: Matches the specified retention.
+                      description: |-
+                        Archive retention.
+                        It refers to a ArchiveRetention by backend id, backend name, or custom resource.
                       properties:
                         backendRef:
                           description: Reference to the retention policy
@@ -128,52 +127,68 @@ spec:
                       - backendRef
                       type: object
                     description:
-                      description: Description of the policy.
+                      description: Optional free-text description of the policy's
+                        purpose. Only Latin-1 characters are accepted. A policy that
+                        `POST /dataplans/policies/v1` created without a description
+                        returns an empty string. A policy that an atomic overwrite
+                        created without a description can return none.
                       type: string
                     disabled:
-                      description: Whether the policy is disabled.
+                      description: Indicates whether the policy is actively evaluated
+                        and applied. A create or atomic-overwrite request sets it
+                        as the opposite of its `disabled` value; `PUT /dataplans/policies/v1`
+                        sets `enabled` directly.
                       type: boolean
                     dpxlExpression:
-                      description: A DPXL expression to match spans on. Mutually exclusive
-                        with services, actions, tags, applications and subsystems.
+                      description: The DataPrime expression that selects the spans.
+                        It starts with a version tag, for example `<v1> $l.serviceName
+                        == 'checkout'`. The service rejects it next to an application,
+                        subsystem, service, action, or tag rule.
                       maxLength: 65535
                       minLength: 1
                       type: string
                     name:
-                      description: Name of the policy.
+                      description: Human-readable name for the policy. Only Latin-1
+                        characters are accepted.
                       type: string
                     priority:
-                      description: The policy priority.
+                      description: TCO priority level assigned to a policy, controlling
+                        how data is routed and archived.
                       enum:
                       - block
-                      - high
-                      - medium
                       - low
+                      - medium
+                      - high
                       type: string
                     priorityOverride:
-                      description: Dynamic quota-based priority override for the policy.
+                      description: Priority override.
                       properties:
                         quotaBased:
-                          description: TCOPolicyQuotaBased maps daily quota consumption
-                            percentages to priority levels.
+                          description: Quota based.
                           properties:
                             usageTiers:
+                              description: Ordered list of usage tiers that map daily
+                                quota consumption percentages to priority levels.
+                                Percentages must be strictly increasing and priorities
+                                strictly decreasing, using only LOW, MEDIUM, or HIGH.
                               items:
-                                description: TCOPolicyUsageTier maps a daily quota
-                                  threshold percentage to a priority.
+                                description: TCOTracesPoliciesUsageTier is the UsageTier
+                                  object of the API.
                                 properties:
                                   dailyQuotaPercentage:
                                     anyOf:
                                     - type: integer
                                     - type: string
+                                    description: The daily quota percentage. Must
+                                      be between 0 and 100.
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   priority:
                                     enum:
                                     - block
-                                    - high
                                     - low
                                     - medium
+                                    - high
                                     type: string
                                 required:
                                 - dailyQuotaPercentage
@@ -186,18 +201,19 @@ spec:
                           type: object
                       type: object
                     services:
-                      description: The services to apply the policy on. Applies the
-                        policy on all the services by default.
+                      description: Rule.
                       properties:
                         names:
-                          description: Names to match.
+                          description: |-
+                            The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.
+                            The API holds the values as one string, joined by ",".
                           items:
                             type: string
                           maxItems: 50
                           minItems: 1
                           type: array
                         ruleType:
-                          description: Type of matching for the name.
+                          description: Rule type id.
                           enum:
                           - is
                           - is_not
@@ -209,18 +225,19 @@ spec:
                       - ruleType
                       type: object
                     subsystems:
-                      description: The subsystems to apply the policy on. Applies
-                        the policy on all the subsystems by default.
+                      description: Rule.
                       properties:
                         names:
-                          description: Names to match.
+                          description: |-
+                            The value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values. The service stores the values in lower case.
+                            The API holds the values as one string, joined by ",".
                           items:
                             type: string
                           maxItems: 50
                           minItems: 1
                           type: array
                         ruleType:
-                          description: Type of matching for the name.
+                          description: Rule type id.
                           enum:
                           - is
                           - is_not
@@ -232,17 +249,17 @@ spec:
                       - ruleType
                       type: object
                     tags:
-                      description: The tags to apply the policy on. Applies the policy
-                        on all the tags by default.
+                      description: The tag rules. The service does not keep their
+                        order.
                       items:
-                        description: TCO Policy tag matching rule.
+                        description: TCOTracesPoliciesTagRule is the TagRule object
+                          of the API.
                         properties:
                           name:
-                            description: Tag names to match.
+                            description: The tag name. Must start with "tags.".
                             pattern: ^tags\..*
                             type: string
                           ruleType:
-                            description: Operator to match with.
                             enum:
                             - is
                             - is_not
@@ -250,7 +267,9 @@ spec:
                             - includes
                             type: string
                           values:
-                            description: Values to match for
+                            description: |-
+                              The tag value(s) to match. For IS and IS_NOT rules, up to 50 comma-separated values.
+                              The API holds the values as one string, joined by ",".
                             items:
                               type: string
                             maxItems: 50
@@ -278,7 +297,7 @@ spec:
             - policies
             type: object
           status:
-            description: TCOTracesPoliciesStatus defines the observed state of TCOTracesPolicies.
+            description: TCOTracesPoliciesStatus defines the observed state of a TCOTracesPolicies.
             properties:
               conditions:
                 items:

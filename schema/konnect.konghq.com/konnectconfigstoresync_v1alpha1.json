@@ -1,0 +1,374 @@
+{
+  "type": "object",
+  "required": [
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "type": "object",
+      "required": [
+        "configStoreRef",
+        "secretRef"
+      ],
+      "properties": {
+        "combined": {
+          "type": "object",
+          "properties": {
+            "certificateField": {
+              "type": "string",
+              "default": "tls.crt",
+              "maxLength": 253,
+              "minLength": 1,
+              "pattern": "^[-._a-zA-Z0-9]+$"
+            },
+            "keyField": {
+              "type": "string",
+              "default": "tls.key",
+              "maxLength": 253,
+              "minLength": 1,
+              "pattern": "^[-._a-zA-Z0-9]+$"
+            },
+            "storeKey": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.certificateField != self.keyField",
+              "message": "spec.combined.certificateField and spec.combined.keyField must be different"
+            },
+            {
+              "rule": "!has(oldSelf.storeKey) || (has(self.storeKey) \u0026\u0026 self.storeKey == oldSelf.storeKey)",
+              "message": "spec.combined.storeKey is immutable once set"
+            }
+          ]
+        },
+        "configStoreRef": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 253,
+              "minLength": 1
+            },
+            "namespace": {
+              "type": "string",
+              "maxLength": 253
+            }
+          },
+          "additionalProperties": false
+        },
+        "deletionPolicy": {
+          "type": "string",
+          "default": "Orphan",
+          "enum": [
+            "Orphan",
+            "Delete"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "default": "Combined",
+          "enum": [
+            "Combined",
+            "Split"
+          ]
+        },
+        "secretRef": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 253,
+              "minLength": 1
+            },
+            "namespace": {
+              "type": "string",
+              "maxLength": 253
+            }
+          },
+          "additionalProperties": false
+        },
+        "split": {
+          "type": "object",
+          "required": [
+            "entries"
+          ],
+          "properties": {
+            "entries": {
+              "type": "array",
+              "maxItems": 64,
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "field"
+                ],
+                "properties": {
+                  "field": {
+                    "type": "string",
+                    "maxLength": 253,
+                    "minLength": 1,
+                    "pattern": "^[-._a-zA-Z0-9]+$"
+                  },
+                  "storeKey": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._-]+$"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "x-kubernetes-list-map-keys": [
+                "field"
+              ],
+              "x-kubernetes-list-type": "map"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "self.entries.all(e, self.entries.filter(o, has(o.storeKey) \u0026\u0026 has(e.storeKey) \u0026\u0026 o.storeKey == e.storeKey).size() \u003c= 1)",
+              "message": "spec.split.entries storeKeys must be unique"
+            },
+            {
+              "rule": "self.entries.all(n, !oldSelf.entries.exists(o, o.field == n.field \u0026\u0026 has(o.storeKey)) || (has(n.storeKey) \u0026\u0026 oldSelf.entries.exists(o, o.field == n.field \u0026\u0026 has(o.storeKey) \u0026\u0026 o.storeKey == n.storeKey)))",
+              "message": "spec.split.entries storeKey is immutable for entries that keep their field"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "has(self.combined) == (self.mode == 'Combined') \u0026\u0026 has(self.split) == (self.mode == 'Split')",
+          "message": "exactly one of spec.combined or spec.split must be set, matching spec.mode"
+        }
+      ]
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "type": "array",
+          "default": [
+            {
+              "lastTransitionTime": "1970-01-01T00:00:00Z",
+              "message": "Waiting for controller",
+              "reason": "Pending",
+              "status": "Unknown",
+              "type": "ConfigStoreRefValid"
+            },
+            {
+              "lastTransitionTime": "1970-01-01T00:00:00Z",
+              "message": "Waiting for controller",
+              "reason": "Pending",
+              "status": "Unknown",
+              "type": "SecretRefValid"
+            },
+            {
+              "lastTransitionTime": "1970-01-01T00:00:00Z",
+              "message": "Waiting for controller",
+              "reason": "Pending",
+              "status": "Unknown",
+              "type": "PairValid"
+            },
+            {
+              "lastTransitionTime": "1970-01-01T00:00:00Z",
+              "message": "Waiting for controller",
+              "reason": "Pending",
+              "status": "Unknown",
+              "type": "Synced"
+            }
+          ],
+          "maxItems": 8,
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "lastTransitionTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 32768
+              },
+              "observedGeneration": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "controlPlaneID": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "entries": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "required": [
+              "sourceFields",
+              "storeKey"
+            ],
+            "properties": {
+              "hash": {
+                "type": "string",
+                "maxLength": 71,
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "keyBytes": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "lastPushTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "notAfter": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "observedUpdatedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "sourceFields": {
+                "type": "array",
+                "maxItems": 64,
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                },
+                "x-kubernetes-list-type": "atomic"
+              },
+              "storeKey": {
+                "type": "string",
+                "maxLength": 512,
+                "minLength": 1
+              },
+              "valueBytes": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "storeKey"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "entriesSynced": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "entriesTotal": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "observedSecretResourceVersion": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": [
+              "suffix"
+            ],
+            "properties": {
+              "subfield": {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              "suffix": {
+                "type": "string",
+                "maxLength": 577,
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "x-kubernetes-list-map-keys": [
+            "suffix"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "storeID": {
+          "type": "string",
+          "maxLength": 256
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "self.spec.mode == oldSelf.spec.mode",
+      "message": "spec.mode is immutable"
+    },
+    {
+      "rule": "self.spec.configStoreRef == oldSelf.spec.configStoreRef",
+      "message": "spec.configStoreRef is immutable"
+    }
+  ]
+}

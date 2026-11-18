@@ -24,9 +24,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: |-
-          SLO is the Schema for the slos API.
-          See also https://coralogix.com/platform/apm/slo-management/
+        description: SLO is the Schema for the slos API.
         properties:
           apiVersion:
             description: |-
@@ -46,39 +44,41 @@ spec:
           metadata:
             type: object
           spec:
-            description: 'SLOSpec defines the desired state of SLO. For more information,
-              see: https://coralogix.com/platform/apm/slo-management/'
+            description: SLOSpec defines the desired state of a SLO.
             properties:
               description:
-                description: Optional SLO description
+                description: Human-readable description of the SLO.
                 type: string
               labels:
                 additionalProperties:
                   type: string
-                description: Labels are additional labels to be added to the SLO.
+                description: List of labels.
                 type: object
               name:
-                description: SLO name
+                description: Human-readable display name for the SLO. Required. A
+                  missing or empty name is rejected.
                 type: string
               ownershipTags:
-                description: |-
-                  OwnershipTags assign the SLO to a service, environment and team. Omitting the block
-                  clears the tags on the remote SLO, which is the declarative contract. An empty block,
-                  or a dimension whose lists are both empty, is discarded by the API and has no effect.
+                description: Service, environment, and team ownership configuration
+                  for the SLO group and its permutations.
                 properties:
                   environment:
-                    description: Environment tags the SLO with a free-form environment
-                      name.
+                    description: Ownership for one dimension (service, environment,
+                      or team). static_values are group-wide (broad) assignments.
+                      label_keys are metric label names whose values are read per
+                      permutation (label-driven). Both may be set; when both lists
+                      are empty, that dimension is unset.
                     properties:
                       labelKeys:
-                        description: LabelKeys assigns the dimension from metric label
-                          names, resolved per series.
+                        description: Metric label names to use as sources (label-driven).
+                          Actual values come from series at query time. Empty if not
+                          using label-driven for this dimension.
                         items:
                           type: string
                         type: array
                       staticValues:
-                        description: StaticValues assigns the dimension group-wide,
-                          with fixed values.
+                        description: Group-wide static values (broad). Empty if not
+                          using broad for this dimension.
                         items:
                           type: string
                         type: array
@@ -88,19 +88,22 @@ spec:
                       rule: '!(has(self.staticValues) && self.staticValues.size()
                         > 0 && has(self.labelKeys) && self.labelKeys.size() > 0)'
                   service:
-                    description: |-
-                      Service tags the SLO with an APM service. The API validates static values against
-                      the APM Service Catalog, so the operator does not.
+                    description: Ownership for one dimension (service, environment,
+                      or team). static_values are group-wide (broad) assignments.
+                      label_keys are metric label names whose values are read per
+                      permutation (label-driven). Both may be set; when both lists
+                      are empty, that dimension is unset.
                     properties:
                       labelKeys:
-                        description: LabelKeys assigns the dimension from metric label
-                          names, resolved per series.
+                        description: Metric label names to use as sources (label-driven).
+                          Actual values come from series at query time. Empty if not
+                          using label-driven for this dimension.
                         items:
                           type: string
                         type: array
                       staticValues:
-                        description: StaticValues assigns the dimension group-wide,
-                          with fixed values.
+                        description: Group-wide static values (broad). Empty if not
+                          using broad for this dimension.
                         items:
                           type: string
                         type: array
@@ -110,17 +113,22 @@ spec:
                       rule: '!(has(self.staticValues) && self.staticValues.size()
                         > 0 && has(self.labelKeys) && self.labelKeys.size() > 0)'
                   team:
-                    description: Team tags the SLO with a free-form team name.
+                    description: Ownership for one dimension (service, environment,
+                      or team). static_values are group-wide (broad) assignments.
+                      label_keys are metric label names whose values are read per
+                      permutation (label-driven). Both may be set; when both lists
+                      are empty, that dimension is unset.
                     properties:
                       labelKeys:
-                        description: LabelKeys assigns the dimension from metric label
-                          names, resolved per series.
+                        description: Metric label names to use as sources (label-driven).
+                          Actual values come from series at query time. Empty if not
+                          using label-driven for this dimension.
                         items:
                           type: string
                         type: array
                       staticValues:
-                        description: StaticValues assigns the dimension group-wide,
-                          with fixed values.
+                        description: Group-wide static values (broad). Empty if not
+                          using broad for this dimension.
                         items:
                           type: string
                         type: array
@@ -131,54 +139,63 @@ spec:
                         > 0 && has(self.labelKeys) && self.labelKeys.size() > 0)'
                 type: object
               productType:
-                description: |-
-                  ProductType selects the Coralogix product the SLO is built from. Valid values are
-                  "unspecified" and "apm". Setting "apm" requires sliType.apmSli.
-
-                  Setting it is never necessary. The API infers "apm" from the presence of
-                  sliType.apmSli and stores SLO_PRODUCT_TYPE_APM even when this field is omitted or
-                  set to "unspecified". For a metric SLI the API stores SLO_PRODUCT_TYPE_UNSPECIFIED.
-
-                  The coupling only runs one way. "apm" without an apmSli answers
-                  `400 slo.apm_sli is required when slo.product_type is SLO_PRODUCT_TYPE_APM`, so the
-                  rule on this struct mirrors that. An apmSli without "apm" is accepted, so there is
-                  no rule in the other direction.
+                description: 'Product type: APM for application performance monitoring
+                  SLOs, UNSPECIFIED for manual/custom SLOs'
                 enum:
                 - unspecified
                 - apm
                 type: string
               sliType:
-                description: |-
-                  SliType defines the type of SLI used for the SLO.
-                  Exactly one of requestBasedMetric, windowBasedMetric or apmSli must be set.
+                description: SLOSpecSliType holds the sliType fields of the released
+                  CR.
                 properties:
                   apmSli:
-                    description: |-
-                      ApmSli builds the SLO from an APM Service Catalog service instead of a PromQL query.
-                      It requires spec.productType "apm".
+                    description: Definition of an APM-based SLI with automatic query
+                      generation
                     properties:
                       errorConfig:
-                        description: ErrorConfig makes this an APM error-rate SLI.
-                          It carries no settings.
+                        description: Configuration for error-based APM SLI
                         type: object
                       filters:
-                        description: Filters narrows the SLI to spans matching every
-                          filter.
+                        description: Additional label-based filters to apply to the
+                          metrics
                         items:
-                          description: ApmFilter matches a span attribute against
-                            a set of values.
+                          description: SLOApmFilter is the ApmFilter object of the
+                            API.
                           properties:
                             key:
-                              description: |-
-                                Key is the span attribute name. Omitting it makes the API build a malformed query
-                                and answer HTTP 400, so it is required.
+                              description: Label/tag name to filter on. Required.
+                                A missing or empty key is rejected.
+                              type: string
+                            matchOperator:
+                              description: 'How literals on `key` are compared. Every
+                                item in `apmSli.filters` must use the same mode: all
+                                implicit (legacy) or all explicit — mixing modes in
+                                one list is rejected. Implicit: omitted or `APM_FILTER_MATCH_OPERATOR_UNSPECIFIED`
+                                on every item — multiple items with the same `key`
+                                OR-merge literals with exact (IS) comparison; sending
+                                `UNSPECIFIED` is equivalent to omitting the field
+                                (neither is stored as explicit `IS`). Explicit: `APM_FILTER_MATCH_OPERATOR_IS`,
+                                `STARTS_WITH`, `ENDS_WITH`, or `INCLUDES` on every
+                                item — each item is a separate AND criterion; OR applies
+                                only among literals in that item (explicit `IS` differs
+                                from implicit when several items share a `key`). Items
+                                on different keys are AND-combined. Pattern operators
+                                use literal substring matching (not caller-supplied
+                                regex). Applies only when the item has at least one
+                                literal: non-empty `values`, or deprecated `value`
+                                when `values` is omitted or empty (non-empty `values`
+                                takes precedence over `value`); otherwise rejected.'
+                              enum:
+                              - unspecified
+                              - is
+                              - startsWith
+                              - endsWith
+                              - includes
                               type: string
                             values:
-                              description: |-
-                                Values are the accepted values for Key. There is deliberately no MinItems: the API
-                                accepts and stores an empty list, so rejecting one here would be stricter than the
-                                API. An absent list is sent as an empty list, which is the form the API is known to
-                                accept.
+                              description: 'Preferred: multiple values to match (OR
+                                semantics, e.g. status IN [500, 503])'
                               items:
                                 type: string
                               type: array
@@ -187,29 +204,25 @@ spec:
                           type: object
                         type: array
                       groupingKeys:
-                        description: GroupingKeys splits the SLI by the given span
-                          attributes.
+                        description: Labels to group SLO results by
                         items:
                           type: string
                         type: array
                       latencyConfig:
-                        description: LatencyConfig makes this an APM latency SLI.
+                        description: Configuration for latency-based APM SLI
                         properties:
                           average:
-                            description: Average measures average latency. It carries
-                              no settings.
+                            description: Average/mean-based latency measurement
                             type: object
                           quantile:
-                            description: Quantile measures a latency quantile.
+                            description: Quantile/percentile-based latency measurement
                             properties:
                               percentile:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                description: |-
-                                  Percentile is a fraction, so 0.95 means P95. The API stores 0 when omitted.
-                                  There is deliberately no range validator: the API accepts and stores any float,
-                                  including 5 and -1, so rejecting them here would be stricter than the API.
+                                description: Percentile for latency SLOs (0.95 = P95,
+                                  0.99 = P99)
                                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                             type: object
@@ -217,16 +230,13 @@ spec:
                             anyOf:
                             - type: integer
                             - type: string
-                            description: |-
-                              Threshold is the latency threshold in milliseconds, so 500 means 500ms. Latency at
-                              or below the threshold is good. The API stores 0 when omitted.
+                            description: Threshold in milliseconds. Good when latency
+                              <= threshold, bad when latency > threshold.
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                           timeWindow:
-                            description: |-
-                              TimeWindow defines the evaluation window. Valid values are "1m" and "5m".
-                              Omitting it answers HTTP 500 with the same "Not implemented yet" error as an
-                              omitted windowBasedMetric.window, so it is required.
+                            description: Time window for latency calculations. Required.
+                              Omitting it is rejected.
                             enum:
                             - 1m
                             - 5m
@@ -235,11 +245,8 @@ spec:
                         - timeWindow
                         type: object
                       services:
-                        description: |-
-                          Services lists the APM Service Catalog services the SLO covers. The Coralogix API
-                          accepts exactly one service today and rejects names that are not in the catalog.
-                          The count is deliberately not capped here, so a server-side relaxation needs no
-                          operator release.
+                        description: List of service names to monitor. Required. At
+                          least one service; an empty list is rejected.
                         items:
                           type: string
                         minItems: 1
@@ -248,12 +255,14 @@ spec:
                     - services
                     type: object
                   requestBasedMetric:
+                    description: Definition of a request-based SLI based on metrics
                     properties:
                       goodEvents:
-                        description: GoodEvents defines the good events metric.
+                        description: Definition of a metric used in SLOs
                         properties:
                           query:
-                            description: Query is the metric query string.
+                            description: Query string. Required. A missing or empty
+                              query is rejected.
                             type: string
                         required:
                         - query
@@ -268,10 +277,11 @@ spec:
                           type: string
                         type: array
                       totalEvents:
-                        description: TotalEvents defines the total events metric.
+                        description: Definition of a metric used in SLOs
                         properties:
                           query:
-                            description: Query is the metric query string.
+                            description: Query string. Required. A missing or empty
+                              query is rejected.
                             type: string
                         required:
                         - query
@@ -281,32 +291,29 @@ spec:
                     - totalEvents
                     type: object
                   windowBasedMetric:
+                    description: Definition of a window-based SLI based on metrics
                     properties:
                       comparisonOperator:
-                        description: |-
-                          ComparisonOperator defines the comparison operator for the SLO. Valid values are
-                          "greaterThan", "lessThan", "greaterThanOrEquals" and "lessThanOrEquals".
+                        description: Comparison operator.
                         enum:
                         - greaterThan
-                        - lessThan
                         - greaterThanOrEquals
+                        - lessThan
                         - lessThanOrEquals
                         type: string
                       missingDataStrategy:
-                        description: |-
-                          MissingDataStrategy decides how a window with no data counts. Valid values are
-                          "uncounted", "good" and "bad". When omitted, the API stores
-                          MISSING_DATA_STRATEGY_UNCOUNTED.
+                        description: Missing data strategy.
                         enum:
                         - uncounted
                         - good
                         - bad
                         type: string
                       query:
-                        description: Query defines the metric query for the SLO.
+                        description: Definition of a metric used in SLOs
                         properties:
                           query:
-                            description: Query is the metric query string.
+                            description: Query string. Required. A missing or empty
+                              query is rejected.
                             type: string
                         required:
                         - query
@@ -315,15 +322,11 @@ spec:
                         anyOf:
                         - type: integer
                         - type: string
-                        description: |-
-                          Threshold defines the threshold the comparisonOperator applies to.
-                          The protobuf field is a bare float with no presence tracking, so the API cannot tell
-                          an omitted threshold from a threshold of 0. Omitting it here sends 0.
+                        description: Threshold value.
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       window:
-                        description: Window defines the time window for the SLO. Valid
-                          values are "1m" and "5m".
+                        description: Window slo window.
                         enum:
                         - 1m
                         - 5m
@@ -335,30 +338,24 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-validations:
-                - message: Exactly one of requestBasedMetric, windowBasedMetric or
-                    apmSli must be set
-                  rule: '[has(self.requestBasedMetric),has(self.windowBasedMetric),has(self.apmSli)].filter(x,
-                    x).size() == 1'
+                - message: Exactly one of requestBasedMetric, windowBasedMetric, apmSli
+                    must be set
+                  rule: '(has(self.requestBasedMetric) ? 1 : 0) + (has(self.windowBasedMetric)
+                    ? 1 : 0) + (has(self.apmSli) ? 1 : 0) == 1'
               targetThresholdPercentage:
                 anyOf:
                 - type: integer
                 - type: string
-                description: |-
-                  TargetThresholdPercentage is the target compliance percentage for the SLO, so 99.9
-                  means three nines. The API rejects a value above 100 with
-                  `400 "slo.targetThresholdPercentage" must be less than or equal to 100`. The bound
-                  is not declared in the protobuf and is not enforced here either: the field is a
-                  resource.Quantity, which renders as int-or-string in the CRD, so the numeric
-                  Minimum and Maximum markers do not apply to it. The lower bound is unverified.
+                description: Target compliance percentage threshold for the SLO (e.g.,
+                  99.9 for three nines).
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               window:
-                description: Window defines the time window for the SLO.
+                description: SLOSpecWindow holds the window fields of the released
+                  CR.
                 properties:
                   timeFrame:
-                    description: |-
-                      TimeFrame defines the time frame for the SLO window. Valid values are "unspecified", "7d", "14d", "21d", and "28d".
-                      Deprecated: "90d" is no longer supported by the Coralogix API and will be rejected by the operator.
+                    description: Rolling evaluation window (fixed-duration lookback).
                     enum:
                     - unspecified
                     - 7d
@@ -378,7 +375,7 @@ spec:
             - message: productType 'apm' requires sliType.apmSli
               rule: '!(has(self.productType) && self.productType == ''apm'') || has(self.sliType.apmSli)'
           status:
-            description: SLOStatus defines the observed state of SLO.
+            description: SLOStatus defines the observed state of a SLO.
             properties:
               conditions:
                 items:
