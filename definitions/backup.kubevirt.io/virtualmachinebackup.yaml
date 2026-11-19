@@ -120,32 +120,266 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              endpointCert:
-                type: string
-              exportUID:
-                type: string
               includedVolumes:
                 items:
                   properties:
-                    dataEndpoint:
+                    type:
                       type: string
-                    diskTarget:
-                      type: string
-                    mapEndpoint:
-                      type: string
+                      x-kubernetes-validations:
+                      - message: type must be Full or Incremental
+                        rule: self in ['Full', 'Incremental']
                     volumeName:
                       type: string
                   required:
-                  - diskTarget
                   - volumeName
                   type: object
+                maxItems: 256
                 type: array
                 x-kubernetes-list-type: atomic
-              type:
+              links:
+                properties:
+                  external:
+                    properties:
+                      cert:
+                        type: string
+                      volumes:
+                        items:
+                          properties:
+                            dataEndpoint:
+                              type: string
+                            mapEndpoint:
+                              type: string
+                            volumeName:
+                              type: string
+                          required:
+                          - dataEndpoint
+                          - mapEndpoint
+                          - volumeName
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - volumeName
+                        x-kubernetes-list-type: map
+                    required:
+                    - cert
+                    type: object
+                  internal:
+                    properties:
+                      cert:
+                        type: string
+                      volumes:
+                        items:
+                          properties:
+                            dataEndpoint:
+                              type: string
+                            mapEndpoint:
+                              type: string
+                            volumeName:
+                              type: string
+                          required:
+                          - dataEndpoint
+                          - mapEndpoint
+                          - volumeName
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - volumeName
+                        x-kubernetes-list-type: map
+                    required:
+                    - cert
+                    type: object
+                type: object
+              startTimestamp:
+                format: date-time
                 type: string
             type: object
         required:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              forceFullBackup:
+                type: boolean
+              mode:
+                enum:
+                - Push
+                - Pull
+                type: string
+              pvcName:
+                type: string
+              skipQuiesce:
+                type: boolean
+              source:
+                properties:
+                  apiGroup:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: apiGroup is required
+                  rule: has(self.apiGroup)
+                - message: apiGroup must be kubevirt.io or backup.kubevirt.io
+                  rule: '!has(self.apiGroup) || self.apiGroup == ''kubevirt.io'' ||
+                    self.apiGroup == ''backup.kubevirt.io'''
+                - message: kind must be VirtualMachine for kubevirt.io or VirtualMachineBackupTracker
+                    for backup.kubevirt.io
+                  rule: '!has(self.apiGroup) || (self.apiGroup == ''kubevirt.io''
+                    && self.kind == ''VirtualMachine'') || (self.apiGroup == ''backup.kubevirt.io''
+                    && self.kind == ''VirtualMachineBackupTracker'')'
+                - message: name is required
+                  rule: self.name != ''
+              tokenSecretRef:
+                type: string
+              ttlDuration:
+                type: string
+            required:
+            - source
+            type: object
+            x-kubernetes-validations:
+            - message: spec is immutable after creation
+              rule: self == oldSelf
+            - message: pvcName is required
+              rule: has(self.pvcName) && self.pvcName != ""
+            - message: tokenSecretRef is required when mode is Pull
+              rule: '!has(self.mode) || self.mode != ''Pull'' || (has(self.tokenSecretRef)
+                && self.tokenSecretRef != "")'
+          status:
+            properties:
+              checkpointName:
+                type: string
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              includedVolumes:
+                items:
+                  properties:
+                    type:
+                      type: string
+                      x-kubernetes-validations:
+                      - message: type must be Full or Incremental
+                        rule: self in ['Full', 'Incremental']
+                    volumeName:
+                      type: string
+                  required:
+                  - volumeName
+                  type: object
+                maxItems: 256
+                type: array
+                x-kubernetes-list-type: atomic
+              links:
+                properties:
+                  external:
+                    properties:
+                      cert:
+                        type: string
+                      volumes:
+                        items:
+                          properties:
+                            dataEndpoint:
+                              type: string
+                            mapEndpoint:
+                              type: string
+                            volumeName:
+                              type: string
+                          required:
+                          - dataEndpoint
+                          - mapEndpoint
+                          - volumeName
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - volumeName
+                        x-kubernetes-list-type: map
+                    required:
+                    - cert
+                    type: object
+                  internal:
+                    properties:
+                      cert:
+                        type: string
+                      volumes:
+                        items:
+                          properties:
+                            dataEndpoint:
+                              type: string
+                            mapEndpoint:
+                              type: string
+                            volumeName:
+                              type: string
+                          required:
+                          - dataEndpoint
+                          - mapEndpoint
+                          - volumeName
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - volumeName
+                        x-kubernetes-list-type: map
+                    required:
+                    - cert
+                    type: object
+                type: object
+              startTimestamp:
+                format: date-time
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: false

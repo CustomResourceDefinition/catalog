@@ -19,20 +19,44 @@
         "condition": {
           "type": "string"
         },
-        "domainHooks": {
+        "failureStrategy": {
+          "type": "string",
+          "x-kubernetes-validations": [
+            {
+              "rule": "self in ['Fail','Ignore']",
+              "message": "failureStrategy must be one of: Fail, Ignore"
+            }
+          ]
+        },
+        "launcherHooks": {
           "type": "array",
+          "maxItems": 64,
           "items": {
             "type": "object",
             "properties": {
               "cel": {
                 "type": "object",
                 "required": [
-                  "expression"
+                  "expression",
+                  "hookPoint"
                 ],
                 "properties": {
                   "expression": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "hookPoint": {
+                    "type": "string",
+                    "x-kubernetes-validations": [
+                      {
+                        "rule": "self == 'GuestDefinition'",
+                        "message": "CEL is only supported for the GuestDefinition hook point"
+                      },
+                      {
+                        "rule": "self in ['GuestDefinition','PreBoot','PreMigrationSource']",
+                        "message": "hook point must be one of: GuestDefinition, PreBoot, PreMigrationSource"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -41,31 +65,75 @@
                 "type": "string"
               },
               "failureStrategy": {
-                "type": "string"
+                "type": "string",
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "self in ['Fail','Ignore']",
+                    "message": "failureStrategy must be one of: Fail, Ignore"
+                  }
+                ]
               },
               "sidecar": {
                 "type": "object",
                 "required": [
+                  "permittedHooks",
                   "socketPath"
                 ],
                 "properties": {
+                  "permittedHooks": {
+                    "type": "array",
+                    "maxItems": 64,
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "x-kubernetes-validations": [
+                        {
+                          "rule": "self in ['GuestDefinition','PreBoot','PreMigrationSource']",
+                          "message": "hook point must be one of: GuestDefinition, PreBoot, PreMigrationSource"
+                        }
+                      ]
+                    },
+                    "x-kubernetes-list-type": "set"
+                  },
                   "socketPath": {
                     "type": "string",
+                    "maxLength": 108,
                     "minLength": 1
                   }
                 },
-                "additionalProperties": false
+                "additionalProperties": false,
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "size(bytes(self.socketPath)) \u003c= 108",
+                    "message": "socketPath must be no longer than 108 bytes"
+                  },
+                  {
+                    "rule": "!self.socketPath.contains('..') \u0026\u0026 !self.socketPath.contains('//') \u0026\u0026 !self.socketPath.endsWith('/')",
+                    "message": "socketPath must be a clean path: no '..' segments, repeated separators or trailing separator"
+                  },
+                  {
+                    "rule": "self.socketPath.endsWith('.sock')",
+                    "message": "sidecar socketPath must end with .sock"
+                  }
+                ]
               },
               "timeout": {
                 "type": "string"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "has(self.cel) != has(self.sidecar)",
+                "message": "a launcher hook must define exactly one of cel or sidecar"
+              },
+              {
+                "rule": "!has(self.timeout) || duration(self.timeout) \u003e duration('0s')",
+                "message": "timeout must be greater than zero"
+              }
+            ]
           },
           "x-kubernetes-list-type": "atomic"
-        },
-        "failureStrategy": {
-          "type": "string"
         },
         "mutatingAdmissionPolicies": {
           "type": "array",
@@ -103,6 +171,7 @@
         },
         "nodeHooks": {
           "type": "array",
+          "maxItems": 64,
           "items": {
             "type": "object",
             "required": [
@@ -114,25 +183,53 @@
                 "type": "string"
               },
               "failureStrategy": {
-                "type": "string"
+                "type": "string",
+                "x-kubernetes-validations": [
+                  {
+                    "rule": "self in ['Fail','Ignore']",
+                    "message": "failureStrategy must be one of: Fail, Ignore"
+                  }
+                ]
               },
               "permittedHooks": {
                 "type": "array",
+                "maxItems": 64,
                 "minItems": 1,
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self in ['PreVMStart','PostVMStart','OnVMStop','PostVMStop','PreMigrationSource','PreMigrationTarget','PostMigrationTarget']",
+                      "message": "hook point must be one of: PreVMStart, PostVMStart, OnVMStop, PostVMStop, PreMigrationSource, PreMigrationTarget, PostMigrationTarget"
+                    }
+                  ]
                 },
                 "x-kubernetes-list-type": "atomic"
               },
               "socket": {
                 "type": "string",
+                "maxLength": 108,
                 "minLength": 1
               },
               "timeout": {
                 "type": "string"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-kubernetes-validations": [
+              {
+                "rule": "size(bytes(self.socket)) \u003c= 108",
+                "message": "socket must be no longer than 108 bytes"
+              },
+              {
+                "rule": "!self.socket.contains('..') \u0026\u0026 !self.socket.contains('//') \u0026\u0026 !self.socket.endsWith('/')",
+                "message": "socket must be a clean path: no '..' segments, repeated separators or trailing separator"
+              },
+              {
+                "rule": "!has(self.timeout) || duration(self.timeout) \u003e duration('0s')",
+                "message": "timeout must be greater than zero"
+              }
+            ]
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -176,5 +273,11 @@
     "status": {
       "type": "object"
     }
-  }
+  },
+  "x-kubernetes-validations": [
+    {
+      "rule": "!has(self.spec.launcherHooks) || self.spec.launcherHooks.all(lh, !has(lh.sidecar) || (lh.sidecar.socketPath.startsWith('/var/run/kubevirt-plugin/') \u0026\u0026 size(lh.sidecar.socketPath.split('/')) \u003e 5 \u0026\u0026 lh.sidecar.socketPath.split('/')[4] == self.metadata.name))",
+      "message": "sidecar socketPath must start with /var/run/kubevirt-plugin/\u003cplugin-name\u003e/"
+    }
+  ]
 }

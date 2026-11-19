@@ -27,7 +27,12 @@ spec:
             properties:
               condition:
                 type: string
-              domainHooks:
+              failureStrategy:
+                type: string
+                x-kubernetes-validations:
+                - message: 'failureStrategy must be one of: Fail, Ignore'
+                  rule: self in ['Fail','Ignore']
+              launcherHooks:
                 items:
                   properties:
                     cel:
@@ -35,28 +40,67 @@ spec:
                         expression:
                           minLength: 1
                           type: string
+                        hookPoint:
+                          type: string
+                          x-kubernetes-validations:
+                          - message: CEL is only supported for the GuestDefinition
+                              hook point
+                            rule: self == 'GuestDefinition'
+                          - message: 'hook point must be one of: GuestDefinition,
+                              PreBoot, PreMigrationSource'
+                            rule: self in ['GuestDefinition','PreBoot','PreMigrationSource']
                       required:
                       - expression
+                      - hookPoint
                       type: object
                     condition:
                       type: string
                     failureStrategy:
                       type: string
+                      x-kubernetes-validations:
+                      - message: 'failureStrategy must be one of: Fail, Ignore'
+                        rule: self in ['Fail','Ignore']
                     sidecar:
                       properties:
+                        permittedHooks:
+                          items:
+                            type: string
+                            x-kubernetes-validations:
+                            - message: 'hook point must be one of: GuestDefinition,
+                                PreBoot, PreMigrationSource'
+                              rule: self in ['GuestDefinition','PreBoot','PreMigrationSource']
+                          maxItems: 64
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: set
                         socketPath:
+                          maxLength: 108
                           minLength: 1
                           type: string
                       required:
+                      - permittedHooks
                       - socketPath
                       type: object
+                      x-kubernetes-validations:
+                      - message: socketPath must be no longer than 108 bytes
+                        rule: size(bytes(self.socketPath)) <= 108
+                      - message: 'socketPath must be a clean path: no ''..'' segments,
+                          repeated separators or trailing separator'
+                        rule: '!self.socketPath.contains(''..'') && !self.socketPath.contains(''//'')
+                          && !self.socketPath.endsWith(''/'')'
+                      - message: sidecar socketPath must end with .sock
+                        rule: self.socketPath.endsWith('.sock')
                     timeout:
                       type: string
                   type: object
+                  x-kubernetes-validations:
+                  - message: a launcher hook must define exactly one of cel or sidecar
+                    rule: has(self.cel) != has(self.sidecar)
+                  - message: timeout must be greater than zero
+                    rule: '!has(self.timeout) || duration(self.timeout) > duration(''0s'')'
+                maxItems: 64
                 type: array
                 x-kubernetes-list-type: atomic
-              failureStrategy:
-                type: string
               mutatingAdmissionPolicies:
                 items:
                   properties:
@@ -86,13 +130,23 @@ spec:
                       type: string
                     failureStrategy:
                       type: string
+                      x-kubernetes-validations:
+                      - message: 'failureStrategy must be one of: Fail, Ignore'
+                        rule: self in ['Fail','Ignore']
                     permittedHooks:
                       items:
                         type: string
+                        x-kubernetes-validations:
+                        - message: 'hook point must be one of: PreVMStart, PostVMStart,
+                            OnVMStop, PostVMStop, PreMigrationSource, PreMigrationTarget,
+                            PostMigrationTarget'
+                          rule: self in ['PreVMStart','PostVMStart','OnVMStop','PostVMStop','PreMigrationSource','PreMigrationTarget','PostMigrationTarget']
+                      maxItems: 64
                       minItems: 1
                       type: array
                       x-kubernetes-list-type: atomic
                     socket:
+                      maxLength: 108
                       minLength: 1
                       type: string
                     timeout:
@@ -101,6 +155,16 @@ spec:
                   - permittedHooks
                   - socket
                   type: object
+                  x-kubernetes-validations:
+                  - message: socket must be no longer than 108 bytes
+                    rule: size(bytes(self.socket)) <= 108
+                  - message: 'socket must be a clean path: no ''..'' segments, repeated
+                      separators or trailing separator'
+                    rule: '!self.socket.contains(''..'') && !self.socket.contains(''//'')
+                      && !self.socket.endsWith(''/'')'
+                  - message: timeout must be greater than zero
+                    rule: '!has(self.timeout) || duration(self.timeout) > duration(''0s'')'
+                maxItems: 64
                 type: array
                 x-kubernetes-list-type: atomic
               validatingAdmissionPolicies:
@@ -131,5 +195,11 @@ spec:
         required:
         - spec
         type: object
+        x-kubernetes-validations:
+        - message: sidecar socketPath must start with /var/run/kubevirt-plugin/<plugin-name>/
+          rule: '!has(self.spec.launcherHooks) || self.spec.launcherHooks.all(lh,
+            !has(lh.sidecar) || (lh.sidecar.socketPath.startsWith(''/var/run/kubevirt-plugin/'')
+            && size(lh.sidecar.socketPath.split(''/'')) > 5 && lh.sidecar.socketPath.split(''/'')[4]
+            == self.metadata.name))'
     served: true
     storage: true
