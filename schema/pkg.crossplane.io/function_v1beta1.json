@@ -1,5 +1,5 @@
 {
-  "description": "A Function installs an OCI compatible Crossplane package, extending\nCrossplane with support for a new kind of composition function.\n\nRead the Crossplane documentation for\n[more information about Functions](https://docs.crossplane.io/latest/concepts/composition-functions).",
+  "description": "A Function installs an OCI compatible Crossplane package, extending\nCrossplane with support for a new kind of composition function.\n\nRead the Crossplane documentation for\n[more information about Functions](https://docs.crossplane.io/latest/packages/functions/).",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -16,10 +16,14 @@
     "spec": {
       "description": "FunctionSpec specifies the configuration of a Function.",
       "type": "object",
-      "required": [
-        "package"
-      ],
       "properties": {
+        "commonAnnotations": {
+          "description": "Map of string keys and values that can be used to annotate objects.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "commonLabels": {
           "description": "Map of string keys and values that can be used to organize and categorize\n(scope and select) objects. May match selectors of replication controllers\nand services.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
@@ -27,28 +31,20 @@
             "type": "string"
           }
         },
-        "controllerConfigRef": {
-          "description": "ControllerConfigRef references a ControllerConfig resource that will be\nused to configure the packaged controller Deployment.\n\nDeprecated: Use RuntimeConfigReference instead.",
-          "type": "object",
-          "required": [
-            "name"
-          ],
-          "properties": {
-            "name": {
-              "description": "Name of the ControllerConfig.",
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
         "ignoreCrossplaneConstraints": {
           "description": "IgnoreCrossplaneConstraints indicates to the package manager whether to\nhonor Crossplane version constrains specified by the package.\nDefault is false.",
           "type": "boolean",
           "default": false
         },
         "package": {
-          "description": "Package is the name of the package that is being requested.",
-          "type": "string"
+          "description": "Package is the name of the package that is being requested. Must be a\nfully qualified OCI reference, including the registry, repository, and\ntag. For example, \"registry.example.com/repo/package:tag\". May be empty\nwhen revisions are managed externally, in which case the package manager\nwill not manage revisions for the package, but will propagate the status\nof any externally-managed revisions.",
+          "type": "string",
+          "x-kubernetes-validations": [
+            {
+              "rule": "self == '' || self.matches('^[^\\\\.\\\\/]+(\\\\.[^\\\\.\\\\/]+)+(\\\\/[^\\\\/:@]+)+(:[^:@]+(@sha256.+)?|@sha256.+)$')",
+              "message": "must be a fully qualified image name, including the registry, repository, and tag or digest. For example, 'registry.example.com/repo/package:tag' or 'registry.example.com/repo/package[:tag]@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'."
+            }
+          ]
         },
         "packagePullPolicy": {
           "description": "PackagePullPolicy defines the pull policy for the package.\nDefault is IfNotPresent.",
@@ -199,6 +195,27 @@
         "currentRevision": {
           "description": "CurrentRevision is the name of the current package revision. It will\nreflect the most up to date revision, whether it has been activated or\nnot.",
           "type": "string"
+        },
+        "externalRevisionRefs": {
+          "description": "ExternalRevisionRefs are references to the FunctionRevisions of this\nFunction that are managed externally, rather than by the package\nmanager. For example, Crossplane creates external revisions for\ncomposition and operation pipeline steps that reference a function by\nOCI reference. When spec.package is empty, the Function's status\nreflects the status of its external revisions.",
+          "type": "array",
+          "items": {
+            "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                "type": "string",
+                "default": ""
+              }
+            },
+            "additionalProperties": false,
+            "x-kubernetes-map-type": "atomic"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
         },
         "resolvedPackage": {
           "description": "ResolvedPackage is the name of the package that was used for version\nresolution. It may be different from spec.package if the package path was\nrewritten using an image config.",
