@@ -26,6 +26,52 @@
           "description": "AssociateWithVpc indicates whether the VpcServiceNetworkAssociation should be created for the current VPC of k8s cluster.\n\nThis value will be considered true by default.",
           "type": "boolean"
         },
+        "dnsOptions": {
+          "description": "DnsOptions selects which custom domain names get private DNS in the cluster VPC.\nIt can only be set when PrivateDnsEnabled is true. Removing it does not reset an existing\nassociation to the VPC Lattice defaults: set the desired privateDnsPreference explicitly instead.",
+          "type": "object",
+          "properties": {
+            "privateDnsPreference": {
+              "description": "PrivateDnsPreference selects which custom domain names get private DNS in the cluster VPC.\n\nWhen unset, VPC Lattice applies its default, VERIFIED_DOMAINS_ONLY, which is also the value AWS\nrecommends, and the controller does not compare the preference of an existing association.",
+              "type": "string",
+              "enum": [
+                "VERIFIED_DOMAINS_ONLY",
+                "ALL_DOMAINS",
+                "VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS",
+                "SPECIFIED_DOMAINS_ONLY"
+              ]
+            },
+            "privateDnsSpecifiedDomains": {
+              "description": "PrivateDnsSpecifiedDomains lists custom domain names that get private DNS in addition to\n(VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS) or instead of (SPECIFIED_DOMAINS_ONLY) the verified domains.\nWildcard names such as \"*.example.com\" are allowed.\n\nIt is required for those two preferences and must not be set for the others.",
+              "type": "array",
+              "maxItems": 10,
+              "minItems": 1,
+              "items": {
+                "description": "PrivateDnsDomain is a domain name that VPC Lattice resolves privately in the cluster VPC.\nWildcards such as *.example.com are allowed; the syntax is validated by VPC Lattice.",
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              "x-kubernetes-list-type": "set"
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!has(self.privateDnsSpecifiedDomains) || (has(self.privateDnsPreference) \u0026\u0026 self.privateDnsPreference in ['VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS', 'SPECIFIED_DOMAINS_ONLY'])",
+              "message": "privateDnsSpecifiedDomains can only be set when privateDnsPreference is VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS or SPECIFIED_DOMAINS_ONLY",
+              "fieldPath": ".privateDnsSpecifiedDomains"
+            },
+            {
+              "rule": "!(has(self.privateDnsPreference) \u0026\u0026 self.privateDnsPreference in ['VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS', 'SPECIFIED_DOMAINS_ONLY']) || has(self.privateDnsSpecifiedDomains)",
+              "message": "privateDnsSpecifiedDomains is required when privateDnsPreference is VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS or SPECIFIED_DOMAINS_ONLY",
+              "fieldPath": ".privateDnsSpecifiedDomains"
+            }
+          ]
+        },
+        "privateDnsEnabled": {
+          "description": "PrivateDnsEnabled enables private DNS on the VpcServiceNetworkAssociation: VPC Lattice then\nprovisions private hosted zones in the cluster VPC for the custom domain names of resource\nconfigurations associated with the service network, as selected by DnsOptions. The service\nnetwork owner must also enable private DNS on the resource association.\n\nWhen unset, the association is created with private DNS disabled (the VPC Lattice default)\nand the setting is not compared on an existing association.\n\nIf an existing association differs, the controller updates it in place. On a RAM-shared service\nnetwork it only does so for associations it created; for any other association it reports the\n\"Programmed\" condition with reason \"PrivateDnsMismatch\" and leaves the association unchanged.\n\nFor more details, please check the VPC Lattice documentation https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers",
+          "type": "boolean"
+        },
         "securityGroupIds": {
           "description": "SecurityGroupIds defines the security groups enforced on the VpcServiceNetworkAssociation.\nSecurity groups does not take effect if AssociateWithVpc is set to false.\n\nFor more details, please check the VPC Lattice documentation https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html",
           "type": "array",
@@ -76,14 +122,21 @@
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-kubernetes-validations": [
+        {
+          "rule": "!has(self.dnsOptions) || (has(self.privateDnsEnabled) \u0026\u0026 self.privateDnsEnabled)",
+          "message": "dnsOptions can only be set when privateDnsEnabled is true",
+          "fieldPath": ".dnsOptions"
+        }
+      ]
     },
     "status": {
       "description": "VpcAssociationPolicyStatus defines the observed state of VpcAssociationPolicy.",
       "type": "object",
       "properties": {
         "conditions": {
-          "description": "Conditions describe the current conditions of the VpcAssociationPolicy.\n\nImplementations should prefer to express Policy conditions\nusing the `PolicyConditionType` and `PolicyConditionReason`\nconstants so that operators and tools can converge on a common\nvocabulary to describe VpcAssociationPolicy state.\n\nKnown condition types are:\n\n* \"Accepted\"",
+          "description": "Conditions describe the current conditions of the VpcAssociationPolicy.\n\nImplementations should prefer to express Policy conditions\nusing the `PolicyConditionType` and `PolicyConditionReason`\nconstants so that operators and tools can converge on a common\nvocabulary to describe VpcAssociationPolicy state.\n\nKnown condition types are:\n\n* \"Accepted\"\n* \"Programmed\"",
           "type": "array",
           "default": [
             {
@@ -92,6 +145,13 @@
               "reason": "Pending",
               "status": "Unknown",
               "type": "Accepted"
+            },
+            {
+              "lastTransitionTime": "1970-01-01T00:00:00Z",
+              "message": "Waiting for controller",
+              "reason": "Pending",
+              "status": "Unknown",
+              "type": "Programmed"
             }
           ],
           "maxItems": 8,
