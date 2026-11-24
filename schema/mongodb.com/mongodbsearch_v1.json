@@ -1516,6 +1516,85 @@
               },
               "additionalProperties": false
             },
+            "oidc": {
+              "description": "OIDC configures OIDC client-credentials authentication for the sync source connection (Enterprise only):\nmongot mints an access token at the IdP token endpoint and authenticates to the source with it via\nMONGODB-OIDC. Requires source TLS. Mutually exclusive with PasswordSecretRef, Username, and X509.",
+              "type": "object",
+              "required": [
+                "clientId",
+                "clientSecretSecretRef",
+                "idpCAConfigMapRef",
+                "tokenEndpoint"
+              ],
+              "properties": {
+                "audience": {
+                  "description": "Audience is an optional OAuth2 audience requested at the token endpoint. IdPs that mint an\naccess token with an aud claim only when the request asks for one (Auth0, Okta) require it.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "clientId": {
+                  "description": "ClientID is the OAuth2 client id mongot authenticates as at the token endpoint.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "clientSecretSecretRef": {
+                  "description": "ClientSecretRef references the Secret holding the OIDC client secret. The value\nat the given key is mounted as a file for mongot; the secret value never appears in\nthe mongot configuration.",
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "idpCAConfigMapRef": {
+                  "description": "IdPCAConfigMapRef references a ConfigMap containing the CA certificate that issued\nthe identity provider's TLS certificate. The CA certificate is expected to be PEM\nencoded and available at the \"ca.crt\" key (same convention as spec.source.external.tls.ca).",
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                      "type": "string",
+                      "default": ""
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-map-type": "atomic"
+                },
+                "resource": {
+                  "description": "Resource is an optional RFC 8707 resource indicator, sent as the `resource` form parameter\nfor IdPs that scope the token's aud claim to the target resource (Entra v1 style).",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scope": {
+                  "description": "Scope is an optional OAuth2 scope requested at the token endpoint (e.g. \"openid\").",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "tokenEndpoint": {
+                  "description": "TokenEndpoint is the identity provider's OAuth2 token endpoint URL. Must be an\nabsolute HTTPS URI with a host and no userinfo or fragment, e.g.\n\"https://idp.example.com/realms/search/protocol/openid-connect/token\".",
+                  "type": "string",
+                  "minLength": 1,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "self.matches('^(?i)https://([a-zA-Z0-9._-]+|\\\\[[0-9a-fA-F:.]+\\\\])(:[0-9]{1,5})?([/?][^#]*)?$')",
+                      "message": "tokenEndpoint must be an absolute HTTPS URI with a host and no userinfo or fragment"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "self.clientSecretSecretRef.name != \"\" \u0026\u0026 self.clientSecretSecretRef.key != \"\" \u0026\u0026 self.idpCAConfigMapRef.name != \"\"",
+                  "message": "clientSecretSecretRef.name, clientSecretSecretRef.key, and idpCAConfigMapRef.name must not be empty"
+                }
+              ]
+            },
             "passwordSecretRef": {
               "description": "PasswordSecretRef references the Secret holding the sync-source user's password.",
               "type": "object",
@@ -1533,7 +1612,7 @@
               "additionalProperties": false
             },
             "tls": {
-              "description": "TLS configures TLS transport settings for the sync source SCRAM connection.\nWhen set, mongot presents the specified client certificate during the TLS handshake.\nOnly applicable when using SCRAM auth (passwordSecretRef). Mutually exclusive with X509.",
+              "description": "TLS configures TLS transport settings for the sync source SCRAM connection.\nWhen set, mongot presents the specified client certificate during the TLS handshake.\nOnly applicable when using SCRAM auth (passwordSecretRef) or OIDC auth. Mutually exclusive with X509.",
               "type": "object",
               "required": [
                 "clientCertificateSecretRef"
@@ -1609,7 +1688,13 @@
               "additionalProperties": false
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "!has(self.oidc) || (!has(self.x509) \u0026\u0026 !has(self.passwordSecretRef) \u0026\u0026 !has(self.username))",
+              "message": "spec.source.oidc is mutually exclusive with spec.source.x509, spec.source.passwordSecretRef, and spec.source.username"
+            }
+          ]
         },
         "version": {
           "description": "Version of MongoDB Search (mongot) to run. If unset, the operator picks the most appropriate version.",

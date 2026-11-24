@@ -45,15 +45,6 @@
             }
           ]
         },
-        "deletionPolicy": {
-          "description": "DeletionPolicy determines how this Composition handles the deletion of\nits composite resources. \"Background\" is Crossplane's default behavior,\nused when this field is unset. It stops managing the composite resource\nas soon as it's deleted, and Kubernetes deletes its composed resources\nonce it's gone. \"Foreground\" deletes the composed resources and keeps\nthe composite resource until they're gone. \"Pipeline\" is like\n\"Foreground\", but keeps running the function pipeline, which decides\nwhen each composed resource may be deleted. The pipeline must\neventually stop desiring every composed resource, or the composite\nresource will never finish deleting.\n\nCrossplane ignores this field for legacy cluster scoped composite\nresources, which always use \"Background\".\n\nThis is an alpha field. It's ignored unless Crossplane runs with the\n--enable-function-controlled-deletion flag.",
-          "type": "string",
-          "enum": [
-            "Background",
-            "Foreground",
-            "Pipeline"
-          ]
-        },
         "mode": {
           "description": "Mode controls what type or \"mode\" of Composition will be used.\n\n\"Pipeline\" indicates that a Composition specifies a pipeline of\nfunctions, each of which is responsible for producing composed\nresources that Crossplane should create or update.",
           "type": "string",
@@ -71,6 +62,7 @@
             "description": "A PipelineStep in a function pipeline.",
             "type": "object",
             "required": [
+              "functionRef",
               "step"
             ],
             "properties": {
@@ -78,7 +70,7 @@
                 "description": "Credentials are optional credentials that the function needs.",
                 "type": "array",
                 "items": {
-                  "description": "FunctionCredentials specifies credentials that a function needs to run.\nCredentials are typically sourced from Kubernetes secrets and passed to\nfunctions during pipeline execution.\n\nCredentials can be marked as optional, allowing functions to run even when\nthe referenced secret does not exist. This is useful for functions that can\noperate with or without certain credentials, or during initial setup when\nsecrets may not yet be provisioned.",
+                  "description": "FunctionCredentials are optional credentials that a function\nneeds to run.",
                   "type": "object",
                   "required": [
                     "name",
@@ -88,15 +80,6 @@
                     "name": {
                       "description": "Name of this set of credentials.",
                       "type": "string"
-                    },
-                    "resolvePolicy": {
-                      "description": "ResolvePolicy specifies how to handle missing credentials. When set to\n\"Optional\", if the referenced secret does not exist, the function will be\ncalled without these credentials rather than failing the pipeline step.\nWhen set to \"Required\" or unspecified, missing credentials will cause\nthe pipeline step to fail with an error.\n\nNote that only \"not found\" errors are handled gracefully when ResolvePolicy\nis \"Optional\". Permission errors (forbidden, unauthorized) will still cause\nthe pipeline step to fail regardless of this setting. Similarly, if the\nsecret exists but the referenced key is missing, the pipeline step will fail.\n\nWhen an optional secret is not found, an informational event is recorded\non the composite resource, but reconciliation continues normally.",
-                      "type": "string",
-                      "default": "Required",
-                      "enum": [
-                        "Required",
-                        "Optional"
-                      ]
                     },
                     "secretRef": {
                       "description": "A SecretRef is a reference to a secret containing credentials that should\nbe supplied to the function.",
@@ -138,17 +121,6 @@
                   "name"
                 ],
                 "x-kubernetes-list-type": "map"
-              },
-              "function": {
-                "description": "Function is a fully-qualified OCI reference to the function package this\nstep should execute. The package must be specified by digest.",
-                "type": "string",
-                "maxLength": 512,
-                "x-kubernetes-validations": [
-                  {
-                    "rule": "self.matches('^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*(:[0-9]+)?(\\\\/[a-z0-9]+((\\\\.|_|__|-+)[a-z0-9]+)*)+(:[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127})?@[a-z0-9]+:[a-f0-9]+$')",
-                    "message": "must be a fully qualified OCI reference specified by digest, including the registry and repository. For example, 'registry.example.com/repo/package@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'."
-                  }
-                ]
               },
               "functionRef": {
                 "description": "FunctionRef is a reference to the function this step should\nexecute.",
@@ -267,25 +239,12 @@
                 "type": "string"
               }
             },
-            "additionalProperties": false,
-            "x-kubernetes-validations": [
-              {
-                "rule": "(has(self.functionRef) \u0026\u0026 !has(self.function)) || (has(self.function) \u0026\u0026 !has(self.functionRef))",
-                "message": "exactly one of functionRef or function must be provided"
-              }
-            ]
+            "additionalProperties": false
           },
           "x-kubernetes-list-map-keys": [
             "step"
           ],
           "x-kubernetes-list-type": "map"
-        },
-        "unusedRevisionHistoryLimit": {
-          "description": "UnusedRevisionHistoryLimit controls how many unused CompositionRevisions\nCrossplane keeps. The latest revision and any revision in use by a\ncomposite resource are always kept and don't count toward the limit.\nThe oldest unused revisions beyond this limit will be garbage collected.\nDefaults to 1. Set to 0 to keep every revision.\n\nChanging this field doesn't create a new CompositionRevision.",
-          "type": "integer",
-          "format": "int64",
-          "default": 1,
-          "minimum": 0
         },
         "writeConnectionSecretsToNamespace": {
           "description": "WriteConnectionSecretsToNamespace specifies the namespace in which the\nconnection secrets of composite resource dynamically provisioned using\nthis composition will be created.",
