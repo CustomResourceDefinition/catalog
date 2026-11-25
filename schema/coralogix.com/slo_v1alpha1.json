@@ -18,7 +18,6 @@
       "type": "object",
       "required": [
         "name",
-        "sliType",
         "targetThresholdPercentage",
         "window"
       ],
@@ -132,6 +131,426 @@
           "enum": [
             "unspecified",
             "apm"
+          ]
+        },
+        "sliDefinition": {
+          "description": "Definition of the SLI: how it counts (request-based or window-based) and where its values come from (custom metric queries or APM). Replaces the deprecated `requestBasedMetricSli`, `windowBasedMetricSli` and `apmSli`. A request must set either `sliDefinition` or one of the deprecated fields. When `sliDefinition` is set, it takes precedence and the deprecated fields are ignored. Responses always include `sliDefinition`, and also include the matching deprecated field when the SLI can be expressed with it.",
+          "type": "object",
+          "properties": {
+            "requestBased": {
+              "description": "Count per request: the SLI is the ratio of good events to total events over the SLO time frame.",
+              "type": "object",
+              "properties": {
+                "apm": {
+                  "description": "Good and total events generated from APM span data for the selected services.",
+                  "type": "object",
+                  "required": [
+                    "selector"
+                  ],
+                  "properties": {
+                    "availability": {
+                      "description": "A span is good when it has no error.",
+                      "type": "object"
+                    },
+                    "latency": {
+                      "description": "A span is good when its duration is \u003c= `thresholdMs`. With the `APM_SOURCE_E2M` metric source, any `thresholdMs` is accepted. With `APM_SOURCE_SPAN_METRICS`, `thresholdMs` must be one of the bucket bounds of the selected service's span duration histogram; rejected otherwise.",
+                      "type": "object",
+                      "required": [
+                        "thresholdMs"
+                      ],
+                      "properties": {
+                        "thresholdMs": {
+                          "description": "Latency threshold in milliseconds, greater than 0, with at most 3 decimal places (whole microseconds). A span is good when its duration is \u003c= this value. Required.",
+                          "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "x-kubernetes-int-or-string": true
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "selector": {
+                      "description": "Services and filters to count spans of. Required.",
+                      "type": "object",
+                      "required": [
+                        "services"
+                      ],
+                      "properties": {
+                        "filters": {
+                          "description": "Filters on the labels of the APM metrics, narrowing the spans they cover. At most 20, each with at most 50 values, and keys and values of at most 256 characters. With the `APM_SOURCE_E2M` metric source, keys must be labels of the account's service catalog span duration metric; others are rejected.",
+                          "type": "array",
+                          "maxItems": 20,
+                          "items": {
+                            "description": "SLOApmFilterAtSpecSliDefinitionRequestBasedApmSelectorFilters8d0adc330ae1 is the ApmFilter object of the API.",
+                            "type": "object",
+                            "required": [
+                              "key"
+                            ],
+                            "properties": {
+                              "key": {
+                                "description": "Label/tag name to filter on. Required. A missing or empty key is rejected.",
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "matchOperator": {
+                                "description": "How literals on `key` are compared. Every item in `apmSli.filters` must use the same mode: all implicit (legacy) or all explicit — mixing modes in one list is rejected. Implicit: omitted or `APM_FILTER_MATCH_OPERATOR_UNSPECIFIED` on every item — multiple items with the same `key` OR-merge literals with exact (IS) comparison; sending `UNSPECIFIED` is equivalent to omitting the field (neither is stored as explicit `IS`). Explicit: `APM_FILTER_MATCH_OPERATOR_IS`, `STARTS_WITH`, `ENDS_WITH`, or `INCLUDES` on every item — each item is a separate AND criterion; OR applies only among literals in that item (explicit `IS` differs from implicit when several items share a `key`). Items on different keys are AND-combined. Pattern operators use literal substring matching (not caller-supplied regex). Applies only when the item has at least one literal: non-empty `values`, or deprecated `value` when `values` is omitted or empty (non-empty `values` takes precedence over `value`); otherwise rejected.",
+                                "type": "string",
+                                "enum": [
+                                  "unspecified",
+                                  "is",
+                                  "startsWith",
+                                  "endsWith",
+                                  "includes"
+                                ]
+                              },
+                              "values": {
+                                "description": "Preferred: multiple values to match (OR semantics, e.g. status IN [500, 503])",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "groupingKeys": {
+                          "description": "Labels to group SLO results by. At most 6. With the `APM_SOURCE_E2M` metric source, each must be a label of the account's service catalog span duration metric; others are rejected.",
+                          "type": "array",
+                          "maxItems": 6,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 256,
+                            "minLength": 1
+                          }
+                        },
+                        "services": {
+                          "description": "Service names to monitor. Required. Exactly one service.",
+                          "type": "array",
+                          "maxItems": 1,
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 256,
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "custom": {
+                  "description": "Custom metric queries for the good and total events.",
+                  "type": "object",
+                  "required": [
+                    "goodEvents",
+                    "totalEvents"
+                  ],
+                  "properties": {
+                    "goodEvents": {
+                      "description": "Definition of a metric used in SLOs",
+                      "type": "object",
+                      "required": [
+                        "query"
+                      ],
+                      "properties": {
+                        "query": {
+                          "description": "Query string. Required. A missing or empty query is rejected.",
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "groupByLabels": {
+                      "description": "GroupByLabels has no effect. The Coralogix API derives the SLO grouping itself and\nthe value is never sent. The field is kept because removing it would break existing\nresources.\nDeprecated: ignored by the operator and by the API.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "totalEvents": {
+                      "description": "Definition of a metric used in SLOs",
+                      "type": "object",
+                      "required": [
+                        "query"
+                      ],
+                      "properties": {
+                        "query": {
+                          "description": "Query string. Required. A missing or empty query is rejected.",
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "(has(self.apm) ? 1 : 0) + (has(self.custom) ? 1 : 0) == 1",
+                  "message": "Exactly one of apm, custom must be set"
+                }
+              ]
+            },
+            "windowBased": {
+              "description": "Count per time window: the SLI is the ratio of good windows to all windows over the SLO time frame.",
+              "type": "object",
+              "required": [
+                "window"
+              ],
+              "properties": {
+                "apm": {
+                  "description": "Window value generated from APM span data for the selected services.",
+                  "type": "object",
+                  "required": [
+                    "selector"
+                  ],
+                  "properties": {
+                    "availability": {
+                      "description": "Each window's value is its ratio of spans without an error, from 0 to 1. A window is good when its value is \u003e= `thresholdRatio`.",
+                      "type": "object",
+                      "required": [
+                        "thresholdRatio"
+                      ],
+                      "properties": {
+                        "thresholdRatio": {
+                          "description": "Availability threshold as a ratio from 0 to 1 (not a percentage). A window is good when its value is \u003e= this value. Required.",
+                          "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "x-kubernetes-int-or-string": true
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "latency": {
+                      "description": "Each window's value is its aggregated span duration, in milliseconds. A window is good when its value is \u003c= `thresholdMs`.",
+                      "type": "object",
+                      "required": [
+                        "thresholdMs"
+                      ],
+                      "properties": {
+                        "average": {
+                          "description": "Aggregate by the mean span duration.",
+                          "type": "object"
+                        },
+                        "quantile": {
+                          "description": "Aggregate by a percentile of span durations. `percentile` is required, greater than 0 and at most 1; omitting it is the same as sending 0, which is rejected.",
+                          "type": "object",
+                          "properties": {
+                            "percentile": {
+                              "description": "Percentile for latency SLOs (0.95 = P95, 0.99 = P99)",
+                              "default": "0",
+                              "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "string"
+                                }
+                              ],
+                              "x-kubernetes-int-or-string": true
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "thresholdMs": {
+                          "description": "Latency threshold in milliseconds, with at most 3 decimal places (whole microseconds). A window is good when its aggregated duration is \u003c= this value. Required. Should be greater than 0; 0 is accepted only for compatibility and is deprecated.",
+                          "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "x-kubernetes-int-or-string": true
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "selector": {
+                      "description": "Services and filters to aggregate spans of. Required.",
+                      "type": "object",
+                      "required": [
+                        "services"
+                      ],
+                      "properties": {
+                        "filters": {
+                          "description": "Filters on the labels of the APM metrics, narrowing the spans they cover. At most 20, each with at most 50 values, and keys and values of at most 256 characters. With the `APM_SOURCE_E2M` metric source, keys must be labels of the account's service catalog span duration metric; others are rejected.",
+                          "type": "array",
+                          "maxItems": 20,
+                          "items": {
+                            "description": "SLOApmFilterAtSpecSliDefinitionRequestBasedApmSelectorFilters8d0adc330ae1 is the ApmFilter object of the API.",
+                            "type": "object",
+                            "required": [
+                              "key"
+                            ],
+                            "properties": {
+                              "key": {
+                                "description": "Label/tag name to filter on. Required. A missing or empty key is rejected.",
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "matchOperator": {
+                                "description": "How literals on `key` are compared. Every item in `apmSli.filters` must use the same mode: all implicit (legacy) or all explicit — mixing modes in one list is rejected. Implicit: omitted or `APM_FILTER_MATCH_OPERATOR_UNSPECIFIED` on every item — multiple items with the same `key` OR-merge literals with exact (IS) comparison; sending `UNSPECIFIED` is equivalent to omitting the field (neither is stored as explicit `IS`). Explicit: `APM_FILTER_MATCH_OPERATOR_IS`, `STARTS_WITH`, `ENDS_WITH`, or `INCLUDES` on every item — each item is a separate AND criterion; OR applies only among literals in that item (explicit `IS` differs from implicit when several items share a `key`). Items on different keys are AND-combined. Pattern operators use literal substring matching (not caller-supplied regex). Applies only when the item has at least one literal: non-empty `values`, or deprecated `value` when `values` is omitted or empty (non-empty `values` takes precedence over `value`); otherwise rejected.",
+                                "type": "string",
+                                "enum": [
+                                  "unspecified",
+                                  "is",
+                                  "startsWith",
+                                  "endsWith",
+                                  "includes"
+                                ]
+                              },
+                              "values": {
+                                "description": "Preferred: multiple values to match (OR semantics, e.g. status IN [500, 503])",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "groupingKeys": {
+                          "description": "Labels to group SLO results by. At most 6. With the `APM_SOURCE_E2M` metric source, each must be a label of the account's service catalog span duration metric; others are rejected.",
+                          "type": "array",
+                          "maxItems": 6,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 256,
+                            "minLength": 1
+                          }
+                        },
+                        "services": {
+                          "description": "Service names to monitor. Required. Exactly one service.",
+                          "type": "array",
+                          "maxItems": 1,
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 256,
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-kubernetes-validations": [
+                    {
+                      "rule": "(has(self.availability) ? 1 : 0) + (has(self.latency) ? 1 : 0) == 1",
+                      "message": "Exactly one of availability, latency must be set"
+                    }
+                  ]
+                },
+                "custom": {
+                  "description": "Custom metric query yielding the value of each window, and how it is compared to a threshold.",
+                  "type": "object",
+                  "required": [
+                    "comparisonOperator",
+                    "query",
+                    "threshold"
+                  ],
+                  "properties": {
+                    "comparisonOperator": {
+                      "description": "How each window's value is compared to `threshold`. Required.",
+                      "type": "string",
+                      "enum": [
+                        "greaterThan",
+                        "greaterThanOrEquals",
+                        "lessThan",
+                        "lessThanOrEquals"
+                      ]
+                    },
+                    "query": {
+                      "description": "Query yielding the value of each window. Required.",
+                      "type": "object",
+                      "required": [
+                        "query"
+                      ],
+                      "properties": {
+                        "query": {
+                          "description": "Query string. Required. A missing or empty query is rejected.",
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "threshold": {
+                      "description": "Value each window is compared to, in the unit of the query's result. Required.",
+                      "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "x-kubernetes-int-or-string": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "missingDataStrategy": {
+                  "description": "How a window without data is counted.",
+                  "type": "string",
+                  "default": "uncounted",
+                  "enum": [
+                    "uncounted",
+                    "good",
+                    "bad"
+                  ]
+                },
+                "window": {
+                  "description": "Size of each evaluated time window. Required.",
+                  "type": "string",
+                  "enum": [
+                    "1m",
+                    "5m"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "x-kubernetes-validations": [
+                {
+                  "rule": "(has(self.custom) ? 1 : 0) + (has(self.apm) ? 1 : 0) == 1",
+                  "message": "Exactly one of custom, apm must be set"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "x-kubernetes-validations": [
+            {
+              "rule": "(has(self.requestBased) ? 1 : 0) + (has(self.windowBased) ? 1 : 0) == 1",
+              "message": "Exactly one of requestBased, windowBased must be set"
+            }
           ]
         },
         "sliType": {
@@ -415,7 +834,11 @@
       "additionalProperties": false,
       "x-kubernetes-validations": [
         {
-          "rule": "!(has(self.productType) \u0026\u0026 self.productType == 'apm') || has(self.sliType.apmSli)",
+          "rule": "(has(self.sliType) ? 1 : 0) + (has(self.sliDefinition) ? 1 : 0) == 1",
+          "message": "Exactly one of sliType, sliDefinition must be set"
+        },
+        {
+          "rule": "!(has(self.productType) \u0026\u0026 self.productType == 'apm') || has(self.sliDefinition) || (has(self.sliType) \u0026\u0026 has(self.sliType.apmSli))",
           "message": "productType 'apm' requires sliType.apmSli"
         }
       ]

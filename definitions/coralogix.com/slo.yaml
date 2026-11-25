@@ -145,6 +145,399 @@ spec:
                 - unspecified
                 - apm
                 type: string
+              sliDefinition:
+                description: 'Definition of the SLI: how it counts (request-based
+                  or window-based) and where its values come from (custom metric queries
+                  or APM). Replaces the deprecated `requestBasedMetricSli`, `windowBasedMetricSli`
+                  and `apmSli`. A request must set either `sliDefinition` or one of
+                  the deprecated fields. When `sliDefinition` is set, it takes precedence
+                  and the deprecated fields are ignored. Responses always include
+                  `sliDefinition`, and also include the matching deprecated field
+                  when the SLI can be expressed with it.'
+                properties:
+                  requestBased:
+                    description: 'Count per request: the SLI is the ratio of good
+                      events to total events over the SLO time frame.'
+                    properties:
+                      apm:
+                        description: Good and total events generated from APM span
+                          data for the selected services.
+                        properties:
+                          availability:
+                            description: A span is good when it has no error.
+                            type: object
+                          latency:
+                            description: A span is good when its duration is <= `thresholdMs`.
+                              With the `APM_SOURCE_E2M` metric source, any `thresholdMs`
+                              is accepted. With `APM_SOURCE_SPAN_METRICS`, `thresholdMs`
+                              must be one of the bucket bounds of the selected service's
+                              span duration histogram; rejected otherwise.
+                            properties:
+                              thresholdMs:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Latency threshold in milliseconds, greater
+                                  than 0, with at most 3 decimal places (whole microseconds).
+                                  A span is good when its duration is <= this value.
+                                  Required.
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - thresholdMs
+                            type: object
+                          selector:
+                            description: Services and filters to count spans of. Required.
+                            properties:
+                              filters:
+                                description: Filters on the labels of the APM metrics,
+                                  narrowing the spans they cover. At most 20, each
+                                  with at most 50 values, and keys and values of at
+                                  most 256 characters. With the `APM_SOURCE_E2M` metric
+                                  source, keys must be labels of the account's service
+                                  catalog span duration metric; others are rejected.
+                                items:
+                                  description: SLOApmFilterAtSpecSliDefinitionRequestBasedApmSelectorFilters8d0adc330ae1
+                                    is the ApmFilter object of the API.
+                                  properties:
+                                    key:
+                                      description: Label/tag name to filter on. Required.
+                                        A missing or empty key is rejected.
+                                      minLength: 1
+                                      type: string
+                                    matchOperator:
+                                      description: 'How literals on `key` are compared.
+                                        Every item in `apmSli.filters` must use the
+                                        same mode: all implicit (legacy) or all explicit
+                                        — mixing modes in one list is rejected. Implicit:
+                                        omitted or `APM_FILTER_MATCH_OPERATOR_UNSPECIFIED`
+                                        on every item — multiple items with the same
+                                        `key` OR-merge literals with exact (IS) comparison;
+                                        sending `UNSPECIFIED` is equivalent to omitting
+                                        the field (neither is stored as explicit `IS`).
+                                        Explicit: `APM_FILTER_MATCH_OPERATOR_IS`,
+                                        `STARTS_WITH`, `ENDS_WITH`, or `INCLUDES`
+                                        on every item — each item is a separate AND
+                                        criterion; OR applies only among literals
+                                        in that item (explicit `IS` differs from implicit
+                                        when several items share a `key`). Items on
+                                        different keys are AND-combined. Pattern operators
+                                        use literal substring matching (not caller-supplied
+                                        regex). Applies only when the item has at
+                                        least one literal: non-empty `values`, or
+                                        deprecated `value` when `values` is omitted
+                                        or empty (non-empty `values` takes precedence
+                                        over `value`); otherwise rejected.'
+                                      enum:
+                                      - unspecified
+                                      - is
+                                      - startsWith
+                                      - endsWith
+                                      - includes
+                                      type: string
+                                    values:
+                                      description: 'Preferred: multiple values to
+                                        match (OR semantics, e.g. status IN [500,
+                                        503])'
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - key
+                                  type: object
+                                maxItems: 20
+                                type: array
+                              groupingKeys:
+                                description: Labels to group SLO results by. At most
+                                  6. With the `APM_SOURCE_E2M` metric source, each
+                                  must be a label of the account's service catalog
+                                  span duration metric; others are rejected.
+                                items:
+                                  maxLength: 256
+                                  minLength: 1
+                                  type: string
+                                maxItems: 6
+                                type: array
+                              services:
+                                description: Service names to monitor. Required. Exactly
+                                  one service.
+                                items:
+                                  maxLength: 256
+                                  minLength: 1
+                                  type: string
+                                maxItems: 1
+                                minItems: 1
+                                type: array
+                            required:
+                            - services
+                            type: object
+                        required:
+                        - selector
+                        type: object
+                      custom:
+                        description: Custom metric queries for the good and total
+                          events.
+                        properties:
+                          goodEvents:
+                            description: Definition of a metric used in SLOs
+                            properties:
+                              query:
+                                description: Query string. Required. A missing or
+                                  empty query is rejected.
+                                minLength: 1
+                                type: string
+                            required:
+                            - query
+                            type: object
+                          groupByLabels:
+                            description: |-
+                              GroupByLabels has no effect. The Coralogix API derives the SLO grouping itself and
+                              the value is never sent. The field is kept because removing it would break existing
+                              resources.
+                              Deprecated: ignored by the operator and by the API.
+                            items:
+                              type: string
+                            type: array
+                          totalEvents:
+                            description: Definition of a metric used in SLOs
+                            properties:
+                              query:
+                                description: Query string. Required. A missing or
+                                  empty query is rejected.
+                                minLength: 1
+                                type: string
+                            required:
+                            - query
+                            type: object
+                        required:
+                        - goodEvents
+                        - totalEvents
+                        type: object
+                    type: object
+                    x-kubernetes-validations:
+                    - message: Exactly one of apm, custom must be set
+                      rule: '(has(self.apm) ? 1 : 0) + (has(self.custom) ? 1 : 0)
+                        == 1'
+                  windowBased:
+                    description: 'Count per time window: the SLI is the ratio of good
+                      windows to all windows over the SLO time frame.'
+                    properties:
+                      apm:
+                        description: Window value generated from APM span data for
+                          the selected services.
+                        properties:
+                          availability:
+                            description: Each window's value is its ratio of spans
+                              without an error, from 0 to 1. A window is good when
+                              its value is >= `thresholdRatio`.
+                            properties:
+                              thresholdRatio:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Availability threshold as a ratio from
+                                  0 to 1 (not a percentage). A window is good when
+                                  its value is >= this value. Required.
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - thresholdRatio
+                            type: object
+                          latency:
+                            description: Each window's value is its aggregated span
+                              duration, in milliseconds. A window is good when its
+                              value is <= `thresholdMs`.
+                            properties:
+                              average:
+                                description: Aggregate by the mean span duration.
+                                type: object
+                              quantile:
+                                description: Aggregate by a percentile of span durations.
+                                  `percentile` is required, greater than 0 and at
+                                  most 1; omitting it is the same as sending 0, which
+                                  is rejected.
+                                properties:
+                                  percentile:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    default: "0"
+                                    description: Percentile for latency SLOs (0.95
+                                      = P95, 0.99 = P99)
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                type: object
+                              thresholdMs:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Latency threshold in milliseconds, with
+                                  at most 3 decimal places (whole microseconds). A
+                                  window is good when its aggregated duration is <=
+                                  this value. Required. Should be greater than 0;
+                                  0 is accepted only for compatibility and is deprecated.
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - thresholdMs
+                            type: object
+                          selector:
+                            description: Services and filters to aggregate spans of.
+                              Required.
+                            properties:
+                              filters:
+                                description: Filters on the labels of the APM metrics,
+                                  narrowing the spans they cover. At most 20, each
+                                  with at most 50 values, and keys and values of at
+                                  most 256 characters. With the `APM_SOURCE_E2M` metric
+                                  source, keys must be labels of the account's service
+                                  catalog span duration metric; others are rejected.
+                                items:
+                                  description: SLOApmFilterAtSpecSliDefinitionRequestBasedApmSelectorFilters8d0adc330ae1
+                                    is the ApmFilter object of the API.
+                                  properties:
+                                    key:
+                                      description: Label/tag name to filter on. Required.
+                                        A missing or empty key is rejected.
+                                      minLength: 1
+                                      type: string
+                                    matchOperator:
+                                      description: 'How literals on `key` are compared.
+                                        Every item in `apmSli.filters` must use the
+                                        same mode: all implicit (legacy) or all explicit
+                                        — mixing modes in one list is rejected. Implicit:
+                                        omitted or `APM_FILTER_MATCH_OPERATOR_UNSPECIFIED`
+                                        on every item — multiple items with the same
+                                        `key` OR-merge literals with exact (IS) comparison;
+                                        sending `UNSPECIFIED` is equivalent to omitting
+                                        the field (neither is stored as explicit `IS`).
+                                        Explicit: `APM_FILTER_MATCH_OPERATOR_IS`,
+                                        `STARTS_WITH`, `ENDS_WITH`, or `INCLUDES`
+                                        on every item — each item is a separate AND
+                                        criterion; OR applies only among literals
+                                        in that item (explicit `IS` differs from implicit
+                                        when several items share a `key`). Items on
+                                        different keys are AND-combined. Pattern operators
+                                        use literal substring matching (not caller-supplied
+                                        regex). Applies only when the item has at
+                                        least one literal: non-empty `values`, or
+                                        deprecated `value` when `values` is omitted
+                                        or empty (non-empty `values` takes precedence
+                                        over `value`); otherwise rejected.'
+                                      enum:
+                                      - unspecified
+                                      - is
+                                      - startsWith
+                                      - endsWith
+                                      - includes
+                                      type: string
+                                    values:
+                                      description: 'Preferred: multiple values to
+                                        match (OR semantics, e.g. status IN [500,
+                                        503])'
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - key
+                                  type: object
+                                maxItems: 20
+                                type: array
+                              groupingKeys:
+                                description: Labels to group SLO results by. At most
+                                  6. With the `APM_SOURCE_E2M` metric source, each
+                                  must be a label of the account's service catalog
+                                  span duration metric; others are rejected.
+                                items:
+                                  maxLength: 256
+                                  minLength: 1
+                                  type: string
+                                maxItems: 6
+                                type: array
+                              services:
+                                description: Service names to monitor. Required. Exactly
+                                  one service.
+                                items:
+                                  maxLength: 256
+                                  minLength: 1
+                                  type: string
+                                maxItems: 1
+                                minItems: 1
+                                type: array
+                            required:
+                            - services
+                            type: object
+                        required:
+                        - selector
+                        type: object
+                        x-kubernetes-validations:
+                        - message: Exactly one of availability, latency must be set
+                          rule: '(has(self.availability) ? 1 : 0) + (has(self.latency)
+                            ? 1 : 0) == 1'
+                      custom:
+                        description: Custom metric query yielding the value of each
+                          window, and how it is compared to a threshold.
+                        properties:
+                          comparisonOperator:
+                            description: How each window's value is compared to `threshold`.
+                              Required.
+                            enum:
+                            - greaterThan
+                            - greaterThanOrEquals
+                            - lessThan
+                            - lessThanOrEquals
+                            type: string
+                          query:
+                            description: Query yielding the value of each window.
+                              Required.
+                            properties:
+                              query:
+                                description: Query string. Required. A missing or
+                                  empty query is rejected.
+                                minLength: 1
+                                type: string
+                            required:
+                            - query
+                            type: object
+                          threshold:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: Value each window is compared to, in the
+                              unit of the query's result. Required.
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                        required:
+                        - comparisonOperator
+                        - query
+                        - threshold
+                        type: object
+                      missingDataStrategy:
+                        default: uncounted
+                        description: How a window without data is counted.
+                        enum:
+                        - uncounted
+                        - good
+                        - bad
+                        type: string
+                      window:
+                        description: Size of each evaluated time window. Required.
+                        enum:
+                        - 1m
+                        - 5m
+                        type: string
+                    required:
+                    - window
+                    type: object
+                    x-kubernetes-validations:
+                    - message: Exactly one of custom, apm must be set
+                      rule: '(has(self.custom) ? 1 : 0) + (has(self.apm) ? 1 : 0)
+                        == 1'
+                type: object
+                x-kubernetes-validations:
+                - message: Exactly one of requestBased, windowBased must be set
+                  rule: '(has(self.requestBased) ? 1 : 0) + (has(self.windowBased)
+                    ? 1 : 0) == 1'
               sliType:
                 description: SLOSpecSliType holds the sliType fields of the released
                   CR.
@@ -367,13 +760,16 @@ spec:
                 type: object
             required:
             - name
-            - sliType
             - targetThresholdPercentage
             - window
             type: object
             x-kubernetes-validations:
+            - message: Exactly one of sliType, sliDefinition must be set
+              rule: '(has(self.sliType) ? 1 : 0) + (has(self.sliDefinition) ? 1 :
+                0) == 1'
             - message: productType 'apm' requires sliType.apmSli
-              rule: '!(has(self.productType) && self.productType == ''apm'') || has(self.sliType.apmSli)'
+              rule: '!(has(self.productType) && self.productType == ''apm'') || has(self.sliDefinition)
+                || (has(self.sliType) && has(self.sliType.apmSli))'
           status:
             description: SLOStatus defines the observed state of a SLO.
             properties:

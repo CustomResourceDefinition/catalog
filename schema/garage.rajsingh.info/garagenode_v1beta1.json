@@ -867,11 +867,13 @@
             },
             "name": {
               "description": "Name of the GarageCluster resource.",
-              "type": "string"
+              "type": "string",
+              "maxLength": 253
             },
             "namespace": {
               "description": "Namespace of the GarageCluster. Defaults to the referencing resource's namespace.\nCross-namespace references require a GarageReferenceGrant where supported by\nthe owning resource. GarageNode and GarageAdminToken reject them.",
-              "type": "string"
+              "type": "string",
+              "maxLength": 63
             }
           },
           "additionalProperties": false
@@ -1280,11 +1282,13 @@
                 },
                 "name": {
                   "description": "Name of the GarageCluster resource.",
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 253
                 },
                 "namespace": {
                   "description": "Namespace of the GarageCluster. Defaults to the referencing resource's namespace.\nCross-namespace references require a GarageReferenceGrant where supported by\nthe owning resource. GarageNode and GarageAdminToken reject them.",
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 63
                 }
               },
               "additionalProperties": false
@@ -1431,7 +1435,8 @@
         },
         "kubernetesNodeName": {
           "description": "KubernetesNodeName is the name of the Kubernetes node this GarageNode\nrepresents. Required when backing is NodeLocalPool: node_id discovery\nselects the managed node-local-pool Pod scheduled on this Kubernetes node.\nImmutable for node-local-pool-backed GarageNodes.",
-          "type": "string"
+          "type": "string",
+          "maxLength": 253
         },
         "logging": {
           "description": "Logging overrides cluster-level spec.logging for this node. A non-nil field\nhere wins over the cluster value; a nil field falls through to the cluster.",
@@ -1481,7 +1486,8 @@
         },
         "nodeLocalPoolName": {
           "description": "NodeLocalPoolName is the name of the parent GarageCluster's\nspec.storage.nodeLocalPools entry that owns this node. Required and\nimmutable when backing is NodeLocalPool; omitted for StatefulSet-backed and\nexternal GarageNodes.",
-          "type": "string"
+          "type": "string",
+          "maxLength": 63
         },
         "nodeSelector": {
           "description": "NodeSelector overrides node selection constraints.\nIf not specified, inherits from GarageCluster.",
@@ -2499,6 +2505,34 @@
         {
           "rule": "!has(self.initContainers) || !has(self.extraContainers) || !self.initContainers.exists(i, self.extraContainers.exists(e, e.name == i.name))",
           "message": "initContainers and extraContainers names must be unique across both lists"
+        },
+        {
+          "rule": "self.clusterRef.name == oldSelf.clusterRef.name",
+          "message": "clusterRef.name is immutable after creation"
+        },
+        {
+          "rule": "!has(self.clusterRef.__namespace__) || !has(oldSelf.clusterRef.__namespace__) || self.clusterRef.__namespace__ == oldSelf.clusterRef.__namespace__",
+          "message": "clusterRef.namespace is immutable after creation"
+        },
+        {
+          "rule": "(has(self.backing) ? self.backing : 'StatefulSet') == (has(oldSelf.backing) ? oldSelf.backing : 'StatefulSet')",
+          "message": "backing is immutable after creation"
+        },
+        {
+          "rule": "(has(self.gateway) ? self.gateway : false) == (has(oldSelf.gateway) ? oldSelf.gateway : false)",
+          "message": "gateway is immutable after creation"
+        },
+        {
+          "rule": "has(self.external) == has(oldSelf.external)",
+          "message": "external versus operator-managed ownership is immutable after creation"
+        },
+        {
+          "rule": "has(self.nodeId) == has(oldSelf.nodeId) \u0026\u0026 (!has(self.nodeId) || self.nodeId == oldSelf.nodeId)",
+          "message": "nodeId is immutable after creation"
+        },
+        {
+          "rule": "!has(oldSelf.backing) || oldSelf.backing != 'NodeLocalPool' || (((!has(self.kubernetesNodeName) || size(self.kubernetesNodeName) == 0) ? (!has(oldSelf.kubernetesNodeName) || size(oldSelf.kubernetesNodeName) == 0) : (has(oldSelf.kubernetesNodeName) \u0026\u0026 self.kubernetesNodeName == oldSelf.kubernetesNodeName)) \u0026\u0026 ((!has(self.nodeLocalPoolName) || size(self.nodeLocalPoolName) == 0) ? (!has(oldSelf.nodeLocalPoolName) || size(oldSelf.nodeLocalPoolName) == 0) : (has(oldSelf.nodeLocalPoolName) \u0026\u0026 self.nodeLocalPoolName == oldSelf.nodeLocalPoolName)))",
+          "message": "kubernetesNodeName and nodeLocalPoolName are immutable for a node-local-pool-backed GarageNode"
         }
       ]
     },
@@ -2663,11 +2697,11 @@
           "additionalProperties": false
         },
         "dbEngine": {
-          "description": "DBEngine is retained for API compatibility but is not currently populated;\nGarage's node-status API does not report the active database engine.",
+          "description": "DBEngine is the metadata database engine reported by the node's GetNodeInfo API (e.g., lmdb, sqlite, fjall).",
           "type": "string"
         },
         "garageFeatures": {
-          "description": "GarageFeatures is retained for API compatibility but is not currently\npopulated because Garage's node-status API does not report build features.",
+          "description": "GarageFeatures lists the Cargo build features reported by the node's GetNodeInfo API (e.g., webadmin, k2v, metrics).",
           "type": "array",
           "items": {
             "type": "string"
