@@ -1,0 +1,292 @@
+{
+  "description": "AIAgent is an AI Agent of an environment. metadata.name is its slug.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "AIAgentSpec is what an AI Agent does and what it may use.",
+      "type": "object",
+      "required": [
+        "instructions"
+      ],
+      "properties": {
+        "a2a": {
+          "description": "A2A serves the agent over the Agent2Agent (A2A) protocol. Leaving it\nout turns A2A off for the agent: the manifest is the source of truth,\nand an export always writes it.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Enabled serves the agent over A2A. It never widens access: the agent\nis served only when the deployment serves A2A and the organization\nturned it on, and a caller still needs a token whose role allows it\nand has to pass the agent's access rules.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "access": {
+          "description": "Access links the agent to roles and resource groups. When it is\nomitted, the agent's links are left as they are.",
+          "type": "object",
+          "properties": {
+            "resourceGroups": {
+              "description": "ResourceGroups linked to the agent. This is how an agent joins a\nresource group: the testkube.io/group label a Test Workflow uses is\nrefused on an agent, since an agent can join several.",
+              "type": "array",
+              "items": {
+                "description": "AIAgentResourceGroup refers to a resource group of the organization.",
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "description": "Name is the resource group's slug.",
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "roles": {
+              "description": "Roles linked to the agent: environment roles, of read, run, write and\nadmin.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "defaultModel": {
+          "description": "DefaultModel is the model a chat with the agent starts with. Empty\nmeans the platform default.",
+          "type": "string"
+        },
+        "description": {
+          "description": "Description of the agent.",
+          "type": "string"
+        },
+        "displayName": {
+          "description": "DisplayName is the agent's name in the dashboard. It defaults to\nmetadata.name, and is unique within the environment.",
+          "type": "string"
+        },
+        "instructions": {
+          "description": "Instructions are the agent's system prompt.",
+          "type": "string",
+          "minLength": 1
+        },
+        "labels": {
+          "description": "Labels categorize the agent in the dashboard.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "mcpServers": {
+          "description": "MCPServers are the MCP servers the agent uses, each once. Applying a\nlist replaces the agent's links, so a server left out is unlinked, and\nan empty list unlinks them all. When mcpServers is omitted, the\nagent's links are left as they are, as with skills and access. The\nbuilt-in Testkube MCP server is \"testkube\"; when it is left out of a\nlist, the agent keeps its link to it as it is (the default tools for a\nnew agent).",
+          "type": "array",
+          "items": {
+            "description": "AIAgentMCPServer is an AI Agent's link to an MCP server.",
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "headers": {
+                "description": "Headers are sent to the server to sign in, only with shared_key. A\nvalue reads an Environment Credential as {{ credential(\"name\") }}, as\nwebhook headers do, such as Authorization set to\n'Bearer {{ credential(\"github-token\") }}'. A header that carries a\ncredential (Authorization, Cookie, or a name with token, secret or key\nin it) has to read one, so no key is written in the manifest. A\nshared_key link without headers keeps the key it has, such as one set\nin the dashboard.",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "name": {
+                "description": "Name is the MCPServer's metadata.name, or \"testkube\" for the built-in\nserver.",
+                "type": "string",
+                "minLength": 1
+              },
+              "signIn": {
+                "description": "SignIn is how the agent signs in to the server: none, shared_key,\nper_person or obo (through the organization's identity provider).\nEmpty keeps the behavior of a link made before the choice existed.",
+                "type": "string",
+                "enum": [
+                  "none",
+                  "shared_key",
+                  "per_person",
+                  "obo"
+                ]
+              },
+              "tools": {
+                "description": "Tools configures the server's tools by name. A tool left out is\ndisabled.",
+                "type": "object",
+                "additionalProperties": {
+                  "description": "AIAgentMCPTool configures one tool of an MCP server for an agent.",
+                  "type": "object",
+                  "properties": {
+                    "autoApproved": {
+                      "description": "AutoApproved runs the tool without asking for approval first.",
+                      "type": "boolean"
+                    },
+                    "enabled": {
+                      "description": "Enabled lets the agent call the tool.",
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "skillRefs": {
+          "description": "SkillRefs are Skills of the environment's or the organization's\nlibrary the agent uses, in this order. They are shared, so a Skill\nleft out is only unlinked. Applying a list replaces the whole list,\nand skillRefs: [] unlinks them all; when skillRefs is omitted, the\nagent's links are left as they are. No name may be both a skillRef and\none of the agent's own Skills.",
+          "type": "array",
+          "items": {
+            "description": "AIAgentSkillRef refers to a Skill of a library.",
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "description": "Name is the Skill's name: the metadata.name of a Skill, for the\nenvironment's library.",
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+              },
+              "scope": {
+                "description": "Scope is the library: environment (the default) or organization.",
+                "type": "string",
+                "enum": [
+                  "environment",
+                  "organization"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "skills": {
+          "description": "Skills are guidance the agent uses, in this order. They belong to the\nagent: applying a list replaces the whole list, so a Skill left out is\ndeleted, and an empty list removes them all. When skills is omitted,\nthe agent's Skills are left as they are, so applying an older manifest\ndoes not delete the ones added in the dashboard.",
+          "type": "array",
+          "items": {
+            "description": "AIAgentSkill is guidance an AI Agent uses, following the Agent Skills spec.\nThe agent sees its name and description, and reads the content when a task\nneeds it, unless it is always included.",
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "alwaysInclude": {
+                "description": "AlwaysInclude puts the content in every prompt instead of having the\nagent read it on demand.",
+                "type": "boolean"
+              },
+              "content": {
+                "description": "Content is the guidance itself. Required unless skillFrom is set.",
+                "type": "string"
+              },
+              "description": {
+                "description": "Description says what the Skill does and when to use it. Required\nunless skillFrom is set.",
+                "type": "string"
+              },
+              "metadata": {
+                "description": "Metadata is extra Agent Skills spec metadata.",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "name": {
+                "description": "Name identifies the Skill within the agent: up to 64 lowercase\nletters, digits and single hyphens.",
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+              },
+              "skillFrom": {
+                "description": "SkillFrom reads the description, metadata and content from a SKILL.md\nkept in a ConfigMap. The SKILL.md's name must be the Skill's name. Only a\nGitOps runner reads it, from its own namespace; testkube apply takes the\nSkill inline.",
+                "type": "object",
+                "properties": {
+                  "configMapKeyRef": {
+                    "description": "ConfigMapKeyRef selects the key of a ConfigMap, in the namespace of the\nresource, that holds a SKILL.md.",
+                    "type": "object",
+                    "required": [
+                      "key",
+                      "name"
+                    ],
+                    "properties": {
+                      "key": {
+                        "description": "Key holding the SKILL.md, such as SKILL.md.",
+                        "type": "string"
+                      },
+                      "name": {
+                        "description": "Name of the ConfigMap.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "AIAgentStatus is the Control Plane's view of an AI Agent.",
+      "type": "object",
+      "properties": {
+        "a2a": {
+          "description": "A2A is how the agent is reached over A2A, while it is served.",
+          "type": "object",
+          "properties": {
+            "url": {
+              "description": "URL is the agent's A2A endpoint.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "creationSource": {
+          "description": "CreationSource records how the resource was created: ui, api or gitops.",
+          "type": "string"
+        },
+        "gitOpsOwner": {
+          "description": "GitOpsOwner is the GitOps agent that owns the resource. While it is set,\nthe resource is read-only everywhere else.",
+          "type": "object",
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "description": "AgentID is the authoritative identifier of the owning agent.",
+              "type": "string"
+            },
+            "agentName": {
+              "description": "AgentName is for display only, and may be stale after a rename.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "id": {
+          "description": "ID is the Control Plane's identifier of the resource.",
+          "type": "string"
+        },
+        "lastModificationSource": {
+          "description": "LastModificationSource records how the resource was last changed: ui,\napi or gitops.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
